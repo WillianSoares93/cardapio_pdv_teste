@@ -303,7 +303,8 @@
                     <h3 class="font-bold text-gray-800">Pedido #${id.substring(0, 5)}</h3>
                     <div class="flex items-center space-x-2">
                         <span class="text-xs font-medium text-gray-500">${timestamp}</span>
-                        <button data-id="${id}" class="print-btn text-gray-500 hover:text-gray-700"><i class="fas fa-print"></i></button>
+                        <button data-id="${id}" data-type="kitchen" class="print-btn text-gray-500 hover:text-gray-700" title="Imprimir Comanda da Cozinha"><i class="fas fa-utensils"></i></button>
+                        <button data-id="${id}" data-type="client" class="print-btn text-gray-500 hover:text-gray-700" title="Imprimir Recibo do Cliente"><i class="fas fa-receipt"></i></button>
                         <button data-id="${id}" class="manage-btn text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></button>
                     </div>
                 </div>
@@ -398,34 +399,51 @@
             }
         }
 
-        function printOrder(id) {
+        function printOrder(id, type) {
             const orderRef = doc(db, "pedidos", id);
             getDoc(orderRef).then(docSnap => {
                 if (docSnap.exists()) {
                     const order = docSnap.data();
-                    let printContent = `
-                        <div style="font-family: monospace; padding: 20px;">
-                            <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2>
-                            <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
-                            <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
-                            <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
-                            <hr style="border-top: 1px dashed black; margin: 15px 0;">
-                            <ul>
-                                ${order.itens.map((item, index) => `<li style="display: flex; justify-content: space-between; padding: 5px 0; ${index === order.itens.length - 1 ? '' : 'border-bottom: 1px dashed #666;'}"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`).join('')}
-                            </ul>
-                            <hr style="border-top: 1px dashed black; margin: 15px 0;">
-                            <div style="text-align: right;">
-                                <p>Subtotal: R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</p>
-                                ${order.total.discount > 0 ? `<p>Desconto: -R$ ${order.total.discount.toFixed(2).replace('.', ',')}</p>` : ''}
-                                <p>Taxa de Entrega: R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</p>
-                                <p style="font-weight: bold; font-size: 18px;">Total: R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</p>
+                    let printContent = '';
+
+                    if (type === 'kitchen') {
+                        printContent = `
+                            <div style="font-family: monospace; padding: 20px; font-size: 16px;">
+                                <h2 style="text-align: center; font-size: 28px; margin-bottom: 20px;">COMANDA COZINHA</h2>
+                                <p style="font-size: 18px;"><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                                <p style="font-size: 18px;"><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                                <hr style="border-top: 2px dashed black; margin: 15px 0;">
+                                <ul style="font-size: 20px; list-style: none; padding: 0;">
+                                    ${order.itens.map(item => `<li style="padding: 8px 0; border-bottom: 1px dashed #ccc;"><strong>1x</strong> ${item.name}</li>`).join('')}
+                                </ul>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    } else { // client receipt
+                        printContent = `
+                            <div style="font-family: monospace; padding: 20px;">
+                                <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2>
+                                <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                                <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                                <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                                <hr style="border-top: 1px dashed black; margin: 15px 0;">
+                                <ul>
+                                    ${order.itens.map((item, index) => `<li style="display: flex; justify-content: space-between; padding: 5px 0; ${index === order.itens.length - 1 ? '' : 'border-bottom: 1px dashed #ccc;'}"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`).join('')}
+                                </ul>
+                                <hr style="border-top: 1px dashed black; margin: 15px 0;">
+                                <div style="text-align: right;">
+                                    <p>Subtotal: R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</p>
+                                    ${order.total.discount > 0 ? `<p>Desconto: -R$ ${order.total.discount.toFixed(2).replace('.', ',')}</p>` : ''}
+                                    <p>Taxa de Entrega: R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</p>
+                                    <p style="font-weight: bold; font-size: 18px;">Total: R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+
                     const printWindow = window.open('', '', 'height=600,width=800');
-                    printWindow.document.write('<div id="print-area">');
+                    printWindow.document.write('<html><head><title>Imprimir Pedido</title></head><body><div id="print-area">');
                     printWindow.document.write(printContent);
-                    printWindow.document.write('</div>');
+                    printWindow.document.write('</div></body></html>');
                     printWindow.document.close();
                     printWindow.print();
                 }
@@ -461,7 +479,8 @@
             }
             if (printBtn) {
                 const orderId = printBtn.dataset.id;
-                printOrder(orderId);
+                const printType = printBtn.dataset.type;
+                printOrder(orderId, printType);
             }
         });
 
