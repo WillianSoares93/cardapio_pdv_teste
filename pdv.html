@@ -13,7 +13,7 @@
             font-family: 'Roboto', sans-serif;
         }
         .full-height-container {
-            height: calc(100vh - 10rem); /* Ajustado para a altura do header + dashboard */
+            height: calc(100vh - 10rem); 
         }
         .modal {
             display: none;
@@ -411,7 +411,7 @@
                             <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
                             <hr style="border-top: 1px dashed black; margin: 15px 0;">
                             <ul>
-                                ${order.itens.map(item => `<li style="display: flex; justify-content: space-between;"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`).join('')}
+                                ${order.itens.map((item, index) => `<li style="display: flex; justify-content: space-between; padding: 5px 0; ${index === order.itens.length - 1 ? '' : 'border-bottom: 1px dashed #666;'}"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`).join('')}
                             </ul>
                             <hr style="border-top: 1px dashed black; margin: 15px 0;">
                             <div style="text-align: right;">
