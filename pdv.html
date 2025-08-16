@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDV - Sâmia Pizzaria</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/catalogo_pizzaria/refs/heads/main/logo.png" type="image/png">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+        .full-height-container {
+            height: calc(100vh - 10rem); /* Ajustado para a altura do header + dashboard */
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+        }
+        /* Estilos para Impressão */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #print-area, #print-area * {
+                visibility: visible;
+            }
+            #print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <header class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
+            <div class="flex items-center space-x-4">
+                <button id="clear-finished-btn" class="px-4 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">Limpar Finalizados</button>
+                <div id="connection-status" class="text-sm font-medium text-gray-500">
+                    <i class="fas fa-circle text-red-500 mr-2"></i>Conectando...
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Dashboard de Vendas -->
+    <div class="bg-gray-800 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center py-4">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-400">PEDIDOS HOJE</h3>
+                    <p id="stats-total-orders" class="text-2xl font-bold">0</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-400">FATURAMENTO TOTAL</h3>
+                    <p id="stats-total-revenue" class="text-2xl font-bold">R$ 0,00</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-400">TICKET MÉDIO</h3>
+                    <p id="stats-avg-ticket" class="text-2xl font-bold">R$ 0,00</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 full-height-container">
+            
+            <div class="bg-red-50 rounded-lg shadow">
+                <div class="p-4 border-b border-red-200">
+                    <h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2>
+                </div>
+                <div id="col-novo" class="p-4 space-y-4 overflow-y-auto h-full"></div>
+            </div>
+
+            <div class="bg-yellow-50 rounded-lg shadow">
+                <div class="p-4 border-b border-yellow-200">
+                    <h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2>
+                </div>
+                <div id="col-preparo" class="p-4 space-y-4 overflow-y-auto h-full"></div>
+            </div>
+
+            <div class="bg-green-50 rounded-lg shadow">
+                <div class="p-4 border-b border-green-200">
+                    <h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2>
+                </div>
+                <div id="col-entrega" class="p-4 space-y-4 overflow-y-auto h-full"></div>
+            </div>
+            
+            <div class="bg-gray-200 rounded-lg shadow">
+                <div class="p-4 border-b border-gray-300">
+                    <h2 class="text-lg font-bold text-gray-800">Finalizados</h2>
+                </div>
+                <div id="col-finalizado" class="p-4 space-y-4 overflow-y-auto h-full"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="edit-order-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Gerenciar Pedido</h2>
+                <button id="close-edit-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="edit-modal-body" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <div id="delete-confirm-modal" class="modal">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Confirmar Exclusão</h3>
+            <p class="text-sm text-gray-600 mb-6">Tem certeza que deseja excluir este pedido? Esta ação não pode ser desfeita.</p>
+            <div class="flex justify-end space-x-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Sim, Excluir</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc, query, orderBy, where, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+            authDomain: "pizzaria-pdv.firebaseapp.com",
+            projectId: "pizzaria-pdv",
+            storageBucket: "pizzaria-pdv.appspot.com",
+            messagingSenderId: "304171744691",
+            appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const colNovo = document.getElementById('col-novo');
+        const colPreparo = document.getElementById('col-preparo');
+        const colEntrega = document.getElementById('col-entrega');
+        const colFinalizado = document.getElementById('col-finalizado');
+        const connectionStatus = document.getElementById('connection-status');
+        const editOrderModal = document.getElementById('edit-order-modal');
+        const editModalBody = document.getElementById('edit-modal-body');
+        const closeEditModalBtn = document.getElementById('close-edit-modal');
+        const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const clearFinishedBtn = document.getElementById('clear-finished-btn');
+
+        let orderIdToDelete = null;
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        function playNotificationSound() {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 1);
+        }
+
+        const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
+            
+            colNovo.innerHTML = '';
+            colPreparo.innerHTML = '';
+            colEntrega.innerHTML = '';
+            colFinalizado.innerHTML = '';
+
+            let totalOrdersToday = 0;
+            let totalRevenueToday = 0;
+            const today = new Date().setHours(0, 0, 0, 0);
+
+            snapshot.docChanges().forEach((change) => {
+                const orderData = change.doc.data();
+                if (change.type === "added" && orderData.status === 'Novo') {
+                    playNotificationSound();
+                }
+            });
+
+            snapshot.docs.forEach(doc => {
+                const orderData = doc.data();
+                const orderId = doc.id;
+                const card = createOrderCard(orderData, orderId);
+
+                const orderDate = orderData.criadoEm ? new Date(orderData.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
+                if(orderDate === today) {
+                    totalOrdersToday++;
+                    totalRevenueToday += orderData.total.finalTotal;
+                }
+
+                if (orderData.status === 'Novo') colNovo.appendChild(card);
+                else if (orderData.status === 'Em Preparo') colPreparo.appendChild(card);
+                else if (orderData.status === 'Pronto para Entrega') colEntrega.appendChild(card);
+                else if (orderData.status === 'Finalizado') colFinalizado.appendChild(card);
+            });
+
+            document.getElementById('stats-total-orders').textContent = totalOrdersToday;
+            document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
+            document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
+
+        }, (error) => {
+            console.error("Erro ao ouvir pedidos: ", error);
+            connectionStatus.innerHTML = '<i class="fas fa-circle text-red-500 mr-2"></i>Erro de conexão';
+        });
+
+        function createOrderCard(order, id) {
+            const card = document.createElement('div');
+            card.className = 'bg-white p-4 rounded-lg shadow-md border-l-4';
+            
+            let itemsHtml = order.itens.map(item => `
+                <li class="flex justify-between text-sm">
+                    <span>${item.name}</span>
+                    <span class="font-medium">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
+                </li>
+            `).join('');
+
+            const timestamp = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).toLocaleTimeString('pt-BR') : 'agora';
+
+            let buttonHtml = '';
+            if (order.status === 'Novo') {
+                card.classList.add('border-red-500');
+                buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors">Iniciar Preparo</button>`;
+            } else if (order.status === 'Em Preparo') {
+                card.classList.add('border-yellow-500');
+                buttonHtml = `<button data-id="${id}" data-status="Pronto para Entrega" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">Pronto para Entrega</button>`;
+            } else if (order.status === 'Pronto para Entrega') {
+                card.classList.add('border-green-500');
+                buttonHtml = `<button data-id="${id}" data-status="Finalizado" class="move-btn w-full mt-4 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">Finalizar Pedido</button>`;
+            }
+
+            let paymentHtml = '';
+            if (order.pagamento) {
+                let paymentText = '';
+                if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                    paymentText = `Dinheiro (Troco p/ R$ ${order.pagamento.trocoPara.toFixed(2).replace('.', ',')})`;
+                } else {
+                    paymentText = order.pagamento;
+                }
+                paymentHtml = `<div class="text-sm mt-2 pt-2 border-t border-gray-200"><strong>Pagamento:</strong> ${paymentText}</div>`;
+            }
+
+            let totalDetailsHtml = `
+                <div class="text-right text-sm space-y-1 mt-2 pt-2 border-t border-gray-200">
+                    <div class="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</span>
+                    </div>
+            `;
+            if (order.total.discount > 0) {
+                totalDetailsHtml += `
+                    <div class="flex justify-between text-red-600">
+                        <span>Desconto:</span>
+                        <span>- R$ ${order.total.discount.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                `;
+            }
+            totalDetailsHtml += `
+                    <div class="flex justify-between">
+                        <span>Taxa de Entrega:</span>
+                        <span>R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-lg text-gray-800">
+                        <span>Total:</span>
+                        <span>R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                </div>
+            `;
+
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-gray-800">Pedido #${id.substring(0, 5)}</h3>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-medium text-gray-500">${timestamp}</span>
+                        <button data-id="${id}" class="print-btn text-gray-500 hover:text-gray-700"><i class="fas fa-print"></i></button>
+                        <button data-id="${id}" class="manage-btn text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></button>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <p class="text-sm font-medium text-gray-700">${order.endereco.clientName}</p>
+                    <p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                </div>
+                <ul class="border-t border-b border-gray-200 py-2 my-2 space-y-1">${itemsHtml}</ul>
+                ${totalDetailsHtml}
+                ${paymentHtml}
+                ${buttonHtml}
+            `;
+            return card;
+        }
+
+        async function openEditModal(id) {
+            const orderRef = doc(db, "pedidos", id);
+            const docSnap = await getDoc(orderRef);
+
+            if (docSnap.exists()) {
+                const order = docSnap.data();
+                editModalBody.innerHTML = `
+                    <input type="hidden" id="edit-order-id" value="${id}">
+                    <div>
+                        <label for="edit-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
+                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-rua" class="block text-sm font-medium text-gray-700">Rua</label>
+                        <input type="text" id="edit-rua" value="${order.endereco.rua}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                     <div>
+                        <label for="edit-numero" class="block text-sm font-medium text-gray-700">Número</label>
+                        <input type="text" id="edit-numero" value="${order.endereco.numero}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
+                        <input type="text" id="edit-bairro" value="${order.endereco.bairro}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div class="mt-4 flex justify-between">
+                        <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
+                        <button id="delete-order-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">Excluir Pedido</button>
+                    </div>
+                `;
+                editOrderModal.style.display = 'flex';
+            } else {
+                console.log("Nenhum pedido encontrado!");
+            }
+        }
+
+        async function updateOrderStatus(id, newStatus) {
+            const orderRef = doc(db, "pedidos", id);
+            try {
+                await updateDoc(orderRef, { status: newStatus });
+            } catch (error) {
+                console.error("Erro ao atualizar status: ", error);
+            }
+        }
+        
+        async function saveOrderChanges() {
+            const id = document.getElementById('edit-order-id').value;
+            const orderRef = doc(db, "pedidos", id);
+            const updatedData = {
+                "endereco.clientName": document.getElementById('edit-clientName').value,
+                "endereco.rua": document.getElementById('edit-rua').value,
+                "endereco.numero": document.getElementById('edit-numero').value,
+                "endereco.bairro": document.getElementById('edit-bairro').value,
+            };
+            try {
+                await updateDoc(orderRef, updatedData);
+                editOrderModal.style.display = 'none';
+            } catch (error) {
+                console.error("Erro ao salvar alterações: ", error);
+            }
+        }
+
+        function showDeleteConfirmation() {
+            orderIdToDelete = document.getElementById('edit-order-id').value;
+            deleteConfirmModal.style.display = 'flex';
+        }
+
+        async function executeDelete() {
+            if (orderIdToDelete) {
+                try {
+                    await deleteDoc(doc(db, "pedidos", orderIdToDelete));
+                    editOrderModal.style.display = 'none';
+                    deleteConfirmModal.style.display = 'none';
+                    orderIdToDelete = null;
+                } catch (error) {
+                    console.error("Erro ao excluir pedido: ", error);
+                }
+            }
+        }
+
+        function printOrder(id) {
+            const orderRef = doc(db, "pedidos", id);
+            getDoc(orderRef).then(docSnap => {
+                if (docSnap.exists()) {
+                    const order = docSnap.data();
+                    let printContent = `
+                        <div style="font-family: monospace; padding: 20px;">
+                            <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2>
+                            <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                            <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                            <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                            <hr style="border-top: 1px dashed black; margin: 15px 0;">
+                            <ul>
+                                ${order.itens.map(item => `<li style="display: flex; justify-content: space-between;"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`).join('')}
+                            </ul>
+                            <hr style="border-top: 1px dashed black; margin: 15px 0;">
+                            <div style="text-align: right;">
+                                <p>Subtotal: R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</p>
+                                ${order.total.discount > 0 ? `<p>Desconto: -R$ ${order.total.discount.toFixed(2).replace('.', ',')}</p>` : ''}
+                                <p>Taxa de Entrega: R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</p>
+                                <p style="font-weight: bold; font-size: 18px;">Total: R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</p>
+                            </div>
+                        </div>
+                    `;
+                    const printWindow = window.open('', '', 'height=600,width=800');
+                    printWindow.document.write('<div id="print-area">');
+                    printWindow.document.write(printContent);
+                    printWindow.document.write('</div>');
+                    printWindow.document.close();
+                    printWindow.print();
+                }
+            });
+        }
+        
+        async function clearFinishedOrders() {
+            if (!confirm("Tem certeza que deseja limpar todos os pedidos finalizados da tela? Eles serão arquivados.")) {
+                return;
+            }
+            const q = query(collection(db, "pedidos"), where("status", "==", "Finalizado"));
+            const snapshot = await getDoc(q);
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => {
+                batch.update(doc.ref, { status: "Arquivado" });
+            });
+            await batch.commit();
+        }
+
+        document.querySelector('main').addEventListener('click', function(e) {
+            const moveBtn = e.target.closest('.move-btn');
+            const manageBtn = e.target.closest('.manage-btn');
+            const printBtn = e.target.closest('.print-btn');
+
+            if (moveBtn) {
+                const orderId = moveBtn.dataset.id;
+                const newStatus = moveBtn.dataset.status;
+                updateOrderStatus(orderId, newStatus);
+            }
+            if (manageBtn) {
+                const orderId = manageBtn.dataset.id;
+                openEditModal(orderId);
+            }
+            if (printBtn) {
+                const orderId = printBtn.dataset.id;
+                printOrder(orderId);
+            }
+        });
+
+        closeEditModalBtn.addEventListener('click', () => {
+            editOrderModal.style.display = 'none';
+        });
+
+        editModalBody.addEventListener('click', function(e) {
+            if (e.target.id === 'save-changes-btn') {
+                saveOrderChanges();
+            }
+            if (e.target.id === 'delete-order-btn') {
+                showDeleteConfirmation();
+            }
+        });
+
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteConfirmModal.style.display = 'none';
+            orderIdToDelete = null;
+        });
+
+        confirmDeleteBtn.addEventListener('click', executeDelete);
+        clearFinishedBtn.addEventListener('click', clearFinishedOrders);
+
+    </script>
+</body>
+</html>
