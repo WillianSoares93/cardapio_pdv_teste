@@ -239,12 +239,19 @@
             const card = document.createElement('div');
             card.className = 'bg-white p-4 rounded-lg shadow-md border-l-4';
             
-            let itemsHtml = order.itens.map(item => `
-                <li class="flex justify-between text-sm">
-                    <span>${item.name}</span>
-                    <span class="font-medium">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
-                </li>
-            `).join('');
+            let itemsHtml = order.itens.map(item => {
+                let itemContent = `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${item.price.toFixed(2).replace('.', ',')}</span></li>`;
+
+                // Adiciona a exibição dos ingredientes do hambúrguer personalizável
+                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                    const ingredientsList = item.ingredients.map(ingredient => `
+                        <li class="text-xs text-gray-500 ml-4 list-disc">${ingredient.name}</li>
+                    `).join('');
+                    itemContent += `<ul class="mt-1 space-y-1">${ingredientsList}</ul>`;
+                }
+
+                return itemContent;
+            }).join('');
 
             const timestamp = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).toLocaleTimeString('pt-BR') : 'agora';
 
@@ -407,6 +414,15 @@
                     let printContent = '';
 
                     if (type === 'kitchen') {
+                        // Lógica para a comanda da cozinha - incluindo os ingredientes do hambúrguer
+                        let itemsKitchenHtml = order.itens.map(item => {
+                            let itemString = `<li style="padding: 8px 0; border-bottom: 1px dashed #ccc;"><strong>1x</strong> ${item.name}</li>`;
+                            if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                                itemString += `<ul style="list-style: none; padding-left: 20px;">${item.ingredients.map(ing => `<li style="font-size: 16px;">- ${ing.name}</li>`).join('')}</ul>`;
+                            }
+                            return itemString;
+                        }).join('');
+
                         printContent = `
                             <div style="font-family: monospace; padding: 20px; font-size: 16px;">
                                 <h2 style="text-align: center; font-size: 28px; margin-bottom: 20px;">COMANDA COZINHA</h2>
@@ -414,7 +430,7 @@
                                 <p style="font-size: 18px;"><strong>Cliente:</strong> ${order.endereco.clientName}</p>
                                 <hr style="border-top: 2px dashed black; margin: 15px 0;">
                                 <ul style="font-size: 20px; list-style: none; padding: 0;">
-                                    ${order.itens.map(item => `<li style="padding: 8px 0; border-bottom: 1px dashed #ccc;"><strong>1x</strong> ${item.name}</li>`).join('')}
+                                    ${itemsKitchenHtml}
                                 </ul>
                             </div>
                         `;
