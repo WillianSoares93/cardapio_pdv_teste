@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1504,7 +1505,7 @@
                             }
                         }
 
-                        isScrollingFromClick = true; // Prevents the observer from firing during the click-scroll
+                        isScrollingFromClick = true; // Previne que o observador seja acionado durante a rolagem de clique
                         setActiveCategoryButton(targetCategory);
                         document.getElementById(targetId).scrollIntoView({ behavior: 'smooth', block: 'start' });
                         setTimeout(() => {
@@ -2357,23 +2358,31 @@
                 const highlightOptions = {
                     root: null,
                     rootMargin: `-${stickyHeaderHeight}px 0px 0px 0px`,
-                    threshold: [0]
+                    threshold: 0.1 // Aumenta a sensibilidade
                 };
 
                 highlightObserver = new IntersectionObserver((entries) => {
                     if (isScrollingFromClick) return;
 
                     let currentCategory = null;
-                    entries.forEach(entry => {
+                    let lastVisibleCategory = null;
+
+                    for(let i = entries.length - 1; i >= 0; i--) {
+                        const entry = entries[i];
                         const rect = entry.target.getBoundingClientRect();
-                        if (rect.top <= stickyHeaderHeight + 1 && rect.bottom > stickyHeaderHeight) {
+                        if (rect.top <= stickyHeaderHeight + 1) {
                             currentCategory = entry.target.id.replace('-section', '');
+                            break;
                         }
-                    });
+                    }
                     
-                    // Fallback para o final da página, caso a última seção não seja tão alta
-                    if (!currentCategory && window.innerHeight + window.scrollY >= document.body.offsetHeight - 10) {
-                        currentCategory = orderedUniqueCategories[orderedUniqueCategories.length - 1];
+                    if (!currentCategory) {
+                        for(let i = 0; i < entries.length; i++) {
+                            if(entries[i].isIntersecting) {
+                                currentCategory = entries[i].target.id.replace('-section', '');
+                                break;
+                            }
+                        }
                     }
 
                     if (currentCategory && currentCategory !== currentActiveCategoryByScroll) {
