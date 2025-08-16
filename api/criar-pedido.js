@@ -88,6 +88,13 @@ export default async (req, res) => {
     
     order.forEach(item => {
         message += `- ${item.name}: R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
+        // Adiciona a lógica para incluir os ingredientes se for um hambúrguer personalizável
+        if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+            message += `  *Ingredientes:*\n`;
+            item.ingredients.forEach(ingredient => {
+                message += `  - ${ingredient.name}\n`;
+            });
+        }
     });
     
     message += `\nSubtotal: R$ ${total.subtotal.toFixed(2).replace('.', ',')}`;
