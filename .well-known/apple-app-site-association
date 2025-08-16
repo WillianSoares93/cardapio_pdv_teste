@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["YOUR_TEAM_ID.com.yourdomain.yourappname"],
+        "components": [
+          {
+            "paths": ["/"]
+          }
+        ]
+      }
+    ]
+  }
+}
