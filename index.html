@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2896,15 +2895,14 @@ teste
 
             confirmAddressBtn.addEventListener('click', function() {
                 const clientName = clientNameInput.value.trim();
-                const phone = phoneInput.value.trim();
                 const bairro = neighborhoodSelect.value;
                 const rua = streetInput.value.trim();
                 let numero = numberInput.value.trim();
                 const referencia = referencePointInput.value.trim();
                 const isNoNumber = noNumberCheckbox.checked;
 
-                if (!clientName || !phone || !bairro || !rua) {
-                    showMessageModal('Por favor, preencha o nome, telefone, bairro e rua para continuar.');
+                if (!clientName || !bairro || !rua) {
+                    showMessageModal('Por favor, preencha o nome do cliente, o bairro e a rua para continuar.');
                     return;
                 }
                 
@@ -2925,7 +2923,6 @@ teste
 
                 selectedAddress = {
                     clientName: clientName,
-                    phone: phone,
                     bairro: bairro,
                     rua: rua,
                     numero: numero,
