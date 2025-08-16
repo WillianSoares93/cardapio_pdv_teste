@@ -63,9 +63,9 @@ export default async (req, res) => {
     
     const whatsappNumber = contactInfo.whatsapp ? `55${contactInfo.whatsapp.replace(/\D/g, '')}` : '5587996070638'; // Fallback
 
-    const { order, selectedAddress, total } = req.body;
+    const { order, selectedAddress, total, paymentMethod } = req.body;
     
-    if (!order || !selectedAddress || !total) {
+    if (!order || !selectedAddress || !total || !paymentMethod) {
         return res.status(400).json({ error: 'Dados do pedido incompletos.' });
     }
 
@@ -74,15 +74,16 @@ export default async (req, res) => {
         itens: order,
         endereco: selectedAddress,
         total: total,
-        status: 'Novo', // Status inicial do pedido
-        criadoEm: serverTimestamp() // Data e hora do pedido
+        pagamento: paymentMethod, // Salva a forma de pagamento
+        status: 'Novo', 
+        criadoEm: serverTimestamp()
     };
 
     // Salva o pedido no banco de dados Firestore, na coleção "pedidos"
     const docRef = await addDoc(collection(db, "pedidos"), pedidoCompleto);
     console.log("Pedido salvo com ID: ", docRef.id);
 
-    // Lógica para gerar a mensagem do WhatsApp (mesma que antes)
+    // Lógica para gerar a mensagem do WhatsApp
     let message = `Olá! Gostaria de fazer o seguinte pedido (Nº ${docRef.id.substring(0, 5)}):\n\n`;
     
     order.forEach(item => {
@@ -95,6 +96,16 @@ export default async (req, res) => {
     }
     message += `\nTaxa de entrega: R$ ${total.deliveryFee.toFixed(2).replace('.', ',')}`;
     message += `\n*Total: R$ ${total.finalTotal.toFixed(2).replace('.', ',')}*`;
+    
+    // Adiciona forma de pagamento na mensagem
+    let paymentText = '';
+    if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
+        paymentText = `Dinheiro (Troco para R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')})`;
+    } else {
+        paymentText = paymentMethod;
+    }
+    message += `\n*Pagamento:* ${paymentText}`;
+
     message += `\n\n*Dados da Entrega:*\n`;
     message += `Nome: ${selectedAddress.clientName}\n`;
     message += `Endereço: ${selectedAddress.rua}, Nº ${selectedAddress.numero}, ${selectedAddress.bairro}\n`;
@@ -104,7 +115,6 @@ export default async (req, res) => {
 
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
-    // Retorna sucesso e o link do WhatsApp para o cardápio
     res.status(200).json({ success: true, whatsappUrl: whatsappUrl });
 
   } catch (error) {
