@@ -1384,43 +1384,46 @@
                                     let priceDisplayHtml = '';
                                     if (item.price4Slices > 0) {
                                         priceDisplayHtml += `
-                                            <div class="flex flex-col items-center text-center px-1 flex-shrink-0">
-                                                <span class="font-bold text-gray-800 whitespace-nowrap">4F</span>
-                                                <span class="font-bold text-red-600 text-lg whitespace-nowrap">R$ ${item.price4Slices.toFixed(2).replace('.', ',')}</span>
+                                            <div class="text-center px-1">
+                                                <span class="text-xs text-gray-500">4 Fatias</span>
+                                                <p class="font-bold text-red-600">R$ ${item.price4Slices.toFixed(2).replace('.', ',')}</p>
                                             </div>
                                         `;
-                                    }
-                                    if (item.price4Slices > 0 && (item.price6Slices > 0 || item.basePrice > 0)) {
-                                        priceDisplayHtml += `<span class="text-gray-400 self-center">|</span>`;
                                     }
                                     if (item.price6Slices > 0) {
                                         priceDisplayHtml += `
-                                            <div class="flex flex-col items-center text-center px-1 flex-shrink-0">
-                                                <span class="font-bold text-gray-800 whitespace-nowrap">6F</span>
-                                                <span class="font-bold text-red-600 text-lg whitespace-nowrap">R$ ${item.price6Slices.toFixed(2).replace('.', ',')}</span>
+                                            <div class="text-center px-2 border-l border-r border-gray-200">
+                                                <span class="text-xs text-gray-500">6 Fatias</span>
+                                                <p class="font-bold text-red-600">R$ ${item.price6Slices.toFixed(2).replace('.', ',')}</p>
                                             </div>
                                         `;
                                     }
-                                    if (item.basePrice > 0) { 
+                                    if (item.basePrice > 0) { // 8 fatias
                                         priceDisplayHtml += `
-                                            <div class="flex flex-col items-center text-center px-1 flex-shrink-0">
-                                                <span class="font-bold text-gray-800 whitespace-nowrap">8F</span>
-                                                <span class="font-bold text-red-600 text-lg whitespace-nowrap">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</span>
+                                            <div class="text-center px-1">
+                                                <span class="text-xs text-gray-500">8 Fatias</span>
+                                                <p class="font-bold text-red-600">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</p>
                                             </div>
                                         `;
                                     }
                                     
                                     itemHtml = `
-                                        <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg transition duration-300">
+                                        <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg flex flex-col">
                                             ${imageElement}
-                                            <div class="p-6">
+                                            <div class="p-6 flex flex-col flex-grow">
                                                 <h3 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h3>
-                                                <p class="text-gray-600 text-sm mb-4">${item.description}</p>
-                                                <div class="flex justify-end mt-auto">
-                                                    <button class="add-item-btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300"
-                                                            data-item-id="${item.id}" data-image-url="${trimmedImageUrl}">
-                                                        Adicionar
-                                                    </button>
+                                                <p class="text-gray-600 text-sm mb-4 flex-grow">${item.description}</p>
+                                                
+                                                <div class="mt-auto pt-4 border-t border-gray-100">
+                                                    <div class="flex justify-between items-center">
+                                                        <div class="flex space-x-1 items-baseline">
+                                                            ${priceDisplayHtml}
+                                                        </div>
+                                                        <button class="add-item-btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300 flex-shrink-0"
+                                                                data-item-id="${item.id}" data-image-url="${trimmedImageUrl}">
+                                                            Adicionar
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -2434,6 +2437,7 @@
                 addressInputModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
                 clientNameInput.value = selectedAddress.clientName || '';
+                phoneInput.value = selectedAddress.phone || '';
                 if (selectedAddress.bairro) {
                     neighborhoodSelect.value = selectedAddress.bairro;
                 } else {
@@ -2469,7 +2473,8 @@
             function showAddressSummary() {
                 if (selectedAddress.bairro) {
                     addressSummarySection.classList.remove('hidden');
-                    clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName || 'Não informado'}`;
+                    clientNameDisplay.textContent = `Nome: ${selectedAddress.clientName || 'Não informado'}`;
+                    clientPhoneDisplay.textContent = `Telefone: ${selectedAddress.phone || 'Não informado'}`;
                     addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
                     neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
                     referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
@@ -2481,6 +2486,7 @@
             function hideAddressSummary() {
                 addressSummarySection.classList.add('hidden');
                 clientNameDisplay.textContent = '';
+                clientPhoneDisplay.textContent = '';
                 addressDisplay.textContent = '';
                 neighborhoodDisplay.textContent = '';
                 referenceDisplay.textContent = '';
@@ -2489,7 +2495,8 @@
             function updateAddressDisplay() {
                 if (selectedAddress.bairro && selectedAddress.rua) {
                     addressSummarySection.classList.remove('hidden');
-                    clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName || 'Não informado'}`;
+                    clientNameDisplay.textContent = `Nome: ${selectedAddress.clientName || 'Não informado'}`;
+                    clientPhoneDisplay.textContent = `Telefone: ${selectedAddress.phone || 'Não informado'}`;
                     addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
                     neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
                     referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
@@ -2886,14 +2893,15 @@
 
             confirmAddressBtn.addEventListener('click', function() {
                 const clientName = clientNameInput.value.trim();
+                const phone = phoneInput.value.trim();
                 const bairro = neighborhoodSelect.value;
                 const rua = streetInput.value.trim();
                 let numero = numberInput.value.trim();
                 const referencia = referencePointInput.value.trim();
                 const isNoNumber = noNumberCheckbox.checked;
 
-                if (!clientName || !bairro || !rua) {
-                    showMessageModal('Por favor, preencha o nome do cliente, o bairro e a rua para continuar.');
+                if (!clientName || !phone || !bairro || !rua) {
+                    showMessageModal('Por favor, preencha o nome, telefone, bairro e rua para continuar.');
                     return;
                 }
                 
@@ -2914,6 +2922,7 @@
 
                 selectedAddress = {
                     clientName: clientName,
+                    phone: phone,
                     bairro: bairro,
                     rua: rua,
                     numero: numero,
