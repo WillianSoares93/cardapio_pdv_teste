@@ -1,4 +1,3 @@
-teste1
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -953,7 +952,110 @@ teste1
 
             let currentPizzaData = {}; 
             let firstHalfPizza = null; 
-            let isSelectingSecondHalf = false; 
+            let isSelectingHalfPizza = false; 
+            let qrCodeInstance = null;
+            let isFirstHalfPromotional = false; 
+            let deferredPrompt; 
+            let selectedPaymentMethod = null; 
+            let isCheckoutInitiated = false; 
+            let discountPromotion = null;
+            let contactInfo = {};
+            let isMenuLoaded = false;
+            let orderedUniqueCategories = [];
+            
+            let selectedAddress = {
+                clientName: null, 
+                bairro: null,
+                rua: null,
+                numero: null,
+                referencia: null,
+                deliveryFee: 0.00
+            };
+
+            const defaultImage = 'https://www.bakelitsul.com.br/Assets/img/sem-produto-detalhe.png';
+            const CONTACT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJeo2AAETdXC08x9EQlkIG1FiVLEosMng4IvaQYJAdZnIDHJw8CT8J5RAJNtJ5GWHOKHkUsd5V8OSL/pub?gid=2043568216&single=true&output=csv';
+
+            const orderSidebar = document.getElementById('orderSidebar');
+            const cartCount = document.getElementById('cartCount');
+            const orderItemsContainer = document.getElementById('orderItems');
+            const emptyOrderMessage = document.getElementById('emptyOrderMessage');
+            const messageModal = document.getElementById('message-modal');
+            const closeMessageModalBtn = document.getElementById('close-message-modal');
+            const okMessageModalBtn = document.getElementById('ok-message-modal');
+            const messageModalText = document.getElementById('message-modal-text');
+            const promotionPopup = document.getElementById('promotion-popup');
+            const closePromotionPopupBtn = document.getElementById('close-promotion-popup');
+            const closePromotionPopupBtnBottom = document.getElementById('close-promotion-popup-btn');
+            const promotionsListEl = document.getElementById('promotions-list');
+            const promotionButton = document.getElementById('promotion-button'); 
+            const cartButton = document.getElementById('cart-button'); 
+            const subtotalEl = document.getElementById('subtotal');
+            const deliveryFeeDisplay = document.getElementById('deliveryFeeDisplay');
+            const totalEl = document.getElementById('total');
+            const checkoutButton = document.getElementById('checkoutButton');
+            const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+            const backToMenuBtn = document.getElementById('back-to-menu-btn');
+            const pizzaOptionModal = document.getElementById('pizza-option-modal');
+            const closePizzaOptionModalBtn = document.getElementById('close-pizza-option-modal');
+            const modalPizzaName = document.getElementById('modal-pizza-name');
+            const modalPizzaDescription = document.getElementById('modal-pizza-description');
+            const pizzaSizeOptions = document.getElementById('pizza-size-options');
+            const burgerBuilderModal = document.getElementById('burger-builder-modal');
+            const closeBurgerBuilderModalBtn = document.getElementById('close-burger-builder-modal');
+            const burgerIngredientsContainer = document.getElementById('burger-ingredients-container');
+            const burgerTotalPriceEl = document.getElementById('burger-total-price');
+            const addCustomBurgerBtn = document.getElementById('add-custom-burger-btn');
+            const drinkSuggestionModal = document.getElementById('drink-suggestion-modal');
+            const closeDrinkSuggestionModalBtn = document.getElementById('close-drink-suggestion-modal');
+            const suggestedDrinksList = document.getElementById('suggested-drinks-list');
+            const proceedWithoutDrinksBtn = document.getElementById('proceed-without-drinks'); 
+            const confirmNoDrinkModal = document.getElementById('confirm-no-drink-modal');
+            const closeConfirmNoDrinkModalBtn = document.getElementById('close-confirm-no-drink-modal');
+            const confirmNoDrinkYesBtn = document.getElementById('confirm-no-drink-yes');
+            const confirmNoDrinkNoBtn = document.getElementById('confirm-no-drink-no-btn');
+            const installPromptModal = document.getElementById('install-prompt-modal');
+            const closeInstallPromptModalBtn = document.getElementById('close-install-prompt-modal');
+            const installAppButton = document.getElementById('install-app-button');
+            const paymentMethodModal = document.getElementById('payment-method-modal');
+            const closePaymentMethodModalBtn = document.getElementById('close-payment-method-modal');
+            const paymentOptionsContainer = document.getElementById('payment-options-container');
+            const confirmPaymentMethodBtn = document.getElementById('confirm-payment-method-btn');
+            const trocoInputContainer = document.getElementById('troco-input-container'); 
+            const trocoParaInput = document.getElementById('trocoPara'); 
+            const trocoTotalDisplay = document.getElementById('trocoTotalDisplay'); 
+            const paymentModalTotal = document.getElementById('payment-modal-total'); 
+            const pixKeyContainer = document.getElementById('pix-key-container');
+            const pixDetailsContainer = document.getElementById('pix-details-container');
+            const pixKeyDisplay = document.getElementById('pix-key-display');
+            const copyPixBtn = document.getElementById('copy-pix-btn');
+            const copyFeedback = document.getElementById('copy-feedback');
+            const addressInputModal = document.getElementById('address-input-modal');
+            const closeAddressModalBtn = document.getElementById('close-address-modal');
+            const clientNameInput = document.getElementById('clientNameInput');
+            const neighborhoodSelect = document.getElementById('neighborhoodSelect');
+            const streetInput = document.getElementById('streetInput');
+            const numberInput = document.getElementById('numberInput');
+            const noNumberCheckbox = document.getElementById('noNumberCheckbox');
+            const referencePointInput = document.getElementById('referencePointInput');
+            const confirmAddressBtn = document.getElementById('confirmAddressBtn');
+            const addressSummarySection = document.getElementById('address-summary-section');
+            const clientNameDisplay = document.getElementById('client-name-display');
+            const addressDisplay = document.getElementById('address-display');
+            const neighborhoodDisplay = document.getElementById('neighborhood-display');
+            const referenceDisplay = document.getElementById('reference-display');
+            const editAddressBtn = document.getElementById('editAddressBtn');
+            const informAddressBtn = document.getElementById('informAddressBtn');
+            const editDeliveryAddressBtn = document.getElementById('editDeliveryAddressBtn');
+            const discountSection = document.getElementById('discount-section');
+            const discountPercentageDisplay = document.getElementById('discount-percentage-display');
+            const discountValueDisplay = document.getElementById('discount-value-display');
+            const footerPhone = document.getElementById('footer-phone');
+            const footerEmail = document.getElementById('footer-email');
+            const socialLinksContainer = document.getElementById('social-links-container');
+
+            let currentPizzaData = {}; 
+            let firstHalfPizza = null; 
+            let isSelectingHalfPizza = false; 
             let qrCodeInstance = null;
 
             const sizes = [
@@ -2355,21 +2457,52 @@ teste1
                 }
             }
 
-            let categoryObserver; 
-
-            // Lógica refatorada para usar a interseção de cards de produtos
-            // em vez das seções inteiras.
+            let highlightObserver;
+            let halfPizzaObserver;
+            
             function setupCategoryObserver() {
-                if (categoryObserver) {
-                    categoryObserver.disconnect();
-                }
+                if (highlightObserver) highlightObserver.disconnect();
+                if (halfPizzaObserver) halfPizzaObserver.disconnect();
+                
+                const categorySections = document.querySelectorAll('.pizza-category-section');
+                
+                const stickyHeaderHeight = getStickyHeaderHeight();
 
-                // Obtém a ordem das categorias
+                // Observer para o destaque dos botões de categoria
+                const highlightOptions = {
+                    root: null,
+                    rootMargin: `-${stickyHeaderHeight}px 0px 0px 0px`,
+                    threshold: [0]
+                };
+
+                highlightObserver = new IntersectionObserver((entries) => {
+                    if (isScrollingFromClick) {
+                        return;
+                    }
+                    
+                    let newActiveCategory = null;
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                             newActiveCategory = entry.target.id.replace('-section', '');
+                        }
+                    });
+
+                    if (newActiveCategory && newActiveCategory !== currentActiveCategoryByScroll) {
+                        setActiveCategoryButton(newActiveCategory);
+                        currentActiveCategoryByScroll = newActiveCategory;
+                    }
+                    
+                }, highlightOptions);
+
+                categorySections.forEach(section => {
+                    highlightObserver.observe(section);
+                });
+
+                // Observer para a lógica de aviso de pizza meio a meio
                 const promoIndex = orderedUniqueCategories.indexOf('promocionais');
                 const previousCategory = promoIndex > 0 ? orderedUniqueCategories[promoIndex - 1] : null;
                 const nextCategory = promoIndex < orderedUniqueCategories.length - 1 ? orderedUniqueCategories[promoIndex + 1] : null;
 
-                // Encontra os cards de produtos que servirão como pontos de detecção
                 let targetCards = [];
                 const firstPromoCard = document.querySelector(`.flavor-card[data-category="promocionais"]`);
                 const lastPreviousCard = previousCategory ? document.querySelector(`.flavor-card[data-category="${previousCategory}"]:last-child`) : null;
@@ -2378,15 +2511,14 @@ teste1
                 if (firstPromoCard) targetCards.push(firstPromoCard);
                 if (lastPreviousCard) targetCards.push(lastPreviousCard);
                 if (firstNextCard) targetCards.push(firstNextCard);
-                
-                // Define a margem e o limite para a detecção de 50% de visibilidade
-                const options = {
+
+                const halfPizzaOptions = {
                     root: null,
-                    rootMargin: `-${getStickyHeaderHeight()}px 0px 0px 0px`, 
-                    threshold: 0.5 // Detecta quando 50% do elemento está visível
+                    rootMargin: `-${stickyHeaderHeight}px 0px 0px 0px`,
+                    threshold: 0.5 
                 };
 
-                categoryObserver = new IntersectionObserver((entries) => {
+                halfPizzaObserver = new IntersectionObserver((entries) => {
                     if (isScrollingFromClick) {
                         return;
                     }
@@ -2396,7 +2528,6 @@ teste1
                         const isIntersecting = entry.intersectionRatio >= 0.5;
 
                         if (isIntersecting) {
-                            // Lógica para mostrar a mensagem de aviso baseada na rolagem
                             if (isSelectingHalfPizza) {
                                 // Se o primeiro card promocional está 50% visível, e a primeira metade não é promocional, mostra o aviso
                                 if (category.toLowerCase() === 'promocionais' && !isFirstHalfPromotional) {
@@ -2417,35 +2548,10 @@ teste1
                             }
                         }
                     });
+                }, halfPizzaOptions);
 
-                    // Lógica para atualizar o destaque do botão (permanece a mesma)
-                    const categorySections = document.querySelectorAll('.pizza-category-section');
-                    let newActiveCategory = null;
-                    let minDistance = Infinity;
-
-                    categorySections.forEach(section => {
-                        const rect = section.getBoundingClientRect();
-                        const category = section.id.replace('-section', '');
-                        const stickyHeaderHeight = getStickyHeaderHeight();
-                        
-                        if (rect.top <= stickyHeaderHeight + 5 && rect.bottom > stickyHeaderHeight) {
-                            const distance = Math.abs(rect.top - stickyHeaderHeight);
-                            if (distance < minDistance) {
-                                newActiveCategory = category;
-                                minDistance = distance;
-                            }
-                        }
-                    });
-
-                    if (newActiveCategory && newActiveCategory !== currentActiveCategoryByScroll) {
-                        setActiveCategoryButton(newActiveCategory);
-                        currentActiveCategoryByScroll = newActiveCategory;
-                    }
-                }, options);
-
-                // Observa cada card alvo
                 targetCards.forEach(card => {
-                    categoryObserver.observe(card);
+                    halfPizzaObserver.observe(card);
                 });
             }
 
