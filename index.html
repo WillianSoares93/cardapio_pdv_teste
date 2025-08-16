@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -860,6 +861,8 @@
             let contactInfo = {};
             let isMenuLoaded = false;
             let orderedUniqueCategories = [];
+            let isScrollingFromClick = false;
+            let currentActiveCategoryByScroll = '';
             
             let selectedAddress = {
                 clientName: null,
@@ -2235,7 +2238,7 @@
                             }
                         }
                         if (methodValue === 'Pix' && contactInfo.chavepix) {
-                            const totalAmount = calculateOrderTotal();
+                            const totalAmount = calculateOrderTotal()
                             const payload = gerarPayload(contactInfo.chavepix, totalAmount, contactInfo.nome, contactInfo.cidade, "pedido" + Date.now());
                             pixKeyDisplay.textContent = payload;
                             pixDetailsContainer.classList.remove('hidden');
@@ -2320,9 +2323,6 @@
                 return currentSubtotal - finalDiscountAmount + selectedAddress.deliveryFee;
             }
 
-            let isScrollingFromClick = false;
-            let currentActiveCategoryByScroll = '';
-
             function getStickyHeaderHeight() {
                 const stickyHeader = document.querySelector('.category-bar-mobile-sticky');
                 return stickyHeader ? stickyHeader.offsetHeight : 0;
@@ -2354,61 +2354,51 @@
 
                 const stickyHeaderHeight = getStickyHeaderHeight();
 
-                // Observer para o destaque dos botões de categoria
+                // Observer 1: Para o destaque dos botões de categoria na rolagem
                 const highlightOptions = {
                     root: null,
                     rootMargin: `-${stickyHeaderHeight}px 0px 0px 0px`,
-                    threshold: [0.1]
+                    threshold: [0]
                 };
 
                 highlightObserver = new IntersectionObserver((entries) => {
-                    if (isScrollingFromClick) {
-                        return;
-                    }
+                    if (isScrollingFromClick) return;
 
-                    // Encontra a categoria que está mais próxima do topo
-                    let closestEntry = null;
-                    let minDistance = Infinity;
-
+                    let currentCategory = null;
                     entries.forEach(entry => {
                         const rect = entry.target.getBoundingClientRect();
-                        // Verifica se o elemento está acima do topo do viewport ou bem próximo
-                        if (rect.top <= stickyHeaderHeight) {
-                            const distance = stickyHeaderHeight - rect.top;
-                            if (distance < minDistance) {
-                                minDistance = distance;
-                                closestEntry = entry;
-                            }
+                        if (rect.top <= stickyHeaderHeight + 1 && rect.bottom > stickyHeaderHeight) {
+                            currentCategory = entry.target.id.replace('-section', '');
                         }
                     });
-
-                    // Se não encontrar nenhum acima, pega o primeiro que está na tela
-                    if (!closestEntry && entries.length > 0) {
-                        closestEntry = entries[0];
+                    
+                    // Fallback para o final da página, caso a última seção não seja tão alta
+                    if (!currentCategory && window.innerHeight + window.scrollY >= document.body.offsetHeight - 10) {
+                        currentCategory = orderedUniqueCategories[orderedUniqueCategories.length - 1];
                     }
 
-                    if (closestEntry) {
-                        const newActiveCategory = closestEntry.target.id.replace('-section', '');
-                        if (newActiveCategory && newActiveCategory !== currentActiveCategoryByScroll) {
-                            setActiveCategoryButton(newActiveCategory);
-                            currentActiveCategoryByScroll = newActiveCategory;
-                        }
+                    if (currentCategory && currentCategory !== currentActiveCategoryByScroll) {
+                        setActiveCategoryButton(currentCategory);
+                        currentActiveCategoryByScroll = currentCategory;
                     }
-
                 }, highlightOptions);
 
                 categorySections.forEach(section => {
                     highlightObserver.observe(section);
                 });
 
-                // Observer para a lógica de aviso de pizza meio a meio
+
+                // Observer 2: Para a lógica de aviso de pizza meio a meio nos limites de categorias
                 const promoIndex = orderedUniqueCategories.indexOf('promocionais');
                 const previousCategory = promoIndex > 0 ? orderedUniqueCategories[promoIndex - 1] : null;
                 const nextCategory = promoIndex < orderedUniqueCategories.length - 1 ? orderedUniqueCategories[promoIndex + 1] : null;
 
                 let targetCards = [];
+                // Primeiro card da categoria promocionais
                 const firstPromoCard = document.querySelector(`.flavor-card[data-category="promocionais"]`);
+                // Último card da categoria anterior às promocionais
                 const lastPreviousCard = previousCategory ? document.querySelector(`.flavor-card[data-category="${previousCategory}"]:last-child`) : null;
+                // Primeiro card da categoria seguinte às promocionais
                 const firstNextCard = nextCategory ? document.querySelector(`.flavor-card[data-category="${nextCategory}"]`) : null;
 
                 if (firstPromoCard) targetCards.push(firstPromoCard);
@@ -2422,32 +2412,28 @@
                 };
 
                 halfPizzaObserver = new IntersectionObserver((entries) => {
-                    if (isScrollingFromClick) {
-                        return;
-                    }
+                    if (isScrollingFromClick) return;
 
                     entries.forEach(entry => {
                         const category = entry.target.dataset.category;
                         const isIntersecting = entry.intersectionRatio >= 0.5;
 
-                        if (isIntersecting) {
-                            if (isSelectingHalfPizza) {
-                                // Se o primeiro card promocional está 50% visível, e a primeira metade não é promocional, mostra o aviso
-                                if (category.toLowerCase() === 'promocionais' && !isFirstHalfPromotional) {
-                                    showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
-                                    isScrollingFromClick = true;
-                                    document.getElementById(`${firstHalfPizza.category}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    setTimeout(() => { isScrollingFromClick = false; }, 700);
-                                    return;
-                                }
-                                // Se um card não-promocional está 50% visível, e a primeira metade é promocional, mostra o aviso
-                                if (category.toLowerCase() !== 'promocionais' && isFirstHalfPromotional) {
-                                    showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
-                                    isScrollingFromClick = true;
-                                    document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    setTimeout(() => { isScrollingFromClick = false; }, 700);
-                                    return;
-                                }
+                        if (isIntersecting && isSelectingHalfPizza) {
+                            // Se a primeira metade NÃO é promocional e tentou-se rolar para a categoria promocional
+                            if (category.toLowerCase() === 'promocionais' && !isFirstHalfPromotional) {
+                                showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
+                                isScrollingFromClick = true;
+                                document.getElementById(`${firstHalfPizza.category}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                setTimeout(() => { isScrollingFromClick = false; }, 700);
+                                return;
+                            }
+                            // Se a primeira metade É promocional e tentou-se rolar para uma categoria não promocional
+                            if (category.toLowerCase() !== 'promocionais' && isFirstHalfPromotional) {
+                                showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
+                                isScrollingFromClick = true;
+                                document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                setTimeout(() => { isScrollingFromClick = false; }, 700);
+                                return;
                             }
                         }
                     });
@@ -2697,6 +2683,7 @@
             cartButton.addEventListener('click', toggleOrderSidebar);
             closeSidebarBtn.addEventListener('click', closeOrderSidebar);
             backToMenuBtn.addEventListener('click', backToMenu);
+
             checkoutButton.addEventListener('click', handleCheckoutFlow);
 
             orderItemsContainer.addEventListener('click', function(event) {
