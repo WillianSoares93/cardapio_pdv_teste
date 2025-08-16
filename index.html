@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2438,7 +2439,6 @@
                 addressInputModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
                 clientNameInput.value = selectedAddress.clientName || '';
-                phoneInput.value = selectedAddress.phone || '';
                 if (selectedAddress.bairro) {
                     neighborhoodSelect.value = selectedAddress.bairro;
                 } else {
@@ -2474,8 +2474,7 @@
             function showAddressSummary() {
                 if (selectedAddress.bairro) {
                     addressSummarySection.classList.remove('hidden');
-                    clientNameDisplay.textContent = `Nome: ${selectedAddress.clientName || 'Não informado'}`;
-                    clientPhoneDisplay.textContent = `Telefone: ${selectedAddress.phone || 'Não informado'}`;
+                    clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName || 'Não informado'}`;
                     addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
                     neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
                     referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
@@ -2487,7 +2486,6 @@
             function hideAddressSummary() {
                 addressSummarySection.classList.add('hidden');
                 clientNameDisplay.textContent = '';
-                clientPhoneDisplay.textContent = '';
                 addressDisplay.textContent = '';
                 neighborhoodDisplay.textContent = '';
                 referenceDisplay.textContent = '';
@@ -2496,8 +2494,7 @@
             function updateAddressDisplay() {
                 if (selectedAddress.bairro && selectedAddress.rua) {
                     addressSummarySection.classList.remove('hidden');
-                    clientNameDisplay.textContent = `Nome: ${selectedAddress.clientName || 'Não informado'}`;
-                    clientPhoneDisplay.textContent = `Telefone: ${selectedAddress.phone || 'Não informado'}`;
+                    clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName || 'Não informado'}`;
                     addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
                     neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
                     referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
