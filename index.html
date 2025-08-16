@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -858,6 +857,7 @@ teste
             let isCheckoutInitiated = false; 
             let discountPromotion = null;
             let contactInfo = {};
+            let isMenuLoaded = false;
             
             let selectedAddress = {
                 clientName: null, 
@@ -2655,8 +2655,13 @@ teste
                         window.dispatchEvent(new Event('scroll'));
                     }, 100);
 
+                    isMenuLoaded = true;
+
                 } catch (error) {
-                    showMessageModal('Não foi possível carregar o cardápio no momento. Por favor, tente novamente mais tarde.');
+                    console.error("Erro ao carregar o cardápio:", error);
+                    if (!isMenuLoaded) {
+                        showMessageModal('Não foi possível carregar o cardápio no momento. Por favor, tente novamente mais tarde.');
+                    }
                 }
             }
 
