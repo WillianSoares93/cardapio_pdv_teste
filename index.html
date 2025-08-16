@@ -2012,7 +2012,8 @@
                     body: JSON.stringify({
                         order: order,
                         selectedAddress: selectedAddress,
-                        total: totalData
+                        total: totalData,
+                        paymentMethod: selectedPaymentMethod
                     }),
                 })
                 .then(response => response.json())
