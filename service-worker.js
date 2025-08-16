@@ -1,5 +1,5 @@
 // O nome do cache. Mude este valor sempre que atualizar os arquivos.
-const CACHE_NAME = 'teste-v5'; // Um novo nome de cache para forçar a atualização
+const CACHE_NAME = 'teste-v6'; // Um novo nome de cache para forçar a atualização
 
 // Lista de arquivos a serem armazenados em cache.
 const urlsToCache = [
