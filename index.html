@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1329,7 +1328,18 @@ teste
                                     <span class="flex-grow">${ingredient.name}</span>
                                     <span class="price ml-2">${priceDisplay}</span>
                                 `;
-                                label.querySelector('input').addEventListener('change', () => {
+                                label.querySelector('input').addEventListener('change', (e) => {
+                                    const categoryDiv = e.target.closest('.ingredient-category');
+                                    const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                                    let currentCategoryQuantity = 0;
+                                    categoryDiv.querySelectorAll('input:checked').forEach(() => currentCategoryQuantity++);
+                                    
+                                    if(currentCategoryQuantity > categoryLimit) {
+                                        e.target.checked = false;
+                                        showMessageModal(`Você pode escolher no máximo ${categoryLimit} item(ns) para esta categoria.`);
+                                        return;
+                                    }
+
                                     document.querySelectorAll(`input[name="${inputName}"]`).forEach(el => {
                                         el.closest('.ingredient-option').classList.remove('selected');
                                     });
@@ -2535,10 +2545,14 @@ teste
 
                     const categoryDiv = container.closest('.ingredient-category');
                     const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                    let currentCategoryQuantity = 0;
                     
+                    // CORREÇÃO: Lógica de contagem da categoria
+                    let currentCategoryQuantity = 0;
                     categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
                         currentCategoryQuantity += parseInt(display.textContent);
+                    });
+                    categoryDiv.querySelectorAll('input:checked').forEach(() => {
+                        currentCategoryQuantity++;
                     });
                     
                     if (isPlus) {
