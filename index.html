@@ -844,8 +844,27 @@
         </div>
     </footer>
 
-    <script>
+    <!-- SCRIPTS -->
+    <script type="module">
+        // Importa as funções do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
         document.addEventListener('DOMContentLoaded', function() {
+            // --- INÍCIO DA CONFIGURAÇÃO DO FIREBASE ---
+            const firebaseConfig = {
+                apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+                authDomain: "pizzaria-pdv.firebaseapp.com",
+                projectId: "pizzaria-pdv",
+                storageBucket: "pizzaria-pdv.appspot.com",
+                messagingSenderId: "304171744691",
+                appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+            };
+
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            // --- FIM DA CONFIGURAÇÃO DO FIREBASE ---
+
             let order = [];
             let allMenuData = [];
             let allPromotionsData = [];
@@ -869,12 +888,12 @@
             };
 
             const defaultImage = 'https://www.bakelitsul.com.br/Assets/img/sem-produto-detalhe.png';
-            const CONTACT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJeo2AAETdXC08x9EQlkIG1FiVLEosMng4IvaQYJAdZnIDHJw8CT8J5RAJNtJ5GWHOKHkUsd5V8OSL/pub?gid=2043568216&single=true&output=csv';
-
+            
             const orderSidebar = document.getElementById('orderSidebar');
             const cartCount = document.getElementById('cartCount');
             const orderItemsContainer = document.getElementById('orderItems');
             const emptyOrderMessage = document.getElementById('emptyOrderMessage');
+            // ... (restante das suas constantes de elementos)
             const messageModal = document.getElementById('message-modal');
             const closeMessageModalBtn = document.getElementById('close-message-modal');
             const okMessageModalBtn = document.getElementById('ok-message-modal');
@@ -960,6 +979,7 @@
                 { slices: 8, label: '8 Fatias', priceKey: 'basePrice' } 
             ];
             
+            // ... (todas as suas funções existentes como toggleOrderSidebar, showMessageModal, etc., permanecem aqui)
             function toggleOrderSidebar() {
                 orderSidebar.classList.toggle('translate-x-full');
                 orderSidebar.classList.toggle('translate-x-0');
@@ -1032,303 +1052,46 @@
                 }
             }
 
-            function getGenericPizzaSliceImage() {
-                return ''; 
-            }
+            // --- NOVA FUNÇÃO PARA ATUALIZAR A UI EM TEMPO REAL ---
+            function updateItemsAvailability(unavailableItems = {}) {
+                // Itera sobre todos os botões de adicionar item na página
+                document.querySelectorAll('.add-item-btn').forEach(button => {
+                    const itemId = button.dataset.itemId;
+                    const isUnavailable = unavailableItems[itemId] === false;
+                    const card = button.closest('.flavor-card');
 
-            function parseCsvData(csvText, type) {
-                const lines = csvText.split('\n').filter(line => line.trim() !== '');
-
-                if (lines.length === 0) {
-                    return [];
-                }
-
-                function parseCsvLine(line) {
-                    const values = [];
-                    let inQuote = false;
-                    let currentField = '';
-                    for (let i = 0; i < line.length; i++) {
-                        const char = line[i];
-                        if (char === '"') {
-                            if (inQuote && i + 1 < line.length && line[i + 1] === '"') {
-                                currentField += '"';
-                                i++;
-                            } else {
-                                inQuote = !inQuote;
-                            }
-                        } else if (char === ',' && !inQuote) {
-                            values.push(currentField);
-                            currentField = '';
-                        } else {
-                            currentField += char;
+                    if (isUnavailable) {
+                        button.disabled = true;
+                        button.textContent = 'Esgotado';
+                        button.classList.remove('bg-red-600', 'hover:bg-red-700');
+                        button.classList.add('bg-gray-400', 'cursor-not-allowed');
+                        if (card) {
+                            card.classList.add('opacity-60');
                         }
-                    }
-                    values.push(currentField);
-                    return values.map(v => {
-                        if (v === undefined || v === null) return '';
-                        let processed = v;
-                        if (processed.startsWith('"') && processed.endsWith('"')) {
-                            processed = processed.substring(1, processed.length - 1);
-                        }
-                        return processed.replace(/""/g, '"').trim();
-                    });
-                }
-
-                const headersRaw = parseCsvLine(lines[0]);
-                const mappedHeaders = headersRaw.map(header => {
-                    let cleanedHeader = header.trim();
-                    switch (cleanedHeader) {
-                        case 'ID Item (único)': return 'id';
-                        case 'Nome do Item': return 'name';
-                        case 'Descrição': return 'description';
-                        case 'Preço 8 fatias': return 'basePrice';
-                        case 'Preço 6 fatias': return 'price6Slices';
-                        case 'Preço 4 fatias': return 'price4Slices';
-                        case 'Categoria': return 'category';
-                        case 'É Pizza? (SIM/NÃO)': return 'isPizza';
-                        case 'É Montável? (SIM/NAO)': return 'isCustomizable';
-                        case 'Disponível (SIM/NÃO)': return 'available'; 
-                        case 'Imagem': return 'imageUrl'; 
-                        case 'ID Promocao': return 'id';
-                        case 'Nome da Promocao': return 'name';
-                        case 'Preco Promocional': return 'promoPrice';
-                        case 'ID Item Aplicavel': return 'itemId';
-                        case 'Ativo (SIM/NAO)': return 'active';
-                        case 'Bairros': return 'neighborhood';
-                        case 'Valor Frete': return 'deliveryFee';
-                        case 'ID Intem': return 'id';
-                        case 'Ingredientes': return 'name';
-                        case 'Preço': return 'price';
-                        case 'Seleção Única': return 'isSingleChoice';
-                        case 'Limite': return 'limit';
-                        case 'É Obrigatório?(SIM/NÃO)': return 'isRequired';
-                        case 'Disponível': return 'available'; 
-                        case 'Dados': return 'data';
-                        case 'Valor': return 'value';
-                        default: 
-                            if (cleanedHeader.includes('É Montável')) {
-                                return 'isCustomizable';
+                    } else {
+                        // Devolve o botão ao seu estado normal
+                        const item = allMenuData.find(i => i.id === itemId);
+                        if (item) {
+                            button.disabled = false;
+                            button.textContent = item.isCustomizable ? 'Montar' : 'Adicionar';
+                            button.classList.add('bg-red-600', 'hover:bg-red-700');
+                            button.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                            if (card) {
+                                card.classList.remove('opacity-60');
                             }
-                            return cleanedHeader.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
+                        }
                     }
                 });
-                
-                const parsedData = [];
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i];
-                    const rowValues = parseCsvLine(line);
-                    if (rowValues.length === mappedHeaders.length) {
-                        let item = {};
-                        for (let j = 0; j < mappedHeaders.length; j++) {
-                            let headerKey = mappedHeaders[j];
-                            let value = rowValues[j];
-                            
-                            if (['neighborhood', 'name', 'category', 'data'].includes(headerKey) && (value === undefined || value === null || value.trim() === '')) {
-                                value = '';
-                            }
-                            if (['basePrice', 'price6Slices', 'price4Slices', 'promoPrice', 'deliveryFee', 'price'].includes(headerKey)) {
-                                const parsedValue = parseFloat(String(value).replace(',', '.'));
-                                item[headerKey] = isNaN(parsedValue) ? 0 : parsedValue;
-                            } else if (headerKey === 'limit') {
-                                const parsedValue = parseInt(value, 10);
-                                item[headerKey] = isNaN(parsedValue) ? Infinity : parsedValue;
-                            }
-                            else if (['isPizza', 'available', 'active', 'isCustomizable', 'isSingleChoice', 'isRequired'].includes(headerKey)) {
-                                item[headerKey] = value.toUpperCase() === 'SIM' || value.toUpperCase() === 'SIM\r';
-                            } else {
-                                item[headerKey] = value;
-                            }
-                        }
-                        if (type === 'cardapio') {
-                            item.imageUrl = (String(item.imageUrl || '').trim());
-                        }
-
-                        if ((type === 'cardapio' && item.available) || (type === 'promocoes' && item.active) || type === 'deliveryFees' || (type === 'ingredientesHamburguer' && item.available) || (type === 'contact')) {
-                            parsedData.push(item);
-                        }
-                    }
-                }
-                return parsedData;
             }
 
-            function openBurgerBuilderModal(baseBurgerItem) {
-                burgerIngredientsContainer.innerHTML = '';
-                burgerBuilderModal.dataset.basePrice = baseBurgerItem.basePrice;
-                
-                for (const category in allBurgerIngredients) {
-                    const ingredients = allBurgerIngredients[category];
-                    if (ingredients.length > 0) {
-                        const firstIngredient = ingredients[0];
-                        const isSingleChoice = firstIngredient.isSingleChoice;
-                        const limit = firstIngredient.limit || Infinity;
-                        const isRequired = firstIngredient.isRequired || false;
-                        
-                        const categoryDiv = document.createElement('div');
-                        categoryDiv.className = 'ingredient-category';
-                        
-                        let categoryTitle = capitalizeFirstLetter(category);
-                        if (isRequired) {
-                            categoryTitle += ' (Obrigatório)';
-                        } else if (!isSingleChoice && limit !== Infinity && limit > 1) {
-                            categoryTitle += ` (Escolha até ${limit})`;
-                        } else if (!isSingleChoice && limit === 1) {
-                            categoryTitle += ` (Escolha 1)`;
-                        } else if (isSingleChoice) {
-                             categoryTitle += ` (Escolha 1)`;
-                        }
-
-                        categoryDiv.innerHTML = `<h4>${categoryTitle}</h4>`;
-                        
-                        ingredients.forEach(ingredient => {
-                            const inputType = isSingleChoice ? 'radio' : 'checkbox';
-                            const inputName = isSingleChoice ? category : `multiple-${category}`;
-                            const priceDisplay = ingredient.price > 0 ? `+ R$ ${ingredient.price.toFixed(2).replace('.', ',')}` : '';
-                            
-                            const label = document.createElement('label');
-                            label.className = 'ingredient-option';
-                            
-                            const input = document.createElement('input');
-                            input.type = inputType;
-                            input.id = `${inputName}-${ingredient.id}`;
-                            input.name = inputName;
-                            input.value = ingredient.id;
-                            input.dataset.price = ingredient.price;
-                            input.classList.add('form-radio');
-
-                            const textSpan = document.createElement('span');
-                            textSpan.className = "flex-grow";
-                            textSpan.textContent = ingredient.name;
-                            
-                            const priceSpan = document.createElement('span');
-                            priceSpan.className = "price ml-2 whitespace-nowrap text-right";
-                            priceSpan.textContent = priceDisplay;
-
-                            label.appendChild(input);
-                            label.appendChild(textSpan);
-                            label.appendChild(priceSpan);
-                            
-                            input.addEventListener('change', (e) => {
-                                const currentInput = e.target;
-                                const currentLabel = currentInput.closest('.ingredient-option');
-                                const currentCategory = currentInput.name.replace('multiple-', '');
-                                const isCurrentSingleChoice = allBurgerIngredients[currentCategory][0]?.isSingleChoice;
-                                const limit = allBurgerIngredients[currentCategory][0]?.limit || Infinity;
-                                
-                                if (isCurrentSingleChoice) {
-                                    document.querySelectorAll(`input[name="${currentCategory}"]`).forEach(el => {
-                                        el.closest('.ingredient-option').classList.remove('selected');
-                                    });
-                                }
-                                if (currentInput.checked) {
-                                    currentLabel.classList.add('selected');
-                                } else {
-                                    currentLabel.classList.remove('selected');
-                                }
-                                
-                                if (!isSingleChoice && limit !== Infinity) {
-                                    const checkedCount = document.querySelectorAll(`input[name="${e.target.name}"]:checked`).length;
-                                    if (checkedCount > limit) {
-                                        e.target.checked = false;
-                                        e.target.closest('.ingredient-option').classList.remove('selected');
-                                        showMessageModal(`Você pode escolher no máximo ${limit} item(s) da categoria "${capitalizeFirstLetter(currentCategory)}".`);
-                                    }
-                                }
-                                
-                                updateBurgerPrice();
-                            });
-
-                            categoryDiv.appendChild(label);
-                        });
-                        burgerIngredientsContainer.appendChild(categoryDiv);
-                    }
-                }
-                
-                burgerTotalPriceEl.textContent = 'R$ ' + baseBurgerItem.basePrice.toFixed(2).replace('.', ',');
-                
-                addCustomBurgerBtn.onclick = () => addCustomBurgerToOrder(baseBurgerItem);
-                
-                burgerBuilderModal.style.display = 'flex';
-                updatePromotionButtonVisibility();
-            }
-            
-            function updateBurgerPrice() {
-                let total = parseFloat(burgerBuilderModal.dataset.basePrice) || 0;
-                
-                for (const category in allBurgerIngredients) {
-                    const ingredients = allBurgerIngredients[category];
-                    const isSingleChoice = ingredients[0]?.isSingleChoice;
-                    
-                    if (isSingleChoice) {
-                        const selectedRadio = document.querySelector(`input[name="${category}"]:checked`);
-                        if (selectedRadio) {
-                            total += parseFloat(selectedRadio.dataset.price);
-                        }
-                    } else {
-                        document.querySelectorAll(`input[name="multiple-${category}"]:checked`).forEach(checkbox => {
-                            total += parseFloat(checkbox.dataset.price);
-                        });
-                    }
-                }
-                
-                burgerTotalPriceEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
-            }
-
-            function addCustomBurgerToOrder(baseBurgerItem) {
-                const selectedIngredients = [];
-                let total = baseBurgerItem.basePrice;
-                
-                let allRequiredCategoriesFilled = true;
-
-                for (const category in allBurgerIngredients) {
-                    const ingredients = allBurgerIngredients[category];
-                    const firstIngredient = ingredients[0];
-                    const isSingleChoice = firstIngredient?.isSingleChoice;
-                    const isRequired = firstIngredient?.isRequired || false;
-
-                    if (isRequired) {
-                        const selectedInputs = document.querySelectorAll(`input[name="${isSingleChoice ? category : `multiple-${category}`}"]:checked`);
-                        if (selectedInputs.length === 0) {
-                            showMessageModal(`Por favor, escolha uma opção na categoria "${capitalizeFirstLetter(category)}".`);
-                            allRequiredCategoriesFilled = false;
-                            break;
-                        }
-                    }
-
-                    if (isSingleChoice) {
-                        const selectedInput = document.querySelector(`input[name="${category}"]:checked`);
-                        if (selectedInput) {
-                            const ingredient = ingredients.find(ing => ing.id === selectedInput.value);
-                            if (ingredient) {
-                                selectedIngredients.push({ name: ingredient.name, category: ingredient.category });
-                                total += ingredient.price;
-                            }
-                        }
-                    } else {
-                        document.querySelectorAll(`input[name="multiple-${category}"]:checked`).forEach(input => {
-                            const ingredient = ingredients.find(ing => ing.id === input.value);
-                            if (ingredient) {
-                                selectedIngredients.push({ name: ingredient.name, category: ingredient.category });
-                                total += ingredient.price;
-                            }
-                        });
-                    }
-                }
-                
-                if (!allRequiredCategoriesFilled) {
-                    return;
-                }
-
-                addToOrder({
-                    type: 'custom_burger',
-                    name: 'Hambúrguer Personalizado',
-                    price: total,
-                    description: `Monte seu hambúrguer.`,
-                    ingredients: selectedIngredients,
-                    category: baseBurgerItem.category
-                }, addCustomBurgerBtn);
-                
-                burgerBuilderModal.style.display = 'none';
-                updatePromotionButtonVisibility();
+            // --- NOVA FUNÇÃO PARA INICIAR O LISTENER DO FIREBASE ---
+            function listenToItemStatus() {
+                const itemStatusRef = doc(db, "config", "item_status");
+                onSnapshot(itemStatusRef, (doc) => {
+                    console.log("Status dos itens atualizado em tempo real.");
+                    const unavailableItems = doc.exists() ? doc.data() : {};
+                    updateItemsAvailability(unavailableItems);
+                });
             }
 
             function populateMenu(menuItems, orderedCategories) {
@@ -1367,100 +1130,72 @@
 
                     if (itemsByCategory[category]) {
                         itemsByCategory[category].forEach(item => {
-                            if (item.available) { 
-                                let itemHtml = '';
-                                
-                                const trimmedImageUrl = String(item.imageUrl || '').trim();
-                                let imageElement = '';
+                            // A API já envia 'available' corretamente, então não precisamos mais de uma verificação dupla aqui.
+                            // A renderização inicial já será correta.
+                            let itemHtml = '';
+                            const isUnavailable = !item.available;
+                            
+                            const trimmedImageUrl = String(item.imageUrl || '').trim();
+                            let imageElement = '';
 
-                                if (trimmedImageUrl.toLowerCase() === 'sem imagem') {
-                                    imageElement = `<div class="no-image-placeholder">Sem Imagem</div>`;
-                                } else if (trimmedImageUrl.length > 0) {
-                                    imageElement = `<img src="${trimmedImageUrl}" alt="Imagem de ${item.name}" class="w-full h-40 object-cover" onerror="this.onerror=null;this.src='';">`;
-                                } else {
-                                    imageElement = '';
-                                }
+                            if (trimmedImageUrl.toLowerCase() === 'sem imagem') {
+                                imageElement = `<div class="no-image-placeholder">Sem Imagem</div>`;
+                            } else if (trimmedImageUrl.length > 0) {
+                                imageElement = `<img src="${trimmedImageUrl}" alt="Imagem de ${item.name}" class="w-full h-40 object-cover" onerror="this.onerror=null;this.src='';">`;
+                            } else {
+                                imageElement = '';
+                            }
 
-                                if (item.isPizza) {
-                                    let pricesHtml = '';
-                                    if (item.price4Slices > 0) {
-                                        pricesHtml += `
-                                            <div class="text-center px-1">
-                                                <span class="text-xs text-gray-500">4 Fatias</span>
-                                                <p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price4Slices.toFixed(2).replace('.', ',')}</p>
-                                            </div>
-                                        `;
-                                    }
-                                    if (item.price6Slices > 0) {
-                                        pricesHtml += `
-                                            <div class="text-center px-2 border-l border-r border-gray-200">
-                                                <span class="text-xs text-gray-500">6 Fatias</span>
-                                                <p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price6Slices.toFixed(2).replace('.', ',')}</p>
-                                            </div>
-                                        `;
-                                    }
-                                    if (item.basePrice > 0) {
-                                        pricesHtml += `
-                                            <div class="text-center px-1">
-                                                <span class="text-xs text-gray-500">8 Fatias</span>
-                                                <p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</p>
-                                            </div>
-                                        `;
-                                    }
+                            const cardOpacityClass = isUnavailable ? 'opacity-60' : '';
+                            const buttonDisabledAttr = isUnavailable ? 'disabled' : '';
+                            const buttonText = isUnavailable ? 'Esgotado' : (item.isCustomizable ? 'Montar' : 'Adicionar');
+                            const buttonClasses = isUnavailable
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-red-600 hover:bg-red-700';
 
-                                    itemHtml = `
-                                        <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg flex flex-col">
-                                            ${imageElement}
-                                            <div class="p-6 flex flex-col flex-grow">
-                                                <h3 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h3>
-                                                <p class="text-gray-600 text-sm mb-4 flex-grow">${item.description}</p>
-                                                
-                                                <div class="mt-auto pt-4 border-t border-gray-100">
-                                                    <div class="flex justify-between items-center">
-                                                        <div class="flex space-x-1 items-baseline">
-                                                            ${pricesHtml}
-                                                        </div>
-                                                        <button class="add-item-btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300 flex-shrink-0"
-                                                                data-item-id="${item.id}" data-image-url="${trimmedImageUrl}">
-                                                            Adicionar
-                                                        </button>
-                                                    </div>
+                            if (item.isPizza) {
+                                let pricesHtml = '';
+                                if (item.price4Slices > 0) pricesHtml += `<div class="text-center px-1"><span class="text-xs text-gray-500">4 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price4Slices.toFixed(2).replace('.', ',')}</p></div>`;
+                                if (item.price6Slices > 0) pricesHtml += `<div class="text-center px-2 border-l border-r border-gray-200"><span class="text-xs text-gray-500">6 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price6Slices.toFixed(2).replace('.', ',')}</p></div>`;
+                                if (item.basePrice > 0) pricesHtml += `<div class="text-center px-1"><span class="text-xs text-gray-500">8 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</p></div>`;
+
+                                itemHtml = `
+                                    <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg flex flex-col ${cardOpacityClass}">
+                                        ${imageElement}
+                                        <div class="p-6 flex flex-col flex-grow">
+                                            <h3 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h3>
+                                            <p class="text-gray-600 text-sm mb-4 flex-grow">${item.description}</p>
+                                            <div class="mt-auto pt-4 border-t border-gray-100">
+                                                <div class="flex justify-between items-center">
+                                                    <div class="flex space-x-1 items-baseline">${pricesHtml}</div>
+                                                    <button class="add-item-btn ${buttonClasses} text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300 flex-shrink-0"
+                                                            data-item-id="${item.id}" data-image-url="${trimmedImageUrl}" ${buttonDisabledAttr}>
+                                                        ${buttonText}
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
-                                    `;
-                                } else {
-                                    let imageElement = '';
-                                    const trimmedImageUrl = String(item.imageUrl || '').trim();
-                                    if (trimmedImageUrl.toLowerCase() === 'sem imagem') {
-                                        imageElement = `<div class="no-image-placeholder">Sem Imagem</div>`;
-                                    } else if (trimmedImageUrl.length > 0) {
-                                        imageElement = `<img src="${trimmedImageUrl}" alt="${item.name}" class="w-full h-40 object-cover" onerror="this.onerror=null;this.src='';">`;
-                                    } else {
-                                        imageElement = '';
-                                    }
-                                    
-                                    const buttonText = item.isCustomizable ? 'Montar' : 'Adicionar';
-
-                                    itemHtml = `
-                                        <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg">
-                                            ${imageElement}
-                                            <div class="p-6">
+                                    </div>
+                                `;
+                            } else {
+                                itemHtml = `
+                                    <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg ${cardOpacityClass}">
+                                        ${imageElement}
+                                        <div class="p-6">
                                             <h3 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h3>
                                             <p class="text-gray-600 text-sm mb-4">${item.description}</p>
                                             <div class="flex justify-between items-center">
                                                 <span class="font-bold text-red-600 text-lg">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</span>
-                                                <button class="add-item-btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300"
-                                                data-item-id="${item.id}">
+                                                <button class="add-item-btn ${buttonClasses} text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300"
+                                                        data-item-id="${item.id}" ${buttonDisabledAttr}>
                                                     ${buttonText}
                                                 </button>
                                             </div>
                                         </div>
                                     </div>										
-                                    `;
-                                }
-                                categoryItemsEl.insertAdjacentHTML('beforeend', itemHtml);
+                                `;
                             }
+                            categoryItemsEl.insertAdjacentHTML('beforeend', itemHtml);
                         });
                     }
                 });
@@ -1468,6 +1203,68 @@
                 attachAddButtonListeners();
             }
 
+            async function loadMenuAndRender() {
+                try {
+                    const response = await fetch('/api/menu'); 
+                    if (!response.ok) throw new Error(`Erro ao buscar dados da API: ${response.statusText}`);
+                    
+                    const data = await response.json(); 
+                    
+                    // ATUALIZAÇÃO: Agora recebemos JSON diretamente, não precisamos mais do parseCsvData aqui.
+                    allMenuData = data.cardapio;
+                    allPromotionsData = data.promocoes;
+                    deliveryFeesData = data.deliveryFees;
+                    
+                    const rawBurgerIngredients = data.ingredientesHamburguer;
+                    allBurgerIngredients = rawBurgerIngredients.reduce((acc, current) => {
+                        if (!acc[current.category]) acc[current.category] = [];
+                        acc[current.category].push(current);
+                        return acc;
+                    }, {});
+
+                    contactInfo = data.contact.reduce((acc, curr) => {
+                        if (curr.data && curr.value) acc[curr.data.toLowerCase().replace(/[^a-z0-9]/g, '')] = curr.value;
+                        return acc;
+                    }, {});
+                    
+                    discountPromotion = allPromotionsData.find(promo => promo.name === 'Desconto no Pedido' && promo.active);
+
+                    let orderedUniqueCategories = [];
+                    const seenCategories = new Set();
+                    allMenuData.forEach(item => {
+                        if (!seenCategories.has(item.category)) {
+                            seenCategories.add(item.category);
+                            orderedUniqueCategories.push(item.category);
+                        }
+                    });
+                    
+                    createCategoryButtons(orderedUniqueCategories); 
+                    populateMenu(allMenuData, orderedUniqueCategories); 
+                    populateNeighborhoodDropdown(deliveryFeesData); 
+                    populateContactInfo(data.contact);
+                    setupCategoryObserver(); 
+                    updatePromotionButtonVisibility(); 
+                    updateCartCount(); 
+                    updateOrderDisplay(); 
+                    updateCheckoutButtonText(); 
+                    showAddressSummary(); 
+                    
+                    toggleAddItemButtons(true);
+                    toggleCategoryButtons(true);
+                    
+                    // INICIA O LISTENER DO FIREBASE APÓS O CARREGAMENTO INICIAL
+                    listenToItemStatus();
+
+                    setTimeout(() => window.dispatchEvent(new Event('scroll')), 100);
+
+                } catch (error) {
+                    console.error('Erro ao carregar o cardápio:', error);
+                    showMessageModal('Não foi possível carregar o cardápio no momento. Por favor, tente novamente mais tarde.');
+                }
+            }
+
+            // ... (o resto do seu código JavaScript permanece o mesmo)
+            // Lembre-se de remover a função parseCsvData() que estava aqui, pois ela foi movida para a API.
             function capitalizeFirstLetter(string) {
                 return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
             }
@@ -2365,7 +2162,6 @@
                     
                     let newActiveCategory = null;
                     
-                    // Encontra a categoria cuja seção está mais próxima do topo da viewport
                     let closestSection = null;
                     let minDistance = Infinity;
 
@@ -2382,7 +2178,6 @@
                         newActiveCategory = closestSection.id.replace('-section', '');
                     }
                     
-                    // Lógica para o caso de pizzas meio a meio
                     if (isSelectingHalfPizza) {
                         if (isFirstHalfPromotional) {
                             if (newActiveCategory && newActiveCategory.toLowerCase() !== 'promocionais') {
@@ -2492,10 +2287,7 @@
             }
 
             function populateContactInfo(contacts) {
-                const phoneEl = document.getElementById('footer-phone');
-                const emailEl = document.getElementById('footer-email');
                 const socialLinksEl = document.getElementById('social-links-container');
-
                 socialLinksEl.innerHTML = '';
                 
                 const contactData = contacts.reduce((acc, current) => {
@@ -2504,22 +2296,11 @@
                     return acc;
                 }, {});
 
-                if (contactData.telefone) {
-                    phoneEl.textContent = contactData.telefone;
-                }
-                if (contactData.email) {
-                    emailEl.textContent = contactData.email;
-                }
-
-                if (contactData.instagram) {
-                    socialLinksEl.insertAdjacentHTML('beforeend', `<a href="${contactData.instagram}" class="text-gray-400 hover:text-white" target="_blank"><i class="fab fa-instagram text-xl"></i></a>`);
-                }
-                if (contactData.facebook) {
-                    socialLinksEl.insertAdjacentHTML('beforeend', `<a href="${contactData.facebook}" class="text-gray-400 hover:text-white" target="_blank"><i class="fab fa-facebook text-xl"></i></a>`);
-                }
-                if (contactData.whatsapp) {
-                    socialLinksEl.insertAdjacentHTML('beforeend', `<a href="https://wa.me/55${contactData.whatsapp.replace(/\D/g, '')}" class="text-gray-400 hover:text-white" target="_blank"><i class="fab fa-whatsapp text-xl"></i></a>`);
-                }
+                if (contactData.telefone) footerPhone.textContent = contactData.telefone;
+                if (contactData.email) footerEmail.textContent = contactData.email;
+                if (contactData.instagram) socialLinksEl.insertAdjacentHTML('beforeend', `<a href="${contactData.instagram}" class="text-gray-400 hover:text-white" target="_blank"><i class="fab fa-instagram text-xl"></i></a>`);
+                if (contactData.facebook) socialLinksEl.insertAdjacentHTML('beforeend', `<a href="${contactData.facebook}" class="text-gray-400 hover:text-white" target="_blank"><i class="fab fa-facebook text-xl"></i></a>`);
+                if (contactData.whatsapp) socialLinksEl.insertAdjacentHTML('beforeend', `<a href="https://wa.me/55${contactData.whatsapp.replace(/\D/g, '')}" class="text-gray-400 hover:text-white" target="_blank"><i class="fab fa-whatsapp text-xl"></i></a>`);
                 
                 return contactData;
             }
@@ -2580,87 +2361,14 @@
                 return gerarPayload(pixKey, amount, merchantName, merchantCity, txid);
             }
             
-            async function loadMenuAndRender() {
-                try {
-                    const response = await fetch('/api/menu'); 
+            loadMenuAndRender();
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Erro ao buscar dados da API: ${response.statusText || errorText}`);
-                    }
-                    const data = await response.json(); 
-                    
-                    allMenuData = parseCsvData(data.cardapio, 'cardapio');
-                    allPromotionsData = parseCsvData(data.promocoes, 'promocoes');
-                    deliveryFeesData = parseCsvData(data.deliveryFees, 'deliveryFees');
-                    
-                    const rawBurgerIngredients = parseCsvData(data.ingredientesHamburguer, 'ingredientesHamburguer');
-                    allBurgerIngredients = rawBurgerIngredients.reduce((acc, current) => {
-                        if (!acc[current.category]) {
-                            acc[current.category] = [];
-                        }
-                        acc[current.category].push(current);
-                        return acc;
-                    }, {});
-
-                    const parsedContactInfo = parseCsvData(data.contact, 'contact');
-                    contactInfo = parsedContactInfo.reduce((acc, curr) => {
-                        if (curr.data && curr.value) {
-                            acc[curr.data.toLowerCase().replace(/[^a-z0-9]/g, '')] = curr.value;
-                        }
-                        return acc;
-                    }, {});
-                    
-                    discountPromotion = allPromotionsData.find(promo => promo.name === 'Desconto no Pedido' && promo.active);
-
-                    let orderedUniqueCategories = [];
-                    const seenCategories = new Set();
-                    allMenuData.forEach(item => {
-                        if (!seenCategories.has(item.category)) {
-                            seenCategories.add(item.category);
-                            orderedUniqueCategories.push(item.category);
-                        }
-                    });
-                    
-                    createCategoryButtons(orderedUniqueCategories); 
-                    populateMenu(allMenuData, orderedUniqueCategories); 
-                    populateNeighborhoodDropdown(deliveryFeesData); 
-                    populateContactInfo(parsedContactInfo);
-                    setupCategoryObserver(); 
-                    updatePromotionButtonVisibility(); 
-                    updateCartCount(); 
-                    updateOrderDisplay(); 
-                    updateCheckoutButtonText(); 
-                    showAddressSummary(); 
-                    
-                    toggleAddItemButtons(true);
-                    toggleCategoryButtons(true);
-                    
-                    setTimeout(() => {
-                        window.dispatchEvent(new Event('scroll'));
-                    }, 100);
-
-                } catch (error) {
-                    console.error('Erro ao carregar o cardápio:', error);
-                    showMessageModal('Não foi possível carregar o cardápio no momento. Por favor, tente novamente mais tarde.');
-                }
-            }
-
-            function isPwaInstalled() {
-                if (window.matchMedia('(display-mode: standalone)').matches) {
-                    return true;
-                }
-                if (navigator.standalone) {
-                    return true;
-                }
-                return false;
-            }
-
+            // Event Listeners
             cartButton.addEventListener('click', toggleOrderSidebar);
             closeSidebarBtn.addEventListener('click', closeOrderSidebar);
             backToMenuBtn.addEventListener('click', backToMenu);
             checkoutButton.addEventListener('click', handleCheckoutFlow);
-
+            // ... (todos os outros event listeners)
             orderItemsContainer.addEventListener('click', function(event) {
                 const removeButton = event.target.closest('.remove-item-btn');
                 if (removeButton) {
@@ -3003,7 +2711,6 @@
                 }
             });
 
-            loadMenuAndRender();
         });
     </script>
 </body>
