@@ -51,7 +51,7 @@
                 width: 100%;
             }
         }
-        /* NOVOS ESTILOS PARA CARD EXPANSÍVEL */
+        /* Estilos para CARD EXPANSÍVEL */
         .details-container {
             max-height: 0;
             overflow: hidden;
@@ -59,6 +59,14 @@
         }
         .order-card.expanded .details-container {
             max-height: 1500px; /* Um valor alto para garantir que todo o conteúdo caiba */
+        }
+        /* Estilos para o Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #4ade80; /* green-400 */
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #4ade80; /* green-400 */
         }
     </style>
 </head>
@@ -68,6 +76,7 @@
         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
             <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
             <div class="flex items-center space-x-4">
+                <button id="manage-menu-btn" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</button>
                 <button id="clear-finished-btn" class="px-4 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">Limpar Finalizados</button>
                 <div id="connection-status" class="text-sm font-medium text-gray-500">
                     <i class="fas fa-circle text-red-500 mr-2"></i>Conectando...
@@ -76,7 +85,6 @@
         </div>
     </header>
 
-    <!-- Dashboard de Vendas -->
     <div class="bg-gray-800 text-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center py-4">
@@ -130,6 +138,17 @@
         </div>
     </main>
 
+    <div id="menu-management-modal" class="modal">
+        <div class="modal-content !max-w-3xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Gerenciar Disponibilidade de Itens</h2>
+                <button id="close-menu-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="menu-items-container" class="space-y-2 max-h-96 overflow-y-auto">
+                </div>
+        </div>
+    </div>
+
     <div id="edit-order-modal" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
@@ -154,7 +173,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc, query, orderBy, where, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc, query, orderBy, where, writeBatch, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -180,6 +199,10 @@
         const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
         const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
         const clearFinishedBtn = document.getElementById('clear-finished-btn');
+        const manageMenuBtn = document.getElementById('manage-menu-btn');
+        const menuManagementModal = document.getElementById('menu-management-modal');
+        const closeMenuModalBtn = document.getElementById('close-menu-modal');
+        const menuItemsContainer = document.getElementById('menu-items-container');
 
         let orderIdToDelete = null;
 
@@ -457,7 +480,6 @@
                             </div>
                         `;
                     } else { // client receipt
-                        // INÍCIO DA ALTERAÇÃO: Adicionar informações de pagamento
                         let paymentDetailsHtml = '';
                         if (order.pagamento) {
                             let paymentText = '';
@@ -478,7 +500,6 @@
                                 </div>
                             `;
                         }
-                        // FIM DA ALTERAÇÃO
 
                         printContent = `
                             <div style="font-family: monospace; padding: 20px;">
@@ -525,8 +546,77 @@
             await batch.commit();
         }
 
+        // --- NOVA LÓGICA PARA GERENCIAR O CARDÁPIO ---
+        async function openMenuManagementModal() {
+            menuItemsContainer.innerHTML = '<p>Carregando cardápio...</p>';
+            menuManagementModal.style.display = 'flex';
+
+            try {
+                // Usamos a mesma API que o cliente usa para garantir consistência
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Falha ao carregar o cardápio');
+                
+                const data = await response.json();
+                
+                // Simples parser de CSV para obter os itens
+                const lines = data.cardapio.split('\n').slice(1);
+                const allItems = lines.map(line => {
+                    const columns = line.split(',');
+                    return { id: columns[0], name: columns[1], category: columns[6] };
+                }).filter(item => item.id && item.name);
+
+                const itemStatusRef = doc(db, "config", "item_status");
+                const itemStatusSnap = await getDoc(itemStatusRef);
+                const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
+
+                menuItemsContainer.innerHTML = '';
+                allItems.forEach(item => {
+                    const isChecked = !unavailableItems[item.id];
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+                    itemElement.innerHTML = `
+                        <div>
+                            <span class="font-medium">${item.name}</span>
+                            <span class="text-xs text-gray-500 ml-2">${item.category}</span>
+                        </div>
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggle" id="toggle-${item.id}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" 
+                                   data-item-id="${item.id}" ${isChecked ? 'checked' : ''}/>
+                            <label for="toggle-${item.id}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    `;
+                    menuItemsContainer.appendChild(itemElement);
+
+                    itemElement.querySelector('.toggle-checkbox').addEventListener('change', async (e) => {
+                        const itemId = e.target.dataset.itemId;
+                        const available = e.target.checked;
+                        
+                        const currentStatusSnap = await getDoc(itemStatusRef);
+                        const currentStatus = currentStatusSnap.exists() ? currentStatusSnap.data() : {};
+
+                        if (available) {
+                            delete currentStatus[itemId]; // Remove da lista de indisponíveis
+                        } else {
+                            currentStatus[itemId] = false; // Adiciona à lista de indisponíveis
+                        }
+
+                        await setDoc(itemStatusRef, currentStatus);
+                    });
+                });
+
+            } catch (error) {
+                menuItemsContainer.innerHTML = `<p class="text-red-500">Erro ao carregar cardápio: ${error.message}</p>`;
+            }
+        }
+
+        manageMenuBtn.addEventListener('click', openMenuManagementModal);
+        closeMenuModalBtn.addEventListener('click', () => {
+            menuManagementModal.style.display = 'none';
+        });
+        // --- FIM DA NOVA LÓGICA ---
+
+
         document.querySelector('main').addEventListener('click', function(e) {
-            // Lógica para botões dentro dos detalhes do card
             const moveBtn = e.target.closest('.move-btn');
             const manageBtn = e.target.closest('.manage-btn');
             const printBtn = e.target.closest('.print-btn');
@@ -546,12 +636,10 @@
                 printOrder(orderId, printType);
             }
 
-            // Lógica para expandir/recolher o card
             const cardHeader = e.target.closest('.card-header');
             if (cardHeader) {
                 const card = cardHeader.closest('.order-card');
                 if (card) {
-                    // Previne que o card expanda/recolha se o clique foi em um botão dentro do cabeçalho (caso exista no futuro)
                     if (!e.target.closest('button, a')) {
                         card.classList.toggle('expanded');
                     }
