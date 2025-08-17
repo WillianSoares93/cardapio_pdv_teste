@@ -1,6 +1,6 @@
 // Este arquivo é uma função Serverless para o Vercel.
-// Ele foi atualizado para buscar o status de disponibilidade dos itens do Firebase
-// e combiná-lo com os dados da planilha antes de enviar ao front-end.
+// Ele foi atualizado com um leitor de CSV mais robusto para evitar
+// erros quando os campos (como a descrição) contêm vírgulas.
 
 import fetch from 'node-fetch';
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -33,14 +33,41 @@ const DELIVERY_FEES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1v
 const INGREDIENTES_HAMBURGUER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJeo2AAETdXC08x9EQlkIG1FiVLEosMng4IvaQYJAdZnIDHJw8CT8J5RAJNtJ5GWHOKHkUsd5V8OSL/pub?gid=1816106560&single=true&output=csv';
 const CONTACT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJeo2AAETdXC08x9EQlkIG1FiVLEosMng4IvaQYJAdZnIDHJw8CT8J5RAJNtJ5GWHOKHkUsd5V8OSL/pub?gid=2043568216&single=true&output=csv';
 
-// Função para parsear os dados do CSV para JSON (movida do front-end para cá)
+// Leitor de linha CSV robusto que lida com vírgulas dentro de aspas
+function parseCsvLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++; // Pula a próxima aspa (escapada)
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            // Ignora o caractere de retorno de carro
+            if (char !== '\r') {
+               current += char;
+            }
+        }
+    }
+    values.push(current.trim());
+    return values;
+}
+
+// Função principal para converter texto CSV em um array de objetos JSON
 function parseCsvData(csvText) {
     const lines = csvText.split('\n').filter(line => line.trim() !== '');
-    if (lines.length === 0) return [];
+    if (lines.length < 2) return [];
 
-    const headersRaw = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const headersRaw = parseCsvLine(lines[0]);
     const mappedHeaders = headersRaw.map(header => {
-        // Mapeamento de cabeçalhos para nomes de chaves consistentes
         const headerMapping = {
             'id item (único)': 'id', 'nome do item': 'name', 'descrição': 'description',
             'preço 8 fatias': 'basePrice', 'preço 6 fatias': 'price6Slices', 'preço 4 fatias': 'price4Slices',
@@ -52,12 +79,13 @@ function parseCsvData(csvText) {
             'limite': 'limit', 'é obrigatório?(sim/não)': 'isRequired', 'disponível': 'available',
             'dados': 'data', 'valor': 'value'
         };
-        return headerMapping[header] || header.replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
+        const cleanHeader = header.trim().toLowerCase();
+        return headerMapping[cleanHeader] || cleanHeader.replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
     });
 
     const parsedData = [];
     for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+        const values = parseCsvLine(lines[i]);
         if (values.length === mappedHeaders.length) {
             let item = {};
             mappedHeaders.forEach((headerKey, j) => {
@@ -75,7 +103,6 @@ function parseCsvData(csvText) {
     }
     return parsedData;
 }
-
 
 export default async (req, res) => {
     res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate'); 
@@ -101,7 +128,6 @@ export default async (req, res) => {
             fetchData(CONTACT_CSV_URL)
         ]);
 
-        // --- LÓGICA DE ATUALIZAÇÃO ---
         // 1. Parseia o cardápio da planilha
         let cardapioJson = parseCsvData(cardapioCsv);
 
@@ -110,11 +136,9 @@ export default async (req, res) => {
         const itemStatusSnap = await getDoc(itemStatusRef);
         const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
 
-        // 3. Combina as informações
-        // Itera sobre o cardápio e, se um item estiver na lista de indisponíveis do Firebase,
-        // marca ele como `available: false`.
+        // 3. Combina as informações, marcando itens como indisponíveis se necessário
         cardapioJson = cardapioJson.map(item => {
-            if (unavailableItems[item.id] === false) { // Verifica se o ID do item está marcado como indisponível
+            if (unavailableItems[item.id] === false) {
                 return { ...item, available: false };
             }
             return item;
@@ -122,7 +146,7 @@ export default async (req, res) => {
 
         // Envia a resposta de sucesso com os dados já processados em JSON
         res.status(200).json({
-            cardapio: cardapioJson, // Envia o cardápio já em JSON e com a disponibilidade correta
+            cardapio: cardapioJson,
             promocoes: parseCsvData(promocoesCsv),
             deliveryFees: parseCsvData(deliveryFeesCsv),
             ingredientesHamburguer: parseCsvData(ingredientesHamburguerCsv),
