@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -979,7 +980,17 @@
                 { slices: 8, label: '8 Fatias', priceKey: 'basePrice' } 
             ];
             
-            // ... (todas as suas funções existentes como toggleOrderSidebar, showMessageModal, etc., permanecem aqui)
+            // --- FUNÇÃO CORRIGIDA ---
+            function isPwaInstalled() {
+                if (window.matchMedia('(display-mode: standalone)').matches) {
+                    return true;
+                }
+                if (navigator.standalone) {
+                    return true;
+                }
+                return false;
+            }
+            
             function toggleOrderSidebar() {
                 orderSidebar.classList.toggle('translate-x-full');
                 orderSidebar.classList.toggle('translate-x-0');
