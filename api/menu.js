@@ -71,7 +71,7 @@ function parseCsvData(csvText) {
         const headerMapping = {
             'id item (único)': 'id', 'nome do item': 'name', 'descrição': 'description',
             'preço 8 fatias': 'basePrice', 'preço 6 fatias': 'price6Slices', 'preço 4 fatias': 'price4Slices',
-            'categoria': 'category', 'é pizza? (sim/não)': 'isPizza', 'é montável? (sim/nao)': 'isCustomizable',
+            'categoria': 'category', 'é pizza? (sim/não)': 'isPizza', 'é montável? (sim/não)': 'isCustomizable',
             'disponível (sim/não)': 'available', 'imagem': 'imageUrl', 'id promocao': 'id',
             'nome da promocao': 'name', 'preco promocional': 'promoPrice', 'id item aplicavel': 'itemId',
             'ativo (sim/nao)': 'active', 'bairros': 'neighborhood', 'valor frete': 'deliveryFee',
