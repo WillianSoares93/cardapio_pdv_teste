@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -979,7 +980,6 @@
                 { slices: 8, label: '8 Fatias', priceKey: 'basePrice' } 
             ];
             
-            // --- FUNÇÃO CORRIGIDA ---
             function isPwaInstalled() {
                 if (window.matchMedia('(display-mode: standalone)').matches) {
                     return true;
@@ -1062,39 +1062,33 @@
                 }
             }
 
-            // --- NOVA FUNÇÃO PARA ATUALIZAR A UI EM TEMPO REAL ---
+            // --- FUNÇÃO CORRIGIDA ---
             function updateItemsAvailability(unavailableItems = {}) {
-                // Itera sobre todos os botões de adicionar item na página
                 document.querySelectorAll('.add-item-btn').forEach(button => {
                     const itemId = button.dataset.itemId;
                     const isUnavailable = unavailableItems[itemId] === false;
                     const card = button.closest('.flavor-card');
+                    const item = allMenuData.find(i => i.id === itemId);
 
                     if (isUnavailable) {
                         button.disabled = true;
                         button.textContent = 'Esgotado';
                         button.classList.remove('bg-red-600', 'hover:bg-red-700');
                         button.classList.add('bg-gray-400', 'cursor-not-allowed');
-                        if (card) {
-                            card.classList.add('opacity-60');
-                        }
+                        if (card) card.classList.add('opacity-60');
                     } else {
-                        // Devolve o botão ao seu estado normal
-                        const item = allMenuData.find(i => i.id === itemId);
                         if (item) {
                             button.disabled = false;
+                            // CORREÇÃO: Verifica se é customizável para definir o texto do botão
                             button.textContent = item.isCustomizable ? 'Montar' : 'Adicionar';
                             button.classList.add('bg-red-600', 'hover:bg-red-700');
                             button.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                            if (card) {
-                                card.classList.remove('opacity-60');
-                            }
+                            if (card) card.classList.remove('opacity-60');
                         }
                     }
                 });
             }
 
-            // --- NOVA FUNÇÃO PARA INICIAR O LISTENER DO FIREBASE ---
             function listenToItemStatus() {
                 const itemStatusRef = doc(db, "config", "item_status");
                 onSnapshot(itemStatusRef, (doc) => {
@@ -1140,8 +1134,6 @@
 
                     if (itemsByCategory[category]) {
                         itemsByCategory[category].forEach(item => {
-                            // A API já envia 'available' corretamente, então não precisamos mais de uma verificação dupla aqui.
-                            // A renderização inicial já será correta.
                             let itemHtml = '';
                             const isUnavailable = !item.available;
                             
@@ -1220,7 +1212,6 @@
                     
                     const data = await response.json(); 
                     
-                    // ATUALIZAÇÃO: Agora recebemos JSON diretamente, não precisamos mais do parseCsvData aqui.
                     allMenuData = data.cardapio;
                     allPromotionsData = data.promocoes;
                     deliveryFeesData = data.deliveryFees;
@@ -1262,7 +1253,6 @@
                     toggleAddItemButtons(true);
                     toggleCategoryButtons(true);
                     
-                    // INICIA O LISTENER DO FIREBASE APÓS O CARREGAMENTO INICIAL
                     listenToItemStatus();
 
                     setTimeout(() => window.dispatchEvent(new Event('scroll')), 100);
@@ -1273,8 +1263,6 @@
                 }
             }
 
-            // ... (o resto do seu código JavaScript permanece o mesmo)
-            // Lembre-se de remover a função parseCsvData() que estava aqui, pois ela foi movida para a API.
             function capitalizeFirstLetter(string) {
                 return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
             }
