@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2352,8 +2351,8 @@ teste
 
                 const options = {
                     root: null,
-                    rootMargin: `-${stickyHeaderHeight + 1}px 0px -99% 0px`, // A lógica de proximidade do topo é ajustada aqui
-                    threshold: 0 // Dispara sempre que o elemento entra ou sai da área de observação
+                    rootMargin: `-${stickyHeaderHeight + 1}px 0px -99% 0px`, 
+                    threshold: 0 
                 };
 
                 categoryObserver = new IntersectionObserver((entries) => {
@@ -2361,13 +2360,11 @@ teste
 
                     let newActiveCategory = null;
                     let minDistance = Infinity;
-
                     entries.forEach(entry => {
                         if (entry.isIntersecting) {
                             const rect = entry.target.getBoundingClientRect();
                             const distance = rect.top - stickyHeaderHeight;
                             
-                            // Ignora categorias abaixo da linha de detecção
                             if (distance >= 0) {
                                 if (distance < minDistance) {
                                     minDistance = distance;
@@ -2376,8 +2373,7 @@ teste
                             }
                         }
                     });
-
-                    // Fallback para a última categoria quando rolando para o final da página
+                    
                     if (!newActiveCategory && window.innerHeight + window.scrollY >= document.body.offsetHeight - 10) {
                         newActiveCategory = orderedUniqueCategories[orderedUniqueCategories.length - 1];
                     }
@@ -2392,7 +2388,6 @@ teste
                     categoryObserver.observe(section);
                 });
                 
-                // Lógica para aviso de pizza meio a meio (reintegrada)
                 const promoIndex = orderedUniqueCategories.indexOf('promocionais');
                 const previousCategory = promoIndex > 0 ? orderedUniqueCategories[promoIndex - 1] : null;
                 const nextCategory = promoIndex < orderedUniqueCategories.length - 1 ? orderedUniqueCategories[promoIndex + 1] : null;
