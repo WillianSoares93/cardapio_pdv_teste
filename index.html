@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1213,6 +1212,22 @@ teste
                     const data = await response.json(); 
                     
                     allMenuData = data.cardapio;
+
+                    // *** INÍCIO DA CORREÇÃO ***
+                    // Adiciona uma camada de sanitização para corrigir nomes de propriedades que podem vir errados da API
+                    allMenuData.forEach(item => {
+                        for (const key in item) {
+                            // Procura por uma chave que provavelmente deveria ser 'isCustomizable'
+                            if (key.toLowerCase().includes('montavel') || key.toLowerCase().includes('montável')) {
+                                if (key !== 'isCustomizable') { // Evita reatribuir se já estiver correto
+                                    item.isCustomizable = item[key];
+                                    delete item[key];
+                                }
+                            }
+                        }
+                    });
+                    // *** FIM DA CORREÇÃO ***
+
                     allPromotionsData = data.promocoes;
                     deliveryFeesData = data.deliveryFees;
                     
