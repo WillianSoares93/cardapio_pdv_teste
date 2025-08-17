@@ -1,14 +1,12 @@
 // O nome do cache. Mude este valor sempre que atualizar os arquivos para forçar a atualização.
-const CACHE_NAME = 'samia-cardapio-v1.1'; 
+const CACHE_NAME = 'samia-cardapio-v1.2'; 
 
 // Lista de arquivos essenciais a serem armazenados em cache para o funcionamento offline.
+// CORREÇÃO: Removidos os links externos (CDN) que causavam o erro de CORS.
 const urlsToCache = [
   './', // A raiz do diretório, geralmente o index.html
   'index.html',
   'manifest.json',
-  'https://cdn.tailwindcss.com',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap',
   'https://raw.githubusercontent.com/WillianSoares93/cardapio_samia/refs/heads/main/logo.png',
   'https://raw.githubusercontent.com/WillianSoares93/cardapio_samia/refs/heads/main/imagem_fundo_cabe%C3%A7alho.jpg'
 ];
@@ -21,7 +19,13 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Service Worker: Cache aberto. Adicionando arquivos essenciais ao cache.');
-        return cache.addAll(urlsToCache);
+        // Usamos um novo objeto Request com o modo 'no-cors' para os recursos externos
+        const cachePromises = urlsToCache.map(urlToCache => {
+            const request = new Request(urlToCache, { mode: 'no-cors' });
+            return cache.add(request);
+        });
+
+        return Promise.all(cachePromises);
       })
       .then(() => {
         // Força o novo Service Worker a ativar assim que a instalação for concluída.
