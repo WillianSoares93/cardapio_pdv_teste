@@ -1293,9 +1293,7 @@
                         if (isRequired) {
                             categoryTitle += ' (Obrigatório)';
                         } else if (!isSingleChoice && limit !== Infinity && limit > 1) {
-                            categoryTitle += ` (Escolha até ${limit})`;
-                        } else if (!isSingleChoice && limit === 1) {
-                            categoryTitle += ` (Escolha 1)`;
+                            categoryTitle += ` (Escolha até ${limit} variedades)`;
                         } else if (isSingleChoice) {
                              categoryTitle += ` (Escolha 1)`;
                         }
@@ -1331,12 +1329,17 @@
                                 label.querySelector('input').addEventListener('change', (e) => {
                                     const categoryDiv = e.target.closest('.ingredient-category');
                                     const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                                    let currentCategoryQuantity = 0;
-                                    categoryDiv.querySelectorAll('input:checked').forEach(() => currentCategoryQuantity++);
+                                    let distinctItemsCount = 0;
+                                    categoryDiv.querySelectorAll('input:checked').forEach(() => distinctItemsCount++);
+                                    categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
+                                        if (parseInt(display.textContent) > 0) {
+                                            distinctItemsCount++;
+                                        }
+                                    });
                                     
-                                    if(currentCategoryQuantity > categoryLimit) {
+                                    if(distinctItemsCount > categoryLimit) {
                                         e.target.checked = false;
-                                        showMessageModal(`Você pode escolher no máximo ${categoryLimit} item(ns) para esta categoria.`);
+                                        showMessageModal(`Você pode escolher no máximo ${categoryLimit} variedades de ingredientes para esta categoria.`);
                                         return;
                                     }
 
@@ -2546,21 +2549,23 @@
                     const categoryDiv = container.closest('.ingredient-category');
                     const categoryLimit = parseInt(categoryDiv.dataset.limit);
                     
-                    // CORREÇÃO: Lógica de contagem da categoria
-                    let currentCategoryQuantity = 0;
+                    let distinctItemsCount = 0;
                     categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
-                        currentCategoryQuantity += parseInt(display.textContent);
+                        if (parseInt(display.textContent) > 0) {
+                            distinctItemsCount++;
+                        }
                     });
                     categoryDiv.querySelectorAll('input:checked').forEach(() => {
-                        currentCategoryQuantity++;
+                        distinctItemsCount++;
                     });
                     
                     if (isPlus) {
                         if (currentQuantity < ingredientLimit) {
-                            if (currentCategoryQuantity < categoryLimit) {
-                                currentQuantity++;
+                            // Se o item atual ainda não foi adicionado (quantidade 0), verifica se a adição de uma nova variedade excede o limite da categoria.
+                            if (currentQuantity === 0 && distinctItemsCount >= categoryLimit) {
+                                showMessageModal(`Você pode escolher no máximo ${categoryLimit} variedades de ingredientes para esta categoria.`);
                             } else {
-                                showMessageModal(`Você pode escolher no máximo ${categoryLimit} item(ns) para esta categoria.`);
+                                currentQuantity++;
                             }
                         }
                     } else { 
