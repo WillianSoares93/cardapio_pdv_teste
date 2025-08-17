@@ -435,6 +435,29 @@
                             </div>
                         `;
                     } else { // client receipt
+                        // INÍCIO DA ALTERAÇÃO: Adicionar informações de pagamento
+                        let paymentDetailsHtml = '';
+                        if (order.pagamento) {
+                            let paymentText = '';
+                            let changeText = '';
+                            if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                                paymentText = 'Dinheiro';
+                                changeText = `
+                                    <p>Troco para: R$ ${order.pagamento.trocoPara.toFixed(2).replace('.', ',')}</p>
+                                    <p>Troco: R$ ${(order.pagamento.trocoPara - order.total.finalTotal).toFixed(2).replace('.', ',')}</p>
+                                `;
+                            } else {
+                                paymentText = order.pagamento;
+                            }
+                            paymentDetailsHtml = `
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed black;">
+                                    <p style="font-weight: bold;">Forma de Pagamento: ${paymentText}</p>
+                                    ${changeText}
+                                </div>
+                            `;
+                        }
+                        // FIM DA ALTERAÇÃO
+
                         printContent = `
                             <div style="font-family: monospace; padding: 20px;">
                                 <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2>
@@ -452,6 +475,7 @@
                                     <p>Taxa de Entrega: R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</p>
                                     <p style="font-weight: bold; font-size: 18px;">Total: R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</p>
                                 </div>
+                                ${paymentDetailsHtml}
                             </div>
                         `;
                     }
