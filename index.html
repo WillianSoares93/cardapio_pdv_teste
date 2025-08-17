@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1213,20 +1214,16 @@
                     
                     allMenuData = data.cardapio;
 
-                    // *** INÍCIO DA CORREÇÃO ***
-                    // Adiciona uma camada de sanitização para corrigir nomes de propriedades que podem vir errados da API
                     allMenuData.forEach(item => {
                         for (const key in item) {
-                            // Procura por uma chave que provavelmente deveria ser 'isCustomizable'
                             if (key.toLowerCase().includes('montavel') || key.toLowerCase().includes('montável')) {
-                                if (key !== 'isCustomizable') { // Evita reatribuir se já estiver correto
+                                if (key !== 'isCustomizable') {
                                     item.isCustomizable = item[key];
                                     delete item[key];
                                 }
                             }
                         }
                     });
-                    // *** FIM DA CORREÇÃO ***
 
                     allPromotionsData = data.promocoes;
                     deliveryFeesData = data.deliveryFees;
@@ -1276,6 +1273,187 @@
                     console.error('Erro ao carregar o cardápio:', error);
                     showMessageModal('Não foi possível carregar o cardápio no momento. Por favor, tente novamente mais tarde.');
                 }
+            }
+            
+            // --- FUNÇÕES DE MONTAR HAMBÚRGUER REINSERIDAS ---
+            function openBurgerBuilderModal(baseBurgerItem) {
+                burgerIngredientsContainer.innerHTML = '';
+                burgerBuilderModal.dataset.basePrice = baseBurgerItem.basePrice;
+
+                for (const category in allBurgerIngredients) {
+                    const ingredients = allBurgerIngredients[category];
+                    if (ingredients.length > 0) {
+                        const firstIngredient = ingredients[0];
+                        const isSingleChoice = firstIngredient.isSingleChoice;
+                        const limit = firstIngredient.limit || Infinity;
+                        const isRequired = firstIngredient.isRequired || false;
+
+                        const categoryDiv = document.createElement('div');
+                        categoryDiv.className = 'ingredient-category';
+
+                        let categoryTitle = capitalizeFirstLetter(category);
+                        if (isRequired) {
+                            categoryTitle += ' (Obrigatório)';
+                        } else if (!isSingleChoice && limit !== Infinity && limit > 1) {
+                            categoryTitle += ` (Escolha até ${limit})`;
+                        } else if (!isSingleChoice && limit === 1) {
+                            categoryTitle += ` (Escolha 1)`;
+                        } else if (isSingleChoice) {
+                             categoryTitle += ` (Escolha 1)`;
+                        }
+
+                        categoryDiv.innerHTML = `<h4>${categoryTitle}</h4>`;
+
+                        ingredients.forEach(ingredient => {
+                            const inputType = isSingleChoice ? 'radio' : 'checkbox';
+                            const inputName = isSingleChoice ? category : `multiple-${category}`;
+                            const priceDisplay = ingredient.price > 0 ? `+ R$ ${ingredient.price.toFixed(2).replace('.', ',')}` : '';
+
+                            const label = document.createElement('label');
+                            label.className = 'ingredient-option';
+
+                            const input = document.createElement('input');
+                            input.type = inputType;
+                            input.id = `${inputName}-${ingredient.id}`;
+                            input.name = inputName;
+                            input.value = ingredient.id;
+                            input.dataset.price = ingredient.price;
+                            input.classList.add('form-radio');
+
+                            const textSpan = document.createElement('span');
+                            textSpan.className = "flex-grow";
+                            textSpan.textContent = ingredient.name;
+
+                            const priceSpan = document.createElement('span');
+                            priceSpan.className = "price ml-2 whitespace-nowrap text-right";
+                            priceSpan.textContent = priceDisplay;
+
+                            label.appendChild(input);
+                            label.appendChild(textSpan);
+                            label.appendChild(priceSpan);
+
+                            input.addEventListener('change', (e) => {
+                                const currentInput = e.target;
+                                const currentLabel = currentInput.closest('.ingredient-option');
+                                const currentCategory = currentInput.name.replace('multiple-', '');
+                                const isCurrentSingleChoice = allBurgerIngredients[currentCategory][0]?.isSingleChoice;
+                                const limit = allBurgerIngredients[currentCategory][0]?.limit || Infinity;
+
+                                if (isCurrentSingleChoice) {
+                                    document.querySelectorAll(`input[name="${currentCategory}"]`).forEach(el => {
+                                        el.closest('.ingredient-option').classList.remove('selected');
+                                    });
+                                }
+                                if (currentInput.checked) {
+                                    currentLabel.classList.add('selected');
+                                } else {
+                                    currentLabel.classList.remove('selected');
+                                }
+
+                                if (!isSingleChoice && limit !== Infinity) {
+                                    const checkedCount = document.querySelectorAll(`input[name="${e.target.name}"]:checked`).length;
+                                    if (checkedCount > limit) {
+                                        e.target.checked = false;
+                                        e.target.closest('.ingredient-option').classList.remove('selected');
+                                        showMessageModal(`Você pode escolher no máximo ${limit} item(s) da categoria "${capitalizeFirstLetter(currentCategory)}".`);
+                                    }
+                                }
+
+                                updateBurgerPrice();
+                            });
+
+                            categoryDiv.appendChild(label);
+                        });
+                        burgerIngredientsContainer.appendChild(categoryDiv);
+                    }
+                }
+
+                burgerTotalPriceEl.textContent = 'R$ ' + baseBurgerItem.basePrice.toFixed(2).replace('.', ',');
+
+                addCustomBurgerBtn.onclick = () => addCustomBurgerToOrder(baseBurgerItem);
+
+                burgerBuilderModal.style.display = 'flex';
+                updatePromotionButtonVisibility();
+            }
+
+            function updateBurgerPrice() {
+                let total = parseFloat(burgerBuilderModal.dataset.basePrice) || 0;
+
+                for (const category in allBurgerIngredients) {
+                    const ingredients = allBurgerIngredients[category];
+                    const isSingleChoice = ingredients[0]?.isSingleChoice;
+
+                    if (isSingleChoice) {
+                        const selectedRadio = document.querySelector(`input[name="${category}"]:checked`);
+                        if (selectedRadio) {
+                            total += parseFloat(selectedRadio.dataset.price);
+                        }
+                    } else {
+                        document.querySelectorAll(`input[name="multiple-${category}"]:checked`).forEach(checkbox => {
+                            total += parseFloat(checkbox.dataset.price);
+                        });
+                    }
+                }
+
+                burgerTotalPriceEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+            }
+
+            function addCustomBurgerToOrder(baseBurgerItem) {
+                const selectedIngredients = [];
+                let total = baseBurgerItem.basePrice;
+
+                let allRequiredCategoriesFilled = true;
+
+                for (const category in allBurgerIngredients) {
+                    const ingredients = allBurgerIngredients[category];
+                    const firstIngredient = ingredients[0];
+                    const isSingleChoice = firstIngredient?.isSingleChoice;
+                    const isRequired = firstIngredient?.isRequired || false;
+
+                    if (isRequired) {
+                        const selectedInputs = document.querySelectorAll(`input[name="${isSingleChoice ? category : `multiple-${category}`}"]:checked`);
+                        if (selectedInputs.length === 0) {
+                            showMessageModal(`Por favor, escolha uma opção na categoria "${capitalizeFirstLetter(category)}".`);
+                            allRequiredCategoriesFilled = false;
+                            break;
+                        }
+                    }
+
+                    if (isSingleChoice) {
+                        const selectedInput = document.querySelector(`input[name="${category}"]:checked`);
+                        if (selectedInput) {
+                            const ingredient = ingredients.find(ing => ing.id === selectedInput.value);
+                            if (ingredient) {
+                                selectedIngredients.push({ name: ingredient.name, category: ingredient.category });
+                                total += ingredient.price;
+                            }
+                        }
+                    } else {
+                        document.querySelectorAll(`input[name="multiple-${category}"]:checked`).forEach(input => {
+                            const ingredient = ingredients.find(ing => ing.id === input.value);
+                            if (ingredient) {
+                                selectedIngredients.push({ name: ingredient.name, category: ingredient.category });
+                                total += ingredient.price;
+                            }
+                        });
+                    }
+                }
+
+                if (!allRequiredCategoriesFilled) {
+                    return;
+                }
+
+                addToOrder({
+                    type: 'custom_burger',
+                    name: 'Hambúrguer Personalizado',
+                    price: total,
+                    description: `Monte seu hambúrguer.`,
+                    ingredients: selectedIngredients,
+                    category: baseBurgerItem.category
+                }, addCustomBurgerBtn);
+
+                burgerBuilderModal.style.display = 'none';
+                updatePromotionButtonVisibility();
             }
 
             function capitalizeFirstLetter(string) {
