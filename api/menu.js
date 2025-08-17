@@ -1,6 +1,5 @@
 // Este arquivo é uma função Serverless para o Vercel.
-// Ele foi atualizado com um leitor de CSV mais robusto para evitar
-// erros quando os campos (como a descrição) contêm vírgulas.
+// Ele foi atualizado para ler a nova coluna "Limite Ingrediente" da planilha.
 
 import fetch from 'node-fetch';
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -26,7 +25,7 @@ if (!getApps().length) {
 const db = getFirestore(app);
 
 
-// URLs das suas planilhas Google Sheets publicadas como CSV.
+// URLs das suas planhas Google Sheets publicadas como CSV.
 const CARDAPIO_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJeo2AAETdXC08x9EQlkIG1FiVLEosMng4IvaQYJAdZnIDHJw8CT8J5RAJNtJ5GWHOKHkUsd5V8OSL/pub?gid=664943668&single=true&output=csv'; 
 const PROMOCOES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJeo2AAETdXC08x9EQlkIG1FiVLEosMng4IvaQYJAdZnIDHJw8CT8J5RAJNtJ5GWHOKHkUsd5V8OSL/pub?gid=600393470&single=true&output=csv'; 
 const DELIVERY_FEES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJeo2AAETdXC08x9EQlkIG1FiVLEosMng4IvaQYJAdZnIDHJw8CT8J5RAJNtJ5GWHOKHkUsd5V8OSL/pub?gid=1695668250&single=true&output=csv';
@@ -76,7 +75,8 @@ function parseCsvData(csvText) {
             'nome da promocao': 'name', 'preco promocional': 'promoPrice', 'id item aplicavel': 'itemId',
             'ativo (sim/nao)': 'active', 'bairros': 'neighborhood', 'valor frete': 'deliveryFee',
             'id intem': 'id', 'ingredientes': 'name', 'preço': 'price', 'seleção única': 'isSingleChoice',
-            'limite': 'limit', 'é obrigatório?(sim/não)': 'isRequired', 'disponível': 'available',
+            'limite': 'limit', 'limite ingrediente': 'ingredientLimit', // <-- NOVA COLUNA ADICIONADA
+            'é obrigatório?(sim/não)': 'isRequired', 'disponível': 'available',
             'dados': 'data', 'valor': 'value'
         };
         const cleanHeader = header.trim().toLowerCase();
@@ -92,6 +92,12 @@ function parseCsvData(csvText) {
                 let value = values[j];
                 if (['basePrice', 'price6Slices', 'price4Slices', 'promoPrice', 'deliveryFee', 'price'].includes(headerKey)) {
                     item[headerKey] = parseFloat(String(value).replace(',', '.')) || 0;
+                } else if (headerKey === 'limit') {
+                    const parsedValue = parseInt(value, 10);
+                    item[headerKey] = isNaN(parsedValue) ? Infinity : parsedValue;
+                } else if (headerKey === 'ingredientLimit') { // <-- NOVA LÓGICA DE PARSE
+                    const parsedValue = parseInt(value, 10);
+                    item[headerKey] = isNaN(parsedValue) ? 1 : parsedValue; // Padrão é 1 se não for um número
                 } else if (['isPizza', 'available', 'active', 'isCustomizable', 'isSingleChoice', 'isRequired'].includes(headerKey)) {
                     item[headerKey] = value.toUpperCase() === 'SIM';
                 } else {
@@ -128,15 +134,12 @@ export default async (req, res) => {
             fetchData(CONTACT_CSV_URL)
         ]);
 
-        // 1. Parseia o cardápio da planilha
         let cardapioJson = parseCsvData(cardapioCsv);
 
-        // 2. Busca o status de disponibilidade do Firebase
         const itemStatusRef = doc(db, "config", "item_status");
         const itemStatusSnap = await getDoc(itemStatusRef);
         const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
 
-        // 3. Combina as informações, marcando itens como indisponíveis se necessário
         cardapioJson = cardapioJson.map(item => {
             if (unavailableItems[item.id] === false) {
                 return { ...item, available: false };
@@ -144,7 +147,6 @@ export default async (req, res) => {
             return item;
         });
 
-        // Envia a resposta de sucesso com os dados já processados em JSON
         res.status(200).json({
             cardapio: cardapioJson,
             promocoes: parseCsvData(promocoesCsv),
