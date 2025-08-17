@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -862,7 +863,7 @@
             let orderedUniqueCategories = [];
             let isScrollingFromClick = false;
             let currentActiveCategoryByScroll = '';
-            
+
             const sizes = [
                 { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
                 { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
@@ -2363,32 +2364,22 @@
                 const highlightOptions = {
                     root: null,
                     rootMargin: `-${stickyHeaderHeight}px 0px 0px 0px`,
-                    threshold: [0.1] // Aumenta a sensibilidade
+                    threshold: [0.1]
                 };
 
                 highlightObserver = new IntersectionObserver((entries) => {
                     if (isScrollingFromClick) return;
 
                     let currentCategory = null;
-                    let lastVisibleCategory = null;
-
-                    for(let i = entries.length - 1; i >= 0; i--) {
-                        const entry = entries[i];
+                    let minDistance = Infinity;
+                    entries.forEach(entry => {
                         const rect = entry.target.getBoundingClientRect();
-                        if (rect.top <= stickyHeaderHeight + 1) {
+                        const distance = Math.abs(rect.top - stickyHeaderHeight);
+                        if (distance < minDistance) {
+                            minDistance = distance;
                             currentCategory = entry.target.id.replace('-section', '');
-                            break;
                         }
-                    }
-                    
-                    if (!currentCategory) {
-                        for(let i = 0; i < entries.length; i++) {
-                            if(entries[i].isIntersecting) {
-                                currentCategory = entries[i].target.id.replace('-section', '');
-                                break;
-                            }
-                        }
-                    }
+                    });
 
                     if (currentCategory && currentCategory !== currentActiveCategoryByScroll) {
                         setActiveCategoryButton(currentCategory);
