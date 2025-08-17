@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -585,7 +584,8 @@ teste
                 const itemStatus = item.querySelector('.toggle-checkbox').checked ? 'available' : 'unavailable';
 
                 const nameMatch = itemName.includes(searchText);
-                const categoryMatch = selectedCategory === 'all' || itemCategory === itemCategory;
+                // CORREÇÃO 1: Comparar itemCategory com selectedCategory
+                const categoryMatch = selectedCategory === 'all' || itemCategory === selectedCategory;
                 const statusMatch = activeStatusFilter === 'all' || itemStatus === activeStatusFilter;
 
                 if (nameMatch && categoryMatch && statusMatch) {
@@ -617,13 +617,10 @@ teste
                     categoryFilterSelect.appendChild(option);
                 });
 
-                const itemStatusRef = doc(db, "config", "item_status");
-                const itemStatusSnap = await getDoc(itemStatusRef);
-                const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
-
                 menuItemsContainer.innerHTML = '';
                 allItems.forEach(item => {
-                    const isChecked = !unavailableItems[item.id];
+                    // CORREÇÃO 2: Usar a propriedade 'available' que já vem da API
+                    const isChecked = item.available;
                     const itemElement = document.createElement('div');
                     itemElement.className = 'menu-item-row flex items-center justify-between p-2 bg-gray-50 rounded';
                     itemElement.dataset.name = item.name;
@@ -646,6 +643,7 @@ teste
                         const itemId = e.target.dataset.itemId;
                         const available = e.target.checked;
                         
+                        const itemStatusRef = doc(db, "config", "item_status");
                         const currentStatusSnap = await getDoc(itemStatusRef);
                         const currentStatus = currentStatusSnap.exists() ? currentStatusSnap.data() : {};
 
