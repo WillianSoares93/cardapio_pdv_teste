@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sâmia - Cardápio Online</title>
+    <meta name="theme-color" content="#f8f4e9"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/catalogo_pizzaria/refs/heads/main/logo.png" type="image/png">
+    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia/refs/heads/main/logo.png" type="image/png">
     <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <style>
@@ -39,7 +40,7 @@
             box-shadow: 0 3px 10px rgba(251, 191, 36, 0.4);
         }
         .header-bg {
-            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://invexo.com.br/blog/wp-content/uploads/2022/12/pizza-pizzaria-gavea-rio-de-janeiro.jpg');
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://raw.githubusercontent.com/WillianSoares93/cardapio_samia/refs/heads/main/imagem_fundo_cabe%C3%A7alho.jpg');
             background-size: cover;
             background-position: center;
         }
@@ -524,7 +525,7 @@
 
     <section id="menu" class="py-8 px-4 max-w-6xl mx-auto">
         <div class="text-center mb-8">
-            <h2 class="text-4xl font-bold text-gray-800 mb-4">Nosso Cardápio- teste</h2>
+            <h2 class="text-4xl font-bold text-gray-800 mb-4">Nosso Cardápio</h2>
             <p class="text-gray-600 text-lg mx-auto">Escolha sua pizza favorita ou uma bebida refrescante!</p>
         </div>
 
@@ -836,7 +837,7 @@
             </div>
             <div class="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400">
                 <p class="mb-2">
-                    <a href="https://wa.me/5587996070638?text=Ol%C3%A1%20vi%20o%20card%C3%A1pio%20digital%20desenvolveu%20para%20Pizzaria%20S%C3%A2mia%20e%20fiquei%20interessado%2C%20gostaria%20de%20solicitar%20un%20or%C3%A7amento%20para%20o%20meu%20projeto" target="_blank" class="hover:text-white">Desenvolvido por Willian Soares</a>
+                    <a href="https://wa.me/5587996070638?text=Ol%C3%A1%20vi%20o%20card%C3%A1pio%20digital%20desenvolveu%20para%20Pizzaria%20S%C3%A2mia%20e%20fiquei%20interessado%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20para%20o%20meu%20projeto" target="_blank" class="hover:text-white">Desenvolvido por Willian Soares</a>
                 </p>
                 <p>&copy; 2025 Sâmia. Todos os direitos reservados.</p>
             </div>
@@ -845,32 +846,21 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Variáveis globais
             let order = [];
             let allMenuData = [];
             let allPromotionsData = [];
             let deliveryFeesData = [];
             let allBurgerIngredients = {};
-            let isSelectingHalfPizza = false;
-            let isFirstHalfPromotional = false;
-            let deferredPrompt;
-            let selectedPaymentMethod = null;
-            let isCheckoutInitiated = false;
+            let isSelectingHalfPizza = false; 
+            let isFirstHalfPromotional = false; 
+            let deferredPrompt; 
+            let selectedPaymentMethod = null; 
+            let isCheckoutInitiated = false; 
             let discountPromotion = null;
             let contactInfo = {};
-            let isMenuLoaded = false;
-            let orderedUniqueCategories = [];
-            let isScrollingFromClick = false;
-            let currentActiveCategoryByScroll = '';
-
-            const sizes = [
-                { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
-                { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
-                { slices: 8, label: '8 Fatias', priceKey: 'basePrice' }
-            ];
             
             let selectedAddress = {
-                clientName: null,
+                clientName: null, 
                 bairro: null,
                 rua: null,
                 numero: null,
@@ -893,8 +883,8 @@
             const closePromotionPopupBtn = document.getElementById('close-promotion-popup');
             const closePromotionPopupBtnBottom = document.getElementById('close-promotion-popup-btn');
             const promotionsListEl = document.getElementById('promotions-list');
-            const promotionButton = document.getElementById('promotion-button');
-            const cartButton = document.getElementById('cart-button');
+            const promotionButton = document.getElementById('promotion-button'); 
+            const cartButton = document.getElementById('cart-button'); 
             const subtotalEl = document.getElementById('subtotal');
             const deliveryFeeDisplay = document.getElementById('deliveryFeeDisplay');
             const totalEl = document.getElementById('total');
@@ -914,7 +904,7 @@
             const drinkSuggestionModal = document.getElementById('drink-suggestion-modal');
             const closeDrinkSuggestionModalBtn = document.getElementById('close-drink-suggestion-modal');
             const suggestedDrinksList = document.getElementById('suggested-drinks-list');
-            const proceedWithoutDrinksBtn = document.getElementById('proceed-without-drinks');
+            const proceedWithoutDrinksBtn = document.getElementById('proceed-without-drinks'); 
             const confirmNoDrinkModal = document.getElementById('confirm-no-drink-modal');
             const closeConfirmNoDrinkModalBtn = document.getElementById('close-confirm-no-drink-modal');
             const confirmNoDrinkYesBtn = document.getElementById('confirm-no-drink-yes');
@@ -926,10 +916,10 @@
             const closePaymentMethodModalBtn = document.getElementById('close-payment-method-modal');
             const paymentOptionsContainer = document.getElementById('payment-options-container');
             const confirmPaymentMethodBtn = document.getElementById('confirm-payment-method-btn');
-            const trocoInputContainer = document.getElementById('troco-input-container');
-            const trocoParaInput = document.getElementById('trocoPara');
-            const trocoTotalDisplay = document.getElementById('trocoTotalDisplay');
-            const paymentModalTotal = document.getElementById('payment-modal-total');
+            const trocoInputContainer = document.getElementById('troco-input-container'); 
+            const trocoParaInput = document.getElementById('trocoPara'); 
+            const trocoTotalDisplay = document.getElementById('trocoTotalDisplay'); 
+            const paymentModalTotal = document.getElementById('payment-modal-total'); 
             const pixKeyContainer = document.getElementById('pix-key-container');
             const pixDetailsContainer = document.getElementById('pix-details-container');
             const pixKeyDisplay = document.getElementById('pix-key-display');
@@ -959,7 +949,17 @@
             const footerEmail = document.getElementById('footer-email');
             const socialLinksContainer = document.getElementById('social-links-container');
 
+            let currentPizzaData = {}; 
+            let firstHalfPizza = null; 
+            let isSelectingSecondHalf = false; 
+            let qrCodeInstance = null;
 
+            const sizes = [
+                { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
+                { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
+                { slices: 8, label: '8 Fatias', priceKey: 'basePrice' } 
+            ];
+            
             function toggleOrderSidebar() {
                 orderSidebar.classList.toggle('translate-x-full');
                 orderSidebar.classList.toggle('translate-x-0');
@@ -971,13 +971,13 @@
                     updatePromotionButtonVisibility();
                 }
             }
-
+            
             function closeOrderSidebar() {
                 orderSidebar.classList.add('translate-x-full');
                 orderSidebar.classList.remove('translate-x-0');
-                updatePromotionButtonVisibility();
+                updatePromotionButtonVisibility(); 
             }
-
+            
             function showMessageModal(message, onOkCallback = null) {
                 messageModalText.textContent = message;
                 messageModal.style.display = 'flex';
@@ -985,7 +985,7 @@
 
                 okMessageModalBtn.removeEventListener('click', hideMessageModal);
                 closeMessageModalBtn.removeEventListener('click', hideMessageModal);
-                messageModal.onclick = null;
+                messageModal.onclick = null; 
 
                 if (onOkCallback) {
                     const specificAction = () => {
@@ -1020,7 +1020,7 @@
                     const pendingHalfIndex = order.findIndex(orderItem => orderItem.id === 'pending-half-pizza');
                     if (pendingHalfIndex > -1) {
                         order.splice(pendingHalfIndex, 1);
-                        updateOrderDisplay();
+                        updateOrderDisplay(); 
                     }
                     firstHalfPizza = null;
                     isSelectingSecondHalf = false;
@@ -1033,7 +1033,7 @@
             }
 
             function getGenericPizzaSliceImage() {
-                return '';
+                return ''; 
             }
 
             function parseCsvData(csvText, type) {
@@ -1087,8 +1087,8 @@
                         case 'Categoria': return 'category';
                         case 'É Pizza? (SIM/NÃO)': return 'isPizza';
                         case 'É Montável? (SIM/NAO)': return 'isCustomizable';
-                        case 'Disponível (SIM/NÃO)': return 'available';
-                        case 'Imagem': return 'imageUrl';
+                        case 'Disponível (SIM/NÃO)': return 'available'; 
+                        case 'Imagem': return 'imageUrl'; 
                         case 'ID Promocao': return 'id';
                         case 'Nome da Promocao': return 'name';
                         case 'Preco Promocional': return 'promoPrice';
@@ -1102,17 +1102,17 @@
                         case 'Seleção Única': return 'isSingleChoice';
                         case 'Limite': return 'limit';
                         case 'É Obrigatório?(SIM/NÃO)': return 'isRequired';
-                        case 'Disponível': return 'available';
+                        case 'Disponível': return 'available'; 
                         case 'Dados': return 'data';
                         case 'Valor': return 'value';
-                        default:
+                        default: 
                             if (cleanedHeader.includes('É Montável')) {
                                 return 'isCustomizable';
                             }
                             return cleanedHeader.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
                     }
                 });
-
+                
                 const parsedData = [];
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i];
@@ -1122,7 +1122,7 @@
                         for (let j = 0; j < mappedHeaders.length; j++) {
                             let headerKey = mappedHeaders[j];
                             let value = rowValues[j];
-
+                            
                             if (['neighborhood', 'name', 'category', 'data'].includes(headerKey) && (value === undefined || value === null || value.trim() === '')) {
                                 value = '';
                             }
@@ -1132,7 +1132,8 @@
                             } else if (headerKey === 'limit') {
                                 const parsedValue = parseInt(value, 10);
                                 item[headerKey] = isNaN(parsedValue) ? Infinity : parsedValue;
-                            } else if (['isPizza', 'available', 'active', 'isCustomizable', 'isSingleChoice', 'isRequired'].includes(headerKey)) {
+                            }
+                            else if (['isPizza', 'available', 'active', 'isCustomizable', 'isSingleChoice', 'isRequired'].includes(headerKey)) {
                                 item[headerKey] = value.toUpperCase() === 'SIM' || value.toUpperCase() === 'SIM\r';
                             } else {
                                 item[headerKey] = value;
@@ -1153,7 +1154,7 @@
             function openBurgerBuilderModal(baseBurgerItem) {
                 burgerIngredientsContainer.innerHTML = '';
                 burgerBuilderModal.dataset.basePrice = baseBurgerItem.basePrice;
-
+                
                 for (const category in allBurgerIngredients) {
                     const ingredients = allBurgerIngredients[category];
                     if (ingredients.length > 0) {
@@ -1161,10 +1162,10 @@
                         const isSingleChoice = firstIngredient.isSingleChoice;
                         const limit = firstIngredient.limit || Infinity;
                         const isRequired = firstIngredient.isRequired || false;
-
+                        
                         const categoryDiv = document.createElement('div');
                         categoryDiv.className = 'ingredient-category';
-
+                        
                         let categoryTitle = capitalizeFirstLetter(category);
                         if (isRequired) {
                             categoryTitle += ' (Obrigatório)';
@@ -1173,19 +1174,19 @@
                         } else if (!isSingleChoice && limit === 1) {
                             categoryTitle += ` (Escolha 1)`;
                         } else if (isSingleChoice) {
-                            categoryTitle += ` (Escolha 1)`;
+                             categoryTitle += ` (Escolha 1)`;
                         }
 
                         categoryDiv.innerHTML = `<h4>${categoryTitle}</h4>`;
-
+                        
                         ingredients.forEach(ingredient => {
                             const inputType = isSingleChoice ? 'radio' : 'checkbox';
                             const inputName = isSingleChoice ? category : `multiple-${category}`;
                             const priceDisplay = ingredient.price > 0 ? `+ R$ ${ingredient.price.toFixed(2).replace('.', ',')}` : '';
-
+                            
                             const label = document.createElement('label');
                             label.className = 'ingredient-option';
-
+                            
                             const input = document.createElement('input');
                             input.type = inputType;
                             input.id = `${inputName}-${ingredient.id}`;
@@ -1197,7 +1198,7 @@
                             const textSpan = document.createElement('span');
                             textSpan.className = "flex-grow";
                             textSpan.textContent = ingredient.name;
-
+                            
                             const priceSpan = document.createElement('span');
                             priceSpan.className = "price ml-2 whitespace-nowrap text-right";
                             priceSpan.textContent = priceDisplay;
@@ -1205,14 +1206,14 @@
                             label.appendChild(input);
                             label.appendChild(textSpan);
                             label.appendChild(priceSpan);
-
+                            
                             input.addEventListener('change', (e) => {
                                 const currentInput = e.target;
                                 const currentLabel = currentInput.closest('.ingredient-option');
                                 const currentCategory = currentInput.name.replace('multiple-', '');
                                 const isCurrentSingleChoice = allBurgerIngredients[currentCategory][0]?.isSingleChoice;
                                 const limit = allBurgerIngredients[currentCategory][0]?.limit || Infinity;
-
+                                
                                 if (isCurrentSingleChoice) {
                                     document.querySelectorAll(`input[name="${currentCategory}"]`).forEach(el => {
                                         el.closest('.ingredient-option').classList.remove('selected');
@@ -1223,7 +1224,7 @@
                                 } else {
                                     currentLabel.classList.remove('selected');
                                 }
-
+                                
                                 if (!isSingleChoice && limit !== Infinity) {
                                     const checkedCount = document.querySelectorAll(`input[name="${e.target.name}"]:checked`).length;
                                     if (checkedCount > limit) {
@@ -1232,7 +1233,7 @@
                                         showMessageModal(`Você pode escolher no máximo ${limit} item(s) da categoria "${capitalizeFirstLetter(currentCategory)}".`);
                                     }
                                 }
-
+                                
                                 updateBurgerPrice();
                             });
 
@@ -1241,22 +1242,22 @@
                         burgerIngredientsContainer.appendChild(categoryDiv);
                     }
                 }
-
+                
                 burgerTotalPriceEl.textContent = 'R$ ' + baseBurgerItem.basePrice.toFixed(2).replace('.', ',');
-
+                
                 addCustomBurgerBtn.onclick = () => addCustomBurgerToOrder(baseBurgerItem);
-
+                
                 burgerBuilderModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
             }
-
+            
             function updateBurgerPrice() {
                 let total = parseFloat(burgerBuilderModal.dataset.basePrice) || 0;
-
+                
                 for (const category in allBurgerIngredients) {
                     const ingredients = allBurgerIngredients[category];
                     const isSingleChoice = ingredients[0]?.isSingleChoice;
-
+                    
                     if (isSingleChoice) {
                         const selectedRadio = document.querySelector(`input[name="${category}"]:checked`);
                         if (selectedRadio) {
@@ -1268,14 +1269,14 @@
                         });
                     }
                 }
-
+                
                 burgerTotalPriceEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
             }
 
             function addCustomBurgerToOrder(baseBurgerItem) {
                 const selectedIngredients = [];
                 let total = baseBurgerItem.basePrice;
-
+                
                 let allRequiredCategoriesFilled = true;
 
                 for (const category in allBurgerIngredients) {
@@ -1312,7 +1313,7 @@
                         });
                     }
                 }
-
+                
                 if (!allRequiredCategoriesFilled) {
                     return;
                 }
@@ -1325,14 +1326,14 @@
                     ingredients: selectedIngredients,
                     category: baseBurgerItem.category
                 }, addCustomBurgerBtn);
-
+                
                 burgerBuilderModal.style.display = 'none';
                 updatePromotionButtonVisibility();
             }
 
             function populateMenu(menuItems, orderedCategories) {
                 const dynamicSectionsContainer = document.getElementById('dynamic-pizza-sections');
-                dynamicSectionsContainer.innerHTML = '';
+                dynamicSectionsContainer.innerHTML = ''; 
 
                 const itemsByCategory = {};
                 menuItems.forEach(item => {
@@ -1344,24 +1345,31 @@
 
                 orderedCategories.forEach(category => {
                     const sectionId = `${category}-section`;
-                    let sectionEl = document.createElement('div');
-                    sectionEl.id = sectionId;
-                    sectionEl.className = 'pizza-category-section mb-8';
+                    let sectionEl = document.getElementById(sectionId);
 
-                    const isPizzaCategory = itemsByCategory[category] && itemsByCategory[category].some(item => item.isPizza);
-                    const title = isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
+                    if (!sectionEl) {
+                        sectionEl = document.createElement('div');
+                        sectionEl.id = sectionId;
+                        sectionEl.className = 'pizza-category-section mb-8';
+                        
+                        const isPizzaCategory = itemsByCategory[category] && itemsByCategory[category].some(item => item.isPizza);
+                        const title = isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
 
-                    sectionEl.innerHTML = `
-                        <h3 class="text-xl font-bold text-white p-2 rounded-md bg-red-600 mb-6">${title}</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="${category}-items"></div>
-                    `;
-                    dynamicSectionsContainer.appendChild(sectionEl);
+                        sectionEl.innerHTML = `
+                            <h3 class="text-xl font-bold text-white p-2 rounded-md bg-red-600 mb-6">${title}</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="${category}-items"></div>
+                        `;
+                        dynamicSectionsContainer.appendChild(sectionEl);
+                    }
 
                     const categoryItemsEl = document.getElementById(`${category}-items`);
+                    categoryItemsEl.innerHTML = ''; 
+
                     if (itemsByCategory[category]) {
-                        itemsByCategory[category].forEach((item, itemIndex) => {
-                            if (item.available) {
+                        itemsByCategory[category].forEach(item => {
+                            if (item.available) { 
                                 let itemHtml = '';
+                                
                                 const trimmedImageUrl = String(item.imageUrl || '').trim();
                                 let imageElement = '';
 
@@ -1373,12 +1381,10 @@
                                     imageElement = '';
                                 }
 
-                                const cardId = `card-${item.id}`;
-
                                 if (item.isPizza) {
-                                    let priceDisplayHtml = '';
+                                    let pricesHtml = '';
                                     if (item.price4Slices > 0) {
-                                        priceDisplayHtml += `
+                                        pricesHtml += `
                                             <div class="text-center px-1">
                                                 <span class="text-xs text-gray-500">4 Fatias</span>
                                                 <p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price4Slices.toFixed(2).replace('.', ',')}</p>
@@ -1386,32 +1392,33 @@
                                         `;
                                     }
                                     if (item.price6Slices > 0) {
-                                        priceDisplayHtml += `
+                                        pricesHtml += `
                                             <div class="text-center px-2 border-l border-r border-gray-200">
                                                 <span class="text-xs text-gray-500">6 Fatias</span>
                                                 <p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price6Slices.toFixed(2).replace('.', ',')}</p>
                                             </div>
                                         `;
                                     }
-                                    if (item.basePrice > 0) { // 8 fatias
-                                        priceDisplayHtml += `
+                                    if (item.basePrice > 0) {
+                                        pricesHtml += `
                                             <div class="text-center px-1">
                                                 <span class="text-xs text-gray-500">8 Fatias</span>
                                                 <p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</p>
                                             </div>
                                         `;
                                     }
+
                                     itemHtml = `
-                                        <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg flex flex-col" data-category="${item.category}" id="${cardId}">
+                                        <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg flex flex-col">
                                             ${imageElement}
                                             <div class="p-6 flex flex-col flex-grow">
                                                 <h3 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h3>
                                                 <p class="text-gray-600 text-sm mb-4 flex-grow">${item.description}</p>
-
+                                                
                                                 <div class="mt-auto pt-4 border-t border-gray-100">
                                                     <div class="flex justify-between items-center">
                                                         <div class="flex space-x-1 items-baseline">
-                                                            ${priceDisplayHtml}
+                                                            ${pricesHtml}
                                                         </div>
                                                         <button class="add-item-btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300 flex-shrink-0"
                                                                 data-item-id="${item.id}" data-image-url="${trimmedImageUrl}">
@@ -1432,11 +1439,11 @@
                                     } else {
                                         imageElement = '';
                                     }
-
+                                    
                                     const buttonText = item.isCustomizable ? 'Montar' : 'Adicionar';
 
                                     itemHtml = `
-                                        <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg transition duration-300" data-category="${item.category}" id="${cardId}">
+                                        <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg">
                                             ${imageElement}
                                             <div class="p-6">
                                             <h3 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h3>
@@ -1449,7 +1456,7 @@
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div>										
                                     `;
                                 }
                                 categoryItemsEl.insertAdjacentHTML('beforeend', itemHtml);
@@ -1467,62 +1474,59 @@
 
             function createCategoryButtons(categories) {
                 const categoryButtonsContainer = document.getElementById('category-buttons-container');
-                categoryButtonsContainer.innerHTML = '';
+                categoryButtonsContainer.innerHTML = ''; 
 
-                // Mapeia o índice da categoria para cada categoria
-                const categoryToIndex = new Map(categories.map((cat, index) => [cat, index]));
-
-                categories.forEach((category) => {
+                categories.forEach((category, index) => {
                     const button = document.createElement('button');
                     button.className = 'category-btn px-4 py-2 rounded-full bg-gray-200 text-gray-800 whitespace-nowrap lg:flex-grow-0 lg:flex-shrink-0';
-
+                    
                     const firstItemOfCategory = allMenuData.find(item => item.category === category);
                     const isPizzaCategory = firstItemOfCategory && firstItemOfCategory.isPizza;
                     button.textContent = isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
 
                     button.dataset.category = category;
                     button.dataset.targetId = `${category}-section`;
-
-                    button.addEventListener('click', function(event) {
+                    
+                    button.addEventListener('click', function(event) { 
                         const targetCategory = this.dataset.category;
                         const targetId = this.dataset.targetId;
 
-                        const promoIndex = categoryToIndex.get('promocionais');
-                        const targetIndex = categoryToIndex.get(targetCategory);
-
-                        // Lógica de restrição para clique nos botões de categoria
-                        if (isSelectingHalfPizza) {
-                            if (isFirstHalfPromotional && targetCategory.toLowerCase() !== 'promocionais') {
-                                event.preventDefault();
-                                showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
-                                return;
-                            } else if (!isFirstHalfPromotional && targetCategory.toLowerCase() === 'promocionais') {
-                                event.preventDefault();
+                        if (isSelectingHalfPizza && isFirstHalfPromotional) { 
+                            if (targetCategory.toLowerCase() !== 'promocionais') {
+                                event.preventDefault(); 
+                                showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.', () => {
+                                    document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    setActiveCategoryButton('promocionais');
+                                });
+                                return; 
+                            }
+                        } else if (isSelectingHalfPizza && !isFirstHalfPromotional) { 
+                            if (targetCategory.toLowerCase() === 'promocionais') {
+                                event.preventDefault(); 
                                 showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
-                                return;
+                                return; 
                             }
                         }
 
-                        isScrollingFromClick = true; // Previne que o observador seja acionado durante a rolagem de clique
                         setActiveCategoryButton(targetCategory);
+                        isScrollingFromClick = true;
                         document.getElementById(targetId).scrollIntoView({ behavior: 'smooth', block: 'start' });
                         setTimeout(() => {
                             isScrollingFromClick = false;
-                        }, 700);
+                        }, 700); 
                     });
                     categoryButtonsContainer.appendChild(button);
-                });
 
-                // Ativa o primeiro botão por padrão ao carregar
-                if (categories.length > 0) {
-                    setActiveCategoryButton(categories[0]);
-                    currentActiveCategoryByScroll = categories[0];
-                }
+                    if (index === 0) { 
+                        setActiveCategoryButton(category);
+                        currentActiveCategoryByScroll = category;
+                    }
+                });
             }
 
             function attachAddButtonListeners() {
                 document.querySelectorAll('.add-item-btn').forEach(button => {
-                    button.removeEventListener('click', handleAddButtonClick);
+                    button.removeEventListener('click', handleAddButtonClick); 
                     button.addEventListener('click', handleAddButtonClick);
                 });
             }
@@ -1532,10 +1536,10 @@
                     const itemId = button.dataset.itemId;
                     const item = allMenuData.find(i => i.id === itemId);
 
-                    if (enableAll || !isSelectingHalfPizza) {
+                    if (enableAll || !isSelectingHalfPizza) { 
                         button.removeAttribute('disabled');
                         button.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
+                    } else { 
                         if (isFirstHalfPromotional) {
                             if (item && item.category.toLowerCase() === 'promocionais') {
                                 button.removeAttribute('disabled');
@@ -1544,12 +1548,12 @@
                                 button.setAttribute('disabled', 'true');
                                 button.classList.add('opacity-50', 'cursor-not-allowed');
                             }
-                        } else {
+                        } else { 
                             if (item && item.category.toLowerCase() === 'promocionais') {
                                 button.setAttribute('disabled', 'true');
                                 button.classList.add('opacity-50', 'cursor-not-allowed');
                             } else {
-                                button.removeAttribute('disabled');
+                                button.removeAttribute('disabled'); 
                                 button.classList.remove('opacity-50', 'cursor-not-allowed');
                             }
                         }
@@ -1560,10 +1564,10 @@
             function toggleCategoryButtons(enableAll = true) {
                 document.querySelectorAll('.category-btn').forEach(button => {
                     const category = button.dataset.category.toLowerCase();
-                    if (enableAll || !isSelectingHalfPizza) {
+                    if (enableAll || !isSelectingHalfPizza) { 
                         button.removeAttribute('disabled');
                         button.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
+                    } else { 
                         if (isFirstHalfPromotional) {
                             if (category === 'promocionais') {
                                 button.removeAttribute('disabled');
@@ -1572,12 +1576,12 @@
                                 button.setAttribute('disabled', 'true');
                                 button.classList.add('opacity-50', 'cursor-not-allowed');
                             }
-                        } else {
+                        } else { 
                             if (category === 'promocionais') {
                                 button.setAttribute('disabled', 'true');
                                 button.classList.add('opacity-50', 'cursor-not-allowed');
                             } else {
-                                button.removeAttribute('disabled');
+                                button.removeAttribute('disabled'); 
                                 button.classList.remove('opacity-50', 'cursor-not-allowed');
                             }
                         }
@@ -1586,7 +1590,7 @@
             }
 
             function handleAddButtonClick(e) {
-                const clickedButton = e.target;
+                const clickedButton = e.target; 
                 const itemId = clickedButton.dataset.itemId;
                 const item = allMenuData.find(i => i.id === itemId);
 
@@ -1595,14 +1599,14 @@
                 }
 
                 const itemImageUrl = item.isPizza ? item.imageUrl : null;
-
+                
                 if (item.isCustomizable) {
                     burgerBuilderModal.dataset.basePrice = item.basePrice;
                     openBurgerBuilderModal(item);
                     return;
                 }
 
-                if (isSelectingHalfPizza) {
+                if (isSelectingSecondHalf) {
                     if (!item.isPizza) {
                         showMessageModal('Por favor, escolha uma pizza para a segunda metade.');
                         return;
@@ -1626,9 +1630,9 @@
 
                     const cleanFirstName = firstHalfPizza.name;
                     const combinedName = `Meia ${cleanFirstName} & Meia ${item.name}`;
-
-                    const priceFirstHalfFullSize = firstHalfPizza.original_full_price;
-                    const priceSecondHalfFullSize = item[firstHalfPizza.priceKeyForSlices];
+                    
+                    const priceFirstHalfFullSize = firstHalfPizza.original_full_price; 
+                    const priceSecondHalfFullSize = item[firstHalfPizza.priceKeyForSlices]; 
 
                     const combinedPrice = ((priceFirstHalfFullSize || 0) / 2) + ((priceSecondHalfFullSize || 0) / 2);
                     const combinedDescription = `${firstHalfPizza.description.replace('Primeira metade: ', '')} e ${item.description}`;
@@ -1638,34 +1642,34 @@
                         name: combinedName,
                         price: combinedPrice,
                         description: combinedDescription,
-                        category: 'pizzas',
+                        category: 'pizzas', 
                         selected_slices: firstHalfPizza.selected_slices
-                    }, clickedButton, itemImageUrl);
+                    }, clickedButton, itemImageUrl); 
 
                     firstHalfPizza = null;
                     isSelectingSecondHalf = false;
-                    isSelectingHalfPizza = false;
-                    isFirstHalfPromotional = false;
-                    toggleAddItemButtons(true);
-                    toggleCategoryButtons(true);
-                    showTemporaryFeedback('Pizza meio a meia adicionada ao pedido!', 'bg-green-500');
-
+                    isSelectingHalfPizza = false; 
+                    isFirstHalfPromotional = false; 
+                    toggleAddItemButtons(true); 
+                    toggleCategoryButtons(true); 
+                    showTemporaryFeedback('Pizza meio a meia adicionada ao pedido!', 'bg-green-500'); 
+                    
                 } else if (item.isCustomizable) {
                     burgerBuilderModal.dataset.basePrice = item.basePrice;
                     openBurgerBuilderModal(item);
                     return;
                 } else if (item.isPizza) {
-                    currentPizzaData = { ...item };
+                    currentPizzaData = { ...item }; 
                     modalPizzaName.textContent = item.name;
                     modalPizzaDescription.textContent = item.description;
 
                     pizzaSizeOptions.innerHTML = '';
-
+                    
                     const availableSizes = sizes.filter(size => currentPizzaData[size.priceKey] > 0);
 
                     if (availableSizes.length === 1) {
                         pizzaSizeOptions.classList.remove('sm:grid-cols-3');
-                        pizzaSizeOptions.classList.add('sm:grid-cols-1', 'max-w-xs', 'mx-auto');
+                        pizzaSizeOptions.classList.add('sm:grid-cols-1', 'max-w-xs', 'mx-auto'); 
                     } else {
                         pizzaSizeOptions.classList.add('sm:grid-cols-3');
                         pizzaSizeOptions.classList.remove('sm:grid-cols-1', 'max-w-xs', 'mx-auto');
@@ -1697,13 +1701,13 @@
                             addToOrder({
                                 type: 'full',
                                 name: currentPizzaData.name,
-                                price: currentPizzaData[selectedPriceKey],
+                                price: currentPizzaData[selectedPriceKey], 
                                 description: currentPizzaData.description,
                                 category: currentPizzaData.category,
                                 selected_slices: selectedSlices
-                            }, this, currentPizzaData.imageUrl);
+                            }, this, currentPizzaData.imageUrl); 
                             pizzaOptionModal.style.display = 'none';
-                            updatePromotionButtonVisibility();
+                            updatePromotionButtonVisibility(); 
                         });
 
                         optionDiv.querySelector('.add-half-size-pizza-btn').addEventListener('click', function() {
@@ -1711,22 +1715,22 @@
                             const selectedPriceKey = this.dataset.priceKey;
                             firstHalfPizza = {
                                 name: currentPizzaData.name,
-                                price: currentPizzaData[selectedPriceKey] / 2,
+                                price: currentPizzaData[selectedPriceKey] / 2, 
                                 description: currentPizzaData.description,
-                                original_full_price: currentPizzaData[selectedPriceKey],
+                                original_full_price: currentPizzaData[selectedPriceKey], 
                                 selected_slices: selectedSlices,
-                                priceKeyForSlices: selectedPriceKey,
-                                category: currentPizzaData.category
+                                priceKeyForSlices: selectedPriceKey, 
+                                category: currentPizzaData.category 
                             };
                             isSelectingSecondHalf = true;
-                            isSelectingHalfPizza = true;
-                            isFirstHalfPromotional = (currentPizzaData.category.toLowerCase() === 'promocionais');
+                            isSelectingHalfPizza = true; 
+                            isFirstHalfPromotional = (currentPizzaData.category.toLowerCase() === 'promocionais'); 
                             pizzaOptionModal.style.display = 'none';
-                            updatePromotionButtonVisibility();
+                            updatePromotionButtonVisibility(); 
 
-                            toggleAddItemButtons(false);
-                            toggleCategoryButtons(false);
-
+                            toggleAddItemButtons(false); 
+                            toggleCategoryButtons(false); 
+                            
                             addToOrderOnly(
                                 {
                                     type: 'half_pending',
@@ -1736,36 +1740,36 @@
                                     id: 'pending-half-pizza',
                                     category: currentPizzaData.category,
                                     selected_slices: selectedSlices
-                                }, this, currentPizzaData.imageUrl
+                                }, this, currentPizzaData.imageUrl 
                             );
                             setTimeout(() => {
-                                showMessageModal('Agora, escolha a segunda metade da sua pizza.');
+                                showMessageModal('Agora, escolha a segunda metade da sua pizza.'); 
                             }, 100);
                         });
                     });
 
                     pizzaOptionModal.style.display = 'flex';
-                    promotionButton.style.display = 'none';
-                } else {
+                    promotionButton.style.display = 'none'; 
+                } else { 
                     addToOrder({
                         type: 'full',
                         name: item.name,
-                        price: item.basePrice,
+                        price: item.basePrice, 
                         description: item.description,
                         category: item.category
-                    }, clickedButton, itemImageUrl);
+                    }, clickedButton, itemImageUrl); 
                 }
             }
-
+            
             function addToOrder(item, clickedButton = null, itemImageUrl = null) {
                 order.push(item);
                 updateOrderDisplay();
                 updateCartCount();
 
                 if (clickedButton) {
-                    animateItemToCart(clickedButton, itemImageUrl);
+                    animateItemToCart(clickedButton, itemImageUrl); 
                 }
-
+                
                 showTemporaryFeedback('✔️ Adicionado ao pedido!', 'bg-green-500');
             }
 
@@ -1774,7 +1778,7 @@
                 updateOrderDisplay();
                 updateCartCount();
                 if (clickedButton) {
-                    animateItemToCart(clickedButton, itemImageUrl);
+                    animateItemToCart(clickedButton, itemImageUrl); 
                 }
             }
 
@@ -1784,11 +1788,11 @@
 
                 const flyingEl = document.createElement('div');
                 flyingEl.classList.add('fly-to-cart-animation');
-
+                
                 if (imageUrl) {
                     flyingEl.innerHTML = `<img src="${imageUrl}" alt="item" class="w-full h-full object-cover rounded-full">`;
                 } else {
-                    flyingEl.innerHTML = '<i class="fas fa-plus"></i>';
+                    flyingEl.innerHTML = '<i class="fas fa-plus"></i>'; 
                 }
 
                 flyingEl.style.setProperty('--start-x', `${originRect.left + originRect.width / 2 - 15}px`);
@@ -1809,16 +1813,16 @@
                 feedback.className = `fixed right-4 ${bgColorClass} text-white px-4 py-2 rounded-lg shadow-lg slide-in`;
                 feedback.style.zIndex = '100';
 
-                const cartButtonRect = cartButton.getBoundingClientRect();
-                feedback.style.bottom = `${window.innerHeight - cartButtonRect.top + 10}px`;
+                const cartButtonRect = cartButton.getBoundingClientRect(); 
+                feedback.style.bottom = `${window.innerHeight - cartButtonRect.top + 10}px`; 
                 document.body.appendChild(feedback);
-
+                
                 setTimeout(() => {
                     feedback.classList.add('opacity-0', 'transition-opacity', 'duration-300');
                     setTimeout(() => feedback.remove(), 300);
                 }, 2000);
             }
-
+            
             function updateOrderDisplay() {
                 let subtotal = 0;
 
@@ -1826,7 +1830,7 @@
                 nonDiscountItems.forEach((item) => {
                     subtotal += item.price;
                 });
-
+                
                 let finalDiscountAmount = 0;
                 if (discountPromotion) {
                     finalDiscountAmount = subtotal * (discountPromotion.promoPrice / 100);
@@ -1841,7 +1845,7 @@
                     discountSection.classList.add('hidden');
                 } else {
                     emptyOrderMessage.classList.add('hidden');
-
+                    
                     let itemsHTML = '';
                     order.forEach((item, index) => {
                         let itemName = item.name;
@@ -1864,7 +1868,7 @@
                         } else if (item.type === 'discount') {
                             return;
                         }
-
+                        
                         const isLastItem = (index === order.length - 1);
                         const borderClass = isLastItem && !selectedPaymentMethod && !selectedAddress.bairro && !selectedAddress.clientName ? '' : 'border-b border-gray-100';
 
@@ -1885,7 +1889,7 @@
                     });
                     orderItemsContainer.innerHTML = itemsHTML;
                     subtotalEl.textContent = 'R$ ' + subtotal.toFixed(2).replace('.', ',')
-
+                    
                     if (discountPromotion && subtotal > 0) {
                         discountSection.classList.remove('hidden');
                         discountPercentageDisplay.textContent = `${discountPromotion.promoPrice}%`;
@@ -1894,7 +1898,7 @@
                         discountSection.classList.add('hidden');
                     }
                 }
-
+                
                 if (selectedAddress.bairro) {
                     deliveryFeeDisplay.textContent = 'R$ ' + selectedAddress.deliveryFee.toFixed(2).replace('.', ',');
                     deliveryFeeDisplay.classList.remove('hidden');
@@ -1906,7 +1910,7 @@
                     informAddressBtn.classList.remove('hidden');
                     editDeliveryAddressBtn.classList.add('hidden');
                 }
-
+                
                 const total = subtotal - finalDiscountAmount + selectedAddress.deliveryFee;
                 totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
 
@@ -1936,11 +1940,11 @@
                         </div>
                     `);
                 }
-
+                
                 updateDrinkSuggestionButtons();
                 updateAddressDisplay();
             }
-
+            
             function removeItem(index) {
                 const removedItem = order[index];
                 order.splice(index, 1);
@@ -1950,27 +1954,27 @@
                 if (removedItem && removedItem.id === 'pending-half-pizza') {
                     firstHalfPizza = null;
                     isSelectingSecondHalf = false;
-                    isSelectingHalfPizza = false;
-                    isFirstHalfPromotional = false;
-                    toggleAddItemButtons(true);
-                    toggleCategoryButtons(true);
-                    showMessageModal('Seleção de meia pizza cancelada.', 'bg-red-600');
+                    isSelectingHalfPizza = false; 
+                    isFirstHalfPromotional = false; 
+                    toggleAddItemButtons(true); 
+                    toggleCategoryButtons(true); 
+                    showMessageModal('Seleção de meia pizza cancelada.', 'bg-red-600'); 
                 }
             }
-
+            
             function clearOrder() {
                 order = [];
                 updateOrderDisplay();
                 updateCartCount();
                 firstHalfPizza = null;
                 isSelectingSecondHalf = false;
-                isSelectingHalfPizza = false;
-                isFirstHalfPromotional = false;
-                toggleAddItemButtons(true);
+                isSelectingHalfPizza = false; 
+                isFirstHalfPromotional = false; 
+                toggleAddItemButtons(true); 
                 toggleCategoryButtons(true);
                 updateCheckoutButtonText();
             }
-
+            
             function updateCartCount() {
                 if (order.length > 0) {
                     cartCount.textContent = order.length;
@@ -1979,7 +1983,7 @@
                     cartCount.classList.add('hidden');
                 }
             }
-
+            
             function proceedToWhatsappCheckout() {
                 const checkoutButton = document.getElementById('checkoutButton');
                 checkoutButton.disabled = true;
@@ -1991,7 +1995,7 @@
                         subtotal += item.price;
                     }
                 });
-
+                
                 let finalDiscountAmount = 0;
                 if (discountPromotion) {
                     finalDiscountAmount = subtotal * (discountPromotion.promoPrice / 100);
@@ -2016,23 +2020,23 @@
                         paymentMethod: selectedPaymentMethod
                     }),
                 })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success && data.whatsappUrl) {
-                            window.open(data.whatsappUrl, '_blank');
-                            clearOrder();
-                        } else {
-                            showMessageModal('Erro ao enviar o pedido. Por favor, tente novamente.');
-                        }
-                    })
-                    .catch((error) => {
-                        console.error('Erro:', error);
-                        showMessageModal('Erro de conexão ao enviar o pedido. Verifique sua internet.');
-                    })
-                    .finally(() => {
-                        checkoutButton.disabled = false;
-                        updateCheckoutButtonText();
-                    });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.whatsappUrl) {
+                        window.open(data.whatsappUrl, '_blank');
+                        clearOrder();
+                    } else {
+                        showMessageModal('Erro ao enviar o pedido. Por favor, tente novamente.');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Erro:', error);
+                    showMessageModal('Erro de conexão ao enviar o pedido. Verifique sua internet.');
+                })
+                .finally(() => {
+                    checkoutButton.disabled = false;
+                    updateCheckoutButtonText();
+                });
             }
 
             function handleCheckoutFlow() {
@@ -2040,8 +2044,8 @@
                     showMessageModal('O seu pedido está vazio. Adicione itens antes de finalizar.');
                     return;
                 }
-
-                if (isSelectingHalfPizza) {
+                
+                if (isSelectingHalfPizza) { 
                     showMessageModal('Por favor, escolha a segunda metade da sua pizza antes de finalizar o pedido.');
                     return;
                 }
@@ -2054,13 +2058,13 @@
 
                 const hasDrinks = order.some(item => item.category === 'bebidas');
                 if (!hasDrinks) {
-                    displayDrinkSuggestionModal();
-                    return;
+                    displayDrinkSuggestionModal(); 
+                    return; 
                 }
 
                 if (!selectedPaymentMethod) {
-                    isCheckoutInitiated = true;
-                    openPaymentMethodModal(true);
+                    isCheckoutInitiated = true; 
+                    openPaymentMethodModal(true); 
                 } else {
                     proceedToWhatsappCheckout();
                 }
@@ -2076,7 +2080,7 @@
             }
 
             function backToOrderSidebarFromDrinkSuggestion() {
-                drinkSuggestionModal.style.display = 'none';
+                drinkSuggestionModal.style.display = 'none'; 
                 orderSidebar.scrollTop = orderSidebar.scrollHeight;
             }
 
@@ -2088,7 +2092,7 @@
                     activePromotions.forEach(promo => {
                         const promoDiv = document.createElement('div');
                         promoDiv.className = 'promotion-item';
-
+                        
                         const promoImageUrl = promo.name === 'Desconto no Pedido' ? null : allMenuData.find(item => item.id === promo.itemId)?.imageUrl;
                         const isDiscountPromo = promo.name === 'Desconto no Pedido';
 
@@ -2106,8 +2110,8 @@
                     document.querySelectorAll('.add-promo-to-order-btn').forEach(button => {
                         button.addEventListener('click', function() {
                             const promoId = this.dataset.promoId;
-                            const promoImageUrl = this.dataset.imageUrl || null;
-                            addPromotionToOrder(promoId, this, promoImageUrl);
+                            const promoImageUrl = this.dataset.imageUrl || null; 
+                            addPromotionToOrder(promoId, this, promoImageUrl); 
                         });
                     });
                     promotionPopup.style.display = 'flex';
@@ -2116,7 +2120,7 @@
                 }
             }
 
-            function addPromotionToOrder(promoId, clickedButton = null, itemImageUrl = null) {
+            function addPromotionToOrder(promoId, clickedButton = null, itemImageUrl = null) { 
                 const promotion = allPromotionsData.find(p => p.id === promoId);
                 if (promotion) {
                     order.push({
@@ -2130,9 +2134,9 @@
                     updateCartCount();
                     promotionPopup.style.display = 'none';
                     if (clickedButton) {
-                        animateItemToCart(clickedButton, itemImageUrl);
+                        animateItemToCart(clickedButton, itemImageUrl); 
                     }
-                    showTemporaryFeedback(`Promoção "${promotion.name}" adicionada ao pedido!`, 'bg-green-500');
+                    showTemporaryFeedback(`Promoção "${promotion.name}" adicionada ao pedido!`, 'bg-green-500'); 
                 } else {
                     showMessageModal('Erro ao adicionar promoção. Por favor, tente novamente.');
                 }
@@ -2149,11 +2153,11 @@
             }
 
             function displayDrinkSuggestionModal() {
-                suggestedDrinksList.innerHTML = '';
+                suggestedDrinksList.innerHTML = ''; 
                 const availableDrinks = allMenuData.filter(item => item.category === 'bebidas' && item.available);
 
                 if (availableDrinks.length > 0) {
-                    const drinksToSuggest = availableDrinks;
+                    const drinksToSuggest = availableDrinks; 
                     drinksToSuggest.forEach(drink => {
                         const drinkItemHtml = `
                             <div class="suggested-drink-item">
@@ -2176,17 +2180,17 @@
                                     price: item.basePrice,
                                     description: item.description,
                                     category: item.category
-                                }, this, null);
-                                updateDrinkSuggestionButtons();
+                                }, this, null); 
+                                updateDrinkSuggestionButtons(); 
                             }
                         });
                     });
                 } else {
                     suggestedDrinksList.innerHTML = '<p class="text-gray-500">Nenhuma bebida disponível para sugestão no momento.</p>';
                 }
-                drinkSuggestionModal.style.display = 'flex';
+                drinkSuggestionModal.style.display = 'flex'; 
                 updatePromotionButtonVisibility();
-                updateDrinkSuggestionButtons();
+                updateDrinkSuggestionButtons(); 
             }
 
             function updateDrinkSuggestionButtons() {
@@ -2198,23 +2202,23 @@
                 } else {
                     proceedWithoutDrinksBtn.textContent = 'Finalizar sem Bebidas';
                     proceedWithoutDrinksBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-                    proceedWithoutDrinksBtn.classList.add('btn-order');
+                    proceedWithoutDrinksBtn.classList.add('btn-order'); 
                 }
             }
 
-            function openPaymentMethodModal(fromCheckout = false) {
-                isCheckoutInitiated = fromCheckout;
+            function openPaymentMethodModal(fromCheckout = false) { 
+                isCheckoutInitiated = fromCheckout; 
                 paymentMethodModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
-
+                
                 const totalOrder = calculateOrderTotal();
                 paymentModalTotal.textContent = `R$ ${totalOrder.toFixed(2).replace('.', ',')}`;
 
                 trocoInputContainer.classList.add('hidden');
-                trocoParaInput.value = '';
-                trocoTotalDisplay.textContent = 'R$ 0,00';
+                trocoParaInput.value = ''; 
+                trocoTotalDisplay.textContent = 'R$ 0,00'; 
                 pixDetailsContainer.classList.add('hidden');
-
+                
                 const qrcodeContainer = document.getElementById('qrcode-container');
                 qrcodeContainer.innerHTML = '';
 
@@ -2224,7 +2228,7 @@
                     const radio = document.querySelector(`input[name="paymentMethod"][value="${methodValue}"]`);
                     if (radio) {
                         radio.checked = true;
-                        document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
+                        document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected')); 
                         radio.closest('.payment-option').classList.add('selected');
 
                         if (methodValue === 'Dinheiro') {
@@ -2236,18 +2240,18 @@
                             }
                         }
                         if (methodValue === 'Pix' && contactInfo.chavepix) {
-                            const totalAmount = calculateOrderTotal()
+                            const totalAmount = calculateOrderTotal();
                             const payload = gerarPayload(contactInfo.chavepix, totalAmount, contactInfo.nome, contactInfo.cidade, "pedido" + Date.now());
                             pixKeyDisplay.textContent = payload;
                             pixDetailsContainer.classList.remove('hidden');
-
+                            
                             new QRCode(qrcodeContainer, {
                                 text: payload,
                                 width: 110,
                                 height: 110,
-                                colorDark: "#000000",
-                                colorLight: "#ffffff",
-                                correctLevel: QRCode.CorrectLevel.H
+                                colorDark : "#000000",
+                                colorLight : "#ffffff",
+                                correctLevel : QRCode.CorrectLevel.H
                             });
 
                         } else {
@@ -2272,24 +2276,24 @@
 
             function copyPixKey() {
                 const pixKeyText = pixKeyDisplay.textContent;
-
+                
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(pixKeyText)
-                        .then(() => {
-                            const feedbackEl = document.getElementById('copy-feedback');
-                            feedbackEl.classList.remove('hidden');
-                            setTimeout(() => {
-                                feedbackEl.classList.add('hidden');
-                            }, 2000);
-                        })
-                        .catch(err => {
-                            fallbackCopyTextToClipboard(pixKeyText);
-                        });
+                    .then(() => {
+                        const feedbackEl = document.getElementById('copy-feedback');
+                        feedbackEl.classList.remove('hidden');
+                        setTimeout(() => {
+                            feedbackEl.classList.add('hidden');
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        fallbackCopyTextToClipboard(pixKeyText);
+                    });
                 } else {
                     fallbackCopyTextToClipboard(pixKeyText);
                 }
             }
-
+            
             function fallbackCopyTextToClipboard(text) {
                 const tempInput = document.createElement('textarea');
                 tempInput.value = text;
@@ -2321,6 +2325,9 @@
                 return currentSubtotal - finalDiscountAmount + selectedAddress.deliveryFee;
             }
 
+            let isScrollingFromClick = false; 
+            let currentActiveCategoryByScroll = ''; 
+
             function getStickyHeaderHeight() {
                 const stickyHeader = document.querySelector('.category-bar-mobile-sticky');
                 return stickyHeader ? stickyHeader.offsetHeight : 0;
@@ -2335,106 +2342,84 @@
 
                 const targetBtn = document.querySelector(`.category-btn[data-category="${category}"]`);
                 if (targetBtn) {
-                    targetBtn.classList.remove('bg-gray-200', 'text-gray-800');
-                    targetBtn.classList.add('bg-red-600', 'text-white');
+                    targetBtn.classList.remove('bg-gray-200', 'text-gray-800'); 
+                    targetBtn.classList.add('bg-red-600', 'text-white'); 
                     targetBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }
             }
 
-            let categoryObserver;
+            let categoryObserver; 
 
             function setupCategoryObserver() {
-                if (categoryObserver) categoryObserver.disconnect();
+                if (categoryObserver) {
+                    categoryObserver.disconnect();
+                }
 
-                const categorySections = document.querySelectorAll('.pizza-category-section');
+                const categorySections = document.querySelectorAll('.pizza-category-section'); 
                 const stickyHeaderHeight = getStickyHeaderHeight();
-
-                const options = {
-                    root: null,
-                    rootMargin: `-${stickyHeaderHeight + 1}px 0px -99% 0px`, 
-                    threshold: 0 
-                };
-
+                
                 categoryObserver = new IntersectionObserver((entries) => {
-                    if (isScrollingFromClick) return;
-
+                    if (isScrollingFromClick) {
+                        return;
+                    }
+                    
                     let newActiveCategory = null;
+                    
+                    // Encontra a categoria cuja seção está mais próxima do topo da viewport
+                    let closestSection = null;
                     let minDistance = Infinity;
+
                     entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const rect = entry.target.getBoundingClientRect();
-                            const distance = rect.top - stickyHeaderHeight;
-                            
-                            if (distance >= 0) {
-                                if (distance < minDistance) {
-                                    minDistance = distance;
-                                    newActiveCategory = entry.target.id.replace('-section', '');
-                                }
-                            }
+                        const rect = entry.boundingClientRect;
+                        const distance = Math.abs(rect.top - stickyHeaderHeight);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closestSection = entry.target;
                         }
                     });
+
+                    if (closestSection) {
+                        newActiveCategory = closestSection.id.replace('-section', '');
+                    }
                     
-                    if (!newActiveCategory && window.innerHeight + window.scrollY >= document.body.offsetHeight - 10) {
-                        newActiveCategory = orderedUniqueCategories[orderedUniqueCategories.length - 1];
+                    // Lógica para o caso de pizzas meio a meio
+                    if (isSelectingHalfPizza) {
+                        if (isFirstHalfPromotional) {
+                            if (newActiveCategory && newActiveCategory.toLowerCase() !== 'promocionais') {
+                                setActiveCategoryButton('promocionais');
+                                currentActiveCategoryByScroll = 'promocionais'; 
+                                isScrollingFromClick = true; 
+                                document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                setTimeout(() => { isScrollingFromClick = false; }, 700); 
+                                showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
+                                return; 
+                            }
+                        } else {
+                            if (newActiveCategory && newActiveCategory.toLowerCase() === 'promocionais') {
+                                const originalCategory = firstHalfPizza.category.toLowerCase();
+                                setActiveCategoryButton(originalCategory); 
+                                currentActiveCategoryByScroll = originalCategory;
+                                isScrollingFromClick = true;
+                                document.getElementById(`${originalCategory}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                setTimeout(() => { isScrollingFromClick = false; }, 700);
+                                showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
+                                return;
+                            }
+                        }
                     }
 
                     if (newActiveCategory && newActiveCategory !== currentActiveCategoryByScroll) {
                         setActiveCategoryButton(newActiveCategory);
                         currentActiveCategoryByScroll = newActiveCategory;
                     }
-                }, options);
+                }, {
+                    root: null,
+                    rootMargin: `-${stickyHeaderHeight}px 0px -99% 0px`, 
+                    threshold: 0 
+                });
 
                 categorySections.forEach(section => {
                     categoryObserver.observe(section);
-                });
-                
-                const promoIndex = orderedUniqueCategories.indexOf('promocionais');
-                const previousCategory = promoIndex > 0 ? orderedUniqueCategories[promoIndex - 1] : null;
-                const nextCategory = promoIndex < orderedUniqueCategories.length - 1 ? orderedUniqueCategories[promoIndex + 1] : null;
-
-                let targetCards = [];
-                const firstPromoCard = document.querySelector(`.flavor-card[data-category="promocionais"]`);
-                const lastPreviousCard = previousCategory ? document.querySelector(`.flavor-card[data-category="${previousCategory}"]:last-child`) : null;
-                const firstNextCard = nextCategory ? document.querySelector(`.flavor-card[data-category="${nextCategory}"]`) : null;
-
-                if (firstPromoCard) targetCards.push(firstPromoCard);
-                if (lastPreviousCard) targetCards.push(lastPreviousCard);
-                if (firstNextCard) targetCards.push(firstNextCard);
-
-                const halfPizzaOptions = {
-                    root: null,
-                    rootMargin: `-${stickyHeaderHeight}px 0px 0px 0px`,
-                    threshold: 0.5
-                };
-
-                const halfPizzaObserver = new IntersectionObserver((entries) => {
-                    if (isScrollingFromClick) return;
-
-                    entries.forEach(entry => {
-                        const category = entry.target.dataset.category;
-                        const isIntersecting = entry.intersectionRatio >= 0.5;
-
-                        if (isIntersecting && isSelectingHalfPizza) {
-                            if (category.toLowerCase() === 'promocionais' && !isFirstHalfPromotional) {
-                                showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
-                                isScrollingFromClick = true;
-                                document.getElementById(`${firstHalfPizza.category}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                setTimeout(() => { isScrollingFromClick = false; }, 700);
-                                return;
-                            }
-                            if (category.toLowerCase() !== 'promocionais' && isFirstHalfPromotional) {
-                                showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
-                                isScrollingFromClick = true;
-                                document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                setTimeout(() => { isScrollingFromClick = false; }, 700);
-                                return;
-                            }
-                        }
-                    });
-                }, halfPizzaOptions);
-
-                targetCards.forEach(card => {
-                    halfPizzaObserver.observe(card);
                 });
             }
 
@@ -2512,7 +2497,7 @@
                 const socialLinksEl = document.getElementById('social-links-container');
 
                 socialLinksEl.innerHTML = '';
-
+                
                 const contactData = contacts.reduce((acc, current) => {
                     const key = current.data.toLowerCase().replace(/[^a-z0-9]/g, '');
                     acc[key] = current.value;
@@ -2535,7 +2520,7 @@
                 if (contactData.whatsapp) {
                     socialLinksEl.insertAdjacentHTML('beforeend', `<a href="https://wa.me/55${contactData.whatsapp.replace(/\D/g, '')}" class="text-gray-400 hover:text-white" target="_blank"><i class="fab fa-whatsapp text-xl"></i></a>`);
                 }
-
+                
                 return contactData;
             }
 
@@ -2552,7 +2537,7 @@
                 const merchantAccountInfo = formatValue("26", info);
                 const txidField = formatValue("05", txid);
                 const additionalDataField = formatValue("62", txidField);
-
+                
                 const formattedValor = parseFloat(valor).toFixed(2);
 
                 const payloadSemCRC =
@@ -2566,7 +2551,7 @@
                     formatValue("60", cidade) +
                     additionalDataField +
                     "6304";
-
+                
                 return payloadSemCRC + crc16(payloadSemCRC);
             }
 
@@ -2590,25 +2575,25 @@
                 if (!pixKey || !amount || isNaN(amount) || amount <= 0) {
                     return "Erro: Chave Pix inválida ou valor ausente.";
                 }
-
+                
                 const txid = "pedido" + Date.now();
                 return gerarPayload(pixKey, amount, merchantName, merchantCity, txid);
             }
-
+            
             async function loadMenuAndRender() {
                 try {
-                    const response = await fetch('/api/menu');
+                    const response = await fetch('/api/menu'); 
 
                     if (!response.ok) {
                         const errorText = await response.text();
                         throw new Error(`Erro ao buscar dados da API: ${response.statusText || errorText}`);
                     }
-                    const data = await response.json();
-
+                    const data = await response.json(); 
+                    
                     allMenuData = parseCsvData(data.cardapio, 'cardapio');
                     allPromotionsData = parseCsvData(data.promocoes, 'promocoes');
                     deliveryFeesData = parseCsvData(data.deliveryFees, 'deliveryFees');
-
+                    
                     const rawBurgerIngredients = parseCsvData(data.ingredientesHamburguer, 'ingredientesHamburguer');
                     allBurgerIngredients = rawBurgerIngredients.reduce((acc, current) => {
                         if (!acc[current.category]) {
@@ -2625,9 +2610,10 @@
                         }
                         return acc;
                     }, {});
-
+                    
                     discountPromotion = allPromotionsData.find(promo => promo.name === 'Desconto no Pedido' && promo.active);
 
+                    let orderedUniqueCategories = [];
                     const seenCategories = new Set();
                     allMenuData.forEach(item => {
                         if (!seenCategories.has(item.category)) {
@@ -2635,32 +2621,28 @@
                             orderedUniqueCategories.push(item.category);
                         }
                     });
-
-                    createCategoryButtons(orderedUniqueCategories);
-                    populateMenu(allMenuData, orderedUniqueCategories);
-                    populateNeighborhoodDropdown(deliveryFeesData);
+                    
+                    createCategoryButtons(orderedUniqueCategories); 
+                    populateMenu(allMenuData, orderedUniqueCategories); 
+                    populateNeighborhoodDropdown(deliveryFeesData); 
                     populateContactInfo(parsedContactInfo);
-                    setupCategoryObserver();
-                    updatePromotionButtonVisibility();
-                    updateCartCount();
-                    updateOrderDisplay();
-                    updateCheckoutButtonText();
-                    showAddressSummary();
-
+                    setupCategoryObserver(); 
+                    updatePromotionButtonVisibility(); 
+                    updateCartCount(); 
+                    updateOrderDisplay(); 
+                    updateCheckoutButtonText(); 
+                    showAddressSummary(); 
+                    
                     toggleAddItemButtons(true);
                     toggleCategoryButtons(true);
-
+                    
                     setTimeout(() => {
                         window.dispatchEvent(new Event('scroll'));
                     }, 100);
 
-                    isMenuLoaded = true;
-
                 } catch (error) {
-                    console.error("Erro ao carregar o cardápio:", error);
-                    if (!isMenuLoaded) {
-                        showMessageModal('Não foi possível carregar o cardápio no momento. Por favor, tente novamente mais tarde.');
-                    }
+                    console.error('Erro ao carregar o cardápio:', error);
+                    showMessageModal('Não foi possível carregar o cardápio no momento. Por favor, tente novamente mais tarde.');
                 }
             }
 
@@ -2677,7 +2659,6 @@
             cartButton.addEventListener('click', toggleOrderSidebar);
             closeSidebarBtn.addEventListener('click', closeOrderSidebar);
             backToMenuBtn.addEventListener('click', backToMenu);
-
             checkoutButton.addEventListener('click', handleCheckoutFlow);
 
             orderItemsContainer.addEventListener('click', function(event) {
@@ -2692,14 +2673,14 @@
 
             closePizzaOptionModalBtn.addEventListener('click', function() {
                 pizzaOptionModal.style.display = 'none';
-                updatePromotionButtonVisibility();
+                updatePromotionButtonVisibility(); 
                 resetHalfPizzaSelection();
             });
 
             window.addEventListener('click', function(event) {
                 if (event.target == pizzaOptionModal) {
                     pizzaOptionModal.style.display = 'none';
-                    updatePromotionButtonVisibility();
+                    updatePromotionButtonVisibility(); 
                     resetHalfPizzaSelection();
                 }
                 if (event.target == burgerBuilderModal) {
@@ -2712,9 +2693,9 @@
                 if (event.target == confirmNoDrinkModal) {
                     confirmNoDrinkModal.style.display = 'none';
                     updatePromotionButtonVisibility();
-                    drinkSuggestionModal.style.display = 'flex';
+                    drinkSuggestionModal.style.display = 'flex'; 
                 }
-                if (event.target == addressInputModal) {
+                 if (event.target == addressInputModal) {
                     hideAddressInputModal();
                 }
             });
@@ -2747,8 +2728,8 @@
                 const hasDrinks = order.some(item => item.category === 'bebidas');
 
                 if (!selectedPaymentMethod) {
-                    isCheckoutInitiated = true;
-                    openPaymentMethodModal(true);
+                    isCheckoutInitiated = true; 
+                    openPaymentMethodModal(true); 
                 } else {
                     proceedToWhatsappCheckout();
                 }
@@ -2757,25 +2738,25 @@
             closeConfirmNoDrinkModalBtn.addEventListener('click', function() {
                 confirmNoDrinkModal.style.display = 'none';
                 updatePromotionButtonVisibility();
-                drinkSuggestionModal.style.display = 'flex';
+                drinkSuggestionModal.style.display = 'flex'; 
             });
 
             confirmNoDrinkYesBtn.addEventListener('click', function() {
                 confirmNoDrinkModal.style.display = 'none';
                 if (selectedPaymentMethod) {
-                    proceedToWhatsappCheckout();
+                    proceedToWhatsappCheckout(); 
                 } else {
-                    isCheckoutInitiated = true;
-                    openPaymentMethodModal(true);
+                    isCheckoutInitiated = true; 
+                    openPaymentMethodModal(true); 
                 }
             });
 
-            confirmNoDrinkNoBtn.addEventListener('click', function() {
+            confirmNoDrinkNoBtn.addEventListener('click', function() { 
                 confirmNoDrinkModal.style.display = 'none';
                 updatePromotionButtonVisibility();
-                drinkSuggestionModal.style.display = 'flex';
+                drinkSuggestionModal.style.display = 'flex'; 
             });
-
+            
             closePaymentMethodModalBtn.addEventListener('click', closePaymentMethodModal);
 
             paymentOptionsContainer.addEventListener('click', (event) => {
@@ -2783,7 +2764,7 @@
                 if (label) {
                     const qrcodeContainer = document.getElementById('qrcode-container');
                     qrcodeContainer.innerHTML = '';
-
+                    
                     document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
                     label.classList.add('selected');
                     const radio = label.querySelector('input[type="radio"]');
@@ -2803,8 +2784,8 @@
                         }
                     } else {
                         trocoInputContainer.classList.add('hidden');
-                        trocoParaInput.value = '';
-                        trocoTotalDisplay.textContent = 'R$ 0,00';
+                        trocoParaInput.value = ''; 
+                        trocoTotalDisplay.textContent = 'R$ 0,00'; 
                     }
 
                     if (radio && radio.value === 'Pix' && contactInfo.chavepix) {
@@ -2813,16 +2794,16 @@
                         pixKeyDisplay.textContent = payload;
                         pixDetailsContainer.classList.remove('hidden');
 
-                        if (qrcodeContainer) {
+                         if (qrcodeContainer) {
                             new QRCode(qrcodeContainer, {
                                 text: payload,
                                 width: 110,
                                 height: 110,
-                                colorDark: "#000000",
-                                colorLight: "#ffffff",
-                                correctLevel: QRCode.CorrectLevel.H
+                                colorDark : "#000000",
+                                colorLight : "#ffffff",
+                                correctLevel : QRCode.CorrectLevel.H
                             });
-                        }
+                         }
                     } else {
                         pixDetailsContainer.classList.add('hidden');
                     }
@@ -2836,12 +2817,12 @@
                 if (!isNaN(trocoParaValue) && trocoParaValue >= totalOrder) {
                     const trocoCalculado = trocoParaValue - totalOrder;
                     trocoTotalDisplay.textContent = `R$ ${trocoCalculado.toFixed(2).replace('.', ',')}`;
-                    trocoTotalDisplay.classList.remove('text-red-600');
-                    trocoTotalDisplay.classList.add('text-green-600');
+                    trocoTotalDisplay.classList.remove('text-red-600'); 
+                    trocoTotalDisplay.classList.add('text-green-600'); 
                 } else {
                     trocoTotalDisplay.textContent = `R$ 0,00`;
                     trocoTotalDisplay.classList.remove('text-green-600');
-                    trocoTotalDisplay.classList.add('text-red-600');
+                    trocoTotalDisplay.classList.add('text-red-600'); 
                 }
             });
 
@@ -2860,7 +2841,7 @@
 
                         if (isNaN(trocoParaValue) || trocoParaValue < totalOrder) {
                             showMessageModal(`O valor para troco (R$ ${totalOrder.toFixed(2).replace('.', ',')}) não pode ser menor que o total do pedido (R$ ${totalOrder.toFixed(2).replace('.', ',')}).`);
-                            return;
+                            return; 
                         }
                         const trocoCalculado = trocoParaValue - totalOrder;
                         selectedPaymentMethod = {
@@ -2871,21 +2852,21 @@
                     } else {
                         selectedPaymentMethod = selectedRadio.value;
                     }
-
+                    
                     closePaymentMethodModal();
-
+                    
                     if (isCheckoutInitiated) {
-                        handleCheckoutFlow();
+                        proceedToWhatsappCheckout(); 
                     }
-                    isCheckoutInitiated = false;
-                    updateOrderDisplay();
+                    isCheckoutInitiated = false; 
+                    updateOrderDisplay(); 
                 } else {
                     showMessageModal('Por favor, selecione uma forma de pagamento.');
                 }
             });
 
             closeAddressModalBtn.addEventListener('click', hideAddressInputModal);
-
+            
             noNumberCheckbox.addEventListener('change', function() {
                 if (this.checked) {
                     numberInput.value = '';
@@ -2909,7 +2890,7 @@
                     showMessageModal('Por favor, preencha o nome do cliente, o bairro e a rua para continuar.');
                     return;
                 }
-
+                
                 if (!isNoNumber && !numero) {
                     showMessageModal('Por favor, preencha o número ou marque a opção "Sem Número".');
                     return;
@@ -2937,7 +2918,7 @@
                 hideAddressInputModal();
                 updateOrderDisplay();
                 showAddressSummary();
-
+                
                 if (isCheckoutInitiated) {
                     handleCheckoutFlow();
                 }
@@ -2967,7 +2948,7 @@
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
-
+                
                 if (!isPwaInstalled()) {
                     installPromptModal.style.display = 'flex';
                 }
@@ -2975,7 +2956,7 @@
 
             installAppButton.addEventListener('click', () => {
                 installPromptModal.style.display = 'none';
-
+                
                 if (deferredPrompt) {
                     deferredPrompt.prompt();
                     deferredPrompt.userChoice.then((choiceResult) => {
@@ -2984,7 +2965,7 @@
                         } else {
                             showMessageModal('Você pode instalar o Sâmia Cardápio a qualquer momento pelo menu do navegador.');
                         }
-                        deferredPrompt = null;
+                        deferredPrompt = null; 
                     });
                 }
             });
@@ -3002,12 +2983,12 @@
                     if (!isPwaInstalled() && deferredPrompt) {
                         installPromptModal.style.display = 'flex';
                     }
-                }, 3000);
+                }, 3000); 
             });
-
+            
             window.addEventListener('scroll', () => {
                 const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 10;
-
+                
                 if (isAtBottom) {
                     cartButton.style.opacity = '0';
                     cartButton.style.pointerEvents = 'none';
