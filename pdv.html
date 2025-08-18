@@ -643,14 +643,10 @@
                     option.textContent = category;
                     categoryFilterSelect.appendChild(option);
                 });
-
-                const itemStatusRef = doc(db, "config", "item_status");
-                const itemStatusSnap = await getDoc(itemStatusRef);
-                const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
-
+                
                 menuItemsContainer.innerHTML = '';
                 allItems.forEach(item => {
-                    const isChecked = !unavailableItems[item.id]; // Correctly check against the unavailable list
+                    const isChecked = item.available;
                     const itemElement = document.createElement('div');
                     itemElement.className = 'menu-item-row flex items-center justify-between p-2 bg-gray-50 rounded';
                     itemElement.dataset.name = item.name;
@@ -673,6 +669,7 @@
                         const itemId = e.target.dataset.itemId;
                         const available = e.target.checked;
                         
+                        const itemStatusRef = doc(db, "config", "item_status");
                         const currentStatusSnap = await getDoc(itemStatusRef);
                         const currentStatus = currentStatusSnap.exists() ? currentStatusSnap.data() : {};
 
