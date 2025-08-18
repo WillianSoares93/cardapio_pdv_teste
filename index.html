@@ -2268,7 +2268,8 @@
 
                 let finalDiscountAmount = 0;
                 if (discountPromotion) {
-                    finalDiscountAmount = subtotal * (discountPromotion.promoPrice / 100);
+                    // CORREÇÃO: Usar currentSubtotal em vez de subtotal (que não está definido neste escopo)
+                    finalDiscountAmount = currentSubtotal * (discountPromotion.promoPrice / 100);
                 }
 
                 return currentSubtotal - finalDiscountAmount + selectedAddress.deliveryFee;
