@@ -49,10 +49,10 @@ export default async (req, res) => {
         let itemsText = order.map(item => {
             let itemDescription = `- *${item.name}* - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
             if (item.type === 'custom_burger' && item.ingredients) {
-                // CORREÇÃO: Adiciona espaços para indentar a lista de ingredientes
+                // CORREÇÃO: Adiciona mais espaços para indentar a lista de ingredientes
                 itemDescription += item.ingredients.map(ing => {
                     const formattedName = ing.name.replace(/\(x\d+\)/g, match => `*${match}*`);
-                    return `    - ${formattedName}\n`; // 4 espaços criam o recuo
+                    return `        - ${formattedName}\n`; // 8 espaços criam o recuo
                 }).join('');
             }
             return itemDescription;
