@@ -41,11 +41,12 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 
+        // CORREÇÃO: Chaves do Firebase atualizadas com o storageBucket correto.
         const firebaseConfig = {
             apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
             authDomain: "pizzaria-pdv.firebaseapp.com",
             projectId: "pizzaria-pdv",
-            storageBucket: "pizzaria-pdv.appspot.com",
+            storageBucket: "pizzaria-pdv.firebasestorage.app",
             messagingSenderId: "304171744691",
             appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
         };
