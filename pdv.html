@@ -817,8 +817,7 @@
 
             const ordersQuery = query(
                 collection(db, "pedidos"),
-                where("status", "==", "Finalizado"),
-                where("criadoEm", ">=", currentCashRegister.dataAbertura)
+                where("status", "==", "Finalizado")
             );
             const ordersSnapshot = await getDocs(ordersQuery);
 
@@ -828,15 +827,17 @@
 
             ordersSnapshot.forEach(doc => {
                 const order = doc.data();
-                const payment = order.pagamento;
-                const total = order.total.finalTotal;
+                if (order.criadoEm && order.criadoEm.seconds >= currentCashRegister.dataAbertura.seconds) {
+                    const payment = order.pagamento;
+                    const total = order.total.finalTotal;
 
-                if (typeof payment === 'object' && payment.method === 'Dinheiro') {
-                    totalCash += total;
-                } else if (payment === 'Cartão de Crédito/Débito') {
-                    totalCard += total;
-                } else if (payment === 'Pix') {
-                    totalPix += total;
+                    if (typeof payment === 'object' && payment.method === 'Dinheiro') {
+                        totalCash += total;
+                    } else if (payment === 'Cartão de Crédito/Débito') {
+                        totalCard += total;
+                    } else if (payment === 'Pix') {
+                        totalPix += total;
+                    }
                 }
             });
 
