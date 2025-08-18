@@ -93,11 +93,12 @@
     <header class="bg-white shadow-md">
         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
             <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
-            <div class="flex items-center space-x-4">
-                <button id="close-cash-register-btn" class="px-4 py-2 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700">Fechar Caixa</button>
-                <button id="manage-menu-btn" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</button>
-                <button id="clear-finished-btn" class="px-4 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">Limpar Finalizados</button>
-                <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">Sair</button>
+            <div class="flex items-center space-x-2">
+                <button id="add-manual-order-btn" class="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700">Novo Pedido Manual</button>
+                <button id="close-cash-register-btn" class="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700">Fechar Caixa</button>
+                <button id="manage-menu-btn" class="px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</button>
+                <button id="clear-finished-btn" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">Limpar Finalizados</button>
+                <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">Sair</button>
                 <div id="connection-status" class="text-sm font-medium text-gray-500">
                     <i class="fas fa-circle text-red-500 mr-2"></i>Conectando...
                 </div>
@@ -204,6 +205,83 @@
             </form>
         </div>
     </div>
+    
+    <!-- Modal Pedido Manual -->
+    <div id="manual-order-modal" class="modal">
+        <div class="modal-content !max-w-2xl">
+             <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Novo Pedido Manual</h2>
+                <button id="close-manual-order-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <form id="manual-order-form">
+                <!-- Dados do Cliente -->
+                <div class="p-4 border border-gray-200 rounded-lg mb-4">
+                    <h3 class="font-bold mb-2">Dados do Cliente</h3>
+                     <div class="mb-2">
+                        <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
+                        <input type="text" id="manual-clientName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div class="flex items-center mb-2">
+                        <input type="checkbox" id="pickup-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
+                        <label for="pickup-checkbox" class="ml-2 block text-sm text-gray-900">Retirada no Balcão</label>
+                    </div>
+                    <div id="delivery-fields">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="manual-street" class="block text-sm font-medium text-gray-700">Rua</label>
+                                <input type="text" id="manual-street" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                            </div>
+                             <div>
+                                <label for="manual-number" class="block text-sm font-medium text-gray-700">Número</label>
+                                <input type="text" id="manual-number" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <label for="manual-neighborhood" class="block text-sm font-medium text-gray-700">Bairro</label>
+                            <select id="manual-neighborhood" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Itens do Pedido -->
+                <div class="p-4 border border-gray-200 rounded-lg mb-4">
+                    <h3 class="font-bold mb-2">Itens do Pedido</h3>
+                    <div id="manual-order-items" class="space-y-2 mb-2"></div>
+                    <button type="button" id="add-item-btn" class="text-sm text-blue-600 hover:underline">+ Adicionar Item</button>
+                </div>
+
+                <!-- Totais e Pagamento -->
+                <div class="p-4 border border-gray-200 rounded-lg">
+                    <div class="flex justify-between text-sm"><span class="text-gray-600">Subtotal:</span> <span id="manual-subtotal" class="font-medium">R$ 0,00</span></div>
+                    <div class="flex justify-between text-sm"><span class="text-gray-600">Taxa de Entrega:</span> <span id="manual-delivery-fee" class="font-medium">R$ 0,00</span></div>
+                    <div class="flex justify-between font-bold mt-1"><span class="text-gray-800">Total:</span> <span id="manual-total" class="text-gray-800">R$ 0,00</span></div>
+                    <div class="mt-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Forma de Pagamento</h4>
+                        <div class="flex space-x-4">
+                            <label class="flex items-center"><input type="radio" name="manual-payment" value="Dinheiro" checked class="form-radio"> <span class="ml-2">Dinheiro</span></label>
+                            <label class="flex items-center"><input type="radio" name="manual-payment" value="Cartão de Crédito/Débito" class="form-radio"> <span class="ml-2">Cartão</span></label>
+                            <label class="flex items-center"><input type="radio" name="manual-payment" value="Pix" class="form-radio"> <span class="ml-2">Pix</span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-md hover:bg-purple-700">Salvar Pedido</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal Adicionar Item ao Pedido Manual -->
+    <div id="add-item-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="font-bold mb-2">Adicionar Item</h3>
+            <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
+            <div id="item-list" class="max-h-60 overflow-y-auto"></div>
+        </div>
+    </div>
+
 
     <!-- Modal Gerenciar Cardápio -->
     <div id="menu-management-modal" class="modal">
@@ -355,6 +433,25 @@
         const closeCashForm = document.getElementById('close-cash-form');
         const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn');
         const finalValueInput = document.getElementById('final-value');
+        
+        // --- Variáveis do Pedido Manual ---
+        const addManualOrderBtn = document.getElementById('add-manual-order-btn');
+        const manualOrderModal = document.getElementById('manual-order-modal');
+        const closeManualOrderModalBtn = document.getElementById('close-manual-order-modal');
+        const manualOrderForm = document.getElementById('manual-order-form');
+        const pickupCheckbox = document.getElementById('pickup-checkbox');
+        const deliveryFields = document.getElementById('delivery-fields');
+        const manualNeighborhoodSelect = document.getElementById('manual-neighborhood');
+        const addItemBtn = document.getElementById('add-item-btn');
+        const addItemModal = document.getElementById('add-item-modal');
+        const searchItemInput = document.getElementById('search-item-input');
+        const itemListContainer = document.getElementById('item-list');
+        const manualOrderItemsContainer = document.getElementById('manual-order-items');
+
+        let fullMenuData = [];
+        let deliveryFeesData = [];
+        let manualOrderItems = [];
+
 
         let orderIdToDelete = null;
 
