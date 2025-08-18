@@ -47,12 +47,12 @@ export default async (req, res) => {
 
         // Monta a mensagem para o WhatsApp
         let itemsText = order.map(item => {
-            // CORREÇÃO: Adicionado o hífen no início de cada item
             let itemDescription = `- *${item.name}* - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
             if (item.type === 'custom_burger' && item.ingredients) {
+                // CORREÇÃO: Adiciona espaços para indentar a lista de ingredientes
                 itemDescription += item.ingredients.map(ing => {
                     const formattedName = ing.name.replace(/\(x\d+\)/g, match => `*${match}*`);
-                    return `  - ${formattedName}\n`;
+                    return `    - ${formattedName}\n`; // 4 espaços criam o recuo
                 }).join('');
             }
             return itemDescription;
