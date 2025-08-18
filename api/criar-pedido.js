@@ -30,7 +30,6 @@ export default async (req, res) => {
             return res.status(400).json({ error: 'Dados do pedido incompletos.' });
         }
         
-        // CORREÇÃO: Adiciona uma verificação para garantir que o número de WhatsApp foi recebido.
         if (!whatsappNumber) {
             console.error('Erro Crítico: O número do WhatsApp não foi recebido do frontend.');
             return res.status(400).json({ error: 'O número de WhatsApp para receber o pedido não foi configurado.' });
@@ -48,7 +47,8 @@ export default async (req, res) => {
 
         // Monta a mensagem para o WhatsApp
         let itemsText = order.map(item => {
-            let itemDescription = `*${item.name}* - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
+            // CORREÇÃO: Adicionado o hífen no início de cada item
+            let itemDescription = `- *${item.name}* - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
             if (item.type === 'custom_burger' && item.ingredients) {
                 itemDescription += item.ingredients.map(ing => {
                     const formattedName = ing.name.replace(/\(x\d+\)/g, match => `*${match}*`);
@@ -83,7 +83,6 @@ Taxa de Entrega: R$ ${total.deliveryFee.toFixed(2).replace('.', ',')}
 ${paymentText}
         `;
         
-        // CORREÇÃO: Remove o número fixo e usa apenas o número vindo da planilha.
         const targetNumber = `55${whatsappNumber.replace(/\D/g, '')}`;
         const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(fullMessage.trim())}`;
 
