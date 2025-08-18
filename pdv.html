@@ -11,6 +11,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
         body {
             font-family: 'Roboto', sans-serif;
+            visibility: hidden; /* Esconde o corpo da página até a verificação de login */
         }
         .full-height-container {
             height: calc(100vh - 10rem); 
@@ -83,6 +84,7 @@
             <div class="flex items-center space-x-4">
                 <button id="manage-menu-btn" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</button>
                 <button id="clear-finished-btn" class="px-4 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">Limpar Finalizados</button>
+                <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">Sair</button>
                 <div id="connection-status" class="text-sm font-medium text-gray-500">
                     <i class="fas fa-circle text-red-500 mr-2"></i>Conectando...
                 </div>
@@ -195,6 +197,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc, query, orderBy, where, writeBatch, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -207,7 +210,30 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
+
+        // --- LÓGICA DE AUTENTICAÇÃO ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Usuário está logado, mostra a página
+                document.body.style.visibility = 'visible';
+                initializePDV(); // Inicia a lógica do PDV
+            } else {
+                // Usuário não está logado, redireciona para a página de login
+                window.location.href = 'login.html';
+            }
+        });
+
+        const logoutBtn = document.getElementById('logout-btn');
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth).then(() => {
+                // Logout bem-sucedido, o onAuthStateChanged fará o redirecionamento.
+            }).catch((error) => {
+                console.error("Erro ao fazer logout:", error);
+            });
+        });
+        // --- FIM DA LÓGICA DE AUTENTICAÇÃO ---
 
         const colNovo = document.getElementById('col-novo');
         const colPreparo = document.getElementById('col-preparo');
@@ -231,66 +257,68 @@
 
         let orderIdToDelete = null;
 
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        function playNotificationSound() {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 1);
+        function initializePDV() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            function playNotificationSound() {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 1);
+            }
+
+            const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
+
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
+                
+                colNovo.innerHTML = '';
+                colPreparo.innerHTML = '';
+                colEntrega.innerHTML = '';
+                colFinalizado.innerHTML = '';
+
+                let totalOrdersToday = 0;
+                let totalRevenueToday = 0;
+                const today = new Date().setHours(0, 0, 0, 0);
+
+                snapshot.docChanges().forEach((change) => {
+                    const orderData = change.doc.data();
+                    if (change.type === "added" && orderData.status === 'Novo') {
+                        playNotificationSound();
+                    }
+                });
+
+                snapshot.docs.forEach(doc => {
+                    const orderData = doc.data();
+                    const orderId = doc.id;
+                    const card = createOrderCard(orderData, orderId);
+
+                    const orderDate = orderData.criadoEm ? new Date(orderData.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
+                    if(orderDate === today) {
+                        totalOrdersToday++;
+                        totalRevenueToday += orderData.total.finalTotal;
+                    }
+
+                    if (orderData.status === 'Novo') colNovo.appendChild(card);
+                    else if (orderData.status === 'Em Preparo') colPreparo.appendChild(card);
+                    else if (orderData.status === 'Pronto para Entrega') colEntrega.appendChild(card);
+                    else if (orderData.status === 'Finalizado') colFinalizado.appendChild(card);
+                });
+
+                document.getElementById('stats-total-orders').textContent = totalOrdersToday;
+                document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
+                document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
+
+            }, (error) => {
+                console.error("Erro ao ouvir pedidos: ", error);
+                connectionStatus.innerHTML = '<i class="fas fa-circle text-red-500 mr-2"></i>Erro de conexão';
+            });
         }
-
-        const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
-            
-            colNovo.innerHTML = '';
-            colPreparo.innerHTML = '';
-            colEntrega.innerHTML = '';
-            colFinalizado.innerHTML = '';
-
-            let totalOrdersToday = 0;
-            let totalRevenueToday = 0;
-            const today = new Date().setHours(0, 0, 0, 0);
-
-            snapshot.docChanges().forEach((change) => {
-                const orderData = change.doc.data();
-                if (change.type === "added" && orderData.status === 'Novo') {
-                    playNotificationSound();
-                }
-            });
-
-            snapshot.docs.forEach(doc => {
-                const orderData = doc.data();
-                const orderId = doc.id;
-                const card = createOrderCard(orderData, orderId);
-
-                const orderDate = orderData.criadoEm ? new Date(orderData.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
-                if(orderDate === today) {
-                    totalOrdersToday++;
-                    totalRevenueToday += orderData.total.finalTotal;
-                }
-
-                if (orderData.status === 'Novo') colNovo.appendChild(card);
-                else if (orderData.status === 'Em Preparo') colPreparo.appendChild(card);
-                else if (orderData.status === 'Pronto para Entrega') colEntrega.appendChild(card);
-                else if (orderData.status === 'Finalizado') colFinalizado.appendChild(card);
-            });
-
-            document.getElementById('stats-total-orders').textContent = totalOrdersToday;
-            document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
-            document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
-
-        }, (error) => {
-            console.error("Erro ao ouvir pedidos: ", error);
-            connectionStatus.innerHTML = '<i class="fas fa-circle text-red-500 mr-2"></i>Erro de conexão';
-        });
 
         function createOrderCard(order, id) {
             const card = document.createElement('div');
@@ -584,7 +612,6 @@
                 const itemStatus = item.querySelector('.toggle-checkbox').checked ? 'available' : 'unavailable';
 
                 const nameMatch = itemName.includes(searchText);
-                // CORREÇÃO 1: Comparar itemCategory com selectedCategory
                 const categoryMatch = selectedCategory === 'all' || itemCategory === selectedCategory;
                 const statusMatch = activeStatusFilter === 'all' || itemStatus === activeStatusFilter;
 
@@ -617,10 +644,13 @@
                     categoryFilterSelect.appendChild(option);
                 });
 
+                const itemStatusRef = doc(db, "config", "item_status");
+                const itemStatusSnap = await getDoc(itemStatusRef);
+                const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
+
                 menuItemsContainer.innerHTML = '';
                 allItems.forEach(item => {
-                    // CORREÇÃO 2: Usar a propriedade 'available' que já vem da API
-                    const isChecked = item.available;
+                    const isChecked = !unavailableItems[item.id]; // Correctly check against the unavailable list
                     const itemElement = document.createElement('div');
                     itemElement.className = 'menu-item-row flex items-center justify-between p-2 bg-gray-50 rounded';
                     itemElement.dataset.name = item.name;
@@ -643,7 +673,6 @@
                         const itemId = e.target.dataset.itemId;
                         const available = e.target.checked;
                         
-                        const itemStatusRef = doc(db, "config", "item_status");
                         const currentStatusSnap = await getDoc(itemStatusRef);
                         const currentStatus = currentStatusSnap.exists() ? currentStatusSnap.data() : {};
 
