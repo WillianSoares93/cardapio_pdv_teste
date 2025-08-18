@@ -1,8 +1,6 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import fetch from 'node-fetch';
 
-// Suas credenciais do Firebase já inseridas
 const firebaseConfig = {
   apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
   authDomain: "pizzaria-pdv.firebaseapp.com",
@@ -12,120 +10,81 @@ const firebaseConfig = {
   appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
 };
 
-const CONTACT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJeo2AAETdXC08x9EQlkIG1FiVLEosMng4IvaQYJAdZnIDHJw8CT8J5RAJNtJ5GWHOKHkUsd5V8OSL/pub?gid=2043568216&single=true&output=csv';
-
-// Inicializa o Firebase
-const app = initializeApp(firebaseConfig);
+let app;
+if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+} else {
+    app = getApp();
+}
 const db = getFirestore(app);
 
-// Função para parsear CSV
-function parseCsvData(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim() !== '');
-    if (lines.length < 2) return [];
-
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s/g, ''));
-    const data = [];
-    for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        let entry = {};
-        headers.forEach((header, index) => {
-            entry[header] = values[index];
-        });
-        data.push(entry);
-    }
-    return data;
-}
-
-
 export default async (req, res) => {
-  // Permite que o seu site acesse esta API
-  res.setHeader('Access-Control-Allow-Origin', '*'); 
-  
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método não permitido' });
-  }
-
-  try {
-    // Busca os dados de contato primeiro
-    const contactResponse = await fetch(CONTACT_CSV_URL);
-    if (!contactResponse.ok) {
-        throw new Error('Falha ao buscar dados de contato.');
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
     }
-    const contactCsvText = await contactResponse.text();
-    const contactData = parseCsvData(contactCsvText);
-    
-    const contactInfo = contactData.reduce((acc, curr) => {
-        if (curr.dados && curr.valor) {
-            acc[curr.dados.toLowerCase().replace(/[^a-z0-9]/g, '')] = curr.valor;
+
+    try {
+        const { order, selectedAddress, total, paymentMethod, whatsappNumber } = req.body;
+
+        if (!order || !selectedAddress || !total) {
+            return res.status(400).json({ error: 'Dados do pedido incompletos.' });
         }
-        return acc;
-    }, {});
-    
-    const whatsappNumber = contactInfo.whatsapp ? `55${contactInfo.whatsapp.replace(/\D/g, '')}` : '5587996070638'; // Fallback
 
-    const { order, selectedAddress, total, paymentMethod } = req.body;
-    
-    if (!order || !selectedAddress || !total || !paymentMethod) {
-        return res.status(400).json({ error: 'Dados do pedido incompletos.' });
-    }
+        // Salva o pedido no Firestore
+        await addDoc(collection(db, "pedidos"), {
+            itens: order,
+            endereco: selectedAddress,
+            total: total,
+            pagamento: paymentMethod,
+            status: 'Novo',
+            criadoEm: serverTimestamp()
+        });
 
-    // Adiciona informações extras ao pedido antes de salvar
-    const pedidoCompleto = {
-        itens: order,
-        endereco: selectedAddress,
-        total: total,
-        pagamento: paymentMethod, // Salva a forma de pagamento
-        status: 'Novo', 
-        criadoEm: serverTimestamp()
-    };
+        // Monta a mensagem para o WhatsApp
+        let itemsText = order.map(item => {
+            let itemDescription = `*${item.name}* - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
+            if (item.type === 'custom_burger' && item.ingredients) {
+                itemDescription += item.ingredients.map(ing => {
+                    const formattedName = ing.name.replace(/\(x\d+\)/g, match => `*${match}*`);
+                    return `  - ${formattedName}\n`;
+                }).join('');
+            }
+            return itemDescription;
+        }).join('');
 
-    // Salva o pedido no banco de dados Firestore, na coleção "pedidos"
-    const docRef = await addDoc(collection(db, "pedidos"), pedidoCompleto);
-    console.log("Pedido salvo com ID: ", docRef.id);
-
-    // Lógica para gerar a mensagem do WhatsApp
-    let message = `Olá! Gostaria de fazer o seguinte pedido (Nº ${docRef.id.substring(0, 5)}):\n\n`;
-    
-    order.forEach(item => {
-        message += `- ${item.name}: R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
-        // Adiciona a lógica para incluir os ingredientes se for um hambúrguer personalizável
-        if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-            message += `  *Ingredientes:*\n`;
-            item.ingredients.forEach(ingredient => {
-                message += `  - ${ingredient.name}\n`;
-            });
+        let paymentText = '';
+        if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
+            paymentText = `Pagamento: *Dinheiro*\nTroco para: *R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')}*\nTroco: *R$ ${paymentMethod.trocoTotal.toFixed(2).replace('.', ',')}*`;
+        } else {
+            paymentText = `Pagamento: *${paymentMethod}*`;
         }
-    });
-    
-    message += `\nSubtotal: R$ ${total.subtotal.toFixed(2).replace('.', ',')}`;
-    if (total.discount > 0) {
-      message += `\nDesconto: -R$ ${total.discount.toFixed(2).replace('.', ',')}`;
+
+        const fullMessage = `
+*-- NOVO PEDIDO --*
+
+*Cliente:* ${selectedAddress.clientName}
+*Endereço:* ${selectedAddress.rua}, ${selectedAddress.numero} - ${selectedAddress.bairro}
+${selectedAddress.referencia ? `*Referência:* ${selectedAddress.referencia}` : ''}
+
+------------------------------------
+*PEDIDO:*
+${itemsText}
+------------------------------------
+Subtotal: R$ ${total.subtotal.toFixed(2).replace('.', ',')}
+Taxa de Entrega: R$ ${total.deliveryFee.toFixed(2).replace('.', ',')}
+*Total: R$ ${total.finalTotal.toFixed(2).replace('.', ',')}*
+
+${paymentText}
+        `;
+        
+        // Usa o número de WhatsApp recebido do frontend ou um número padrão como fallback.
+        const targetNumber = whatsappNumber ? `55${whatsappNumber.replace(/\D/g, '')}` : '5587996070638';
+        const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(fullMessage.trim())}`;
+
+        res.status(200).json({ success: true, whatsappUrl });
+
+    } catch (error) {
+        console.error('Erro ao processar pedido:', error);
+        res.status(500).json({ error: 'Erro interno no servidor.' });
     }
-    message += `\nTaxa de entrega: R$ ${total.deliveryFee.toFixed(2).replace('.', ',')}`;
-    message += `\n*Total: R$ ${total.finalTotal.toFixed(2).replace('.', ',')}*`;
-    
-    // Adiciona forma de pagamento na mensagem
-    let paymentText = '';
-    if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
-        paymentText = `Dinheiro (Troco para R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')})`;
-    } else {
-        paymentText = paymentMethod;
-    }
-    message += `\n*Pagamento:* ${paymentText}`;
-
-    message += `\n\n*Dados da Entrega:*\n`;
-    message += `Nome: ${selectedAddress.clientName}\n`;
-    message += `Endereço: ${selectedAddress.rua}, Nº ${selectedAddress.numero}, ${selectedAddress.bairro}\n`;
-    if (selectedAddress.referencia) {
-        message += `Ponto de Referência: ${selectedAddress.referencia}\n`;
-    }
-
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-
-    res.status(200).json({ success: true, whatsappUrl: whatsappUrl });
-
-  } catch (error) {
-    console.error("Erro ao salvar pedido: ", error);
-    res.status(500).json({ error: "Erro interno ao processar o pedido." });
-  }
 };
