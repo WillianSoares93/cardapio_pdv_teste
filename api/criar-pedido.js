@@ -29,6 +29,12 @@ export default async (req, res) => {
         if (!order || !selectedAddress || !total) {
             return res.status(400).json({ error: 'Dados do pedido incompletos.' });
         }
+        
+        // CORREÇÃO: Adiciona uma verificação para garantir que o número de WhatsApp foi recebido.
+        if (!whatsappNumber) {
+            console.error('Erro Crítico: O número do WhatsApp não foi recebido do frontend.');
+            return res.status(400).json({ error: 'O número de WhatsApp para receber o pedido não foi configurado.' });
+        }
 
         // Salva o pedido no Firestore
         await addDoc(collection(db, "pedidos"), {
@@ -77,8 +83,8 @@ Taxa de Entrega: R$ ${total.deliveryFee.toFixed(2).replace('.', ',')}
 ${paymentText}
         `;
         
-        // Usa o número de WhatsApp recebido do frontend ou um número padrão como fallback.
-        const targetNumber = whatsappNumber ? `55${whatsappNumber.replace(/\D/g, '')}` : '5587996070638';
+        // CORREÇÃO: Remove o número fixo e usa apenas o número vindo da planilha.
+        const targetNumber = `55${whatsappNumber.replace(/\D/g, '')}`;
         const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(fullMessage.trim())}`;
 
         res.status(200).json({ success: true, whatsappUrl });
