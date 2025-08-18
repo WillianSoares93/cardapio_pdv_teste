@@ -37,6 +37,16 @@
             width: 90%;
             max-width: 500px;
         }
+        #pdv-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 999;
+            display: none; /* Começa escondido */
+        }
         /* Estilos para Impressão */
         @media print {
             body * {
@@ -78,10 +88,13 @@
 </head>
 <body class="bg-gray-100">
 
+    <div id="pdv-overlay"></div>
+
     <header class="bg-white shadow-md">
         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
             <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
             <div class="flex items-center space-x-4">
+                <button id="close-cash-register-btn" class="px-4 py-2 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700">Fechar Caixa</button>
                 <button id="manage-menu-btn" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</button>
                 <button id="clear-finished-btn" class="px-4 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">Limpar Finalizados</button>
                 <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">Sair</button>
@@ -146,6 +159,52 @@
         </div>
     </main>
 
+    <!-- Modal Abrir Caixa -->
+    <div id="open-cash-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Abrir Caixa</h3>
+            <p class="text-sm text-gray-600 mb-4">Para iniciar as operações, por favor, informe o valor inicial do caixa (fundo de troco).</p>
+            <form id="open-cash-form">
+                <div class="mb-4">
+                    <label for="initial-value" class="block text-sm font-medium text-gray-700 mb-1">Valor Inicial (R$)</label>
+                    <input type="number" id="initial-value" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: 50,00">
+                </div>
+                <button type="submit" id="open-cash-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">Abrir Caixa</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Fechar Caixa -->
+    <div id="close-cash-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Fechamento de Caixa</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-600">Valor Inicial:</span> <span id="summary-initial" class="font-medium">R$ 0,00</span></div>
+                <hr>
+                <div class="flex justify-between"><span class="text-gray-600">Vendas em Dinheiro:</span> <span id="summary-cash" class="font-medium">R$ 0,00</span></div>
+                <div class="flex justify-between"><span class="text-gray-600">Vendas em Cartão:</span> <span id="summary-card" class="font-medium">R$ 0,00</span></div>
+                <div class="flex justify-between"><span class="text-gray-600">Vendas em Pix:</span> <span id="summary-pix" class="font-medium">R$ 0,00</span></div>
+                <hr>
+                <div class="flex justify-between font-bold"><span class="text-gray-800">Total de Vendas:</span> <span id="summary-total-sales" class="text-gray-800">R$ 0,00</span></div>
+                <hr>
+                <div class="flex justify-between font-bold"><span class="text-blue-700">Valor Esperado em Caixa:</span> <span id="summary-expected" class="text-blue-700">R$ 0,00</span></div>
+            </div>
+            <form id="close-cash-form" class="mt-6">
+                <div class="mb-4">
+                    <label for="final-value" class="block text-sm font-medium text-gray-700 mb-1">Valor Contado em Caixa (R$)</label>
+                    <input type="number" id="final-value" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Digite o valor contado">
+                </div>
+                <div id="summary-difference-section" class="text-center p-2 rounded-md mb-4 hidden">
+                    <span class="font-bold">Diferença:</span> <span id="summary-difference" class="font-bold">R$ 0,00</span>
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" id="cancel-close-cash-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" id="confirm-close-cash-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Confirmar Fechamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal Gerenciar Cardápio -->
     <div id="menu-management-modal" class="modal">
         <div class="modal-content !max-w-3xl">
@@ -198,7 +257,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc, query, orderBy, where, writeBatch, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc, query, orderBy, where, writeBatch, setDoc, addDoc, serverTimestamp, getDocs, limit, Timestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -213,27 +272,64 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- LÓGICA DE AUTENTICAÇÃO ---
+        // --- LÓGICA DE AUTENTICAÇÃO E CAIXA ---
+        let currentCashRegister = null;
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // Usuário está logado, mostra a página
                 document.body.style.visibility = 'visible';
-                initializePDV(); // Inicia a lógica do PDV
+                checkCashRegisterStatus();
             } else {
-                // Usuário não está logado, redireciona para a página de login
                 window.location.href = 'login.html';
             }
         });
 
         const logoutBtn = document.getElementById('logout-btn');
         logoutBtn.addEventListener('click', () => {
-            signOut(auth).then(() => {
-                // Logout bem-sucedido, o onAuthStateChanged fará o redirecionamento.
-            }).catch((error) => {
-                console.error("Erro ao fazer logout:", error);
-            });
+            signOut(auth).catch((error) => console.error("Erro ao fazer logout:", error));
         });
-        // --- FIM DA LÓGICA DE AUTENTICAÇÃO ---
+        
+        const openCashModal = document.getElementById('open-cash-modal');
+        const openCashForm = document.getElementById('open-cash-form');
+        const pdvOverlay = document.getElementById('pdv-overlay');
+
+        async function checkCashRegisterStatus() {
+            const q = query(collection(db, "caixas"), where("status", "==", "aberto"), limit(1));
+            const querySnapshot = await getDocs(q);
+            
+            if (querySnapshot.empty) {
+                pdvOverlay.style.display = 'block';
+                openCashModal.style.display = 'flex';
+            } else {
+                currentCashRegister = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+                pdvOverlay.style.display = 'none';
+                openCashModal.style.display = 'none';
+                initializePDV();
+            }
+        }
+
+        openCashForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const initialValue = parseFloat(document.getElementById('initial-value').value);
+            if (isNaN(initialValue) || initialValue < 0) {
+                alert("Por favor, insira um valor inicial válido.");
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, "caixas"), {
+                    dataAbertura: serverTimestamp(),
+                    usuarioAbertura: auth.currentUser.email,
+                    valorInicial: initialValue,
+                    status: 'aberto'
+                });
+                checkCashRegisterStatus();
+            } catch (error) {
+                console.error("Erro ao abrir o caixa:", error);
+                alert("Não foi possível abrir o caixa. Tente novamente.");
+            }
+        });
+        // --- FIM DA LÓGICA DE CAIXA ---
 
         const colNovo = document.getElementById('col-novo');
         const colPreparo = document.getElementById('col-preparo');
@@ -254,6 +350,11 @@
         const searchMenuInput = document.getElementById('search-menu-input');
         const categoryFilterSelect = document.getElementById('category-filter-select');
         const statusFilterButtons = document.getElementById('status-filter-buttons');
+        const closeCashRegisterBtn = document.getElementById('close-cash-register-btn');
+        const closeCashModal = document.getElementById('close-cash-modal');
+        const closeCashForm = document.getElementById('close-cash-form');
+        const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn');
+        const finalValueInput = document.getElementById('final-value');
 
         let orderIdToDelete = null;
 
@@ -650,7 +751,6 @@
 
                 menuItemsContainer.innerHTML = '';
                 allItems.forEach(item => {
-                    // CORREÇÃO: A verificação agora usa hasOwnProperty para evitar problemas com valores `false`.
                     const isChecked = !unavailableItems.hasOwnProperty(item.id);
                     const itemElement = document.createElement('div');
                     itemElement.className = 'menu-item-row flex items-center justify-between p-2 bg-gray-50 rounded';
@@ -708,6 +808,113 @@
             }
         });
         // --- FIM DA LÓGICA ATUALIZADA ---
+
+        closeCashRegisterBtn.addEventListener('click', async () => {
+            if (!currentCashRegister) {
+                alert("Nenhum caixa aberto para fechar.");
+                return;
+            }
+
+            const ordersQuery = query(
+                collection(db, "pedidos"),
+                where("status", "==", "Finalizado"),
+                where("criadoEm", ">=", currentCashRegister.dataAbertura)
+            );
+            const ordersSnapshot = await getDocs(ordersQuery);
+
+            let totalCash = 0;
+            let totalCard = 0;
+            let totalPix = 0;
+
+            ordersSnapshot.forEach(doc => {
+                const order = doc.data();
+                const payment = order.pagamento;
+                const total = order.total.finalTotal;
+
+                if (typeof payment === 'object' && payment.method === 'Dinheiro') {
+                    totalCash += total;
+                } else if (payment === 'Cartão de Crédito/Débito') {
+                    totalCard += total;
+                } else if (payment === 'Pix') {
+                    totalPix += total;
+                }
+            });
+
+            const totalSales = totalCash + totalCard + totalPix;
+            const expectedInCash = currentCashRegister.valorInicial + totalCash;
+
+            document.getElementById('summary-initial').textContent = `R$ ${currentCashRegister.valorInicial.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
+
+            closeCashModal.style.display = 'flex';
+        });
+
+        cancelCloseCashBtn.addEventListener('click', () => {
+            closeCashModal.style.display = 'none';
+        });
+
+        finalValueInput.addEventListener('input', () => {
+            const expectedText = document.getElementById('summary-expected').textContent;
+            const expectedValue = parseFloat(expectedText.replace('R$ ', '').replace(',', '.'));
+            const finalValue = parseFloat(finalValueInput.value);
+            const differenceSection = document.getElementById('summary-difference-section');
+            const differenceEl = document.getElementById('summary-difference');
+
+            if (!isNaN(finalValue)) {
+                const difference = finalValue - expectedValue;
+                differenceEl.textContent = `R$ ${difference.toFixed(2).replace('.', ',')}`;
+                if (difference < 0) {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-red-100 text-red-700';
+                } else if (difference > 0) {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-yellow-100 text-yellow-700';
+                } else {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-green-100 text-green-700';
+                }
+                differenceSection.classList.remove('hidden');
+            } else {
+                differenceSection.classList.add('hidden');
+            }
+        });
+
+        closeCashForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const finalValue = parseFloat(finalValueInput.value);
+            if (isNaN(finalValue) || finalValue < 0) {
+                alert("Por favor, insira um valor válido.");
+                return;
+            }
+            
+            const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
+            const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
+            const totalSales = parseFloat(document.getElementById('summary-total-sales').textContent.replace('R$ ', '').replace(',', '.'));
+            const totalCash = parseFloat(document.getElementById('summary-cash').textContent.replace('R$ ', '').replace(',', '.'));
+            const totalCard = parseFloat(document.getElementById('summary-card').textContent.replace('R$ ', '').replace(',', '.'));
+            const totalPix = parseFloat(document.getElementById('summary-pix').textContent.replace('R$ ', '').replace(',', '.'));
+
+            try {
+                await updateDoc(cashRegisterRef, {
+                    status: 'fechado',
+                    dataFechamento: serverTimestamp(),
+                    usuarioFechamento: auth.currentUser.email,
+                    valorFinalContado: finalValue,
+                    diferenca: finalValue - expectedValue,
+                    totalVendas: totalSales,
+                    totalDinheiro: totalCash,
+                    totalCartao: totalCard,
+                    totalPix: totalPix
+                });
+                alert("Caixa fechado com sucesso!");
+                closeCashModal.style.display = 'none';
+                checkCashRegisterStatus(); // Bloqueia a tela
+            } catch (error) {
+                console.error("Erro ao fechar o caixa:", error);
+                alert("Não foi possível fechar o caixa. Tente novamente.");
+            }
+        });
 
 
         document.querySelector('main').addEventListener('click', function(e) {
