@@ -99,6 +99,7 @@
             <!-- Itens do Pedido -->
             <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4">
                 <h3 class="font-bold mb-2 text-lg">2. Itens do Pedido</h3>
+                <div id="manual-order-feedback" class="text-sm text-green-600 font-semibold mb-2 h-4"></div>
                 <div id="manual-order-items" class="space-y-2 mb-2"></div>
                 <button type="button" id="add-item-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-semibold">+ Adicionar Item</button>
             </div>
@@ -234,6 +235,18 @@
             }
         }
 
+        function showManualOrderFeedback(message, isError = false) {
+            const feedbackEl = document.getElementById('manual-order-feedback');
+            feedbackEl.textContent = message;
+            feedbackEl.className = isError 
+                ? 'text-sm text-red-600 font-semibold mb-2 h-4' 
+                : 'text-sm text-green-600 font-semibold mb-2 h-4';
+            
+            setTimeout(() => {
+                feedbackEl.textContent = '';
+            }, 3500); // Message disappears after 3.5 seconds
+        }
+
         function updateManualOrderDisplay() {
             manualOrderItemsContainer.innerHTML = '';
             let subtotal = 0;
@@ -367,6 +380,7 @@
                 manualOrderItems.push({ name: combinedName, price: finalPrice, type: 'split_pizza' });
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
+                showManualOrderFeedback(`Pizza Meia-Meia adicionada!`);
                 return;
             }
             if (item.isPizza) {
@@ -376,6 +390,7 @@
             } else {
                 manualOrderItems.push({ name: item.name, price: item.basePrice });
                 updateManualOrderDisplay();
+                showManualOrderFeedback(`${item.name} adicionado.`);
             }
         }
 
@@ -393,6 +408,7 @@
                         manualOrderItems.push({ name: `${pizza.name} (${size.label})`, price: pizza[size.priceKey] });
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
+                        showManualOrderFeedback(`Pizza ${pizza.name} adicionada.`);
                     });
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
                         manualFirstHalfPizza = { 
@@ -405,7 +421,7 @@
                         const ruleMessage = manualFirstHalfPizza.isPromotional 
                             ? "A segunda metade DEVE ser promocional."
                             : "A segunda metade NÃO PODE ser promocional.";
-                        alert(`Primeira metade (${pizza.name}) selecionada. ${ruleMessage}\nAgora escolha a segunda metade.`);
+                        showManualOrderFeedback(`Meia pizza de ${pizza.name} adicionada. Escolha a segunda metade.`);
                         openAddItemModal(true);
                     });
                     sizeContainer.appendChild(optionDiv);
@@ -457,6 +473,7 @@
             manualOrderItems.push({ name: `Hamb. Montado (${ingredientNames})`, price: finalPrice, type: 'custom_burger', ingredients: selectedIngredients });
             updateManualOrderDisplay();
             burgerBuilderModalManual.style.display = 'none';
+            showManualOrderFeedback(`Hambúrguer Montado adicionado.`);
         });
 
         async function handleManualOrderSubmit(e) {
