@@ -426,10 +426,8 @@
                             isPromotional: pizza.category.trim().toLowerCase() === 'promocionais'
                         };
                         pizzaOptionModalManual.style.display = 'none';
-                        const ruleMessage = manualFirstHalfPizza.isPromotional 
-                            ? "A segunda metade DEVE ser promocional."
-                            : "A segunda metade NÃO PODE ser promocional.";
-                        openAddItemModal(true, `Primeira metade (${pizza.name}) adicionada. ${ruleMessage}\nEscolha a segunda metade.`);
+                        const feedbackMessage = `Meia Pizza de ${pizza.name} adicionado, escolha a outra metade`;
+                        openAddItemModal(true, feedbackMessage);
                     });
                     sizeContainer.appendChild(optionDiv);
                 }
