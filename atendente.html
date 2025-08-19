@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -33,6 +34,7 @@
             border-radius: 8px;
             width: 90%;
             max-width: 500px;
+            position: relative; /* Para posicionar o feedback flutuante */
         }
         .ingredient-option {
             display: flex;
@@ -61,6 +63,32 @@
         .quantity-btn:disabled {
             opacity: 0.4;
             cursor: not-allowed;
+        }
+        .floating-feedback {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #22c55e; /* green-500 */
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            z-index: 1050;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .feedback-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background-color: #86efac; /* green-300 */
+            animation: progress-countdown 3s linear forwards;
+        }
+        @keyframes progress-countdown {
+            from { width: 100%; }
+            to { width: 0%; }
         }
     </style>
 </head>
@@ -142,7 +170,6 @@
     <div id="add-item-modal" class="modal">
         <div class="modal-content">
             <h3 id="add-item-modal-title" class="font-bold mb-2">Adicionar Item</h3>
-            <div id="add-item-feedback" class="text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md"></div>
             <div id="item-category-filters" class="flex flex-wrap gap-2 mb-2"></div>
             <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
             <div id="item-list" class="max-h-60 overflow-y-auto"></div>
@@ -275,17 +302,34 @@
                 throw error;
             }
         }
+        
+        function showFloatingFeedback(message, itemCategory) {
+            const modalContent = addItemModal.querySelector('.modal-content');
+            const categoryHeaders = Array.from(itemListContainer.querySelectorAll('h4'));
+            let targetHeader = categoryHeaders.find(h => h.textContent.toLowerCase().includes(itemCategory.toLowerCase()));
 
-        function showManualOrderFeedback(message, isError = false) {
-            const feedbackEl = document.getElementById('manual-order-feedback');
+            if (!targetHeader) {
+                targetHeader = itemListContainer; // Fallback to the list container
+            }
+
+            const feedbackEl = document.createElement('div');
+            feedbackEl.className = 'floating-feedback';
             feedbackEl.textContent = message;
-            feedbackEl.className = isError 
-                ? 'text-sm text-red-600 font-semibold mb-2 h-4' 
-                : 'text-sm text-green-600 font-semibold mb-2 h-4';
+
+            const progressBar = document.createElement('div');
+            progressBar.className = 'feedback-progress-bar';
+            feedbackEl.appendChild(progressBar);
             
+            modalContent.appendChild(feedbackEl);
+            
+            const targetRect = targetHeader.getBoundingClientRect();
+            const modalRect = modalContent.getBoundingClientRect();
+            
+            feedbackEl.style.top = `${targetRect.top - modalRect.top}px`;
+
             setTimeout(() => {
-                feedbackEl.textContent = '';
-            }, 3500);
+                feedbackEl.remove();
+            }, 3000);
         }
 
         function updateManualOrderDisplay() {
@@ -324,7 +368,6 @@
         }
 
         function openAddItemModal(isSecondHalf = false, feedbackMessage = '') {
-            const feedbackEl = document.getElementById('add-item-feedback');
             if (editingItemIndex !== null && !isSecondHalf) {
                 const originalItemName = manualOrderItems[editingItemIndex].name;
                 addItemModalTitle.textContent = 'Substituir Item';
@@ -333,12 +376,6 @@
                 addItemModalTitle.textContent = 'Adicionar Item';
             }
 
-            if (feedbackMessage) {
-                feedbackEl.textContent = feedbackMessage;
-                feedbackEl.style.display = 'block';
-            } else {
-                feedbackEl.style.display = 'none';
-            }
             searchItemInput.value = '';
             renderCategoryFilters(isSecondHalf);
             renderItemList('', 'all', isSecondHalf);
@@ -474,13 +511,10 @@
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 
-                const feedbackMessage = `Pizza Meia-Meia adicionada/atualizada!`;
+                showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`, item.category);
                 searchItemInput.value = '';
                 renderCategoryFilters(false);
                 renderItemList('', 'all', false);
-                const feedbackEl = document.getElementById('add-item-feedback');
-                feedbackEl.textContent = feedbackMessage;
-                feedbackEl.style.display = 'block';
                 return;
             }
 
@@ -499,7 +533,6 @@
                         originalItem: item
                     };
                     manualOrderItems[editingItemIndex] = newItem;
-                    showManualOrderFeedback(`${item.name} atualizado no pedido.`);
                     editingItemIndex = null;
                     addItemModal.style.display = 'none';
                     updateManualOrderDisplay();
@@ -547,9 +580,7 @@
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
                         
-                        const feedbackEl = document.getElementById('add-item-feedback');
-                        feedbackEl.textContent = `Pizza ${pizza.name} adicionada/atualizada.`;
-                        feedbackEl.style.display = 'block';
+                        showFloatingFeedback(`Pizza ${pizza.name} adicionada.`, pizza.category);
                         searchItemInput.value = '';
                         renderCategoryFilters(false);
                         renderItemList('', 'all', false);
@@ -807,9 +838,7 @@
                 addItemModal.style.display = 'none';
             } else {
                 manualOrderItems.push(newBurger);
-                const feedbackEl = document.getElementById('add-item-feedback');
-                feedbackEl.textContent = `Hambúrguer Personalizado adicionado.`;
-                feedbackEl.style.display = 'block';
+                showFloatingFeedback(`Hambúrguer adicionado.`, burgerItem.category);
                 searchItemInput.value = '';
                 renderCategoryFilters(false);
                 renderItemList('', 'all', false);
@@ -966,28 +995,25 @@
 
         document.getElementById('confirm-quantity-btn').addEventListener('click', () => {
             const quantity = parseInt(quantityDisplay.textContent);
-            const newItem = { 
-                type: 'full',
-                name: currentItemForQuantity.name, 
-                price: currentItemForQuantity.basePrice,
-                description: currentItemForQuantity.description,
-                category: currentItemForQuantity.category,
-                originalItem: currentItemForQuantity
-            };
-
+            const item = currentItemForQuantity;
+            
             for (let i = 0; i < quantity; i++) {
-                manualOrderItems.push(newItem);
+                manualOrderItems.push({ 
+                    type: 'full',
+                    name: item.name, 
+                    price: item.basePrice,
+                    description: item.description,
+                    category: item.category,
+                    originalItem: item
+                });
             }
             
             updateManualOrderDisplay();
             quantityModal.style.display = 'none';
 
-            const feedbackEl = document.getElementById('add-item-feedback');
-            feedbackEl.textContent = `${quantity}x ${currentItemForQuantity.name} adicionado(s).`;
-            feedbackEl.style.display = 'block';
+            showFloatingFeedback(`${quantity}x ${item.name} adicionado(s).`, item.category);
 
             searchItemInput.value = '';
-            // searchItemInput.focus(); // REMOVIDO PARA EVITAR QUE O TECLADO SUBA
             currentItemForQuantity = null;
         });
 
