@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -110,9 +111,15 @@
                     <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Mesa / Cliente</label>
                     <input type="text" id="manual-clientName" required class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: Mesa 04 ou João">
                 </div>
-                <div class="flex items-center mb-2">
-                    <input type="checkbox" id="pickup-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
-                    <label for="pickup-checkbox" class="ml-2 block text-sm text-gray-900">É para Viagem / Retirada</label>
+                <div class="flex flex-wrap gap-4 items-center mb-2">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="pickup-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
+                        <label for="pickup-checkbox" class="ml-2 block text-sm text-gray-900">Para Viagem / Retirada</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="delivery-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
+                        <label for="delivery-checkbox" class="ml-2 block text-sm text-gray-900">Para Entrega</label>
+                    </div>
                 </div>
                 <div id="delivery-fields" class="hidden">
                     <p class="text-sm text-gray-500 mb-2">Preencha abaixo apenas se for um pedido para entrega.</p>
@@ -258,6 +265,7 @@
         // Elementos do DOM
         const manualOrderForm = document.getElementById('manual-order-form');
         const pickupCheckbox = document.getElementById('pickup-checkbox');
+        const deliveryCheckbox = document.getElementById('delivery-checkbox');
         const deliveryFields = document.getElementById('delivery-fields');
         const manualNeighborhoodSelect = document.getElementById('manual-neighborhood');
         const addItemBtn = document.getElementById('add-item-btn');
@@ -373,10 +381,10 @@
                 manualOrderItemsContainer.appendChild(itemEl);
                 subtotal += item.price;
             });
-            const isPickup = pickupCheckbox.checked;
+            const isDelivery = deliveryCheckbox.checked;
             const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
             let deliveryFee = 0;
-            if (!isPickup && selectedNeighborhood && selectedNeighborhood.value !== '') {
+            if (isDelivery && selectedNeighborhood && selectedNeighborhood.value !== '') {
                 deliveryFee = parseFloat(selectedNeighborhood.dataset.fee || 0);
             }
             const total = subtotal + deliveryFee;
@@ -902,26 +910,38 @@
         async function handleManualOrderSubmit(e) {
             e.preventDefault();
             const clientName = document.getElementById('manual-clientName').value;
-            const isPickup = pickupCheckbox.checked;
+            const isDelivery = deliveryCheckbox.checked;
             const street = document.getElementById('manual-street').value;
             const number = document.getElementById('manual-number').value;
             const neighborhood = manualNeighborhoodSelect.value;
             const paymentMethod = document.querySelector('input[name="manual-payment"]:checked').value;
+
             if (!clientName || manualOrderItems.length === 0) {
                 alert("Por favor, preencha o nome do cliente e adicione pelo menos um item.");
                 return;
             }
-            if (!isPickup && !neighborhood && street) {
-                alert("Por favor, selecione um bairro para entrega.");
+
+            if (isDelivery && (!neighborhood || !street || !number)) {
+                alert("Por favor, preencha todas as informações de entrega (Rua, Número e Bairro).");
                 return;
             }
+
             const subtotal = manualOrderItems.reduce((sum, item) => sum + item.price, 0);
             const selectedNeighborhoodOption = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
-            const deliveryFee = isPickup || !selectedNeighborhoodOption || selectedNeighborhoodOption.value === '' ? 0 : parseFloat(selectedNeighborhoodOption.dataset.fee || 0);
+            const deliveryFee = isDelivery && selectedNeighborhoodOption && selectedNeighborhoodOption.value !== ''
+                ? parseFloat(selectedNeighborhoodOption.dataset.fee || 0)
+                : 0;
+
             const finalTotal = subtotal + deliveryFee;
+
             const newOrder = {
                 itens: manualOrderItems,
-                endereco: { clientName, rua: isPickup ? "Retirada no Balcão" : street, numero: isPickup ? "" : number, bairro: isPickup ? "" : neighborhood },
+                endereco: {
+                    clientName,
+                    rua: isDelivery ? street : (pickupCheckbox.checked ? "Retirada no Balcão" : "Mesa"),
+                    numero: isDelivery ? number : (pickupCheckbox.checked ? "" : "N/A"),
+                    bairro: isDelivery ? neighborhood : ""
+                },
                 total: { subtotal, deliveryFee, finalTotal, discount: 0 },
                 pagamento: paymentMethod,
                 status: 'Novo',
@@ -932,6 +952,8 @@
                 alert("Pedido salvo com sucesso!");
                 manualOrderForm.reset();
                 manualOrderItems = [];
+                deliveryCheckbox.checked = false;
+                pickupCheckbox.checked = false;
                 deliveryFields.style.display = 'none';
                 updateManualOrderDisplay();
                 document.getElementById('manual-clientName').focus();
@@ -960,13 +982,26 @@
             renderItemList(e.target.value, activeFilter, isSecondHalf);
         });
         manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
+
+        // Lógica de exclusividade para os checkboxes de tipo de pedido
         pickupCheckbox.addEventListener('change', () => {
-            deliveryFields.style.display = pickupCheckbox.checked ? 'block' : 'none';
-            if(pickupCheckbox.checked) {
-                manualNeighborhoodSelect.value = '';
+            if (pickupCheckbox.checked) {
+                deliveryCheckbox.checked = false;
+                deliveryFields.style.display = 'none';
             }
             updateManualOrderDisplay();
         });
+
+        deliveryCheckbox.addEventListener('change', () => {
+            if (deliveryCheckbox.checked) {
+                pickupCheckbox.checked = false;
+                deliveryFields.style.display = 'block';
+            } else {
+                deliveryFields.style.display = 'none';
+            }
+            updateManualOrderDisplay();
+        });
+        
         manualNeighborhoodSelect.addEventListener('change', updateManualOrderDisplay);
         manualOrderItemsContainer.addEventListener('click', (e) => {
             const removeBtn = e.target.closest('.remove-manual-item-btn');
@@ -987,17 +1022,14 @@
         // Edit Split Pizza Modal Listeners
         document.getElementById('edit-first-half-btn').addEventListener('click', () => {
             const itemToEdit = manualOrderItems[editingItemIndex];
-            // BUG FIX: Anteriormente, a linha abaixo removia a pizza do array. Agora, a remoção só acontece
-            // se o usuário confirmar a nova metade, evitando que a pizza seja perdida ao cancelar.
-            manualFirstHalfPizza = itemToEdit.secondHalfData; // A metade restante se torna a nova "primeira metade"
+            manualFirstHalfPizza = itemToEdit.secondHalfData;
             editSplitPizzaModal.style.display = 'none';
             openAddItemModal(true);
         });
 
         document.getElementById('edit-second-half-btn').addEventListener('click', () => {
             const itemToEdit = manualOrderItems[editingItemIndex];
-            // BUG FIX: O mesmo ajuste aplicado na função acima. Remove a remoção prematura.
-            manualFirstHalfPizza = itemToEdit.firstHalfData; // A metade restante é a primeira metade
+            manualFirstHalfPizza = itemToEdit.firstHalfData;
             editSplitPizzaModal.style.display = 'none';
             openAddItemModal(true);
         });
