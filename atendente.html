@@ -219,9 +219,8 @@
         <div class="modal-content">
             <h3 class="font-bold mb-4">Editar Pizza Meia a Meia</h3>
             <p class="mb-4 text-sm">Qual metade você deseja alterar?</p>
-            <div class="space-y-2">
-                <button id="edit-first-half-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar 1ª Metade</button>
-                <button id="edit-second-half-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar 2ª Metade</button>
+            <div class="space-y-2" id="edit-split-buttons">
+                <!-- Botões gerados dinamicamente aqui -->
             </div>
             <button id="cancel-edit-split-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
         </div>
@@ -292,6 +291,7 @@
         const quantityDisplay = document.getElementById('quantity-display');
         const manualReferenceInput = document.getElementById('manual-reference');
         const manualClientPhone = document.getElementById('manual-clientPhone');
+        const editSplitButtonsContainer = document.getElementById('edit-split-buttons');
 
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let manualOrderItems = [];
@@ -907,13 +907,22 @@
                     openManualBurgerBuilder(itemToEdit.originalItem, index, itemToEdit);
                     break;
                 case 'split':
-                    editSplitPizzaModal.style.display = 'flex';
+                    openEditSplitPizzaModal(index); // Chamada corrigida
                     break;
                 case 'full':
                 default:
                     openAddItemModal(false);
                     break;
             }
+        }
+        
+        function openEditSplitPizzaModal(index) {
+            const itemToEdit = manualOrderItems[index];
+            editSplitButtonsContainer.innerHTML = `
+                <button id="edit-first-half-btn" data-index="${index}" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar ${itemToEdit.firstHalfData.name}</button>
+                <button id="edit-second-half-btn" data-index="${index}" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar ${itemToEdit.secondHalfData.name}</button>
+            `;
+            editSplitPizzaModal.style.display = 'flex';
         }
 
         async function handleManualOrderSubmit(e) {
@@ -1033,18 +1042,25 @@
         });
 
         // Edit Split Pizza Modal Listeners
-        document.getElementById('edit-first-half-btn').addEventListener('click', () => {
-            const itemToEdit = manualOrderItems[editingItemIndex];
-            manualFirstHalfPizza = itemToEdit.secondHalfData;
-            editSplitPizzaModal.style.display = 'none';
-            openAddItemModal(true);
-        });
+        editSplitButtonsContainer.addEventListener('click', (e) => {
+            const firstHalfBtn = e.target.closest('#edit-first-half-btn');
+            const secondHalfBtn = e.target.closest('#edit-second-half-btn');
 
-        document.getElementById('edit-second-half-btn').addEventListener('click', () => {
-            const itemToEdit = manualOrderItems[editingItemIndex];
-            manualFirstHalfPizza = itemToEdit.firstHalfData;
-            editSplitPizzaModal.style.display = 'none';
-            openAddItemModal(true);
+            if (firstHalfBtn) {
+                const index = parseInt(firstHalfBtn.dataset.index);
+                const itemToEdit = manualOrderItems[index];
+                manualFirstHalfPizza = itemToEdit.secondHalfData;
+                editSplitPizzaModal.style.display = 'none';
+                openAddItemModal(true);
+            }
+
+            if (secondHalfBtn) {
+                const index = parseInt(secondHalfBtn.dataset.index);
+                const itemToEdit = manualOrderItems[index];
+                manualFirstHalfPizza = itemToEdit.firstHalfData;
+                editSplitPizzaModal.style.display = 'none';
+                openAddItemModal(true);
+            }
         });
 
         document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
