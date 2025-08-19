@@ -133,6 +133,7 @@
     <div id="add-item-modal" class="modal">
         <div class="modal-content">
             <h3 class="font-bold mb-2">Adicionar Item</h3>
+            <div id="add-item-feedback" class="text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md"></div>
             <div id="item-category-filters" class="flex flex-wrap gap-2 mb-2"></div>
             <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
             <div id="item-list" class="max-h-60 overflow-y-auto"></div>
@@ -244,7 +245,7 @@
             
             setTimeout(() => {
                 feedbackEl.textContent = '';
-            }, 3500); // Message disappears after 3.5 seconds
+            }, 3500);
         }
 
         function updateManualOrderDisplay() {
@@ -269,7 +270,14 @@
             document.getElementById('manual-total').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
         }
 
-        function openAddItemModal(isSecondHalf = false) {
+        function openAddItemModal(isSecondHalf = false, feedbackMessage = '') {
+            const feedbackEl = document.getElementById('add-item-feedback');
+            if (feedbackMessage) {
+                feedbackEl.textContent = feedbackMessage;
+                feedbackEl.style.display = 'block';
+            } else {
+                feedbackEl.style.display = 'none';
+            }
             searchItemInput.value = '';
             renderCategoryFilters(isSecondHalf);
             renderItemList('', 'all', isSecondHalf);
@@ -421,8 +429,7 @@
                         const ruleMessage = manualFirstHalfPizza.isPromotional 
                             ? "A segunda metade DEVE ser promocional."
                             : "A segunda metade NÃO PODE ser promocional.";
-                        showManualOrderFeedback(`Meia pizza de ${pizza.name} adicionada. Escolha a segunda metade.`);
-                        openAddItemModal(true);
+                        openAddItemModal(true, `Primeira metade (${pizza.name}) adicionada. ${ruleMessage}\nEscolha a segunda metade.`);
                     });
                     sizeContainer.appendChild(optionDiv);
                 }
