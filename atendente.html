@@ -257,8 +257,21 @@
             let subtotal = 0;
             manualOrderItems.forEach((item, index) => {
                 const itemEl = document.createElement('div');
-                itemEl.className = 'flex justify-between items-center text-sm py-1';
-                itemEl.innerHTML = `<span>${item.name}</span><div class="flex items-center"><span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span><button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700 text-lg">&times;</button></div>`;
+                itemEl.className = 'flex justify-between items-start text-sm py-1';
+                
+                let itemHtml = `<span>${item.name}</span>`;
+                if (item.type === 'custom_burger' && item.ingredients) {
+                    const ingredientsList = item.ingredients.map(ing => `<li class="text-xs text-gray-500 ml-4">${ing.name}</li>`).join('');
+                    itemHtml += `<ul class="mt-1">${ingredientsList}</ul>`;
+                }
+
+                itemEl.innerHTML = `
+                    <div class="flex-grow pr-4">${itemHtml}</div>
+                    <div class="flex items-center flex-shrink-0">
+                        <span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
+                        <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700 text-lg">&times;</button>
+                    </div>
+                `;
                 manualOrderItemsContainer.appendChild(itemEl);
                 subtotal += item.price;
             });
@@ -385,10 +398,11 @@
         function handleItemSelection(item, isSecondHalf = false) {
             addItemModal.style.display = 'none';
             if (isSecondHalf) {
+                const sizeLabel = `${manualFirstHalfPizza.selected_slices} FATIAS`;
                 const priceKey = manualFirstHalfPizza.priceKey;
                 const secondHalfPrice = item[priceKey] / 2;
                 const finalPrice = manualFirstHalfPizza.price + secondHalfPrice;
-                const combinedName = `Meia ${manualFirstHalfPizza.name} & Meia ${item.name}`;
+                const combinedName = `${sizeLabel}: Meia ${manualFirstHalfPizza.name} & Meia ${item.name}`;
                 const combinedDescription = `${manualFirstHalfPizza.description} / ${item.description}`;
                 manualOrderItems.push({ 
                     type: 'split',
@@ -433,7 +447,7 @@
                     optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
                         manualOrderItems.push({ 
                             type: 'full',
-                            name: pizza.name, 
+                            name: `${size.label.toUpperCase()}: ${pizza.name}`, 
                             price: pizza[size.priceKey],
                             description: pizza.description,
                             category: pizza.category,
