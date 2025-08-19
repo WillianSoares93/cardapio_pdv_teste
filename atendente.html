@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -884,7 +883,7 @@ teste
 
             if (editIndex !== null) {
                 manualOrderItems[editIndex] = newBurger;
-                showManualOrderFeedback('Hambúrguer atualizado.');
+                showFloatingFeedback('Hambúrguer atualizado.', burgerItem.category);
                 editingItemIndex = null;
                 addItemModal.style.display = 'none';
             } else {
