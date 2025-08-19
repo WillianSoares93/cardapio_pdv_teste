@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -970,18 +971,17 @@
         // Edit Split Pizza Modal Listeners
         document.getElementById('edit-first-half-btn').addEventListener('click', () => {
             const itemToEdit = manualOrderItems[editingItemIndex];
-            manualFirstHalfPizza = itemToEdit.secondHalfData; // The remaining half becomes the new "first half"
-            manualOrderItems.splice(editingItemIndex, 1); // Temporarily remove the item to be replaced
-            updateManualOrderDisplay();
+            // BUG FIX: Anteriormente, a linha abaixo removia a pizza do array. Agora, a remoção só acontece
+            // se o usuário confirmar a nova metade, evitando que a pizza seja perdida ao cancelar.
+            manualFirstHalfPizza = itemToEdit.secondHalfData; // A metade restante se torna a nova "primeira metade"
             editSplitPizzaModal.style.display = 'none';
             openAddItemModal(true);
         });
 
         document.getElementById('edit-second-half-btn').addEventListener('click', () => {
             const itemToEdit = manualOrderItems[editingItemIndex];
-            manualFirstHalfPizza = itemToEdit.firstHalfData; // The remaining half is the first half
-            manualOrderItems.splice(editingItemIndex, 1); // Temporarily remove the item to be replaced
-            updateManualOrderDisplay();
+            // BUG FIX: O mesmo ajuste aplicado na função acima. Remove a remoção prematura.
+            manualFirstHalfPizza = itemToEdit.firstHalfData; // A metade restante é a primeira metade
             editSplitPizzaModal.style.display = 'none';
             openAddItemModal(true);
         });
