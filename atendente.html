@@ -389,7 +389,15 @@
                 const secondHalfPrice = item[priceKey] / 2;
                 const finalPrice = manualFirstHalfPizza.price + secondHalfPrice;
                 const combinedName = `Meia ${manualFirstHalfPizza.name} & Meia ${item.name}`;
-                manualOrderItems.push({ name: combinedName, price: finalPrice, type: 'split_pizza' });
+                const combinedDescription = `${manualFirstHalfPizza.description} / ${item.description}`;
+                manualOrderItems.push({ 
+                    type: 'split',
+                    name: combinedName, 
+                    price: finalPrice, 
+                    description: combinedDescription,
+                    category: 'pizzas',
+                    selected_slices: manualFirstHalfPizza.selected_slices
+                });
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 showManualOrderFeedback(`Pizza Meia-Meia adicionada!`);
@@ -400,7 +408,13 @@
             } else if (item.isCustomizable) {
                 openManualBurgerBuilder(item);
             } else {
-                manualOrderItems.push({ name: item.name, price: item.basePrice });
+                manualOrderItems.push({ 
+                    type: 'full',
+                    name: item.name, 
+                    price: item.basePrice,
+                    description: item.description,
+                    category: item.category
+                });
                 updateManualOrderDisplay();
                 showManualOrderFeedback(`${item.name} adicionado.`);
             }
@@ -417,7 +431,14 @@
                     optionDiv.className = 'flex justify-between items-center p-2 border rounded-md mt-2';
                     optionDiv.innerHTML = `<div><span class="font-bold">${size.label}</span><span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span></div><div class="flex gap-2"><button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button><button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button></div>`;
                     optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
-                        manualOrderItems.push({ name: `${pizza.name} (${size.label})`, price: pizza[size.priceKey] });
+                        manualOrderItems.push({ 
+                            type: 'full',
+                            name: pizza.name, 
+                            price: pizza[size.priceKey],
+                            description: pizza.description,
+                            category: pizza.category,
+                            selected_slices: size.slices
+                        });
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
                         showManualOrderFeedback(`Pizza ${pizza.name} adicionada.`);
@@ -427,7 +448,10 @@
                             name: pizza.name, 
                             price: pizza[size.priceKey] / 2, 
                             priceKey: size.priceKey,
-                            isPromotional: pizza.category.trim().toLowerCase() === 'promocionais'
+                            isPromotional: pizza.category.trim().toLowerCase() === 'promocionais',
+                            description: pizza.description,
+                            category: pizza.category,
+                            selected_slices: size.slices
                         };
                         pizzaOptionModalManual.style.display = 'none';
                         const feedbackMessage = `Meia Pizza de ${pizza.name} adicionado, escolha a outra metade`;
@@ -440,8 +464,27 @@
         }
 
         function openManualBurgerBuilder(burger) {
-            burgerIngredientsContainerManual.innerHTML = '';
+            burgerBuilderModalManual.innerHTML = ''; // Limpa conteúdo anterior
             burgerBuilderModalManual.dataset.basePrice = burger.basePrice;
+            burgerBuilderModalManual.dataset.burgerItem = JSON.stringify(burger);
+
+            let content = `
+                <div class="modal-content !max-w-2xl">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Monte o Hambúrguer</h3>
+                    <div id="burger-ingredients-container-manual" class="mb-4 max-h-80 overflow-y-auto p-2"></div>
+                    <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
+                        <span class="text-lg font-bold">Total do Hambúrguer:</span>
+                        <span id="burger-total-price-manual" class="text-2xl font-bold text-red-600">R$ 0,00</span>
+                    </div>
+                    <div class="flex gap-4 mt-4">
+                        <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
+                        <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition">Adicionar ao Pedido</button>
+                    </div>
+                </div>
+            `;
+            burgerBuilderModalManual.innerHTML = content;
+            
+            const ingredientsContainer = burgerBuilderModalManual.querySelector('#burger-ingredients-container-manual');
 
             for (const categoryName in fullMenuData.ingredientesHamburguer) {
                 const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
@@ -490,20 +533,25 @@
                     }
                     categoryDiv.appendChild(optionLabel);
                 });
-                burgerIngredientsContainerManual.appendChild(categoryDiv);
+                ingredientsContainer.appendChild(categoryDiv);
             }
+
+            burgerBuilderModalManual.querySelector('#cancel-burger-builder-manual').addEventListener('click', () => burgerBuilderModalManual.style.display = 'none');
+            burgerBuilderModalManual.querySelector('#add-custom-burger-manual-btn').addEventListener('click', addCustomBurgerToOrder);
+
             updateManualBurgerPrice();
             burgerBuilderModalManual.style.display = 'flex';
         }
 
-        burgerIngredientsContainerManual.addEventListener('click', (e) => {
+        burgerBuilderModalManual.addEventListener('click', (e) => {
             if (e.target.classList.contains('quantity-btn')) {
                 const container = e.target.closest('[data-ingredient-id]');
                 const quantityDisplay = container.querySelector('.quantity-display');
                 let currentQuantity = parseInt(quantityDisplay.textContent);
                 const ingredientLimit = parseInt(container.dataset.limit);
                 const categoryDiv = container.closest('.mb-4');
-                const firstIngredient = fullMenuData.ingredientesHamburguer[categoryDiv.querySelector('h4').textContent.split(' (')[0]][0];
+                const categoryName = categoryDiv.querySelector('h4').textContent.split(' (')[0];
+                const firstIngredient = fullMenuData.ingredientesHamburguer[categoryName][0];
                 const categoryLimit = firstIngredient.limit || Infinity;
 
                 let currentCategoryCount = 0;
@@ -529,30 +577,32 @@
         });
 
         function updateManualBurgerPrice() {
-            let total = parseFloat(burgerBuilderModalManual.dataset.basePrice) || 0;
-            burgerIngredientsContainerManual.querySelectorAll('input[type="radio"]:checked, input[type="checkbox"]:checked').forEach(input => {
+            const container = document.getElementById('burger-builder-modal-manual');
+            let total = parseFloat(container.dataset.basePrice) || 0;
+            container.querySelectorAll('input[type="radio"]:checked').forEach(input => {
                 total += parseFloat(input.dataset.price);
             });
-            burgerIngredientsContainerManual.querySelectorAll('.quantity-display').forEach(display => {
+            container.querySelectorAll('.quantity-display').forEach(display => {
                 const quantity = parseInt(display.textContent);
                 if (quantity > 0) {
-                    const container = display.closest('[data-ingredient-id]');
-                    total += quantity * parseFloat(container.dataset.price);
+                    const itemContainer = display.closest('[data-ingredient-id]');
+                    total += quantity * parseFloat(itemContainer.dataset.price);
                 }
             });
-            burgerTotalPriceManual.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+            container.querySelector('#burger-total-price-manual').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
         }
 
-        addCustomBurgerManualBtn.addEventListener('click', () => {
+        function addCustomBurgerToOrder() {
+            const burgerItem = JSON.parse(burgerBuilderModalManual.dataset.burgerItem);
             const basePrice = parseFloat(burgerBuilderModalManual.dataset.basePrice);
             const selectedIngredients = [];
             let ingredientsPrice = 0;
 
-            burgerIngredientsContainerManual.querySelectorAll('input[type="radio"]:checked').forEach(input => {
+            burgerBuilderModalManual.querySelectorAll('input[type="radio"]:checked').forEach(input => {
                 selectedIngredients.push({ name: input.value });
                 ingredientsPrice += parseFloat(input.dataset.price);
             });
-            burgerIngredientsContainerManual.querySelectorAll('.quantity-display').forEach(display => {
+            burgerBuilderModalManual.querySelectorAll('.quantity-display').forEach(display => {
                 const quantity = parseInt(display.textContent);
                 if (quantity > 0) {
                     const container = display.closest('[data-ingredient-id]');
@@ -563,12 +613,19 @@
             });
 
             const finalPrice = basePrice + ingredientsPrice;
-            const ingredientNames = selectedIngredients.map(i => i.name).join(', ');
-            manualOrderItems.push({ name: `Hamb. Montado (${ingredientNames})`, price: finalPrice, type: 'custom_burger', ingredients: selectedIngredients });
+            
+            manualOrderItems.push({ 
+                name: 'Hambúrguer Personalizado',
+                price: finalPrice, 
+                type: 'custom_burger', 
+                ingredients: selectedIngredients,
+                description: burgerItem.description,
+                category: burgerItem.category
+            });
             updateManualOrderDisplay();
             burgerBuilderModalManual.style.display = 'none';
-            showManualOrderFeedback(`Hambúrguer Montado adicionado.`);
-        });
+            showManualOrderFeedback(`Hambúrguer Personalizado adicionado.`);
+        }
 
         async function handleManualOrderSubmit(e) {
             e.preventDefault();
@@ -619,7 +676,6 @@
             manualFirstHalfPizza = null; // Garante que a seleção de meia pizza seja cancelada
         });
         cancelPizzaOptionsManualBtn.addEventListener('click', () => pizzaOptionModalManual.style.display = 'none');
-        cancelBurgerBuilderManualBtn.addEventListener('click', () => burgerBuilderModalManual.style.display = 'none');
         searchItemInput.addEventListener('input', (e) => {
             const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
             const isSecondHalf = manualFirstHalfPizza !== null;
