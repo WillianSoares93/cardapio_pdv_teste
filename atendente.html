@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -44,6 +43,11 @@ teste
             margin-bottom: 6px;
             cursor: pointer;
             border: 1px solid #e5e7eb;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .ingredient-option.selected-ingredient {
+            background-color: #fee2e2; /* Cor de fundo avermelhada */
+            border-color: #ef4444; /* Borda vermelha */
         }
         .category-filter-btn.active {
             background-color: #3b82f6;
@@ -556,7 +560,21 @@ teste
                                 <span>${ing.name}</span>
                             </div>
                             <span class="font-medium text-sm">${priceDisplay}</span>`;
-                        optionLabel.querySelector('input').addEventListener('change', updateManualBurgerPrice);
+                        
+                        if (isChecked) {
+                            optionLabel.classList.add('selected-ingredient');
+                        }
+                        
+                        optionLabel.querySelector('input').addEventListener('change', (e) => {
+                            document.querySelectorAll(`input[name="${categoryName}"]`).forEach(radio => {
+                                radio.closest('.ingredient-option').classList.remove('selected-ingredient');
+                            });
+                            if (e.target.checked) {
+                                e.target.closest('.ingredient-option').classList.add('selected-ingredient');
+                            }
+                            updateManualBurgerPrice();
+                        });
+
                     } else {
                         const ingredientLimit = ing.ingredientLimit || 1;
                         let quantity = 0;
@@ -576,6 +594,9 @@ teste
                                 <span class="quantity-display font-bold text-base w-4 text-center">${quantity}</span>
                                 <button type="button" class="quantity-btn plus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">+</button>
                             </div>`;
+                        if (quantity > 0) {
+                            optionLabel.classList.add('selected-ingredient');
+                        }
                     }
                     categoryDiv.appendChild(optionLabel);
                 });
@@ -617,6 +638,13 @@ teste
                     if (currentQuantity > 0) {
                         quantityDisplay.textContent = currentQuantity - 1;
                     }
+                }
+
+                const optionLabel = container.closest('.ingredient-option');
+                if (parseInt(quantityDisplay.textContent) > 0) {
+                    optionLabel.classList.add('selected-ingredient');
+                } else {
+                    optionLabel.classList.remove('selected-ingredient');
                 }
                 updateManualBurgerPrice();
             }
