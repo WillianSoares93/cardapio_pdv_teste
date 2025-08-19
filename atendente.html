@@ -44,6 +44,11 @@
             cursor: pointer;
             border: 1px solid #e5e7eb;
         }
+        .category-filter-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -122,6 +127,7 @@
     <div id="add-item-modal" class="modal">
         <div class="modal-content">
             <h3 class="font-bold mb-2">Adicionar Item</h3>
+            <div id="item-category-filters" class="flex flex-wrap gap-2 mb-2"></div>
             <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
             <div id="item-list" class="max-h-60 overflow-y-auto"></div>
             <button id="cancel-add-item-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
@@ -247,28 +253,67 @@
 
         function openAddItemModal(isSecondHalf = false) {
             searchItemInput.value = '';
-            renderItemList('', isSecondHalf);
+            renderCategoryFilters();
+            renderItemList('', 'all', isSecondHalf);
             addItemModal.style.display = 'flex';
         }
 
-        function renderItemList(filterText, isSecondHalf = false) {
+        function renderCategoryFilters() {
+            const filterContainer = document.getElementById('item-category-filters');
+            filterContainer.innerHTML = '';
+            const categories = ['all', ...new Set(fullMenuData.cardapio.map(item => item.category))];
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'category-filter-btn px-3 py-1 text-sm rounded-full border';
+                button.textContent = category === 'all' ? 'Todos' : category;
+                button.dataset.category = category;
+                if (category === 'all') {
+                    button.classList.add('active');
+                }
+                button.addEventListener('click', () => {
+                    filterContainer.querySelector('.active').classList.remove('active');
+                    button.classList.add('active');
+                    const isSecondHalf = manualFirstHalfPizza !== null;
+                    renderItemList(searchItemInput.value, category, isSecondHalf);
+                });
+                filterContainer.appendChild(button);
+            });
+        }
+
+        function renderItemList(filterText, categoryFilter = 'all', isSecondHalf = false) {
             itemListContainer.innerHTML = '';
-            let filteredMenu = fullMenuData.cardapio.filter(item => item.name.toLowerCase().includes(filterText.toLowerCase()));
+            let filteredMenu = fullMenuData.cardapio.filter(item => {
+                const nameMatch = item.name.toLowerCase().includes(filterText.toLowerCase());
+                const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
+                return nameMatch && categoryMatch;
+            });
             if (isSecondHalf) {
                 filteredMenu = filteredMenu.filter(item => item.isPizza);
             }
-            filteredMenu.forEach(item => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
-                itemEl.textContent = item.name;
-                const priceSpan = document.createElement('span');
-                priceSpan.className = 'font-bold text-sm text-gray-700';
-                const price = item.basePrice || item.price4Slices || item.price6Slices || 0;
-                priceSpan.textContent = `R$ ${price.toFixed(2).replace('.', ',')}`;
-                itemEl.appendChild(priceSpan);
-                itemEl.addEventListener('click', () => handleItemSelection(item, isSecondHalf));
-                itemListContainer.appendChild(itemEl);
-            });
+            const itemsByCategory = filteredMenu.reduce((acc, item) => {
+                const category = item.category || 'Outros';
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(item);
+                return acc;
+            }, {});
+            for (const category in itemsByCategory) {
+                const categoryTitle = document.createElement('h4');
+                categoryTitle.className = 'font-bold text-md text-gray-600 bg-gray-100 p-2 mt-2 sticky top-0';
+                categoryTitle.textContent = category;
+                itemListContainer.appendChild(categoryTitle);
+                itemsByCategory[category].forEach(item => {
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
+                    itemEl.textContent = item.name;
+                    const priceSpan = document.createElement('span');
+                    priceSpan.className = 'font-bold text-sm text-gray-700';
+                    const price = item.basePrice || item.price4Slices || item.price6Slices || 0;
+                    priceSpan.textContent = `R$ ${price.toFixed(2).replace('.', ',')}`;
+                    itemEl.appendChild(priceSpan);
+                    itemEl.addEventListener('click', () => handleItemSelection(item, isSecondHalf));
+                    itemListContainer.appendChild(itemEl);
+                });
+            }
         }
 
         function handleItemSelection(item, isSecondHalf = false) {
@@ -377,7 +422,7 @@
                 alert("Por favor, preencha o nome do cliente e adicione pelo menos um item.");
                 return;
             }
-            if (!isPickup && !neighborhood) {
+            if (!isPickup && !neighborhood && street) { // Apenas valida bairro se for entrega
                 alert("Por favor, selecione um bairro para entrega.");
                 return;
             }
@@ -396,9 +441,9 @@
             try {
                 await addDoc(collection(db, "pedidos"), newOrder);
                 alert("Pedido salvo com sucesso!");
-                // Limpa o formulário para um novo pedido
                 manualOrderForm.reset();
                 manualOrderItems = [];
+                deliveryFields.style.display = 'none';
                 updateManualOrderDisplay();
                 document.getElementById('manual-clientName').focus();
             } catch (error) {
@@ -412,12 +457,16 @@
         cancelAddItemBtn.addEventListener('click', () => addItemModal.style.display = 'none');
         cancelPizzaOptionsManualBtn.addEventListener('click', () => pizzaOptionModalManual.style.display = 'none');
         cancelBurgerBuilderManualBtn.addEventListener('click', () => burgerBuilderModalManual.style.display = 'none');
-        searchItemInput.addEventListener('input', (e) => renderItemList(e.target.value));
+        searchItemInput.addEventListener('input', (e) => {
+            const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
+            const isSecondHalf = manualFirstHalfPizza !== null;
+            renderItemList(e.target.value, activeFilter, isSecondHalf);
+        });
         manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
         pickupCheckbox.addEventListener('change', () => {
             deliveryFields.style.display = pickupCheckbox.checked ? 'none' : 'block';
             if(pickupCheckbox.checked) {
-                manualNeighborhoodSelect.value = ''; // Limpa o bairro se for retirada
+                manualNeighborhoodSelect.value = '';
             }
             updateManualOrderDisplay();
         });
