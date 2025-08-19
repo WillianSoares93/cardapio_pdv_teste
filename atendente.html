@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -393,8 +394,8 @@
         }
 
         function handleItemSelection(item, isSecondHalf = false) {
-            addItemModal.style.display = 'none';
             if (isSecondHalf) {
+                addItemModal.style.display = 'none';
                 const sizeLabel = `${manualFirstHalfPizza.selected_slices} FATIAS`;
                 const priceKey = manualFirstHalfPizza.priceKey;
                 const secondHalfPrice = item[priceKey] / 2;
@@ -415,8 +416,10 @@
                 return;
             }
             if (item.isPizza) {
+                addItemModal.style.display = 'none';
                 openManualPizzaOptions(item);
             } else if (item.isCustomizable) {
+                addItemModal.style.display = 'none';
                 openManualBurgerBuilder(item);
             } else {
                 manualOrderItems.push({ 
@@ -429,6 +432,10 @@
                 });
                 updateManualOrderDisplay();
                 showManualOrderFeedback(`${item.name} adicionado.`);
+                searchItemInput.value = '';
+                const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
+                renderItemList('', activeFilter, false);
+                searchItemInput.focus();
             }
         }
 
@@ -728,7 +735,7 @@
         });
         manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
         pickupCheckbox.addEventListener('change', () => {
-            deliveryFields.style.display = pickupCheckbox.checked ? 'none' : 'block';
+            deliveryFields.style.display = pickupCheckbox.checked ? 'block' : 'none';
             if(pickupCheckbox.checked) {
                 manualNeighborhoodSelect.value = '';
             }
