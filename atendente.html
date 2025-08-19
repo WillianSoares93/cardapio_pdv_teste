@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -84,7 +85,7 @@
             left: 0;
             height: 4px;
             background-color: #86efac; /* green-300 */
-            animation: progress-countdown 3s linear forwards;
+            animation: progress-countdown 1.7s linear forwards;
         }
         @keyframes progress-countdown {
             from { width: 100%; }
@@ -170,6 +171,7 @@
     <div id="add-item-modal" class="modal">
         <div class="modal-content">
             <h3 id="add-item-modal-title" class="font-bold mb-2">Adicionar Item</h3>
+            <div id="add-item-feedback" class="hidden text-sm font-semibold mb-2 p-2 rounded-md"></div>
             <div id="item-category-filters" class="flex flex-wrap gap-2 mb-2"></div>
             <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
             <div id="item-list" class="max-h-60 overflow-y-auto"></div>
@@ -329,7 +331,7 @@
 
             setTimeout(() => {
                 feedbackEl.remove();
-            }, 3000);
+            }, 1700);
         }
 
         function updateManualOrderDisplay() {
@@ -367,13 +369,23 @@
             document.getElementById('manual-total').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
         }
 
-        function openAddItemModal(isSecondHalf = false, feedbackMessage = '') {
-            if (editingItemIndex !== null && !isSecondHalf) {
+        function openAddItemModal(isSecondHalf = false) {
+            const feedbackEl = document.getElementById('add-item-feedback');
+            
+            if (isSecondHalf) {
+                addItemModalTitle.textContent = 'Escolha a 2ª Metade';
+                feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
+                feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
+                feedbackEl.style.display = 'block';
+            } else if (editingItemIndex !== null) {
                 const originalItemName = manualOrderItems[editingItemIndex].name;
                 addItemModalTitle.textContent = 'Substituir Item';
-                feedbackMessage = `Selecione um novo item para substituir: ${originalItemName}`;
+                feedbackEl.innerHTML = `Selecione um novo item para substituir: <strong>${originalItemName}</strong>`;
+                feedbackEl.className = 'text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md';
+                feedbackEl.style.display = 'block';
             } else {
                 addItemModalTitle.textContent = 'Adicionar Item';
+                feedbackEl.style.display = 'none';
             }
 
             searchItemInput.value = '';
@@ -598,7 +610,7 @@
                             originalItem: pizza
                         };
                         pizzaOptionModalManual.style.display = 'none';
-                        openAddItemModal(true, `Meia ${pizza.name} selecionada. Escolha a outra metade.`);
+                        openAddItemModal(true);
                     });
                     sizeContainer.appendChild(optionDiv);
                 }
@@ -958,7 +970,7 @@
             manualOrderItems.splice(editingItemIndex, 1); // Temporarily remove the item to be replaced
             updateManualOrderDisplay();
             editSplitPizzaModal.style.display = 'none';
-            openAddItemModal(true, "Escolha o novo sabor para a 1ª metade");
+            openAddItemModal(true);
         });
 
         document.getElementById('edit-second-half-btn').addEventListener('click', () => {
@@ -967,7 +979,7 @@
             manualOrderItems.splice(editingItemIndex, 1); // Temporarily remove the item to be replaced
             updateManualOrderDisplay();
             editSplitPizzaModal.style.display = 'none';
-            openAddItemModal(true, "Escolha o novo sabor para a 2ª metade");
+            openAddItemModal(true);
         });
 
         document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
