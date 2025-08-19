@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1066,6 +1067,22 @@
 
         confirmDeleteBtn.addEventListener('click', executeDelete);
         clearFinishedBtn.addEventListener('click', clearFinishedOrders);
+// Abrir modal de Pedido Manual
+addManualOrderBtn.addEventListener('click', () => {
+    manualOrderModal.style.display = 'flex';
+});
+
+// Fechar modal ao clicar no botão "X"
+closeManualOrderModalBtn.addEventListener('click', () => {
+    manualOrderModal.style.display = 'none';
+});
+
+// Fechar modal clicando fora dele
+window.addEventListener('click', (e) => {
+    if (e.target === manualOrderModal) {
+        manualOrderModal.style.display = 'none';
+    }
+});
 
     </script>
 </body>
