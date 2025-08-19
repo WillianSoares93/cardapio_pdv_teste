@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -110,6 +109,10 @@ teste
                  <div class="mb-2">
                     <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Mesa / Cliente</label>
                     <input type="text" id="manual-clientName" required class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: Mesa 04 ou João">
+                </div>
+                <div class="mb-2">
+                    <label for="manual-clientPhone" class="block text-sm font-medium text-gray-700">Telefone do Cliente</label>
+                    <input type="tel" id="manual-clientPhone" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: (87) 99999-9999">
                 </div>
                 <div class="flex flex-wrap gap-4 items-center mb-2">
                     <div class="flex items-center">
@@ -287,7 +290,8 @@ teste
         const quantityModal = document.getElementById('quantity-modal');
         const quantityModalItemName = document.getElementById('quantity-modal-item-name');
         const quantityDisplay = document.getElementById('quantity-display');
-        const manualReferenceInput = document.getElementById('manual-reference'); // Novo elemento de referência
+        const manualReferenceInput = document.getElementById('manual-reference');
+        const manualClientPhone = document.getElementById('manual-clientPhone');
 
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let manualOrderItems = [];
@@ -606,7 +610,7 @@ teste
                     optionDiv.className = 'flex justify-between items-center p-2 border rounded-md mt-2';
                     optionDiv.innerHTML = `<div><span class="font-bold">${size.label}</span><span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span></div><div class="flex gap-2"><button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button><button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button></div>`;
                     
-                    optionDiv.querySelector('.add-full-size-pizza-manual').addEventListener('click', () => {
+                    optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
                         const newItem = { 
                             type: 'full',
                             name: `${size.label.toUpperCase()}: ${pizza.name}`, 
@@ -915,6 +919,7 @@ teste
         async function handleManualOrderSubmit(e) {
             e.preventDefault();
             const clientName = document.getElementById('manual-clientName').value;
+            const clientPhone = manualClientPhone.value;
             const isDelivery = deliveryCheckbox.checked;
             const street = document.getElementById('manual-street').value;
             const number = document.getElementById('manual-number').value;
@@ -944,6 +949,7 @@ teste
                 itens: manualOrderItems,
                 endereco: {
                     clientName,
+                    telefone: clientPhone,
                     rua: isDelivery ? street : (pickupCheckbox.checked ? "Retirada no Balcão" : "Mesa"),
                     numero: isDelivery ? number : (pickupCheckbox.checked ? "" : "N/A"),
                     bairro: isDelivery ? neighborhood : "",
