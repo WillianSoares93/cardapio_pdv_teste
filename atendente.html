@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -185,6 +186,21 @@
         </div>
     </div>
 
+    <div id="quantity-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="quantity-modal-item-name" class="font-bold mb-4 text-center text-lg"></h3>
+            <div class="flex items-center justify-center space-x-4 my-4">
+                <button type="button" id="quantity-minus-btn" class="quantity-btn bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center text-2xl font-bold">-</button>
+                <span id="quantity-display" class="font-bold text-2xl w-12 text-center">1</span>
+                <button type="button" id="quantity-plus-btn" class="quantity-btn bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center text-2xl font-bold">+</button>
+            </div>
+            <div class="flex gap-4 mt-6">
+                 <button type="button" id="cancel-quantity-btn" class="w-full bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-400">Cancelar</button>
+                <button type="button" id="confirm-quantity-btn" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
@@ -229,11 +245,15 @@
         const cancelPizzaOptionsManualBtn = document.getElementById('cancel-pizza-options-manual');
         const burgerTotalPriceManual = document.getElementById('burger-total-price-manual');
         const editSplitPizzaModal = document.getElementById('edit-split-pizza-modal');
+        const quantityModal = document.getElementById('quantity-modal');
+        const quantityModalItemName = document.getElementById('quantity-modal-item-name');
+        const quantityDisplay = document.getElementById('quantity-display');
 
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let manualOrderItems = [];
         let manualFirstHalfPizza = null;
-        let editingItemIndex = null; // NEW: State for editing
+        let editingItemIndex = null;
+        let currentItemForQuantity = null;
 
         async function loadFullMenuData() {
             if (fullMenuData.cardapio.length > 0) return;
@@ -455,7 +475,6 @@
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 
-                // CORREÇÃO: Não fecha o popup, apenas reseta ele.
                 const feedbackMessage = `Pizza Meia-Meia adicionada/atualizada!`;
                 searchItemInput.value = '';
                 renderCategoryFilters(false);
@@ -471,26 +490,31 @@
             } else if (item.isCustomizable) {
                 openManualBurgerBuilder(item, editingItemIndex);
             } else {
-                const newItem = { 
-                    type: 'full',
-                    name: item.name, 
-                    price: item.basePrice,
-                    description: item.description,
-                    category: item.category,
-                    originalItem: item
-                };
-
                 if (editingItemIndex !== null) {
+                    const newItem = { 
+                        type: 'full',
+                        name: item.name, 
+                        price: item.basePrice,
+                        description: item.description,
+                        category: item.category,
+                        originalItem: item
+                    };
                     manualOrderItems[editingItemIndex] = newItem;
                     showManualOrderFeedback(`${item.name} atualizado no pedido.`);
                     editingItemIndex = null;
                     addItemModal.style.display = 'none';
+                    updateManualOrderDisplay();
                 } else {
-                    manualOrderItems.push(newItem);
-                    showManualOrderFeedback(`${item.name} adicionado.`);
+                    openQuantityModal(item);
                 }
-                updateManualOrderDisplay();
             }
+        }
+
+        function openQuantityModal(item) {
+            currentItemForQuantity = item;
+            quantityModalItemName.textContent = item.name;
+            quantityDisplay.textContent = '1';
+            quantityModal.style.display = 'flex';
         }
 
         function openManualPizzaOptions(pizza) {
@@ -911,6 +935,52 @@
             editSplitPizzaModal.style.display = 'none';
             editingItemIndex = null;
         });
+
+        // Quantity Modal Listeners
+        document.getElementById('cancel-quantity-btn').addEventListener('click', () => {
+            quantityModal.style.display = 'none';
+            currentItemForQuantity = null;
+        });
+
+        document.getElementById('quantity-minus-btn').addEventListener('click', () => {
+            let currentQty = parseInt(quantityDisplay.textContent);
+            if (currentQty > 1) {
+                quantityDisplay.textContent = currentQty - 1;
+            }
+        });
+
+        document.getElementById('quantity-plus-btn').addEventListener('click', () => {
+            let currentQty = parseInt(quantityDisplay.textContent);
+            quantityDisplay.textContent = currentQty + 1;
+        });
+
+        document.getElementById('confirm-quantity-btn').addEventListener('click', () => {
+            const quantity = parseInt(quantityDisplay.textContent);
+            const newItem = { 
+                type: 'full',
+                name: currentItemForQuantity.name, 
+                price: currentItemForQuantity.basePrice,
+                description: currentItemForQuantity.description,
+                category: currentItemForQuantity.category,
+                originalItem: currentItemForQuantity
+            };
+
+            for (let i = 0; i < quantity; i++) {
+                manualOrderItems.push(newItem);
+            }
+            
+            updateManualOrderDisplay();
+            quantityModal.style.display = 'none';
+
+            const feedbackEl = document.getElementById('add-item-feedback');
+            feedbackEl.textContent = `${quantity}x ${currentItemForQuantity.name} adicionado(s).`;
+            feedbackEl.style.display = 'block';
+
+            searchItemInput.value = '';
+            searchItemInput.focus();
+            currentItemForQuantity = null;
+        });
+
 
         // Carrega os dados do menu assim que a página é carregada
         loadFullMenuData();
