@@ -262,10 +262,20 @@
             const filterContainer = document.getElementById('item-category-filters');
             filterContainer.innerHTML = '';
             const categories = ['all', ...new Set(fullMenuData.cardapio.map(item => item.category))];
+            
             categories.forEach(category => {
                 const button = document.createElement('button');
                 button.className = 'category-filter-btn px-3 py-1 text-sm rounded-full border';
-                button.textContent = category === 'all' ? 'Todos' : category;
+                
+                const isPizzaCategory = fullMenuData.cardapio.some(item => item.category === category && item.isPizza);
+                let buttonText = category;
+                if (category === 'all') {
+                    buttonText = 'Todos';
+                } else if (isPizzaCategory) {
+                    buttonText = `Pizza ${category}`;
+                }
+
+                button.textContent = buttonText;
                 button.dataset.category = category;
                 if (category === 'all') {
                     button.classList.add('active');
@@ -299,7 +309,10 @@
             for (const category in itemsByCategory) {
                 const categoryTitle = document.createElement('h4');
                 categoryTitle.className = 'font-bold text-md text-gray-600 bg-gray-100 p-2 mt-2 sticky top-0';
-                categoryTitle.textContent = category;
+                
+                const isPizzaCategory = itemsByCategory[category].some(item => item.isPizza);
+                categoryTitle.textContent = isPizzaCategory ? `Pizza ${category}` : category;
+
                 itemListContainer.appendChild(categoryTitle);
                 itemsByCategory[category].forEach(item => {
                     const itemEl = document.createElement('div');
