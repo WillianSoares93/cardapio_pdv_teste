@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -110,10 +111,6 @@
                     <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Mesa / Cliente</label>
                     <input type="text" id="manual-clientName" required class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: Mesa 04 ou João">
                 </div>
-                <div class="mb-2">
-                    <label for="manual-clientPhone" class="block text-sm font-medium text-gray-700">Telefone do Cliente</label>
-                    <input type="tel" id="manual-clientPhone" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: (87) 99999-9999">
-                </div>
                 <div class="flex flex-wrap gap-4 items-center mb-2">
                     <div class="flex items-center">
                         <input type="checkbox" id="pickup-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
@@ -126,6 +123,10 @@
                 </div>
                 <div id="delivery-fields" class="hidden">
                     <p class="text-sm text-gray-500 mb-2">Preencha abaixo apenas se for um pedido para entrega.</p>
+                    <div class="mb-2">
+                        <label for="manual-clientPhone" class="block text-sm font-medium text-gray-700">Telefone do Cliente</label>
+                        <input type="tel" id="manual-clientPhone" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: (87) 99999-9999">
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="manual-street" class="block text-sm font-medium text-gray-700">Rua</label>
