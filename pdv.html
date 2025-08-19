@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1076,7 +1075,12 @@ teste
             
             const isPickup = pickupCheckbox.checked;
             const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
-            const deliveryFee = isPickup ? 0 : parseFloat(selectedNeighborhood.dataset.fee || 0);
+            
+            // CORREÇÃO: Adiciona uma verificação para garantir que selectedNeighborhood não é undefined
+            let deliveryFee = 0;
+            if (!isPickup && selectedNeighborhood && selectedNeighborhood.value !== '') {
+                deliveryFee = parseFloat(selectedNeighborhood.dataset.fee || 0);
+            }
             
             const total = subtotal + deliveryFee;
 
@@ -1140,7 +1144,8 @@ teste
             }
 
             const subtotal = manualOrderItems.reduce((sum, item) => sum + item.price, 0);
-            const deliveryFee = isPickup ? 0 : parseFloat(manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex].dataset.fee || 0);
+            const selectedNeighborhoodOption = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
+            const deliveryFee = isPickup || !selectedNeighborhoodOption || selectedNeighborhoodOption.value === '' ? 0 : parseFloat(selectedNeighborhoodOption.dataset.fee || 0);
             const finalTotal = subtotal + deliveryFee;
 
             const newOrder = {
