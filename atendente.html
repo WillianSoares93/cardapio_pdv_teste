@@ -286,13 +286,16 @@
                     button.classList.add('active');
                 }
 
-                // ** LÓGICA DE FILTRO PARA MEIA PIZZA **
                 if (isSecondHalf) {
-                    const isPromotionalCategory = category.toLowerCase() === 'promocionais';
-                    if (manualFirstHalfPizza.isPromotional && !isPromotionalCategory && category !== 'all') {
-                        button.disabled = true;
-                    } else if (!manualFirstHalfPizza.isPromotional && isPromotionalCategory) {
-                        button.disabled = true;
+                    const isPromotionalCategory = category.trim().toLowerCase() === 'promocionais';
+                    if (manualFirstHalfPizza.isPromotional) {
+                        if (!isPromotionalCategory && category !== 'all') {
+                            button.disabled = true;
+                        }
+                    } else {
+                        if (isPromotionalCategory) {
+                            button.disabled = true;
+                        }
                     }
                 }
 
@@ -309,13 +312,12 @@
             itemListContainer.innerHTML = '';
             let filteredMenu = fullMenuData.cardapio;
 
-            // ** LÓGICA DE FILTRO PARA MEIA PIZZA **
             if (isSecondHalf) {
                 filteredMenu = filteredMenu.filter(item => item.isPizza);
                 if (manualFirstHalfPizza.isPromotional) {
-                    filteredMenu = filteredMenu.filter(item => item.category.toLowerCase() === 'promocionais');
+                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() === 'promocionais');
                 } else {
-                    filteredMenu = filteredMenu.filter(item => item.category.toLowerCase() !== 'promocionais');
+                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() !== 'promocionais');
                 }
             }
 
@@ -397,7 +399,7 @@
                             name: pizza.name, 
                             price: pizza[size.priceKey] / 2, 
                             priceKey: size.priceKey,
-                            isPromotional: pizza.category.toLowerCase() === 'promocionais'
+                            isPromotional: pizza.category.trim().toLowerCase() === 'promocionais'
                         };
                         pizzaOptionModalManual.style.display = 'none';
                         const ruleMessage = manualFirstHalfPizza.isPromotional 
@@ -501,7 +503,10 @@
 
         // Event Listeners
         addItemBtn.addEventListener('click', () => openAddItemModal(false));
-        cancelAddItemBtn.addEventListener('click', () => addItemModal.style.display = 'none');
+        cancelAddItemBtn.addEventListener('click', () => {
+            addItemModal.style.display = 'none';
+            manualFirstHalfPizza = null; // Garante que a seleção de meia pizza seja cancelada
+        });
         cancelPizzaOptionsManualBtn.addEventListener('click', () => pizzaOptionModalManual.style.display = 'none');
         cancelBurgerBuilderManualBtn.addEventListener('click', () => burgerBuilderModalManual.style.display = 'none');
         searchItemInput.addEventListener('input', (e) => {
