@@ -538,9 +538,12 @@
                 const firstIngredient = ingredients[0];
                 const categoryLimit = firstIngredient.limit || Infinity;
                 const isSingleChoice = firstIngredient.isSingleChoice;
+                const isRequired = firstIngredient.isRequired;
 
                 let title = `${categoryName}`;
-                if (categoryLimit !== Infinity && categoryLimit > 1) {
+                if (isRequired) {
+                    title += ' (Obrigatório)';
+                } else if (categoryLimit !== Infinity && categoryLimit > 1) {
                     title += ` (Escolha até ${categoryLimit})`;
                 } else if (isSingleChoice) {
                     title += ` (Escolha 1)`;
@@ -667,6 +670,39 @@
         }
 
         function addCustomBurgerToOrder(editIndex = null) {
+            // --- INÍCIO: LÓGICA DE VALIDAÇÃO DE CATEGORIAS OBRIGATÓRIAS ---
+            let allRequiredCategoriesFilled = true;
+            const container = document.getElementById('burger-ingredients-container-manual');
+
+            for (const categoryName in fullMenuData.ingredientesHamburguer) {
+                const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
+                if (ingredients.length > 0 && ingredients[0].isRequired) {
+                    const radioChecked = container.querySelector(`input[type="radio"][name="${categoryName}"]:checked`);
+                    
+                    let quantitySelected = false;
+                    const categoryH4 = Array.from(container.querySelectorAll('h4')).find(h4 => h4.textContent.startsWith(categoryName));
+                    if (categoryH4) {
+                        const categoryDiv = categoryH4.parentElement;
+                        categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
+                            if (parseInt(display.textContent) > 0) {
+                                quantitySelected = true;
+                            }
+                        });
+                    }
+
+                    if (!radioChecked && !quantitySelected) {
+                        alert(`Por favor, escolha uma opção na categoria obrigatória: ${categoryName}`);
+                        allRequiredCategoriesFilled = false;
+                        break; 
+                    }
+                }
+            }
+
+            if (!allRequiredCategoriesFilled) {
+                return; // Para a execução se a validação falhar
+            }
+            // --- FIM: LÓGICA DE VALIDAÇÃO ---
+
             const burgerItem = JSON.parse(burgerBuilderModalManual.dataset.burgerItem);
             const basePrice = parseFloat(burgerBuilderModalManual.dataset.basePrice);
             const selectedIngredients = [];
