@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -372,12 +371,7 @@ teste
         function openAddItemModal(isSecondHalf = false) {
             const feedbackEl = document.getElementById('add-item-feedback');
             
-            if (isSecondHalf) {
-                addItemModalTitle.textContent = 'Escolha a 2ª Metade';
-                feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
-                feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
-                feedbackEl.style.display = 'block';
-            } else if (editingItemIndex !== null) {
+            if (editingItemIndex !== null && !isSecondHalf) {
                 const originalItemName = manualOrderItems[editingItemIndex].name;
                 addItemModalTitle.textContent = 'Substituir Item';
                 feedbackEl.innerHTML = `Selecione um novo item para substituir: <strong>${originalItemName}</strong>`;
@@ -385,7 +379,13 @@ teste
                 feedbackEl.style.display = 'block';
             } else {
                 addItemModalTitle.textContent = 'Adicionar Item';
-                feedbackEl.style.display = 'none';
+                if (isSecondHalf) {
+                    feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
+                    feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
+                    feedbackEl.style.display = 'block';
+                } else {
+                    feedbackEl.style.display = 'none';
+                }
             }
 
             searchItemInput.value = '';
@@ -524,6 +524,10 @@ teste
                 updateManualOrderDisplay();
                 
                 showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`, item.category);
+                
+                // Reset popup state
+                addItemModalTitle.textContent = 'Adicionar Item';
+                document.getElementById('add-item-feedback').style.display = 'none';
                 searchItemInput.value = '';
                 renderCategoryFilters(false);
                 renderItemList('', 'all', false);
