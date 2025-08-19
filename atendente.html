@@ -546,7 +546,13 @@
                         }
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
-                        showManualOrderFeedback(`Pizza ${pizza.name} adicionada/atualizada.`);
+                        
+                        const feedbackEl = document.getElementById('add-item-feedback');
+                        feedbackEl.textContent = `Pizza ${pizza.name} adicionada/atualizada.`;
+                        feedbackEl.style.display = 'block';
+                        searchItemInput.value = '';
+                        renderCategoryFilters(false);
+                        renderItemList('', 'all', false);
                     });
 
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
@@ -801,7 +807,12 @@
                 addItemModal.style.display = 'none';
             } else {
                 manualOrderItems.push(newBurger);
-                showManualOrderFeedback(`Hambúrguer Personalizado adicionado.`);
+                const feedbackEl = document.getElementById('add-item-feedback');
+                feedbackEl.textContent = `Hambúrguer Personalizado adicionado.`;
+                feedbackEl.style.display = 'block';
+                searchItemInput.value = '';
+                renderCategoryFilters(false);
+                renderItemList('', 'all', false);
             }
             
             updateManualOrderDisplay();
