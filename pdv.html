@@ -279,6 +279,7 @@
             <h3 class="font-bold mb-2">Adicionar Item</h3>
             <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
             <div id="item-list" class="max-h-60 overflow-y-auto"></div>
+            <button id="cancel-add-item-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
         </div>
     </div>
 
@@ -447,6 +448,8 @@
         const searchItemInput = document.getElementById('search-item-input');
         const itemListContainer = document.getElementById('item-list');
         const manualOrderItemsContainer = document.getElementById('manual-order-items');
+        const cancelAddItemBtn = document.getElementById('cancel-add-item-btn');
+
 
         let fullMenuData = [];
         let deliveryFeesData = [];
@@ -1013,6 +1016,185 @@
                 alert("Não foi possível fechar o caixa. Tente novamente.");
             }
         });
+        
+        // =================================================================
+        // == INÍCIO DA LÓGICA CORRIGIDA PARA O PEDIDO MANUAL ==
+        // =================================================================
+        
+        async function openManualOrderModal() {
+            // Reseta o formulário e a lista de itens
+            manualOrderForm.reset();
+            manualOrderItems = [];
+            updateManualOrderDisplay();
+
+            // Carrega os dados do cardápio e taxas de entrega se ainda não foram carregados
+            if (deliveryFeesData.length === 0 || fullMenuData.length === 0) {
+                try {
+                    const response = await fetch('/api/menu');
+                    const data = await response.json();
+                    deliveryFeesData = data.deliveryFees;
+                    fullMenuData = data.cardapio.filter(item => item.available); // Pega apenas itens disponíveis
+                } catch (error) {
+                    console.error("Erro ao carregar dados para o pedido manual:", error);
+                    alert("Não foi possível carregar os dados do cardápio. Tente novamente.");
+                    return;
+                }
+            }
+
+            // Preenche o seletor de bairros
+            manualNeighborhoodSelect.innerHTML = '<option value="">Selecione o Bairro</option>';
+            deliveryFeesData.forEach(fee => {
+                const option = document.createElement('option');
+                option.value = fee.neighborhood;
+                option.dataset.fee = fee.deliveryFee;
+                option.textContent = `${fee.neighborhood} - R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')}`;
+                manualNeighborhoodSelect.appendChild(option);
+            });
+
+            // Mostra o modal
+            manualOrderModal.style.display = 'flex';
+        }
+        
+        function updateManualOrderDisplay() {
+            manualOrderItemsContainer.innerHTML = '';
+            let subtotal = 0;
+
+            manualOrderItems.forEach((item, index) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flex justify-between items-center text-sm';
+                itemEl.innerHTML = `
+                    <span>${item.name}</span>
+                    <div class="flex items-center">
+                        <span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
+                        <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700">&times;</button>
+                    </div>
+                `;
+                manualOrderItemsContainer.appendChild(itemEl);
+                subtotal += item.price;
+            });
+            
+            const isPickup = pickupCheckbox.checked;
+            const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
+            const deliveryFee = isPickup ? 0 : parseFloat(selectedNeighborhood.dataset.fee || 0);
+            
+            const total = subtotal + deliveryFee;
+
+            document.getElementById('manual-subtotal').textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+            document.getElementById('manual-delivery-fee').textContent = `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`;
+            document.getElementById('manual-total').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        }
+
+        function openAddItemModal() {
+            searchItemInput.value = '';
+            renderItemList('');
+            addItemModal.style.display = 'flex';
+        }
+        
+        function renderItemList(filterText) {
+            itemListContainer.innerHTML = '';
+            const filteredMenu = fullMenuData.filter(item => item.name.toLowerCase().includes(filterText.toLowerCase()));
+
+            filteredMenu.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
+                itemEl.textContent = item.name;
+                
+                const priceSpan = document.createElement('span');
+                priceSpan.className = 'font-bold text-sm text-gray-700';
+                // Lida com diferentes estruturas de preço (pizza vs. outros)
+                const price = item.basePrice || item.price4Slices || item.price6Slices || 0;
+                priceSpan.textContent = `R$ ${price.toFixed(2).replace('.', ',')}`;
+                itemEl.appendChild(priceSpan);
+
+                itemEl.addEventListener('click', () => {
+                    manualOrderItems.push({
+                        name: item.name,
+                        price: price,
+                        // Adicione mais detalhes do item se necessário
+                    });
+                    updateManualOrderDisplay();
+                    addItemModal.style.display = 'none';
+                });
+                itemListContainer.appendChild(itemEl);
+            });
+        }
+
+        async function handleManualOrderSubmit(e) {
+            e.preventDefault();
+            
+            const clientName = document.getElementById('manual-clientName').value;
+            const isPickup = pickupCheckbox.checked;
+            const street = document.getElementById('manual-street').value;
+            const number = document.getElementById('manual-number').value;
+            const neighborhood = manualNeighborhoodSelect.value;
+            const paymentMethod = document.querySelector('input[name="manual-payment"]:checked').value;
+
+            if (!clientName || manualOrderItems.length === 0) {
+                alert("Por favor, preencha o nome do cliente e adicione pelo menos um item.");
+                return;
+            }
+            if (!isPickup && !neighborhood) {
+                alert("Por favor, selecione um bairro para entrega.");
+                return;
+            }
+
+            const subtotal = manualOrderItems.reduce((sum, item) => sum + item.price, 0);
+            const deliveryFee = isPickup ? 0 : parseFloat(manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex].dataset.fee || 0);
+            const finalTotal = subtotal + deliveryFee;
+
+            const newOrder = {
+                itens: manualOrderItems,
+                endereco: {
+                    clientName: clientName,
+                    rua: isPickup ? "Retirada no Balcão" : street,
+                    numero: isPickup ? "" : number,
+                    bairro: isPickup ? "" : neighborhood,
+                },
+                total: {
+                    subtotal: subtotal,
+                    deliveryFee: deliveryFee,
+                    finalTotal: finalTotal,
+                    discount: 0
+                },
+                pagamento: paymentMethod,
+                status: 'Novo',
+                criadoEm: serverTimestamp()
+            };
+
+            try {
+                await addDoc(collection(db, "pedidos"), newOrder);
+                alert("Pedido manual salvo com sucesso!");
+                manualOrderModal.style.display = 'none';
+            } catch (error) {
+                console.error("Erro ao salvar pedido manual: ", error);
+                alert("Ocorreu um erro ao salvar o pedido. Tente novamente.");
+            }
+        }
+
+        // Adiciona os event listeners para a funcionalidade de pedido manual
+        addManualOrderBtn.addEventListener('click', openManualOrderModal);
+        closeManualOrderModalBtn.addEventListener('click', () => manualOrderModal.style.display = 'none');
+        addItemBtn.addEventListener('click', openAddItemModal);
+        cancelAddItemBtn.addEventListener('click', () => addItemModal.style.display = 'none');
+        searchItemInput.addEventListener('input', (e) => renderItemList(e.target.value));
+        manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
+        pickupCheckbox.addEventListener('change', () => {
+            deliveryFields.style.display = pickupCheckbox.checked ? 'none' : 'block';
+            updateManualOrderDisplay();
+        });
+        manualNeighborhoodSelect.addEventListener('change', updateManualOrderDisplay);
+        manualOrderItemsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-manual-item-btn') || e.target.parentElement.classList.contains('remove-manual-item-btn')) {
+                const button = e.target.closest('.remove-manual-item-btn');
+                const index = parseInt(button.dataset.index);
+                manualOrderItems.splice(index, 1);
+                updateManualOrderDisplay();
+            }
+        });
+
+        // =================================================================
+        // == FIM DA LÓGICA CORRIGIDA PARA O PEDIDO MANUAL ==
+        // =================================================================
 
 
         document.querySelector('main').addEventListener('click', function(e) {
