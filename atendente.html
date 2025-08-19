@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -455,8 +454,15 @@ teste
                 
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
-                addItemModal.style.display = 'none';
-                showManualOrderFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
+                
+                // CORREÇÃO: Não fecha o popup, apenas reseta ele.
+                const feedbackMessage = `Pizza Meia-Meia adicionada/atualizada!`;
+                searchItemInput.value = '';
+                renderCategoryFilters(false);
+                renderItemList('', 'all', false);
+                const feedbackEl = document.getElementById('add-item-feedback');
+                feedbackEl.textContent = feedbackMessage;
+                feedbackEl.style.display = 'block';
                 return;
             }
 
