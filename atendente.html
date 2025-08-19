@@ -180,7 +180,8 @@
             if (user) {
                 document.body.style.visibility = 'visible';
             } else {
-                window.location.href = 'login.html';
+                // ** LÓGICA DE REDIRECIONAMENTO ATUALIZADA **
+                window.location.href = `login.html?redirect=atendente.html`;
             }
         });
 
