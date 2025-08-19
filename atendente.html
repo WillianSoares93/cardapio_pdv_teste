@@ -209,9 +209,6 @@
         const pizzaOptionModalManual = document.getElementById('pizza-option-modal-manual');
         const burgerBuilderModalManual = document.getElementById('burger-builder-modal-manual');
         const cancelPizzaOptionsManualBtn = document.getElementById('cancel-pizza-options-manual');
-        const cancelBurgerBuilderManualBtn = document.getElementById('cancel-burger-builder-manual');
-        const addCustomBurgerManualBtn = document.getElementById('add-custom-burger-manual-btn');
-        const burgerIngredientsContainerManual = document.getElementById('burger-ingredients-container-manual');
         const burgerTotalPriceManual = document.getElementById('burger-total-price-manual');
 
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
@@ -266,7 +263,7 @@
                 }
 
                 itemEl.innerHTML = `
-                    <div class="flex-grow pr-4">${itemHtml}</div>
+                    <div class="flex-grow pr-4 cursor-pointer manual-item-edit" data-index="${index}">${itemHtml}</div>
                     <div class="flex items-center flex-shrink-0">
                         <span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
                         <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700 text-lg">&times;</button>
@@ -427,7 +424,8 @@
                     name: item.name, 
                     price: item.basePrice,
                     description: item.description,
-                    category: item.category
+                    category: item.category,
+                    originalItem: item
                 });
                 updateManualOrderDisplay();
                 showManualOrderFeedback(`${item.name} adicionado.`);
@@ -451,7 +449,8 @@
                             price: pizza[size.priceKey],
                             description: pizza.description,
                             category: pizza.category,
-                            selected_slices: size.slices
+                            selected_slices: size.slices,
+                            originalItem: pizza
                         });
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
@@ -465,7 +464,8 @@
                             isPromotional: pizza.category.trim().toLowerCase() === 'promocionais',
                             description: pizza.description,
                             category: pizza.category,
-                            selected_slices: size.slices
+                            selected_slices: size.slices,
+                            originalItem: pizza
                         };
                         pizzaOptionModalManual.style.display = 'none';
                         const feedbackMessage = `Meia Pizza de ${pizza.name} adicionado, escolha a outra metade`;
@@ -477,14 +477,14 @@
             pizzaOptionModalManual.style.display = 'flex';
         }
 
-        function openManualBurgerBuilder(burger) {
-            burgerBuilderModalManual.innerHTML = ''; // Limpa conteúdo anterior
+        function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
+            burgerBuilderModalManual.innerHTML = '';
             burgerBuilderModalManual.dataset.basePrice = burger.basePrice;
             burgerBuilderModalManual.dataset.burgerItem = JSON.stringify(burger);
 
             let content = `
                 <div class="modal-content !max-w-2xl">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Monte o Hambúrguer</h3>
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">${editIndex !== null ? 'Editar' : 'Montar'} Hambúrguer</h3>
                     <div id="burger-ingredients-container-manual" class="mb-4 max-h-80 overflow-y-auto p-2"></div>
                     <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
                         <span class="text-lg font-bold">Total do Hambúrguer:</span>
@@ -492,7 +492,7 @@
                     </div>
                     <div class="flex gap-4 mt-4">
                         <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
-                        <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition">Adicionar ao Pedido</button>
+                        <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition">${editIndex !== null ? 'Atualizar Item' : 'Adicionar ao Pedido'}</button>
                     </div>
                 </div>
             `;
@@ -525,15 +525,23 @@
                     optionLabel.className = 'ingredient-option';
                     
                     if(isSingleChoice) {
+                        const isChecked = existingItem && existingItem.ingredients.some(i => i.name === ing.name);
                         optionLabel.innerHTML = `
                             <div>
-                                <input type="radio" name="${categoryName}" class="form-radio mr-2" data-price="${ing.price}" value="${ing.name}">
+                                <input type="radio" name="${categoryName}" class="form-radio mr-2" data-price="${ing.price}" value="${ing.name}" ${isChecked ? 'checked' : ''}>
                                 <span>${ing.name}</span>
                             </div>
                             <span class="font-medium text-sm">${priceDisplay}</span>`;
                         optionLabel.querySelector('input').addEventListener('change', updateManualBurgerPrice);
                     } else {
                         const ingredientLimit = ing.ingredientLimit || 1;
+                        let quantity = 0;
+                        if (existingItem) {
+                            const existingIng = existingItem.ingredients.find(i => i.name.startsWith(ing.name));
+                            if (existingIng) {
+                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/\(x(\d+)\)/)[1]) : 1;
+                            }
+                        }
                         optionLabel.innerHTML = `
                             <div class="flex-grow">
                                 <span>${ing.name}</span>
@@ -541,17 +549,17 @@
                             </div>
                             <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}" data-limit="${ingredientLimit}">
                                 <button type="button" class="quantity-btn minus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">-</button>
-                                <span class="quantity-display font-bold text-base w-4 text-center">0</span>
+                                <span class="quantity-display font-bold text-base w-4 text-center">${quantity}</span>
                                 <button type="button" class="quantity-btn plus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">+</button>
                             </div>`;
                     }
-                    categoryDiv.appendChild(optionLabel);
+                    ingredientsContainer.appendChild(optionLabel);
                 });
                 ingredientsContainer.appendChild(categoryDiv);
             }
 
             burgerBuilderModalManual.querySelector('#cancel-burger-builder-manual').addEventListener('click', () => burgerBuilderModalManual.style.display = 'none');
-            burgerBuilderModalManual.querySelector('#add-custom-burger-manual-btn').addEventListener('click', addCustomBurgerToOrder);
+            burgerBuilderModalManual.querySelector('#add-custom-burger-manual-btn').addEventListener('click', () => addCustomBurgerToOrder(editIndex));
 
             updateManualBurgerPrice();
             burgerBuilderModalManual.style.display = 'flex';
@@ -606,7 +614,7 @@
             container.querySelector('#burger-total-price-manual').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
         }
 
-        function addCustomBurgerToOrder() {
+        function addCustomBurgerToOrder(editIndex = null) {
             const burgerItem = JSON.parse(burgerBuilderModalManual.dataset.burgerItem);
             const basePrice = parseFloat(burgerBuilderModalManual.dataset.basePrice);
             const selectedIngredients = [];
@@ -628,17 +636,40 @@
 
             const finalPrice = basePrice + ingredientsPrice;
             
-            manualOrderItems.push({ 
+            const newBurger = { 
                 name: 'Hambúrguer Personalizado',
                 price: finalPrice, 
                 type: 'custom_burger', 
                 ingredients: selectedIngredients,
                 description: burgerItem.description,
-                category: burgerItem.category
-            });
+                category: burgerItem.category,
+                originalItem: burgerItem
+            };
+
+            if (editIndex !== null) {
+                manualOrderItems[editIndex] = newBurger;
+                showManualOrderFeedback('Hambúrguer atualizado.');
+            } else {
+                manualOrderItems.push(newBurger);
+                showManualOrderFeedback(`Hambúrguer Personalizado adicionado.`);
+            }
+            
             updateManualOrderDisplay();
             burgerBuilderModalManual.style.display = 'none';
-            showManualOrderFeedback(`Hambúrguer Personalizado adicionado.`);
+        }
+
+        function handleEditItem(index) {
+            const itemToEdit = manualOrderItems[index];
+
+            if (itemToEdit.type === 'custom_burger') {
+                openManualBurgerBuilder(itemToEdit.originalItem, index, itemToEdit);
+            } else {
+                if (confirm("Não é possível editar este item. Deseja removê-lo para adicionar novamente?")) {
+                    manualOrderItems.splice(index, 1);
+                    updateManualOrderDisplay();
+                    openAddItemModal(false);
+                }
+            }
         }
 
         async function handleManualOrderSubmit(e) {
@@ -697,7 +728,7 @@
         });
         manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
         pickupCheckbox.addEventListener('change', () => {
-            deliveryFields.style.display = pickupCheckbox.checked ? 'block' : 'none';
+            deliveryFields.style.display = pickupCheckbox.checked ? 'none' : 'block';
             if(pickupCheckbox.checked) {
                 manualNeighborhoodSelect.value = '';
             }
@@ -705,11 +736,18 @@
         });
         manualNeighborhoodSelect.addEventListener('change', updateManualOrderDisplay);
         manualOrderItemsContainer.addEventListener('click', (e) => {
-            const button = e.target.closest('.remove-manual-item-btn');
-            if (button) {
-                const index = parseInt(button.dataset.index);
+            const removeBtn = e.target.closest('.remove-manual-item-btn');
+            if (removeBtn) {
+                const index = parseInt(removeBtn.dataset.index);
                 manualOrderItems.splice(index, 1);
                 updateManualOrderDisplay();
+                return;
+            }
+
+            const editArea = e.target.closest('.manual-item-edit');
+            if (editArea) {
+                const index = parseInt(editArea.dataset.index);
+                handleEditItem(index);
             }
         });
 
