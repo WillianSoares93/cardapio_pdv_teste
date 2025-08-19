@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -453,7 +454,6 @@
         }
 
         function openManualPizzaOptions(pizza) {
-            // REMOVIDO: addItemModal.style.display = 'none';
             document.getElementById('modal-pizza-name-manual').textContent = pizza.name;
             const sizeContainer = document.getElementById('pizza-size-options-manual');
             sizeContainer.innerHTML = '';
@@ -476,7 +476,6 @@
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
                         
-                        // Mostra o feedback dentro do popup principal
                         const feedbackEl = document.getElementById('add-item-feedback');
                         feedbackEl.textContent = `Pizza ${pizza.name} adicionada.`;
                         feedbackEl.style.display = 'block';
@@ -494,7 +493,6 @@
                         };
                         pizzaOptionModalManual.style.display = 'none';
                         const feedbackMessage = `Meia Pizza de ${pizza.name} adicionada, escolha a outra metade`;
-                        // Reabre/reconfigura o popup de itens para a seleção da segunda metade
                         openAddItemModal(true, feedbackMessage);
                     });
                     sizeContainer.appendChild(optionDiv);
@@ -504,8 +502,7 @@
         }
 
         function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
-            // REMOVIDO: addItemModal.style.display = 'none';
-            burgerBuilderModalManual.innerHTML = ''; // Limpa o conteúdo anterior
+            burgerBuilderModalManual.innerHTML = '';
             burgerBuilderModalManual.dataset.basePrice = burger.basePrice;
             burgerBuilderModalManual.dataset.burgerItem = JSON.stringify(burger);
 
@@ -580,7 +577,7 @@
                                 <button type="button" class="quantity-btn plus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">+</button>
                             </div>`;
                     }
-                    ingredientsContainer.appendChild(optionLabel);
+                    categoryDiv.appendChild(optionLabel);
                 });
                 ingredientsContainer.appendChild(categoryDiv);
             }
