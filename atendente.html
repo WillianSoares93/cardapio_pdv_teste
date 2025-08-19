@@ -49,6 +49,10 @@
             color: white;
             border-color: #3b82f6;
         }
+        .category-filter-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -181,7 +185,6 @@
             if (user) {
                 document.body.style.visibility = 'visible';
             } else {
-                // ** LÓGICA DE REDIRECIONAMENTO ATUALIZADA **
                 window.location.href = `login.html?redirect=atendente.html`;
             }
         });
@@ -255,12 +258,12 @@
 
         function openAddItemModal(isSecondHalf = false) {
             searchItemInput.value = '';
-            renderCategoryFilters();
+            renderCategoryFilters(isSecondHalf);
             renderItemList('', 'all', isSecondHalf);
             addItemModal.style.display = 'flex';
         }
 
-        function renderCategoryFilters() {
+        function renderCategoryFilters(isSecondHalf = false) {
             const filterContainer = document.getElementById('item-category-filters');
             filterContainer.innerHTML = '';
             const categories = ['all', ...new Set(fullMenuData.cardapio.map(item => item.category))];
@@ -282,10 +285,20 @@
                 if (category === 'all') {
                     button.classList.add('active');
                 }
+
+                // ** LÓGICA DE FILTRO PARA MEIA PIZZA **
+                if (isSecondHalf) {
+                    const isPromotionalCategory = category.toLowerCase() === 'promocionais';
+                    if (manualFirstHalfPizza.isPromotional && !isPromotionalCategory && category !== 'all') {
+                        button.disabled = true;
+                    } else if (!manualFirstHalfPizza.isPromotional && isPromotionalCategory) {
+                        button.disabled = true;
+                    }
+                }
+
                 button.addEventListener('click', () => {
                     filterContainer.querySelector('.active').classList.remove('active');
                     button.classList.add('active');
-                    const isSecondHalf = manualFirstHalfPizza !== null;
                     renderItemList(searchItemInput.value, category, isSecondHalf);
                 });
                 filterContainer.appendChild(button);
@@ -294,20 +307,31 @@
 
         function renderItemList(filterText, categoryFilter = 'all', isSecondHalf = false) {
             itemListContainer.innerHTML = '';
-            let filteredMenu = fullMenuData.cardapio.filter(item => {
+            let filteredMenu = fullMenuData.cardapio;
+
+            // ** LÓGICA DE FILTRO PARA MEIA PIZZA **
+            if (isSecondHalf) {
+                filteredMenu = filteredMenu.filter(item => item.isPizza);
+                if (manualFirstHalfPizza.isPromotional) {
+                    filteredMenu = filteredMenu.filter(item => item.category.toLowerCase() === 'promocionais');
+                } else {
+                    filteredMenu = filteredMenu.filter(item => item.category.toLowerCase() !== 'promocionais');
+                }
+            }
+
+            filteredMenu = filteredMenu.filter(item => {
                 const nameMatch = item.name.toLowerCase().includes(filterText.toLowerCase());
                 const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
                 return nameMatch && categoryMatch;
             });
-            if (isSecondHalf) {
-                filteredMenu = filteredMenu.filter(item => item.isPizza);
-            }
+
             const itemsByCategory = filteredMenu.reduce((acc, item) => {
                 const category = item.category || 'Outros';
                 if (!acc[category]) acc[category] = [];
                 acc[category].push(item);
                 return acc;
             }, {});
+
             for (const category in itemsByCategory) {
                 const categoryTitle = document.createElement('h4');
                 categoryTitle.className = 'font-bold text-md text-gray-600 bg-gray-100 p-2 mt-2 sticky top-0';
@@ -369,9 +393,17 @@
                         pizzaOptionModalManual.style.display = 'none';
                     });
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
-                        manualFirstHalfPizza = { name: pizza.name, price: pizza[size.priceKey] / 2, priceKey: size.priceKey };
+                        manualFirstHalfPizza = { 
+                            name: pizza.name, 
+                            price: pizza[size.priceKey] / 2, 
+                            priceKey: size.priceKey,
+                            isPromotional: pizza.category.toLowerCase() === 'promocionais'
+                        };
                         pizzaOptionModalManual.style.display = 'none';
-                        alert(`Primeira metade (${pizza.name}) selecionada. Agora escolha a segunda metade.`);
+                        const ruleMessage = manualFirstHalfPizza.isPromotional 
+                            ? "A segunda metade DEVE ser promocional."
+                            : "A segunda metade NÃO PODE ser promocional.";
+                        alert(`Primeira metade (${pizza.name}) selecionada. ${ruleMessage}\nAgora escolha a segunda metade.`);
                         openAddItemModal(true);
                     });
                     sizeContainer.appendChild(optionDiv);
