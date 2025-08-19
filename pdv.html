@@ -84,6 +84,16 @@
             background-color: #2563eb; /* blue-600 */
             color: white;
         }
+        .ingredient-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            border: 1px solid #e5e7eb;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -283,6 +293,31 @@
         </div>
     </div>
 
+    <!-- Modal de Opções de Pizza para Pedido Manual -->
+    <div id="pizza-option-modal-manual" class="modal">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="modal-pizza-name-manual"></h3>
+            <div id="pizza-size-options-manual" class="grid grid-cols-1 sm:grid-cols-3 gap-2 justify-items-center"></div>
+            <button id="cancel-pizza-options-manual" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Modal de Montagem de Hambúrguer para Pedido Manual -->
+    <div id="burger-builder-modal-manual" class="modal">
+        <div class="modal-content !max-w-2xl">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Monte o Hambúrguer</h3>
+            <div id="burger-ingredients-container-manual" class="mb-4 max-h-60 overflow-y-auto"></div>
+            <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
+                <span class="text-lg font-bold">Total do Hambúrguer:</span>
+                <span id="burger-total-price-manual" class="text-2xl font-bold text-red-600">R$ 0,00</span>
+            </div>
+            <div class="flex gap-4 mt-4">
+                <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition">Adicionar ao Pedido</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Modal Gerenciar Cardápio -->
     <div id="menu-management-modal" class="modal">
@@ -449,11 +484,18 @@
         const itemListContainer = document.getElementById('item-list');
         const manualOrderItemsContainer = document.getElementById('manual-order-items');
         const cancelAddItemBtn = document.getElementById('cancel-add-item-btn');
+        const pizzaOptionModalManual = document.getElementById('pizza-option-modal-manual');
+        const burgerBuilderModalManual = document.getElementById('burger-builder-modal-manual');
+        const cancelPizzaOptionsManualBtn = document.getElementById('cancel-pizza-options-manual');
+        const cancelBurgerBuilderManualBtn = document.getElementById('cancel-burger-builder-manual');
+        const addCustomBurgerManualBtn = document.getElementById('add-custom-burger-manual-btn');
+        const burgerIngredientsContainerManual = document.getElementById('burger-ingredients-container-manual');
+        const burgerTotalPriceManual = document.getElementById('burger-total-price-manual');
 
 
-        let fullMenuData = [];
-        let deliveryFeesData = [];
+        let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: [] };
         let manualOrderItems = [];
+        let manualFirstHalfPizza = null;
 
 
         let orderIdToDelete = null;
@@ -1018,32 +1060,49 @@
         });
         
         // =================================================================
-        // == INÍCIO DA LÓGICA CORRIGIDA PARA O PEDIDO MANUAL ==
+        // == INÍCIO DA LÓGICA PARA O PEDIDO MANUAL AVANÇADO ==
         // =================================================================
         
+        async function loadFullMenuData() {
+            if (fullMenuData.cardapio.length > 0) return; // Evita recarregar
+            try {
+                const response = await fetch('/api/menu');
+                const data = await response.json();
+                fullMenuData.cardapio = data.cardapio.filter(item => item.available);
+                fullMenuData.deliveryFees = data.deliveryFees;
+                
+                // Organiza ingredientes de hambúrguer por categoria
+                const burgerIngredients = data.ingredientesHamburguer || [];
+                fullMenuData.ingredientesHamburguer = burgerIngredients.reduce((acc, current) => {
+                    const category = current.category || 'Outros';
+                    if (!acc[category]) {
+                        acc[category] = [];
+                    }
+                    acc[category].push(current);
+                    return acc;
+                }, {});
+
+            } catch (error) {
+                console.error("Erro ao carregar dados para o pedido manual:", error);
+                alert("Não foi possível carregar os dados do cardápio. Tente novamente.");
+                throw error; // Lança o erro para interromper a execução
+            }
+        }
+
         async function openManualOrderModal() {
-            // Reseta o formulário e a lista de itens
             manualOrderForm.reset();
             manualOrderItems = [];
+            manualFirstHalfPizza = null;
             updateManualOrderDisplay();
 
-            // Carrega os dados do cardápio e taxas de entrega se ainda não foram carregados
-            if (deliveryFeesData.length === 0 || fullMenuData.length === 0) {
-                try {
-                    const response = await fetch('/api/menu');
-                    const data = await response.json();
-                    deliveryFeesData = data.deliveryFees;
-                    fullMenuData = data.cardapio.filter(item => item.available); // Pega apenas itens disponíveis
-                } catch (error) {
-                    console.error("Erro ao carregar dados para o pedido manual:", error);
-                    alert("Não foi possível carregar os dados do cardápio. Tente novamente.");
-                    return;
-                }
+            try {
+                await loadFullMenuData();
+            } catch (e) {
+                return; // Interrompe se o menu não puder ser carregado
             }
 
-            // Preenche o seletor de bairros
             manualNeighborhoodSelect.innerHTML = '<option value="">Selecione o Bairro</option>';
-            deliveryFeesData.forEach(fee => {
+            fullMenuData.deliveryFees.forEach(fee => {
                 const option = document.createElement('option');
                 option.value = fee.neighborhood;
                 option.dataset.fee = fee.deliveryFee;
@@ -1051,7 +1110,6 @@
                 manualNeighborhoodSelect.appendChild(option);
             });
 
-            // Mostra o modal
             manualOrderModal.style.display = 'flex';
         }
         
@@ -1061,12 +1119,12 @@
 
             manualOrderItems.forEach((item, index) => {
                 const itemEl = document.createElement('div');
-                itemEl.className = 'flex justify-between items-center text-sm';
+                itemEl.className = 'flex justify-between items-center text-sm py-1';
                 itemEl.innerHTML = `
                     <span>${item.name}</span>
                     <div class="flex items-center">
                         <span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
-                        <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700">&times;</button>
+                        <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700 text-lg">&times;</button>
                     </div>
                 `;
                 manualOrderItemsContainer.appendChild(itemEl);
@@ -1076,7 +1134,6 @@
             const isPickup = pickupCheckbox.checked;
             const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
             
-            // CORREÇÃO: Adiciona uma verificação para garantir que selectedNeighborhood não é undefined
             let deliveryFee = 0;
             if (!isPickup && selectedNeighborhood && selectedNeighborhood.value !== '') {
                 deliveryFee = parseFloat(selectedNeighborhood.dataset.fee || 0);
@@ -1089,15 +1146,20 @@
             document.getElementById('manual-total').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
         }
 
-        function openAddItemModal() {
+        function openAddItemModal(isSecondHalf = false) {
             searchItemInput.value = '';
-            renderItemList('');
+            renderItemList('', isSecondHalf);
             addItemModal.style.display = 'flex';
         }
         
-        function renderItemList(filterText) {
+        function renderItemList(filterText, isSecondHalf = false) {
             itemListContainer.innerHTML = '';
-            const filteredMenu = fullMenuData.filter(item => item.name.toLowerCase().includes(filterText.toLowerCase()));
+            let filteredMenu = fullMenuData.cardapio.filter(item => item.name.toLowerCase().includes(filterText.toLowerCase()));
+
+            if (isSecondHalf) {
+                // Se estiver escolhendo a segunda metade, mostra apenas pizzas
+                filteredMenu = filteredMenu.filter(item => item.isPizza);
+            }
 
             filteredMenu.forEach(item => {
                 const itemEl = document.createElement('div');
@@ -1106,23 +1168,154 @@
                 
                 const priceSpan = document.createElement('span');
                 priceSpan.className = 'font-bold text-sm text-gray-700';
-                // Lida com diferentes estruturas de preço (pizza vs. outros)
                 const price = item.basePrice || item.price4Slices || item.price6Slices || 0;
                 priceSpan.textContent = `R$ ${price.toFixed(2).replace('.', ',')}`;
                 itemEl.appendChild(priceSpan);
 
-                itemEl.addEventListener('click', () => {
-                    manualOrderItems.push({
-                        name: item.name,
-                        price: price,
-                        // Adicione mais detalhes do item se necessário
-                    });
-                    updateManualOrderDisplay();
-                    addItemModal.style.display = 'none';
-                });
+                itemEl.addEventListener('click', () => handleItemSelection(item, isSecondHalf));
                 itemListContainer.appendChild(itemEl);
             });
         }
+        
+        function handleItemSelection(item, isSecondHalf = false) {
+            addItemModal.style.display = 'none';
+
+            if (isSecondHalf) {
+                // Lógica para a segunda metade da pizza
+                const priceKey = manualFirstHalfPizza.priceKey;
+                const secondHalfPrice = item[priceKey] / 2;
+                const finalPrice = manualFirstHalfPizza.price + secondHalfPrice;
+                const combinedName = `Meia ${manualFirstHalfPizza.name} & Meia ${item.name}`;
+
+                manualOrderItems.push({ name: combinedName, price: finalPrice, type: 'split_pizza' });
+                manualFirstHalfPizza = null; // Limpa a primeira metade
+                updateManualOrderDisplay();
+                return;
+            }
+
+            if (item.isPizza) {
+                openManualPizzaOptions(item);
+            } else if (item.isCustomizable) {
+                openManualBurgerBuilder(item);
+            } else {
+                manualOrderItems.push({ name: item.name, price: item.basePrice });
+                updateManualOrderDisplay();
+            }
+        }
+
+        function openManualPizzaOptions(pizza) {
+            document.getElementById('modal-pizza-name-manual').textContent = pizza.name;
+            const sizeContainer = document.getElementById('pizza-size-options-manual');
+            sizeContainer.innerHTML = '';
+
+            const sizes = [
+                { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
+                { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
+                { slices: 8, label: '8 Fatias', priceKey: 'basePrice' }
+            ];
+
+            sizes.forEach(size => {
+                if (pizza[size.priceKey] > 0) {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'flex justify-between items-center p-2 border rounded-md mt-2';
+                    optionDiv.innerHTML = `
+                        <div>
+                            <span class="font-bold">${size.label}</span>
+                            <span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button>
+                            <button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button>
+                        </div>
+                    `;
+                    
+                    optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
+                        manualOrderItems.push({ name: `${pizza.name} (${size.label})`, price: pizza[size.priceKey] });
+                        updateManualOrderDisplay();
+                        pizzaOptionModalManual.style.display = 'none';
+                    });
+
+                    optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
+                        manualFirstHalfPizza = {
+                            name: pizza.name,
+                            price: pizza[size.priceKey] / 2,
+                            priceKey: size.priceKey
+                        };
+                        pizzaOptionModalManual.style.display = 'none';
+                        alert(`Primeira metade (${pizza.name}) selecionada. Agora escolha a segunda metade.`);
+                        openAddItemModal(true); // Abre para escolher a segunda metade
+                    });
+
+                    sizeContainer.appendChild(optionDiv);
+                }
+            });
+
+            pizzaOptionModalManual.style.display = 'flex';
+        }
+
+        function openManualBurgerBuilder(burger) {
+            burgerIngredientsContainerManual.innerHTML = '';
+            burgerBuilderModalManual.dataset.basePrice = burger.basePrice;
+
+            for (const categoryName in fullMenuData.ingredientesHamburguer) {
+                const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'mb-4';
+                categoryDiv.innerHTML = `<h4 class="font-bold border-b pb-1 mb-2">${categoryName}</h4>`;
+
+                ingredients.forEach(ing => {
+                    const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
+                    const optionLabel = document.createElement('label');
+                    optionLabel.className = 'ingredient-option';
+                    optionLabel.innerHTML = `
+                        <div>
+                            <input type="checkbox" class="form-checkbox mr-2" data-price="${ing.price}" value="${ing.name}">
+                            <span>${ing.name}</span>
+                        </div>
+                        <span class="font-medium text-sm">${priceDisplay}</span>
+                    `;
+                    optionLabel.querySelector('input').addEventListener('change', updateManualBurgerPrice);
+                    categoryDiv.appendChild(optionLabel);
+                });
+                burgerIngredientsContainerManual.appendChild(categoryDiv);
+            }
+
+            updateManualBurgerPrice();
+            burgerBuilderModalManual.style.display = 'flex';
+        }
+
+        function updateManualBurgerPrice() {
+            let total = parseFloat(burgerBuilderModalManual.dataset.basePrice) || 0;
+            burgerIngredientsContainerManual.querySelectorAll('input:checked').forEach(input => {
+                total += parseFloat(input.dataset.price);
+            });
+            burgerTotalPriceManual.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        }
+
+        addCustomBurgerManualBtn.addEventListener('click', () => {
+            const basePrice = parseFloat(burgerBuilderModalManual.dataset.basePrice);
+            const selectedIngredients = [];
+            let ingredientsPrice = 0;
+
+            burgerIngredientsContainerManual.querySelectorAll('input:checked').forEach(input => {
+                selectedIngredients.push({ name: input.value });
+                ingredientsPrice += parseFloat(input.dataset.price);
+            });
+
+            const finalPrice = basePrice + ingredientsPrice;
+            const ingredientNames = selectedIngredients.map(i => i.name).join(', ');
+
+            manualOrderItems.push({
+                name: `Hamb. Montado (${ingredientNames})`,
+                price: finalPrice,
+                type: 'custom_burger',
+                ingredients: selectedIngredients
+            });
+
+            updateManualOrderDisplay();
+            burgerBuilderModalManual.style.display = 'none';
+        });
+
 
         async function handleManualOrderSubmit(e) {
             e.preventDefault();
@@ -1180,8 +1373,10 @@
         // Adiciona os event listeners para a funcionalidade de pedido manual
         addManualOrderBtn.addEventListener('click', openManualOrderModal);
         closeManualOrderModalBtn.addEventListener('click', () => manualOrderModal.style.display = 'none');
-        addItemBtn.addEventListener('click', openAddItemModal);
+        addItemBtn.addEventListener('click', () => openAddItemModal(false));
         cancelAddItemBtn.addEventListener('click', () => addItemModal.style.display = 'none');
+        cancelPizzaOptionsManualBtn.addEventListener('click', () => pizzaOptionModalManual.style.display = 'none');
+        cancelBurgerBuilderManualBtn.addEventListener('click', () => burgerBuilderModalManual.style.display = 'none');
         searchItemInput.addEventListener('input', (e) => renderItemList(e.target.value));
         manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
         pickupCheckbox.addEventListener('change', () => {
@@ -1199,7 +1394,7 @@
         });
 
         // =================================================================
-        // == FIM DA LÓGICA CORRIGIDA PARA O PEDIDO MANUAL ==
+        // == FIM DA LÓGICA PARA O PEDIDO MANUAL AVANÇADO ==
         // =================================================================
 
 
