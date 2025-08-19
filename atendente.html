@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -393,9 +394,8 @@
         }
 
         function handleItemSelection(item, isSecondHalf = false) {
-            const isComplexItem = item.isPizza || item.isCustomizable || isSecondHalf;
-
             if (isSecondHalf) {
+                addItemModal.style.display = 'none';
                 const sizeLabel = `${manualFirstHalfPizza.selected_slices} FATIAS`;
                 const priceKey = manualFirstHalfPizza.priceKey;
                 const secondHalfPrice = item[priceKey] / 2;
@@ -413,7 +413,9 @@
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 showManualOrderFeedback(`Pizza Meia-Meia adicionada!`);
-            } else if (item.isPizza) {
+                return;
+            }
+            if (item.isPizza) {
                 openManualPizzaOptions(item);
             } else if (item.isCustomizable) {
                 openManualBurgerBuilder(item);
@@ -432,10 +434,6 @@
                 const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
                 renderItemList('', activeFilter, false);
                 searchItemInput.focus();
-            }
-
-            if (isComplexItem) {
-                addItemModal.style.display = 'none';
             }
         }
 
