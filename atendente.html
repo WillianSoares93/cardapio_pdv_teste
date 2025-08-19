@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -141,7 +142,7 @@
     <!-- Modals Auxiliares -->
     <div id="add-item-modal" class="modal">
         <div class="modal-content">
-            <h3 class="font-bold mb-2">Adicionar Item</h3>
+            <h3 id="add-item-modal-title" class="font-bold mb-2">Adicionar Item</h3>
             <div id="add-item-feedback" class="text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md"></div>
             <div id="item-category-filters" class="flex flex-wrap gap-2 mb-2"></div>
             <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
@@ -170,6 +171,18 @@
                 <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
                 <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition">Adicionar ao Pedido</button>
             </div>
+        </div>
+    </div>
+
+    <div id="edit-split-pizza-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="font-bold mb-4">Editar Pizza Meia a Meia</h3>
+            <p class="mb-4 text-sm">Qual metade você deseja alterar?</p>
+            <div class="space-y-2">
+                <button id="edit-first-half-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar 1ª Metade</button>
+                <button id="edit-second-half-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar 2ª Metade</button>
+            </div>
+            <button id="cancel-edit-split-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
         </div>
     </div>
 
@@ -207,6 +220,7 @@
         const manualNeighborhoodSelect = document.getElementById('manual-neighborhood');
         const addItemBtn = document.getElementById('add-item-btn');
         const addItemModal = document.getElementById('add-item-modal');
+        const addItemModalTitle = document.getElementById('add-item-modal-title');
         const searchItemInput = document.getElementById('search-item-input');
         const itemListContainer = document.getElementById('item-list');
         const manualOrderItemsContainer = document.getElementById('manual-order-items');
@@ -215,10 +229,12 @@
         const burgerBuilderModalManual = document.getElementById('burger-builder-modal-manual');
         const cancelPizzaOptionsManualBtn = document.getElementById('cancel-pizza-options-manual');
         const burgerTotalPriceManual = document.getElementById('burger-total-price-manual');
+        const editSplitPizzaModal = document.getElementById('edit-split-pizza-modal');
 
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let manualOrderItems = [];
         let manualFirstHalfPizza = null;
+        let editingItemIndex = null; // NEW: State for editing
 
         async function loadFullMenuData() {
             if (fullMenuData.cardapio.length > 0) return;
@@ -291,6 +307,14 @@
 
         function openAddItemModal(isSecondHalf = false, feedbackMessage = '') {
             const feedbackEl = document.getElementById('add-item-feedback');
+            if (editingItemIndex !== null && !isSecondHalf) {
+                const originalItemName = manualOrderItems[editingItemIndex].name;
+                addItemModalTitle.textContent = 'Substituir Item';
+                feedbackMessage = `Selecione um novo item para substituir: ${originalItemName}`;
+            } else {
+                addItemModalTitle.textContent = 'Adicionar Item';
+            }
+
             if (feedbackMessage) {
                 feedbackEl.textContent = feedbackMessage;
                 feedbackEl.style.display = 'block';
@@ -399,61 +423,67 @@
 
         function handleItemSelection(item, isSecondHalf = false) {
             if (isSecondHalf) {
-                // Combina a pizza meio a meio
-                const sizeLabel = `${manualFirstHalfPizza.selected_slices} FATIAS`;
-                const priceKey = manualFirstHalfPizza.priceKey;
-                const secondHalfPrice = item[priceKey] / 2;
-                const finalPrice = manualFirstHalfPizza.price + secondHalfPrice;
-                const combinedName = `${sizeLabel}: Meia ${manualFirstHalfPizza.name} & Meia ${item.name}`;
-                const combinedDescription = `${manualFirstHalfPizza.description} / ${item.description}`;
-                manualOrderItems.push({ 
+                const secondHalfObject = {
+                    name: item.name,
+                    price: item[manualFirstHalfPizza.priceKey] / 2,
+                    priceKey: manualFirstHalfPizza.priceKey,
+                    isPromotional: item.category.trim().toLowerCase() === 'promocionais',
+                    description: item.description,
+                    category: item.category,
+                    selected_slices: manualFirstHalfPizza.selected_slices,
+                    originalItem: item
+                };
+
+                const finalPrice = manualFirstHalfPizza.price + secondHalfObject.price;
+                const combinedName = `${manualFirstHalfPizza.selected_slices} FATIAS: Meia ${manualFirstHalfPizza.name} & Meia ${secondHalfObject.name}`;
+                
+                const newItem = { 
                     type: 'split',
                     name: combinedName, 
                     price: finalPrice, 
-                    description: combinedDescription,
-                    category: 'pizzas',
+                    firstHalfData: manualFirstHalfPizza,
+                    secondHalfData: secondHalfObject,
                     selected_slices: manualFirstHalfPizza.selected_slices
-                });
-                manualFirstHalfPizza = null; // Reseta o estado de meia pizza
-                updateManualOrderDisplay();
+                };
+
+                if (editingItemIndex !== null) {
+                    manualOrderItems[editingItemIndex] = newItem;
+                    editingItemIndex = null;
+                } else {
+                    manualOrderItems.push(newItem);
+                }
                 
-                // Reseta o popup "Adicionar Item" para o estado inicial com uma mensagem de sucesso
-                const feedbackMessage = `Pizza Meia-Meia adicionada!`;
-                searchItemInput.value = '';
-                renderCategoryFilters(false); // false = não é mais segunda metade
-                renderItemList('', 'all', false); // false = não é mais segunda metade
-                const feedbackEl = document.getElementById('add-item-feedback');
-                feedbackEl.textContent = feedbackMessage;
-                feedbackEl.style.display = 'block';
+                manualFirstHalfPizza = null;
+                updateManualOrderDisplay();
+                addItemModal.style.display = 'none';
+                showManualOrderFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
                 return;
             }
 
             if (item.isPizza) {
                 openManualPizzaOptions(item);
             } else if (item.isCustomizable) {
-                openManualBurgerBuilder(item);
+                openManualBurgerBuilder(item, editingItemIndex);
             } else {
-                // Adiciona item simples
-                manualOrderItems.push({ 
+                const newItem = { 
                     type: 'full',
                     name: item.name, 
                     price: item.basePrice,
                     description: item.description,
                     category: item.category,
                     originalItem: item
-                });
-                updateManualOrderDisplay();
-                
-                // Mostra o feedback dentro do popup
-                const feedbackEl = document.getElementById('add-item-feedback');
-                feedbackEl.textContent = `${item.name} adicionado.`;
-                feedbackEl.style.display = 'block';
+                };
 
-                // Limpa a busca para facilitar a adição do próximo item
-                searchItemInput.value = '';
-                const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-                renderItemList('', activeFilter, false);
-                searchItemInput.focus();
+                if (editingItemIndex !== null) {
+                    manualOrderItems[editingItemIndex] = newItem;
+                    showManualOrderFeedback(`${item.name} atualizado no pedido.`);
+                    editingItemIndex = null;
+                    addItemModal.style.display = 'none';
+                } else {
+                    manualOrderItems.push(newItem);
+                    showManualOrderFeedback(`${item.name} adicionado.`);
+                }
+                updateManualOrderDisplay();
             }
         }
 
@@ -467,8 +497,9 @@
                     const optionDiv = document.createElement('div');
                     optionDiv.className = 'flex justify-between items-center p-2 border rounded-md mt-2';
                     optionDiv.innerHTML = `<div><span class="font-bold">${size.label}</span><span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span></div><div class="flex gap-2"><button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button><button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button></div>`;
+                    
                     optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
-                        manualOrderItems.push({ 
+                        const newItem = { 
                             type: 'full',
                             name: `${size.label.toUpperCase()}: ${pizza.name}`, 
                             price: pizza[size.priceKey],
@@ -476,14 +507,19 @@
                             category: pizza.category,
                             selected_slices: size.slices,
                             originalItem: pizza
-                        });
+                        };
+                        if (editingItemIndex !== null) {
+                            manualOrderItems[editingItemIndex] = newItem;
+                            editingItemIndex = null;
+                            addItemModal.style.display = 'none';
+                        } else {
+                            manualOrderItems.push(newItem);
+                        }
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
-                        
-                        const feedbackEl = document.getElementById('add-item-feedback');
-                        feedbackEl.textContent = `Pizza ${pizza.name} adicionada.`;
-                        feedbackEl.style.display = 'block';
+                        showManualOrderFeedback(`Pizza ${pizza.name} adicionada/atualizada.`);
                     });
+
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
                         manualFirstHalfPizza = { 
                             name: pizza.name, 
@@ -496,8 +532,7 @@
                             originalItem: pizza
                         };
                         pizzaOptionModalManual.style.display = 'none';
-                        const feedbackMessage = `Meia Pizza de ${pizza.name} adicionada, escolha a outra metade`;
-                        openAddItemModal(true, feedbackMessage);
+                        openAddItemModal(true, `Meia ${pizza.name} selecionada. Escolha a outra metade.`);
                     });
                     sizeContainer.appendChild(optionDiv);
                 }
@@ -670,7 +705,6 @@
         }
 
         function addCustomBurgerToOrder(editIndex = null) {
-            // --- INÍCIO: LÓGICA DE VALIDAÇÃO DE CATEGORIAS OBRIGATÓRIAS ---
             let allRequiredCategoriesFilled = true;
             const container = document.getElementById('burger-ingredients-container-manual');
 
@@ -678,7 +712,6 @@
                 const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
                 if (ingredients.length > 0 && ingredients[0].isRequired) {
                     const radioChecked = container.querySelector(`input[type="radio"][name="${categoryName}"]:checked`);
-                    
                     let quantitySelected = false;
                     const categoryH4 = Array.from(container.querySelectorAll('h4')).find(h4 => h4.textContent.startsWith(categoryName));
                     if (categoryH4) {
@@ -689,7 +722,6 @@
                             }
                         });
                     }
-
                     if (!radioChecked && !quantitySelected) {
                         alert(`Por favor, escolha uma opção na categoria obrigatória: ${categoryName}`);
                         allRequiredCategoriesFilled = false;
@@ -699,9 +731,8 @@
             }
 
             if (!allRequiredCategoriesFilled) {
-                return; // Para a execução se a validação falhar
+                return;
             }
-            // --- FIM: LÓGICA DE VALIDAÇÃO ---
 
             const burgerItem = JSON.parse(burgerBuilderModalManual.dataset.burgerItem);
             const basePrice = parseFloat(burgerBuilderModalManual.dataset.basePrice);
@@ -737,11 +768,11 @@
             if (editIndex !== null) {
                 manualOrderItems[editIndex] = newBurger;
                 showManualOrderFeedback('Hambúrguer atualizado.');
+                editingItemIndex = null;
+                addItemModal.style.display = 'none';
             } else {
                 manualOrderItems.push(newBurger);
-                const feedbackEl = document.getElementById('add-item-feedback');
-                feedbackEl.textContent = `Hambúrguer Personalizado adicionado.`;
-                feedbackEl.style.display = 'block';
+                showManualOrderFeedback(`Hambúrguer Personalizado adicionado.`);
             }
             
             updateManualOrderDisplay();
@@ -750,15 +781,19 @@
 
         function handleEditItem(index) {
             const itemToEdit = manualOrderItems[index];
+            editingItemIndex = index;
 
-            if (itemToEdit.type === 'custom_burger') {
-                openManualBurgerBuilder(itemToEdit.originalItem, index, itemToEdit);
-            } else {
-                if (confirm("Não é possível editar este item. Deseja removê-lo para adicionar novamente?")) {
-                    manualOrderItems.splice(index, 1);
-                    updateManualOrderDisplay();
+            switch (itemToEdit.type) {
+                case 'custom_burger':
+                    openManualBurgerBuilder(itemToEdit.originalItem, index, itemToEdit);
+                    break;
+                case 'split':
+                    editSplitPizzaModal.style.display = 'flex';
+                    break;
+                case 'full':
+                default:
                     openAddItemModal(false);
-                }
+                    break;
             }
         }
 
@@ -774,7 +809,7 @@
                 alert("Por favor, preencha o nome do cliente e adicione pelo menos um item.");
                 return;
             }
-            if (!isPickup && !neighborhood && street) { // Apenas valida bairro se for entrega
+            if (!isPickup && !neighborhood && street) {
                 alert("Por favor, selecione um bairro para entrega.");
                 return;
             }
@@ -805,12 +840,18 @@
         }
 
         // Event Listeners
-        addItemBtn.addEventListener('click', () => openAddItemModal(false));
+        addItemBtn.addEventListener('click', () => {
+            editingItemIndex = null;
+            openAddItemModal(false)
+        });
         cancelAddItemBtn.addEventListener('click', () => {
             addItemModal.style.display = 'none';
-            manualFirstHalfPizza = null; // Garante que a seleção de meia pizza seja cancelada
+            manualFirstHalfPizza = null;
+            editingItemIndex = null;
         });
-        cancelPizzaOptionsManualBtn.addEventListener('click', () => pizzaOptionModalManual.style.display = 'none');
+        cancelPizzaOptionsManualBtn.addEventListener('click', () => {
+            pizzaOptionModalManual.style.display = 'none';
+        });
         searchItemInput.addEventListener('input', (e) => {
             const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
             const isSecondHalf = manualFirstHalfPizza !== null;
@@ -839,6 +880,30 @@
                 const index = parseInt(editArea.dataset.index);
                 handleEditItem(index);
             }
+        });
+
+        // Edit Split Pizza Modal Listeners
+        document.getElementById('edit-first-half-btn').addEventListener('click', () => {
+            const itemToEdit = manualOrderItems[editingItemIndex];
+            manualFirstHalfPizza = itemToEdit.secondHalfData; // The remaining half becomes the new "first half"
+            manualOrderItems.splice(editingItemIndex, 1); // Temporarily remove the item to be replaced
+            updateManualOrderDisplay();
+            editSplitPizzaModal.style.display = 'none';
+            openAddItemModal(true, "Escolha o novo sabor para a 1ª metade");
+        });
+
+        document.getElementById('edit-second-half-btn').addEventListener('click', () => {
+            const itemToEdit = manualOrderItems[editingItemIndex];
+            manualFirstHalfPizza = itemToEdit.firstHalfData; // The remaining half is the first half
+            manualOrderItems.splice(editingItemIndex, 1); // Temporarily remove the item to be replaced
+            updateManualOrderDisplay();
+            editSplitPizzaModal.style.display = 'none';
+            openAddItemModal(true, "Escolha o novo sabor para a 2ª metade");
+        });
+
+        document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
+            editSplitPizzaModal.style.display = 'none';
+            editingItemIndex = null;
         });
 
         // Carrega os dados do menu assim que a página é carregada
