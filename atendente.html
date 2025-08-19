@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -136,6 +135,10 @@ teste
                     <div class="mt-2">
                         <label for="manual-neighborhood" class="block text-sm font-medium text-gray-700">Bairro</label>
                         <select id="manual-neighborhood" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2"></select>
+                    </div>
+                     <div class="mt-2">
+                        <label for="manual-reference" class="block text-sm font-medium text-gray-700">Ponto de Referência</label>
+                        <input type="text" id="manual-reference" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: Próximo ao mercado X">
                     </div>
                 </div>
             </div>
@@ -283,6 +286,7 @@ teste
         const quantityModal = document.getElementById('quantity-modal');
         const quantityModalItemName = document.getElementById('quantity-modal-item-name');
         const quantityDisplay = document.getElementById('quantity-display');
+        const manualReferenceInput = document.getElementById('manual-reference'); // Novo elemento de referência
 
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let manualOrderItems = [];
@@ -601,7 +605,7 @@ teste
                     optionDiv.className = 'flex justify-between items-center p-2 border rounded-md mt-2';
                     optionDiv.innerHTML = `<div><span class="font-bold">${size.label}</span><span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span></div><div class="flex gap-2"><button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button><button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button></div>`;
                     
-                    optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
+                    optionDiv.querySelector('.add-full-size-pizza-manual').addEventListener('click', () => {
                         const newItem = { 
                             type: 'full',
                             name: `${size.label.toUpperCase()}: ${pizza.name}`, 
@@ -914,6 +918,7 @@ teste
             const street = document.getElementById('manual-street').value;
             const number = document.getElementById('manual-number').value;
             const neighborhood = manualNeighborhoodSelect.value;
+            const reference = manualReferenceInput.value;
             const paymentMethod = document.querySelector('input[name="manual-payment"]:checked').value;
 
             if (!clientName || manualOrderItems.length === 0) {
@@ -940,7 +945,8 @@ teste
                     clientName,
                     rua: isDelivery ? street : (pickupCheckbox.checked ? "Retirada no Balcão" : "Mesa"),
                     numero: isDelivery ? number : (pickupCheckbox.checked ? "" : "N/A"),
-                    bairro: isDelivery ? neighborhood : ""
+                    bairro: isDelivery ? neighborhood : "",
+                    referencia: isDelivery ? reference : ""
                 },
                 total: { subtotal, deliveryFee, finalTotal, discount: 0 },
                 pagamento: paymentMethod,
