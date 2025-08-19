@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -395,7 +394,7 @@ teste
 
         function handleItemSelection(item, isSecondHalf = false) {
             if (isSecondHalf) {
-                addItemModal.style.display = 'none';
+                // Combina a pizza meio a meio
                 const sizeLabel = `${manualFirstHalfPizza.selected_slices} FATIAS`;
                 const priceKey = manualFirstHalfPizza.priceKey;
                 const secondHalfPrice = item[priceKey] / 2;
@@ -410,16 +409,26 @@ teste
                     category: 'pizzas',
                     selected_slices: manualFirstHalfPizza.selected_slices
                 });
-                manualFirstHalfPizza = null;
+                manualFirstHalfPizza = null; // Reseta o estado de meia pizza
                 updateManualOrderDisplay();
-                showManualOrderFeedback(`Pizza Meia-Meia adicionada!`);
+                
+                // Reseta o popup "Adicionar Item" para o estado inicial com uma mensagem de sucesso
+                const feedbackMessage = `Pizza Meia-Meia adicionada!`;
+                searchItemInput.value = '';
+                renderCategoryFilters(false); // false = não é mais segunda metade
+                renderItemList('', 'all', false); // false = não é mais segunda metade
+                const feedbackEl = document.getElementById('add-item-feedback');
+                feedbackEl.textContent = feedbackMessage;
+                feedbackEl.style.display = 'block';
                 return;
             }
+
             if (item.isPizza) {
                 openManualPizzaOptions(item);
             } else if (item.isCustomizable) {
                 openManualBurgerBuilder(item);
             } else {
+                // Adiciona item simples
                 manualOrderItems.push({ 
                     type: 'full',
                     name: item.name, 
@@ -429,7 +438,13 @@ teste
                     originalItem: item
                 });
                 updateManualOrderDisplay();
-                showManualOrderFeedback(`${item.name} adicionado.`);
+                
+                // Mostra o feedback dentro do popup
+                const feedbackEl = document.getElementById('add-item-feedback');
+                feedbackEl.textContent = `${item.name} adicionado.`;
+                feedbackEl.style.display = 'block';
+
+                // Limpa a busca para facilitar a adição do próximo item
                 searchItemInput.value = '';
                 const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
                 renderItemList('', activeFilter, false);
@@ -438,7 +453,7 @@ teste
         }
 
         function openManualPizzaOptions(pizza) {
-            addItemModal.style.display = 'none';
+            // REMOVIDO: addItemModal.style.display = 'none';
             document.getElementById('modal-pizza-name-manual').textContent = pizza.name;
             const sizeContainer = document.getElementById('pizza-size-options-manual');
             sizeContainer.innerHTML = '';
@@ -460,7 +475,11 @@ teste
                         });
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
-                        showManualOrderFeedback(`Pizza ${pizza.name} adicionada.`);
+                        
+                        // Mostra o feedback dentro do popup principal
+                        const feedbackEl = document.getElementById('add-item-feedback');
+                        feedbackEl.textContent = `Pizza ${pizza.name} adicionada.`;
+                        feedbackEl.style.display = 'block';
                     });
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
                         manualFirstHalfPizza = { 
@@ -474,7 +493,8 @@ teste
                             originalItem: pizza
                         };
                         pizzaOptionModalManual.style.display = 'none';
-                        const feedbackMessage = `Meia Pizza de ${pizza.name} adicionado, escolha a outra metade`;
+                        const feedbackMessage = `Meia Pizza de ${pizza.name} adicionada, escolha a outra metade`;
+                        // Reabre/reconfigura o popup de itens para a seleção da segunda metade
                         openAddItemModal(true, feedbackMessage);
                     });
                     sizeContainer.appendChild(optionDiv);
@@ -484,8 +504,8 @@ teste
         }
 
         function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
-            addItemModal.style.display = 'none';
-            burgerBuilderModalManual.innerHTML = '';
+            // REMOVIDO: addItemModal.style.display = 'none';
+            burgerBuilderModalManual.innerHTML = ''; // Limpa o conteúdo anterior
             burgerBuilderModalManual.dataset.basePrice = burger.basePrice;
             burgerBuilderModalManual.dataset.burgerItem = JSON.stringify(burger);
 
@@ -658,7 +678,9 @@ teste
                 showManualOrderFeedback('Hambúrguer atualizado.');
             } else {
                 manualOrderItems.push(newBurger);
-                showManualOrderFeedback(`Hambúrguer Personalizado adicionado.`);
+                const feedbackEl = document.getElementById('add-item-feedback');
+                feedbackEl.textContent = `Hambúrguer Personalizado adicionado.`;
+                feedbackEl.style.display = 'block';
             }
             
             updateManualOrderDisplay();
