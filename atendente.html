@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -394,8 +393,9 @@ teste
         }
 
         function handleItemSelection(item, isSecondHalf = false) {
+            const isComplexItem = item.isPizza || item.isCustomizable || isSecondHalf;
+
             if (isSecondHalf) {
-                addItemModal.style.display = 'none';
                 const sizeLabel = `${manualFirstHalfPizza.selected_slices} FATIAS`;
                 const priceKey = manualFirstHalfPizza.priceKey;
                 const secondHalfPrice = item[priceKey] / 2;
@@ -413,13 +413,9 @@ teste
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 showManualOrderFeedback(`Pizza Meia-Meia adicionada!`);
-                return;
-            }
-            if (item.isPizza) {
-                addItemModal.style.display = 'none';
+            } else if (item.isPizza) {
                 openManualPizzaOptions(item);
             } else if (item.isCustomizable) {
-                addItemModal.style.display = 'none';
                 openManualBurgerBuilder(item);
             } else {
                 manualOrderItems.push({ 
@@ -437,9 +433,14 @@ teste
                 renderItemList('', activeFilter, false);
                 searchItemInput.focus();
             }
+
+            if (isComplexItem) {
+                addItemModal.style.display = 'none';
+            }
         }
 
         function openManualPizzaOptions(pizza) {
+            addItemModal.style.display = 'none';
             document.getElementById('modal-pizza-name-manual').textContent = pizza.name;
             const sizeContainer = document.getElementById('pizza-size-options-manual');
             sizeContainer.innerHTML = '';
@@ -485,6 +486,7 @@ teste
         }
 
         function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
+            addItemModal.style.display = 'none';
             burgerBuilderModalManual.innerHTML = '';
             burgerBuilderModalManual.dataset.basePrice = burger.basePrice;
             burgerBuilderModalManual.dataset.burgerItem = JSON.stringify(burger);
