@@ -1,18 +1,38 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atendente - Sâmia Pizzaria</title>
+    <title>Sâmia - Lançamento de Pedidos</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/catalogo_pizzaria/refs/heads/main/logo.png" type="image/png">
+    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia/refs/heads/main/logo.png" type="image/png">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
         body {
-            font-family: 'Roboto', sans-serif;
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8f4e9;
             visibility: hidden;
-            background-color: #f3f4f6; /* Fundo cinza claro */
+        }
+        .flavor-card {
+            transition: all 0.3s ease;
+        }
+        .flavor-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .category-bar-mobile-sticky {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #f8f4e9;
+            padding-top: 1rem;
+            padding-bottom: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .pizza-category-section {
+            scroll-margin-top: 6rem;
         }
         .modal {
             display: none;
@@ -23,262 +43,88 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(0,0,0,0.6); /* Fundo mais escuro */
+            background-color: rgba(0,0,0,0.4);
             justify-content: center;
             align-items: center;
+            padding: 20px;
         }
         .modal-content {
-            background-color: #ffffff;
+            background-color: #fefefe;
             margin: auto;
-            padding: 32px; /* Aumenta o padding */
-            border-radius: 12px; /* Aumenta o arredondamento */
+            padding: 20px;
+            border-radius: 8px;
             width: 90%;
             max-width: 500px;
-            position: relative;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2); /* Sombra mais destacada */
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .ingredient-option {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px; /* Aumenta o padding */
-            border-radius: 8px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            border: 1px solid #d1d5db; /* Borda cinza mais clara */
-            transition: all 0.2s ease-in-out;
-        }
-        .ingredient-option:hover {
-            background-color: #f9fafb;
-            border-color: #ef4444; /* Borda vermelha ao passar o mouse */
-        }
-        .ingredient-option.selected-ingredient {
-            background-color: #fee2e2;
-            border-color: #ef4444;
-            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.1);
-        }
-        .category-filter-btn {
-            background-color: #e5e7eb;
-            color: #4b5563;
-            padding: 8px 16px;
-            border-radius: 9999px; /* Cantos totalmente arredondados */
-            border: none;
-            transition: all 0.2s ease-in-out;
-        }
-        .category-filter-btn.active {
-            background-color: #3b82f6;
-            color: white;
-            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
-        }
-        .category-filter-btn:hover:not(.active):not(:disabled) {
-            background-color: #d1d5db;
-        }
-        .category-filter-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .quantity-btn {
-            background-color: #e5e7eb;
-            color: #4b5563;
-            transition: all 0.2s ease-in-out;
-        }
-        .quantity-btn:hover:not(:disabled) {
-            background-color: #d1d5db;
-        }
-        .quantity-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-        .floating-feedback {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #22c55e;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            z-index: 1050;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            white-space: nowrap;
-            opacity: 1;
-            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-        }
-        .feedback-progress-bar {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 4px;
-            background-color: #86efac;
-            animation: progress-countdown 1.7s linear forwards;
-        }
-        @keyframes progress-countdown {
-            from { width: 100%; }
-            to { width: 0%; }
-        }
-        .item-card-shadow {
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-        .item-card-shadow:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 10px rgba(0,0,0,0.1);
         }
     </style>
 </head>
-<body class="bg-gray-100">
-
+<body>
     <header class="bg-white shadow-md">
-        <div class="max-w-4xl mx-auto py-4 px-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-gray-800">Lançamento de Pedido</h1>
-            <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">Sair</button>
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800">Lançamento de Pedidos</h1>
+            <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700">Sair</button>
         </div>
     </header>
 
-    <main class="max-w-4xl mx-auto p-4">
-        <form id="manual-order-form">
-            <!-- Dados do Cliente -->
-            <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
-                <h3 class="font-bold mb-2 text-lg">1. Identificação</h3>
-                 <div class="mb-2">
-                    <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Mesa / Cliente</label>
-                    <input type="text" id="manual-clientName" required class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: Mesa 04 ou João">
-                </div>
-                <div class="flex flex-wrap gap-4 items-center mb-2">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="pickup-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
-                        <label for="pickup-checkbox" class="ml-2 block text-sm text-gray-900">Para Viagem / Retirada</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="delivery-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
-                        <label for="delivery-checkbox" class="ml-2 block text-sm text-gray-900">Para Entrega</label>
-                    </div>
-                </div>
-                <div id="delivery-fields" class="hidden">
-                    <p class="text-sm text-gray-500 mb-2">Preencha abaixo apenas se for um pedido para entrega.</p>
-                    <div class="mb-2">
-                        <label for="manual-clientPhone" class="block text-sm font-medium text-gray-700">Telefone do Cliente</label>
-                        <input type="tel" id="manual-clientPhone" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: (87) 99999-9999">
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="manual-street" class="block text-sm font-medium text-gray-700">Rua</label>
-                            <input type="text" id="manual-street" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2">
-                        </div>
-                         <div>
-                            <label for="manual-number" class="block text-sm font-medium text-gray-700">Número</label>
-                            <input type="text" id="manual-number" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2">
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <label for="manual-neighborhood" class="block text-sm font-medium text-gray-700">Bairro</label>
-                        <select id="manual-neighborhood" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2"></select>
-                    </div>
-                     <div class="mt-2">
-                        <label for="manual-reference" class="block text-sm font-medium text-gray-700">Ponto de Referência</label>
-                        <input type="text" id="manual-reference" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: Próximo ao mercado X">
-                    </div>
-                </div>
+    <div class="flex flex-col lg:flex-row max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 gap-8">
+        <!-- Coluna do Cardápio -->
+        <div class="lg:w-2/3 px-4 lg:px-0">
+            <div class="category-bar-mobile-sticky">
+                <div id="category-buttons-container" class="flex space-x-2 mb-6 overflow-x-auto pb-2"></div>
             </div>
-
-            <!-- Itens do Pedido -->
-            <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
-                <h3 class="font-bold mb-2 text-lg">2. Itens do Pedido</h3>
-                <div id="manual-order-feedback" class="text-sm text-green-600 font-semibold mb-2 h-4"></div>
-                <div id="manual-order-items" class="space-y-2 mb-2"></div>
-                <button type="button" id="add-item-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-semibold transition-colors">+ Adicionar Item</button>
+            <div id="pizza-list">
+                <div id="dynamic-pizza-sections"></div>
             </div>
-
-            <!-- Totais e Pagamento -->
-            <div class="p-4 bg-white border border-gray-200 rounded-lg item-card-shadow">
-                <h3 class="font-bold mb-2 text-lg">3. Pagamento e Total</h3>
-                <div class="space-y-1">
-                    <div class="flex justify-between text-sm"><span class="text-gray-600">Subtotal:</span> <span id="manual-subtotal" class="font-medium">R$ 0,00</span></div>
-                    <div class="flex justify-between text-sm"><span class="text-gray-600">Taxa de Entrega:</span> <span id="manual-delivery-fee" class="font-medium">R$ 0,00</span></div>
-                    <div class="flex justify-between font-bold mt-1 text-xl"><span class="text-gray-800">Total:</span> <span id="manual-total" class="text-gray-800">R$ 0,00</span></div>
-                </div>
-                <div class="mt-4">
-                    <h4 class="text-sm font-medium text-gray-700 mb-2">Forma de Pagamento</h4>
-                    <div class="flex flex-wrap gap-x-4 gap-y-2">
-                        <label class="flex items-center"><input type="radio" name="manual-payment" value="A Definir" checked class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">A Definir</span></label>
-                        <label class="flex items-center"><input type="radio" name="manual-payment" value="Dinheiro" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Dinheiro</span></label>
-                        <label class="flex items-center"><input type="radio" name="manual-payment" value="Cartão de Crédito/Débito" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Cartão</span></label>
-                        <label class="flex items-center"><input type="radio" name="manual-payment" value="Pix" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Pix</span></label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-6 flex justify-end">
-                <button type="submit" class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded-md hover:bg-purple-700 text-lg transition-colors">Salvar Pedido</button>
-            </div>
-        </form>
-    </main>
-    
-    <!-- Modals Auxiliares -->
-    <div id="add-item-modal" class="modal">
-        <div class="modal-content">
-            <h3 id="add-item-modal-title" class="font-bold mb-2">Adicionar Item</h3>
-            <div id="add-item-feedback" class="hidden text-sm font-semibold mb-2 p-2 rounded-md"></div>
-            <div id="item-category-filters" class="flex flex-wrap gap-2 mb-2"></div>
-            <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
-            <div id="item-list" class="max-h-60 overflow-y-auto"></div>
-            <button id="cancel-add-item-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Fechar</button>
+            <div id="loading-state" class="text-center py-10">Carregando cardápio...</div>
         </div>
-    </div>
 
-    <div id="pizza-option-modal-manual" class="modal">
-        <div class="modal-content">
-            <h3 class="text-xl font-bold text-gray-800 mb-4" id="modal-pizza-name-manual"></h3>
-            <div id="pizza-size-options-manual" class="grid grid-cols-1 gap-2 justify-items-center"></div>
-            <button id="cancel-pizza-options-manual" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
-        </div>
-    </div>
-
-    <div id="burger-builder-modal-manual" class="modal">
-        <div class="modal-content !max-w-2xl">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Monte o Hambúrguer</h3>
-            <div id="burger-ingredients-container-manual" class="mb-4 max-h-80 overflow-y-auto p-2"></div>
-            <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
-                <span class="text-lg font-bold">Total do Hambúrguer:</span>
-                <span id="burger-total-price-manual" class="text-2xl font-bold text-red-600">R$ 0,00</span>
-            </div>
-            <div class="flex gap-4 mt-4">
-                <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">Cancelar</button>
-                <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition-colors">${editIndex !== null ? 'Atualizar Item' : 'Adicionar ao Pedido'}</button>
+        <!-- Coluna do Pedido -->
+        <div class="lg:w-1/3 px-4 lg:px-0">
+            <div class="bg-white p-6 rounded-lg shadow-lg sticky top-6">
+                <h2 class="text-xl font-bold mb-4">Pedido Atual</h2>
+                <div id="orderItems" class="mb-4 max-h-64 overflow-y-auto">
+                    <p id="emptyOrderMessage" class="text-gray-500">Nenhum item no pedido.</p>
+                </div>
+                <div class="border-t pt-4">
+                    <div class="flex justify-between font-bold text-lg">
+                        <span>Total:</span>
+                        <span id="total">R$ 0,00</span>
+                    </div>
+                </div>
+                <button id="finalize-order-btn" class="w-full mt-4 bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors">
+                    Finalizar Pedido
+                </button>
             </div>
         </div>
     </div>
 
-    <div id="edit-split-pizza-modal" class="modal">
+    <!-- Modal de Finalização -->
+    <div id="finalize-order-modal" class="modal">
         <div class="modal-content">
-            <h3 class="font-bold mb-4">Editar Pizza Meia a Meia</h3>
-            <p class="mb-4 text-sm">Qual metade você deseja alterar?</p>
-            <div class="space-y-2" id="edit-split-buttons">
-                <!-- Botões gerados dinamicamente aqui -->
+            <h3 class="text-lg font-bold mb-4">Finalizar Pedido</h3>
+            <div class="mb-4">
+                <label for="clientNameInput" class="block text-sm font-medium text-gray-700">Nome do Cliente / Mesa</label>
+                <input type="text" id="clientNameInput" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="Ex: Mesa 05 ou João (Retirada)">
             </div>
-            <button id="cancel-edit-split-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
-        </div>
-    </div>
-
-    <div id="quantity-modal" class="modal">
-        <div class="modal-content">
-            <h3 id="quantity-modal-item-name" class="font-bold mb-4 text-center text-lg"></h3>
-            <div class="flex items-center justify-center space-x-4 my-4">
-                <button type="button" id="quantity-minus-btn" class="quantity-btn bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center text-2xl font-bold">-</button>
-                <span id="quantity-display" class="font-bold text-2xl w-12 text-center">1</span>
-                <button type="button" id="quantity-plus-btn" class="quantity-btn bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center text-2xl font-bold">+</button>
+             <div class="mb-4">
+                <label for="contactInput" class="block text-sm font-medium text-gray-700">Contato (Opcional)</label>
+                <input type="tel" id="contactInput" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="(99) 99999-9999">
             </div>
-            <div class="flex gap-4 mt-6">
-                 <button type="button" id="cancel-quantity-btn" class="w-full bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-400">Cancelar</button>
-                <button type="button" id="confirm-quantity-btn" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600">Confirmar</button>
+            <div class="mb-4">
+                <label for="paymentMethodSelect" class="block text-sm font-medium text-gray-700">Forma de Pagamento</label>
+                <select id="paymentMethodSelect" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    <option>Dinheiro</option>
+                    <option>Cartão de Crédito/Débito</option>
+                    <option>Pix</option>
+                </select>
+            </div>
+            <div id="troco-input-container" class="hidden mb-4">
+                <label for="trocoPara" class="block text-sm font-medium text-gray-700">Troco para (R$)</label>
+                <input type="number" id="trocoPara" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button id="cancel-finalize-btn" class="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                <button id="confirm-finalize-btn" class="px-4 py-2 bg-green-600 text-white rounded-md">Confirmar</button>
             </div>
         </div>
     </div>
@@ -292,7 +138,7 @@
             apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
             authDomain: "pizzaria-pdv.firebaseapp.com",
             projectId: "pizzaria-pdv",
-            storageBucket: "pizzaria-pdv.firebasestorage.app",
+            storageBucket: "pizzaria-pdv.appspot.com",
             messagingSenderId: "304171744691",
             appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
         };
@@ -301,7 +147,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Proteção da página
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.body.style.visibility = 'visible';
@@ -310,885 +155,316 @@
             }
         });
 
-        // Elementos do DOM
-        const manualOrderForm = document.getElementById('manual-order-form');
-        const pickupCheckbox = document.getElementById('pickup-checkbox');
-        const deliveryCheckbox = document.getElementById('delivery-checkbox');
-        const deliveryFields = document.getElementById('delivery-fields');
-        const manualNeighborhoodSelect = document.getElementById('manual-neighborhood');
-        const addItemBtn = document.getElementById('add-item-btn');
-        const addItemModal = document.getElementById('add-item-modal');
-        const addItemModalTitle = document.getElementById('add-item-modal-title');
-        const searchItemInput = document.getElementById('search-item-input');
-        const itemListContainer = document.getElementById('item-list');
-        const manualOrderItemsContainer = document.getElementById('manual-order-items');
-        const cancelAddItemBtn = document.getElementById('cancel-add-item-btn');
-        const pizzaOptionModalManual = document.getElementById('pizza-option-modal-manual');
-        const burgerBuilderModalManual = document.getElementById('burger-builder-modal-manual');
-        const cancelPizzaOptionsManualBtn = document.getElementById('cancel-pizza-options-manual');
-        const burgerTotalPriceManual = document.getElementById('burger-total-price-manual');
-        const editSplitPizzaModal = document.getElementById('edit-split-pizza-modal');
-        const quantityModal = document.getElementById('quantity-modal');
-        const quantityModalItemName = document.getElementById('quantity-modal-item-name');
-        const quantityDisplay = document.getElementById('quantity-display');
-        const manualReferenceInput = document.getElementById('manual-reference');
-        const manualClientPhone = document.getElementById('manual-clientPhone');
-        const editSplitButtonsContainer = document.getElementById('edit-split-buttons');
         const logoutBtn = document.getElementById('logout-btn');
-
-
-        let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
-        let manualOrderItems = [];
-        let manualFirstHalfPizza = null;
-        let editingItemIndex = null;
-        let currentItemForQuantity = null;
-        let unavailableItems = {};
-
-        async function loadFullMenuData() {
-            if (fullMenuData.cardapio.length > 0) return;
-            try {
-                const response = await fetch('/api/menu');
-                if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.json();
-                fullMenuData.cardapio = data.cardapio.filter(item => item.available);
-                fullMenuData.deliveryFees = data.deliveryFees;
-                const burgerIngredients = data.ingredientesHamburguer || [];
-                fullMenuData.ingredientesHamburguer = burgerIngredients.reduce((acc, current) => {
-                    const category = current.category || 'Outros';
-                    if (!acc[category]) acc[category] = [];
-                    acc[category].push(current);
-                    return acc;
-                }, {});
-                populateNeighborhoodDropdown(fullMenuData.deliveryFees);
-                listenToItemStatus();
-            } catch (error) {
-                console.error("Erro ao carregar dados:", error);
-                alert("Não foi possível carregar os dados do cardápio. Tente recarregar a página.");
-                throw error;
-            }
-        }
-        
-        function listenToItemStatus() {
-            const itemStatusRef = doc(db, "config", "item_status");
-            onSnapshot(itemStatusRef, (doc) => {
-                unavailableItems = doc.exists() ? doc.data() : {};
-                // Re-renderiza a lista de itens se o modal de adicionar item estiver aberto
-                if (addItemModal.style.display === 'flex') {
-                    const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-                    const isSecondHalf = manualFirstHalfPizza !== null;
-                    renderItemList(searchItemInput.value, activeFilter, isSecondHalf);
-                }
-            });
-        }
-        
-        function populateNeighborhoodDropdown(feesData) {
-            manualNeighborhoodSelect.innerHTML = '<option value="">Selecione um bairro</option>';
-            if (!feesData || feesData.length === 0) {
-                return;
-            }
-            feesData.forEach(fee => {
-                if (typeof fee.neighborhood === 'string' && fee.neighborhood.trim() !== '') {
-                    const option = document.createElement('option');
-                    option.value = fee.neighborhood;
-                    option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`;
-                    option.dataset.fee = fee.deliveryFee;
-                    manualNeighborhoodSelect.appendChild(option);
-                }
-            });
-        }
-        
-        function showFloatingFeedback(message, itemCategory) {
-            const modalContent = addItemModal.querySelector('.modal-content');
-            const categoryHeaders = Array.from(itemListContainer.querySelectorAll('h4'));
-            let targetHeader = categoryHeaders.find(h => h.textContent.toLowerCase().includes(itemCategory.toLowerCase()));
-
-            if (!targetHeader) {
-                targetHeader = itemListContainer; // Fallback to the list container
-            }
-
-            const feedbackEl = document.createElement('div');
-            feedbackEl.className = 'floating-feedback';
-            feedbackEl.textContent = message;
-
-            const progressBar = document.createElement('div');
-            progressBar.className = 'feedback-progress-bar';
-            feedbackEl.appendChild(progressBar);
-            
-            modalContent.appendChild(feedbackEl);
-            
-            const targetRect = targetHeader.getBoundingClientRect();
-            const modalRect = modalContent.getBoundingClientRect();
-            
-            feedbackEl.style.top = `${targetRect.top - modalRect.top}px`;
-
-            setTimeout(() => {
-                feedbackEl.remove();
-            }, 1700);
-        }
-
-        function updateManualOrderDisplay() {
-            manualOrderItemsContainer.innerHTML = '';
-            let subtotal = 0;
-            manualOrderItems.forEach((item, index) => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'flex justify-between items-start text-sm py-1';
-                
-                let itemHtml = `<span>${item.name}</span>`;
-                if (item.type === 'custom_burger' && item.ingredients) {
-                    const ingredientsList = item.ingredients.map(ing => `<li class="text-xs text-gray-500 ml-4">${ing.name}</li>`).join('');
-                    itemHtml += `<ul class="mt-1">${ingredientsList}</ul>`;
-                }
-
-                itemEl.innerHTML = `
-                    <div class="flex-grow pr-4 cursor-pointer manual-item-edit" data-index="${index}">${itemHtml}</div>
-                    <div class="flex items-center flex-shrink-0">
-                        <span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
-                        <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700 text-lg">&times;</button>
-                    </div>
-                `;
-                manualOrderItemsContainer.appendChild(itemEl);
-                subtotal += item.price;
-            });
-            const isDelivery = deliveryCheckbox.checked;
-            const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
-            let deliveryFee = 0;
-            if (isDelivery && selectedNeighborhood && selectedNeighborhood.value !== '') {
-                deliveryFee = parseFloat(selectedNeighborhood.dataset.fee || 0);
-            }
-            const total = subtotal + deliveryFee;
-            document.getElementById('manual-subtotal').textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-            document.getElementById('manual-delivery-fee').textContent = `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`;
-            document.getElementById('manual-total').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
-        }
-
-        function openAddItemModal(isSecondHalf = false) {
-            const feedbackEl = document.getElementById('add-item-feedback');
-            
-            if (editingItemIndex !== null && !isSecondHalf) {
-                const originalItemName = manualOrderItems[editingItemIndex].name;
-                addItemModalTitle.textContent = 'Substituir Item';
-                feedbackEl.innerHTML = `Selecione um novo item para substituir: <strong>${originalItemName}</strong>`;
-                feedbackEl.className = 'text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md';
-                feedbackEl.style.display = 'block';
-            } else {
-                addItemModalTitle.textContent = 'Adicionar Item';
-                if (isSecondHalf) {
-                    feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
-                    feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
-                    feedbackEl.style.display = 'block';
-                } else {
-                    feedbackEl.style.display = 'none';
-                }
-            }
-
-            searchItemInput.value = '';
-            renderCategoryFilters(isSecondHalf);
-            renderItemList('', 'all', isSecondHalf);
-            addItemModal.style.display = 'flex';
-        }
-
-        function renderCategoryFilters(isSecondHalf = false) {
-            const filterContainer = document.getElementById('item-category-filters');
-            filterContainer.innerHTML = '';
-            const categories = ['all', ...new Set(fullMenuData.cardapio.map(item => item.category))];
-            
-            categories.forEach(category => {
-                const button = document.createElement('button');
-                button.className = 'category-filter-btn px-3 py-1 text-sm rounded-full border';
-                
-                const isPizzaCategory = fullMenuData.cardapio.some(item => item.category === category && item.isPizza);
-                let buttonText = category;
-                if (category === 'all') {
-                    buttonText = 'Todos';
-                } else if (isPizzaCategory) {
-                    buttonText = `Pizza ${category}`;
-                }
-
-                button.textContent = buttonText;
-                button.dataset.category = category;
-                if (category === 'all') {
-                    button.classList.add('active');
-                }
-
-                if (isSecondHalf) {
-                    const isPromotionalCategory = category.trim().toLowerCase() === 'promocionais';
-                    if (manualFirstHalfPizza.isPromotional) {
-                        if (!isPromotionalCategory && category !== 'all') {
-                            button.disabled = true;
-                        }
-                    } else {
-                        if (isPromotionalCategory) {
-                            button.disabled = true;
-                        }
-                    }
-                }
-
-                button.addEventListener('click', () => {
-                    filterContainer.querySelector('.active').classList.remove('active');
-                    button.classList.add('active');
-                    renderItemList(searchItemInput.value, category, isSecondHalf);
-                });
-                filterContainer.appendChild(button);
-            });
-        }
-
-        function renderItemList(filterText, categoryFilter = 'all', isSecondHalf = false) {
-            itemListContainer.innerHTML = '';
-            let filteredMenu = fullMenuData.cardapio;
-
-            if (isSecondHalf) {
-                filteredMenu = filteredMenu.filter(item => item.isPizza);
-                if (manualFirstHalfPizza.isPromotional) {
-                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() === 'promocionais');
-                } else {
-                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() !== 'promocionais');
-                }
-            }
-
-            filteredMenu = filteredMenu.filter(item => {
-                const nameMatch = item.name.toLowerCase().includes(filterText.toLowerCase());
-                const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
-                return nameMatch && categoryMatch;
-            });
-
-            const itemsByCategory = filteredMenu.reduce((acc, item) => {
-                const category = item.category || 'Outros';
-                if (!acc[category]) acc[category] = [];
-                acc[category].push(item);
-                return acc;
-            }, {});
-
-            for (const category in itemsByCategory) {
-                const categoryTitle = document.createElement('h4');
-                categoryTitle.className = 'font-bold text-md text-gray-600 bg-gray-100 p-2 mt-2 sticky top-0';
-                
-                const isPizzaCategory = itemsByCategory[category].some(item => item.isPizza);
-                categoryTitle.textContent = isPizzaCategory ? `Pizza ${category}` : category;
-
-                itemListContainer.appendChild(categoryTitle);
-                itemsByCategory[category].forEach(item => {
-                    const isUnavailable = unavailableItems[item.id] === false;
-                    const itemEl = document.createElement('div');
-                    itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
-                    itemEl.textContent = item.name;
-                    
-                    if (isUnavailable) {
-                        itemEl.classList.add('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        itemEl.addEventListener('click', () => handleItemSelection(item, isSecondHalf));
-                    }
-                    
-                    const priceSpan = document.createElement('span');
-                    priceSpan.className = 'font-bold text-sm text-gray-700';
-                    const price = item.basePrice || item.price4Slices || item.price6Slices || 0;
-                    priceSpan.textContent = `R$ ${price.toFixed(2).replace('.', ',')}`;
-                    itemEl.appendChild(priceSpan);
-                    itemListContainer.appendChild(itemEl);
-                });
-            }
-        }
-
-        function handleItemSelection(item, isSecondHalf = false) {
-            const isUnavailable = unavailableItems[item.id] === false;
-            if (isUnavailable) {
-                alert("Este item não está disponível no momento.");
-                return;
-            }
-
-            if (isSecondHalf) {
-                const secondHalfObject = {
-                    name: item.name,
-                    price: item[manualFirstHalfPizza.priceKey] / 2,
-                    priceKey: manualFirstHalfPizza.priceKey,
-                    isPromotional: item.category.trim().toLowerCase() === 'promocionais',
-                    description: item.description,
-                    category: item.category,
-                    selected_slices: manualFirstHalfPizza.selected_slices,
-                    originalItem: item
-                };
-
-                const finalPrice = manualFirstHalfPizza.price + secondHalfObject.price;
-                const combinedName = `${manualFirstHalfPizza.selected_slices} FATIAS: Meia ${manualFirstHalfPizza.name} & Meia ${secondHalfObject.name}`;
-                
-                const newItem = { 
-                    type: 'split',
-                    name: combinedName, 
-                    price: finalPrice, 
-                    firstHalfData: manualFirstHalfPizza,
-                    secondHalfData: secondHalfObject,
-                    selected_slices: manualFirstHalfPizza.selected_slices
-                };
-
-                if (editingItemIndex !== null) {
-                    manualOrderItems[editingItemIndex] = newItem;
-                    editingItemIndex = null;
-                } else {
-                    manualOrderItems.push(newItem);
-                }
-                
-                manualFirstHalfPizza = null;
-                updateManualOrderDisplay();
-                
-                showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`, item.category);
-                
-                // Reset popup state
-                addItemModalTitle.textContent = 'Adicionar Item';
-                document.getElementById('add-item-feedback').style.display = 'none';
-                searchItemInput.value = '';
-                renderCategoryFilters(false);
-                renderItemList('', 'all', false);
-                return;
-            }
-
-            if (item.isPizza) {
-                openManualPizzaOptions(item);
-            } else if (item.isCustomizable) {
-                openManualBurgerBuilder(item, editingItemIndex);
-            } else {
-                if (editingItemIndex !== null) {
-                    const newItem = { 
-                        type: 'full',
-                        name: item.name, 
-                        price: item.basePrice,
-                        description: item.description,
-                        category: item.category,
-                        originalItem: item
-                    };
-                    manualOrderItems[editingItemIndex] = newItem;
-                    editingItemIndex = null;
-                    addItemModal.style.display = 'none';
-                    updateManualOrderDisplay();
-                } else {
-                    openQuantityModal(item);
-                }
-            }
-        }
-
-        function openQuantityModal(item) {
-            currentItemForQuantity = item;
-            quantityModalItemName.textContent = item.name;
-            quantityDisplay.textContent = '1';
-            quantityModal.style.display = 'flex';
-        }
-
-        function openManualPizzaOptions(pizza) {
-            document.getElementById('modal-pizza-name-manual').textContent = pizza.name;
-            const sizeContainer = document.getElementById('pizza-size-options-manual');
-            sizeContainer.innerHTML = '';
-            const sizes = [{ slices: 4, label: '4 Fatias', priceKey: 'price4Slices' }, { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' }, { slices: 8, label: '8 Fatias', priceKey: 'basePrice' }];
-            sizes.forEach(size => {
-                if (pizza[size.priceKey] > 0) {
-                    const optionDiv = document.createElement('div');
-                    optionDiv.className = 'flex justify-between items-center p-2 border rounded-md mt-2';
-                    optionDiv.innerHTML = `<div><span class="font-bold">${size.label}</span><span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span></div><div class="flex gap-2"><button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button><button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button></div>`;
-                    
-                    optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
-                        const newItem = { 
-                            type: 'full',
-                            name: `${size.label.toUpperCase()}: ${pizza.name}`, 
-                            price: pizza[size.priceKey],
-                            description: pizza.description,
-                            category: pizza.category,
-                            selected_slices: size.slices,
-                            originalItem: pizza
-                        };
-                        if (editingItemIndex !== null) {
-                            manualOrderItems[editingItemIndex] = newItem;
-                            editingItemIndex = null;
-                            addItemModal.style.display = 'none';
-                        } else {
-                            manualOrderItems.push(newItem);
-                        }
-                        updateManualOrderDisplay();
-                        pizzaOptionModalManual.style.display = 'none';
-                        
-                        showFloatingFeedback(`Pizza ${pizza.name} adicionada.`, pizza.category);
-                        searchItemInput.value = '';
-                        renderCategoryFilters(false);
-                        renderItemList('', 'all', false);
-                    });
-
-                    optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
-                        manualFirstHalfPizza = { 
-                            name: pizza.name, 
-                            price: pizza[size.priceKey] / 2, 
-                            priceKey: size.priceKey,
-                            isPromotional: pizza.category.trim().toLowerCase() === 'promocionais',
-                            description: pizza.description,
-                            category: pizza.category,
-                            selected_slices: size.slices,
-                            originalItem: pizza
-                        };
-                        pizzaOptionModalManual.style.display = 'none';
-                        openAddItemModal(true);
-                    });
-                    sizeContainer.appendChild(optionDiv);
-                }
-            });
-            pizzaOptionModalManual.style.display = 'flex';
-        }
-
-        function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
-            burgerBuilderModalManual.innerHTML = '';
-            burgerBuilderModalManual.dataset.basePrice = burger.basePrice;
-            burgerBuilderModalManual.dataset.burgerItem = JSON.stringify(burger);
-
-            let content = `
-                <div class="modal-content !max-w-2xl">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">${editIndex !== null ? 'Editar' : 'Montar'} Hambúrguer</h3>
-                    <div id="burger-ingredients-container-manual" class="mb-4 max-h-80 overflow-y-auto p-2"></div>
-                    <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
-                        <span class="text-lg font-bold">Total do Hambúrguer:</span>
-                        <span id="burger-total-price-manual" class="text-2xl font-bold text-red-600">R$ 0,00</span>
-                    </div>
-                    <div class="flex gap-4 mt-4">
-                        <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">Cancelar</button>
-                        <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition-colors">${editIndex !== null ? 'Atualizar Item' : 'Adicionar ao Pedido'}</button>
-                    </div>
-                </div>
-            `;
-            burgerBuilderModalManual.innerHTML = content;
-            
-            const ingredientsContainer = burgerBuilderModalManual.querySelector('#burger-ingredients-container-manual');
-
-            for (const categoryName in fullMenuData.ingredientesHamburguer) {
-                const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
-                if (ingredients.length === 0) continue;
-
-                const categoryDiv = document.createElement('div');
-                categoryDiv.className = 'mb-4';
-                
-                const firstIngredient = ingredients[0];
-                const categoryLimit = firstIngredient.limit || Infinity;
-                const isSingleChoice = firstIngredient.isSingleChoice;
-                const isRequired = firstIngredient.isRequired;
-
-                let title = `${categoryName}`;
-                if (isRequired) {
-                    title += ' (Obrigatório)';
-                } else if (categoryLimit !== Infinity && categoryLimit > 1) {
-                    title += ` (Escolha até ${categoryLimit})`;
-                } else if (isSingleChoice) {
-                    title += ` (Escolha 1)`;
-                }
-                categoryDiv.innerHTML = `<h4 class="font-bold border-b pb-1 mb-2">${title}</h4>`;
-
-                ingredients.forEach(ing => {
-                    const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
-                    const optionLabel = document.createElement('label');
-                    optionLabel.className = 'ingredient-option';
-                    
-                    if(isSingleChoice) {
-                        const isChecked = existingItem && existingItem.ingredients.some(i => i.name === ing.name);
-                        optionLabel.innerHTML = `
-                            <div>
-                                <input type="radio" name="${categoryName}" class="form-radio mr-2" data-price="${ing.price}" value="${ing.name}" ${isChecked ? 'checked' : ''}>
-                                <span>${ing.name}</span>
-                            </div>
-                            <span class="font-medium text-sm">${priceDisplay}</span>`;
-                        
-                        if (isChecked) {
-                            optionLabel.classList.add('selected-ingredient');
-                        }
-                        
-                        optionLabel.querySelector('input').addEventListener('change', (e) => {
-                            document.querySelectorAll(`input[name="${categoryName}"]`).forEach(radio => {
-                                radio.closest('.ingredient-option').classList.remove('selected-ingredient');
-                            });
-                            if (e.target.checked) {
-                                e.target.closest('.ingredient-option').classList.add('selected-ingredient');
-                            }
-                            updateManualBurgerPrice();
-                        });
-
-                    } else {
-                        const ingredientLimit = ing.ingredientLimit || 1;
-                        let quantity = 0;
-                        if (existingItem) {
-                            const existingIng = existingItem.ingredients.find(i => i.name.startsWith(ing.name));
-                            if (existingIng) {
-                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/\(x(\d+)\)/)[1]) : 1;
-                            }
-                        }
-                        optionLabel.innerHTML = `
-                            <div class="flex-grow">
-                                <span>${ing.name}</span>
-                                <span class="font-medium text-sm ml-2">${priceDisplay}</span>
-                            </div>
-                            <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}" data-limit="${ingredientLimit}">
-                                <button type="button" class="quantity-btn minus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">-</button>
-                                <span class="quantity-display font-bold text-base w-4 text-center">${quantity}</span>
-                                <button type="button" class="quantity-btn plus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">+</button>
-                            </div>`;
-                        if (quantity > 0) {
-                            optionLabel.classList.add('selected-ingredient');
-                        }
-                    }
-                    categoryDiv.appendChild(optionLabel);
-                });
-                ingredientsContainer.appendChild(categoryDiv);
-            }
-
-            burgerBuilderModalManual.querySelector('#cancel-burger-builder-manual').addEventListener('click', () => burgerBuilderModalManual.style.display = 'none');
-            burgerBuilderModalManual.querySelector('#add-custom-burger-manual-btn').addEventListener('click', () => addCustomBurgerToOrder(editIndex));
-
-            updateManualBurgerPrice();
-            burgerBuilderModalManual.style.display = 'flex';
-        }
-
-        burgerBuilderModalManual.addEventListener('click', (e) => {
-            if (e.target.classList.contains('quantity-btn')) {
-                const container = e.target.closest('[data-ingredient-id]');
-                const quantityDisplay = container.querySelector('.quantity-display');
-                let currentQuantity = parseInt(quantityDisplay.textContent);
-                const ingredientLimit = parseInt(container.dataset.limit);
-                const categoryDiv = container.closest('.mb-4');
-                const categoryName = categoryDiv.querySelector('h4').textContent.split(' (')[0];
-                const firstIngredient = fullMenuData.ingredientesHamburguer[categoryName][0];
-                const categoryLimit = firstIngredient.limit || Infinity;
-
-                let currentCategoryCount = 0;
-                categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                    if (parseInt(d.textContent) > 0) currentCategoryCount++;
-                });
-
-                if (e.target.classList.contains('plus-btn')) {
-                    if (currentQuantity < ingredientLimit) {
-                        if (currentQuantity === 0 && currentCategoryCount >= categoryLimit) {
-                            alert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                            return;
-                        }
-                        quantityDisplay.textContent = currentQuantity + 1;
-                    }
-                } else if (e.target.classList.contains('minus-btn')) {
-                    if (currentQuantity > 0) {
-                        quantityDisplay.textContent = currentQuantity - 1;
-                    }
-                }
-
-                const optionLabel = container.closest('.ingredient-option');
-                if (parseInt(quantityDisplay.textContent) > 0) {
-                    optionLabel.classList.add('selected-ingredient');
-                } else {
-                    optionLabel.classList.remove('selected-ingredient');
-                }
-                updateManualBurgerPrice();
-            }
-        });
-
-        function updateManualBurgerPrice() {
-            const container = document.getElementById('burger-builder-modal-manual');
-            let total = parseFloat(container.dataset.basePrice) || 0;
-            container.querySelectorAll('input[type="radio"]:checked').forEach(input => {
-                total += parseFloat(input.dataset.price);
-            });
-            container.querySelectorAll('.quantity-display').forEach(display => {
-                const quantity = parseInt(display.textContent);
-                if (quantity > 0) {
-                    const itemContainer = display.closest('[data-ingredient-id]');
-                    total += quantity * parseFloat(itemContainer.dataset.price);
-                }
-            });
-            container.querySelector('#burger-total-price-manual').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
-        }
-
-        function addCustomBurgerToOrder(editIndex = null) {
-            let allRequiredCategoriesFilled = true;
-            const container = document.getElementById('burger-ingredients-container-manual');
-
-            for (const categoryName in fullMenuData.ingredientesHamburguer) {
-                const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
-                if (ingredients.length > 0 && ingredients[0].isRequired) {
-                    const radioChecked = container.querySelector(`input[type="radio"][name="${categoryName}"]:checked`);
-                    let quantitySelected = false;
-                    const categoryH4 = Array.from(container.querySelectorAll('h4')).find(h4 => h4.textContent.startsWith(categoryName));
-                    if (categoryH4) {
-                        const categoryDiv = categoryH4.parentElement;
-                        categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
-                            if (parseInt(display.textContent) > 0) {
-                                quantitySelected = true;
-                            }
-                        });
-                    }
-                    if (!radioChecked && !quantitySelected) {
-                        alert(`Por favor, escolha uma opção na categoria obrigatória: ${categoryName}`);
-                        allRequiredCategoriesFilled = false;
-                        break; 
-                    }
-                }
-            }
-
-            if (!allRequiredCategoriesFilled) {
-                return;
-            }
-
-            const burgerItem = JSON.parse(burgerBuilderModalManual.dataset.burgerItem);
-            const basePrice = parseFloat(burgerBuilderModalManual.dataset.basePrice);
-            const selectedIngredients = [];
-            let ingredientsPrice = 0;
-
-            burgerBuilderModalManual.querySelectorAll('input[type="radio"]:checked').forEach(input => {
-                selectedIngredients.push({ name: input.value });
-                ingredientsPrice += parseFloat(input.dataset.price);
-            });
-            burgerBuilderModalManual.querySelectorAll('.quantity-display').forEach(display => {
-                const quantity = parseInt(display.textContent);
-                if (quantity > 0) {
-                    const container = display.closest('[data-ingredient-id]');
-                    const ingredientName = container.parentElement.querySelector('span').textContent.split(' + R$')[0].trim();
-                    selectedIngredients.push({ name: `${ingredientName} (x${quantity})` });
-                    ingredientsPrice += quantity * parseFloat(container.dataset.price);
-                }
-            });
-
-            const finalPrice = basePrice + ingredientsPrice;
-            
-            const newBurger = { 
-                name: 'Hambúrguer Personalizado',
-                price: finalPrice, 
-                type: 'custom_burger', 
-                ingredients: selectedIngredients,
-                description: burgerItem.description,
-                category: burgerItem.category,
-                originalItem: burgerItem
-            };
-
-            if (editIndex !== null) {
-                manualOrderItems[editIndex] = newBurger;
-                showFloatingFeedback('Hambúrguer atualizado.', burgerItem.category);
-                editingItemIndex = null;
-                addItemModal.style.display = 'none';
-            } else {
-                manualOrderItems.push(newBurger);
-                showFloatingFeedback(`Hambúrguer adicionado.`, burgerItem.category);
-                searchItemInput.value = '';
-                renderCategoryFilters(false);
-                renderItemList('', 'all', false);
-            }
-            
-            updateManualOrderDisplay();
-            burgerBuilderModalManual.style.display = 'none';
-        }
-
-        function handleEditItem(index) {
-            const itemToEdit = manualOrderItems[index];
-            editingItemIndex = index;
-
-            switch (itemToEdit.type) {
-                case 'custom_burger':
-                    openManualBurgerBuilder(itemToEdit.originalItem, index, itemToEdit);
-                    break;
-                case 'split':
-                    openEditSplitPizzaModal(index);
-                    break;
-                case 'full':
-                default:
-                    openAddItemModal(false);
-                    break;
-            }
-        }
-        
-        function openEditSplitPizzaModal(index) {
-            const itemToEdit = manualOrderItems[index];
-            editSplitButtonsContainer.innerHTML = `
-                <button id="edit-first-half-btn" data-index="${index}" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar ${itemToEdit.firstHalfData.name}</button>
-                <button id="edit-second-half-btn" data-index="${index}" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar ${itemToEdit.secondHalfData.name}</button>
-            `;
-            editSplitPizzaModal.style.display = 'flex';
-        }
-
-        async function handleManualOrderSubmit(e) {
-            e.preventDefault();
-            const clientName = document.getElementById('manual-clientName').value;
-            const clientPhone = manualClientPhone.value;
-            const isDelivery = deliveryCheckbox.checked;
-            const street = document.getElementById('manual-street').value;
-            const number = document.getElementById('manual-number').value;
-            const neighborhood = manualNeighborhoodSelect.value;
-            const reference = manualReferenceInput.value;
-            const paymentMethod = document.querySelector('input[name="manual-payment"]:checked').value;
-
-            if (!clientName || manualOrderItems.length === 0) {
-                alert("Por favor, preencha o nome do cliente e adicione pelo menos um item.");
-                return;
-            }
-
-            if (isDelivery && (!neighborhood || !street || !number)) {
-                alert("Por favor, preencha todas as informações de entrega (Rua, Número e Bairro).");
-                return;
-            }
-
-            const subtotal = manualOrderItems.reduce((sum, item) => sum + item.price, 0);
-            const selectedNeighborhoodOption = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
-            const deliveryFee = isDelivery && selectedNeighborhoodOption && selectedNeighborhoodOption.value !== ''
-                ? parseFloat(selectedNeighborhoodOption.dataset.fee || 0)
-                : 0;
-
-            const finalTotal = subtotal + deliveryFee;
-
-            const newOrder = {
-                itens: manualOrderItems,
-                endereco: {
-                    clientName,
-                    telefone: clientPhone,
-                    rua: isDelivery ? street : (pickupCheckbox.checked ? "Retirada no Balcão" : "Mesa"),
-                    numero: isDelivery ? number : (pickupCheckbox.checked ? "" : "N/A"),
-                    bairro: isDelivery ? neighborhood : "",
-                    referencia: isDelivery ? reference : ""
-                },
-                total: { subtotal, deliveryFee, finalTotal, discount: 0 },
-                pagamento: paymentMethod,
-                status: 'Novo',
-                criadoEm: serverTimestamp()
-            };
-            try {
-                await addDoc(collection(db, "pedidos"), newOrder);
-                alert("Pedido salvo com sucesso!");
-                manualOrderForm.reset();
-                manualOrderItems = [];
-                deliveryCheckbox.checked = false;
-                pickupCheckbox.checked = false;
-                deliveryFields.style.display = 'none';
-                updateManualOrderDisplay();
-                document.getElementById('manual-clientName').focus();
-            } catch (error) {
-                console.error("Erro ao salvar pedido manual: ", error);
-                alert("Ocorreu um erro ao salvar o pedido. Tente novamente.");
-            }
-        }
-
-        // Event Listeners
-        addItemBtn.addEventListener('click', () => {
-            editingItemIndex = null;
-            openAddItemModal(false)
-        });
-        cancelAddItemBtn.addEventListener('click', () => {
-            addItemModal.style.display = 'none';
-            manualFirstHalfPizza = null;
-            editingItemIndex = null;
-        });
-        cancelPizzaOptionsManualBtn.addEventListener('click', () => {
-            pizzaOptionModalManual.style.display = 'none';
-        });
-        searchItemInput.addEventListener('input', (e) => {
-            const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-            const isSecondHalf = manualFirstHalfPizza !== null;
-            renderItemList(e.target.value, activeFilter, isSecondHalf);
-        });
-        manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
-
-        // Lógica de exclusividade para os checkboxes de tipo de pedido
-        pickupCheckbox.addEventListener('change', () => {
-            if (pickupCheckbox.checked) {
-                deliveryCheckbox.checked = false;
-                deliveryFields.style.display = 'none';
-            }
-            updateManualOrderDisplay();
-        });
-
-        deliveryCheckbox.addEventListener('change', () => {
-            if (deliveryCheckbox.checked) {
-                pickupCheckbox.checked = false;
-                deliveryFields.style.display = 'block';
-            } else {
-                deliveryFields.style.display = 'none';
-            }
-            updateManualOrderDisplay();
-        });
-        
-        manualNeighborhoodSelect.addEventListener('change', updateManualOrderDisplay);
-        manualOrderItemsContainer.addEventListener('click', (e) => {
-            const removeBtn = e.target.closest('.remove-manual-item-btn');
-            if (removeBtn) {
-                const index = parseInt(removeBtn.dataset.index);
-                manualOrderItems.splice(index, 1);
-                updateManualOrderDisplay();
-                return;
-            }
-
-            const editArea = e.target.closest('.manual-item-edit');
-            if (editArea) {
-                const index = parseInt(editArea.dataset.index);
-                handleEditItem(index);
-            }
-        });
-        
         logoutBtn.addEventListener('click', () => {
             signOut(auth).catch((error) => console.error("Erro ao fazer logout:", error));
         });
 
-        // Edit Split Pizza Modal Listeners
-        editSplitButtonsContainer.addEventListener('click', (e) => {
-            const firstHalfBtn = e.target.closest('#edit-first-half-btn');
-            const secondHalfBtn = e.target.closest('#edit-second-half-btn');
+        let order = [];
+        let allMenuData = [];
+        let deliveryFeesData = [];
 
-            if (firstHalfBtn) {
-                const index = parseInt(firstHalfBtn.dataset.index);
-                const itemToEdit = manualOrderItems[index];
-                manualFirstHalfPizza = itemToEdit.secondHalfData;
-                editSplitPizzaModal.style.display = 'none';
-                openAddItemModal(true);
+        async function loadMenuAndRender() {
+            try {
+                const loadingEl = document.getElementById('loading-state');
+                loadingEl.classList.remove('hidden');
+
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
+                
+                const data = await response.json();
+                
+                allMenuData = data.cardapio;
+                deliveryFeesData = data.deliveryFees;
+                
+                let orderedUniqueCategories = [];
+                const seenCategories = new Set();
+                allMenuData.forEach(item => {
+                    if (!seenCategories.has(item.category)) {
+                        seenCategories.add(item.category);
+                        orderedUniqueCategories.push(item.category);
+                    }
+                });
+                
+                createCategoryButtons(orderedUniqueCategories);
+                populateMenu(allMenuData, orderedUniqueCategories);
+                
+                listenToItemStatus();
+
+                loadingEl.classList.add('hidden');
+
+            } catch (error) {
+                console.error('Erro ao carregar o cardápio:', error);
+                const loadingEl = document.getElementById('loading-state');
+                loadingEl.textContent = 'Erro ao carregar o cardápio. Tente recarregar a página.';
             }
+        }
 
-            if (secondHalfBtn) {
-                const index = parseInt(secondHalfBtn.dataset.index);
-                const itemToEdit = manualOrderItems[index];
-                manualFirstHalfPizza = itemToEdit.firstHalfData;
-                editSplitPizzaModal.style.display = 'none';
-                openAddItemModal(true);
-            }
-        });
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+        }
 
-        document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
-            editSplitPizzaModal.style.display = 'none';
-            editingItemIndex = null;
-        });
+        function createCategoryButtons(categories) {
+            const container = document.getElementById('category-buttons-container');
+            container.innerHTML = '';
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'category-btn px-4 py-2 rounded-full bg-gray-200 text-gray-800 whitespace-nowrap';
+                button.textContent = capitalizeFirstLetter(category);
+                button.dataset.targetId = `${category}-section`;
+                button.addEventListener('click', () => {
+                    document.getElementById(button.dataset.targetId).scrollIntoView({ behavior: 'smooth' });
+                });
+                container.appendChild(button);
+            });
+        }
 
-        // Quantity Modal Listeners
-        document.getElementById('cancel-quantity-btn').addEventListener('click', () => {
-            quantityModal.style.display = 'none';
-            currentItemForQuantity = null;
-        });
+        function populateMenu(menuItems, orderedCategories) {
+            const dynamicSectionsContainer = document.getElementById('dynamic-pizza-sections');
+            dynamicSectionsContainer.innerHTML = ''; 
 
-        document.getElementById('quantity-minus-btn').addEventListener('click', () => {
-            let currentQty = parseInt(quantityDisplay.textContent);
-            if (currentQty > 1) {
-                quantityDisplay.textContent = currentQty - 1;
-            }
-        });
+            const itemsByCategory = {};
+            menuItems.forEach(item => {
+                if (!itemsByCategory[item.category]) {
+                    itemsByCategory[item.category] = [];
+                }
+                itemsByCategory[item.category].push(item);
+            });
 
-        document.getElementById('quantity-plus-btn').addEventListener('click', () => {
-            let currentQty = parseInt(quantityDisplay.textContent);
-            quantityDisplay.textContent = currentQty + 1;
-        });
+            orderedCategories.forEach(category => {
+                const sectionId = `${category}-section`;
+                let sectionEl = document.getElementById(sectionId);
 
-        document.getElementById('confirm-quantity-btn').addEventListener('click', () => {
-            const quantity = parseInt(quantityDisplay.textContent);
-            const item = currentItemForQuantity;
-            
-            for (let i = 0; i < quantity; i++) {
-                manualOrderItems.push({ 
-                    type: 'full',
-                    name: item.name, 
-                    price: item.basePrice,
-                    description: item.description,
-                    category: item.category,
-                    originalItem: item
+                if (!sectionEl) {
+                    sectionEl = document.createElement('div');
+                    sectionEl.id = sectionId;
+                    sectionEl.className = 'pizza-category-section mb-8';
+                    
+                    const title = capitalizeFirstLetter(category);
+
+                    sectionEl.innerHTML = `
+                        <h3 class="text-xl font-bold text-white p-2 rounded-md bg-red-600 mb-6">${title}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="${category}-items"></div>
+                    `;
+                    dynamicSectionsContainer.appendChild(sectionEl);
+                }
+
+                const categoryItemsEl = document.getElementById(`${category}-items`);
+                categoryItemsEl.innerHTML = ''; 
+
+                if (itemsByCategory[category]) {
+                    itemsByCategory[category].forEach(item => {
+                        const isUnavailable = !item.available;
+                        const cardOpacityClass = isUnavailable ? 'opacity-60' : '';
+                        const buttonDisabledAttr = isUnavailable ? 'disabled' : '';
+                        const buttonText = isUnavailable ? 'Esgotado' : 'Adicionar';
+                        const buttonClasses = isUnavailable
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-red-600 hover:bg-red-700';
+
+                        const itemHtml = `
+                            <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg ${cardOpacityClass}">
+                                <div class="p-4">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">${item.name}</h3>
+                                    <p class="text-gray-600 text-sm mb-4 h-10">${item.description}</p>
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold text-red-600 text-lg">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</span>
+                                        <button class="add-item-btn ${buttonClasses} text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300"
+                                                data-item-id="${item.id}" ${buttonDisabledAttr}>
+                                            ${buttonText}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        categoryItemsEl.insertAdjacentHTML('beforeend', itemHtml);
+                    });
+                }
+            });
+
+            attachAddButtonListeners();
+        }
+
+        function attachAddButtonListeners() {
+            document.querySelectorAll('.add-item-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const itemId = e.target.dataset.itemId;
+                    const item = allMenuData.find(i => i.id === itemId);
+                    if (item) {
+                        addToOrder(item);
+                    }
+                });
+            });
+        }
+
+        function addToOrder(item) {
+            order.push({
+                name: item.name,
+                price: item.basePrice,
+                type: 'full', // Assume full item for simplicity in attendant view
+                description: item.description,
+                category: item.category
+            });
+            updateOrderDisplay();
+        }
+
+        function updateOrderDisplay() {
+            const orderItemsContainer = document.getElementById('orderItems');
+            const emptyMsg = document.getElementById('emptyOrderMessage');
+            const totalEl = document.getElementById('total');
+            let total = 0;
+
+            if (order.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                orderItemsContainer.innerHTML = '';
+                orderItemsContainer.appendChild(emptyMsg);
+            } else {
+                emptyMsg.classList.add('hidden');
+                orderItemsContainer.innerHTML = '';
+                order.forEach((item, index) => {
+                    total += item.price;
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'flex justify-between items-center py-2 border-b';
+                    itemEl.innerHTML = `
+                        <div>
+                            <p class="font-medium">${item.name}</p>
+                            <p class="text-sm text-gray-500">R$ ${item.price.toFixed(2).replace('.', ',')}</p>
+                        </div>
+                        <button data-index="${index}" class="remove-item-btn text-red-500 hover:text-red-700">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    `;
+                    orderItemsContainer.appendChild(itemEl);
                 });
             }
-            
-            updateManualOrderDisplay();
-            quantityModal.style.display = 'none';
+            totalEl.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        }
 
-            showFloatingFeedback(`${quantity}x ${item.name} adicionado(s).`, item.category);
-
-            searchItemInput.value = '';
-            currentItemForQuantity = null;
+        document.getElementById('orderItems').addEventListener('click', (e) => {
+            if (e.target.closest('.remove-item-btn')) {
+                const index = e.target.closest('.remove-item-btn').dataset.index;
+                order.splice(index, 1);
+                updateOrderDisplay();
+            }
         });
 
+        const finalizeModal = document.getElementById('finalize-order-modal');
+        const finalizeBtn = document.getElementById('finalize-order-btn');
+        const cancelFinalizeBtn = document.getElementById('cancel-finalize-btn');
+        const confirmFinalizeBtn = document.getElementById('confirm-finalize-btn');
+        const paymentMethodSelect = document.getElementById('paymentMethodSelect');
+        const trocoContainer = document.getElementById('troco-input-container');
 
-        // Carrega os dados do menu assim que a página é carregada
-        loadFullMenuData();
+        finalizeBtn.addEventListener('click', () => {
+            if (order.length > 0) {
+                finalizeModal.style.display = 'flex';
+            } else {
+                alert('O pedido está vazio.');
+            }
+        });
+
+        cancelFinalizeBtn.addEventListener('click', () => {
+            finalizeModal.style.display = 'none';
+        });
+
+        paymentMethodSelect.addEventListener('change', () => {
+            if (paymentMethodSelect.value === 'Dinheiro') {
+                trocoContainer.classList.remove('hidden');
+            } else {
+                trocoContainer.classList.add('hidden');
+            }
+        });
+
+        confirmFinalizeBtn.addEventListener('click', async () => {
+            const clientName = document.getElementById('clientNameInput').value.trim();
+            const contact = document.getElementById('contactInput').value.trim();
+            if (!clientName) {
+                alert('Por favor, insira o nome do cliente ou da mesa.');
+                return;
+            }
+
+            let subtotal = order.reduce((acc, item) => acc + item.price, 0);
+            
+            let paymentMethod = paymentMethodSelect.value;
+            if (paymentMethod === 'Dinheiro') {
+                const trocoPara = parseFloat(document.getElementById('trocoPara').value);
+                if (!isNaN(trocoPara) && trocoPara > 0) {
+                    paymentMethod = {
+                        method: 'Dinheiro',
+                        trocoPara: trocoPara,
+                        trocoTotal: trocoPara - subtotal
+                    };
+                }
+            }
+
+            const newOrder = {
+                itens: order,
+                endereco: {
+                    clientName: clientName,
+                    telefone: contact,
+                    rua: 'Atendimento Interno',
+                    numero: '',
+                    bairro: '',
+                    referencia: ''
+                },
+                total: {
+                    subtotal: subtotal,
+                    discount: 0,
+                    deliveryFee: 0,
+                    finalTotal: subtotal
+                },
+                pagamento: paymentMethod,
+                status: 'Novo',
+                criadoEm: serverTimestamp()
+            };
+
+            try {
+                await addDoc(collection(db, "pedidos"), newOrder);
+                alert('Pedido enviado com sucesso!');
+                order = [];
+                updateOrderDisplay();
+                document.getElementById('clientNameInput').value = '';
+                document.getElementById('contactInput').value = '';
+                document.getElementById('trocoPara').value = '';
+                trocoContainer.classList.add('hidden');
+                finalizeModal.style.display = 'none';
+            } catch (error) {
+                console.error("Erro ao enviar pedido: ", error);
+                alert('Falha ao enviar o pedido.');
+            }
+        });
+
+        function listenToItemStatus() {
+            const itemStatusRef = doc(db, "config", "item_status");
+            onSnapshot(itemStatusRef, (doc) => {
+                const unavailableItems = doc.exists() ? doc.data() : {};
+                updateItemsAvailability(unavailableItems);
+            });
+        }
+
+        function updateItemsAvailability(unavailableItems = {}) {
+            document.querySelectorAll('.add-item-btn').forEach(button => {
+                const itemId = button.dataset.itemId;
+                const isUnavailable = unavailableItems[itemId] === false;
+                const card = button.closest('.flavor-card');
+
+                if (isUnavailable) {
+                    button.disabled = true;
+                    button.textContent = 'Esgotado';
+                    button.classList.remove('bg-red-600', 'hover:bg-red-700');
+                    button.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    if (card) card.classList.add('opacity-60');
+                } else {
+                    button.disabled = false;
+                    button.textContent = 'Adicionar';
+                    button.classList.add('bg-red-600', 'hover:bg-red-700');
+                    button.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    if (card) card.classList.remove('opacity-60');
+                }
+            });
+        }
+
+        loadMenuAndRender();
     </script>
 </body>
 </html>
