@@ -148,6 +148,10 @@
             <!-- Dados do Cliente -->
             <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                 <h3 class="font-bold mb-2 text-lg">1. Identificação</h3>
+                <div id="mesa-number-field" class="mb-2 hidden">
+                    <label for="manual-mesaName" class="block text-sm font-medium text-gray-700">Nº da Mesa</label>
+                    <input type="text" id="manual-mesaName" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: 05">
+                </div>
                  <div class="mb-2">
                     <label for="manual-clientName" id="manual-clientName-label" class="block text-sm font-medium text-gray-700">Cliente</label>
                     <input type="text" id="manual-clientName" required class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: João Silva">
@@ -342,6 +346,8 @@
         const manualClientPhone = document.getElementById('manual-clientPhone');
         const editSplitButtonsContainer = document.getElementById('edit-split-buttons');
         const logoutBtn = document.getElementById('logout-btn');
+        const mesaNumberField = document.getElementById('mesa-number-field');
+        const manualMesaNameInput = document.getElementById('manual-mesaName');
 
 
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
@@ -1005,19 +1011,20 @@
 
         async function handleManualOrderSubmit(e) {
             e.preventDefault();
-            const clientName = document.getElementById('manual-clientName').value;
-            const clientPhone = manualClientPhone.value;
+            const clientName = manualClientNameInput.value.trim();
+            const clientPhone = manualClientPhone.value.trim();
             const isMesa = mesaCheckbox.checked;
             const isPickup = pickupCheckbox.checked;
             const isDelivery = deliveryCheckbox.checked;
-            const street = document.getElementById('manual-street').value;
-            const number = document.getElementById('manual-number').value;
+            const street = document.getElementById('manual-street').value.trim();
+            const number = document.getElementById('manual-number').value.trim();
             const neighborhood = manualNeighborhoodSelect.value;
-            const reference = manualReferenceInput.value;
+            const reference = manualReferenceInput.value.trim();
             const paymentMethod = document.querySelector('input[name="manual-payment"]:checked').value;
+            const mesaName = manualMesaNameInput.value.trim();
 
-            if (!clientName || manualOrderItems.length === 0) {
-                alert("Por favor, preencha o nome do cliente e adicione pelo menos um item.");
+            if ((isMesa && !mesaName) || (!isMesa && !clientName) || manualOrderItems.length === 0) {
+                alert("Por favor, preencha a identificação (Mesa ou Cliente) e adicione pelo menos um item.");
                 return;
             }
 
@@ -1035,7 +1042,7 @@
             const finalTotal = subtotal + deliveryFee;
 
             let endereco = {
-                clientName,
+                clientName: clientName,
                 telefone: clientPhone,
                 rua: "",
                 numero: "",
@@ -1051,8 +1058,9 @@
             } else if (isPickup) {
                 endereco.rua = "Retirada no Balcão";
             } else if (isMesa) {
-                endereco.rua = `Mesa: ${clientName}`;
-                endereco.clientName = `Mesa: ${clientName}`;
+                endereco.clientName = `Mesa: ${mesaName}` + (clientName ? ` (${clientName})` : '');
+                endereco.rua = "Mesa";
+                endereco.numero = mesaName;
             } else {
                 endereco.rua = "Atendimento Interno";
             }
@@ -1074,6 +1082,9 @@
                 pickupCheckbox.checked = false;
                 mesaCheckbox.checked = false;
                 deliveryFields.style.display = 'none';
+                mesaNumberField.classList.add('hidden');
+                manualClientNameLabel.textContent = "Cliente";
+                manualClientNameInput.placeholder = "Ex: João Silva";
                 updateManualOrderDisplay();
                 document.getElementById('manual-clientName').focus();
             } catch (error) {
@@ -1143,21 +1154,20 @@
             
             if (deliveryCheckbox.checked) {
                 deliveryFields.style.display = 'block';
-                manualClientNameLabel.textContent = "Cliente";
-                manualClientNameInput.placeholder = "Ex: João Silva";
             } else {
                 deliveryFields.style.display = 'none';
             }
 
             if (mesaCheckbox.checked) {
-                manualClientNameLabel.textContent = "Nº da Mesa";
-                manualClientNameInput.placeholder = "Ex: 05";
-            } else if (pickupCheckbox.checked) {
-                manualClientNameLabel.textContent = "Cliente";
-                manualClientNameInput.placeholder = "Ex: João (Retirada)";
-            } else if (!deliveryCheckbox.checked) {
+                mesaNumberField.classList.remove('hidden');
+                manualClientNameLabel.textContent = "Cliente (Opcional)";
+                manualClientNameInput.placeholder = "Nome do cliente na mesa";
+                manualClientNameInput.required = false;
+            } else {
+                mesaNumberField.classList.add('hidden');
                 manualClientNameLabel.textContent = "Cliente";
                 manualClientNameInput.placeholder = "Ex: João Silva";
+                manualClientNameInput.required = true;
             }
             
             updateManualOrderDisplay();
