@@ -620,6 +620,12 @@
                 if (docSnap.exists()) {
                     const order = docSnap.data();
                     let printContent = '';
+                    
+                    // LÓGICA PARA ADICIONAR CONTATO NA IMPRESSÃO
+                    let contactPrintHtml = '';
+                    if (order.endereco.telefone && order.endereco.telefone.trim() !== '') {
+                        contactPrintHtml = `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>`;
+                    }
 
                     if (type === 'kitchen') {
                         // Lógica para a comanda da cozinha - incluindo os ingredientes do hambúrguer
@@ -636,6 +642,7 @@
                                 <h2 style="text-align: center; font-size: 28px; margin-bottom: 20px;">COMANDA COZINHA</h2>
                                 <p style="font-size: 18px;"><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
                                 <p style="font-size: 18px;"><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                                ${contactPrintHtml.replace(/<strong>/g, '<strong style="font-size: 18px;">').replace(/<p>/g, '<p style="font-size: 18px;">')}
                                 <hr style="border-top: 2px dashed black; margin: 15px 0;">
                                 <ul style="font-size: 20px; list-style: none; padding: 0;">
                                     ${itemsKitchenHtml}
@@ -669,6 +676,7 @@
                                 <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2>
                                 <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
                                 <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                                ${contactPrintHtml}
                                 <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
                                 <hr style="border-top: 1px dashed black; margin: 15px 0;">
                                 <ul>
