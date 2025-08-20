@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -359,8 +360,22 @@
         const finalValueInput = document.getElementById('final-value');
         
         let orderIdToDelete = null;
+        let deliveryFeesData = []; // Armazena os bairros e taxas
+
+        async function loadDeliveryFees() {
+            if (deliveryFeesData.length > 0) return;
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                deliveryFeesData = data.deliveryFees;
+            } catch (error) {
+                console.error("Erro ao carregar dados de entrega:", error);
+            }
+        }
 
         function initializePDV() {
+            loadDeliveryFees(); // Carrega os bairros ao iniciar
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             function playNotificationSound() {
                 const oscillator = audioContext.createOscillator();
@@ -536,6 +551,7 @@
         }
 
         async function openEditModal(id) {
+            await loadDeliveryFees(); // Garante que os bairros estão carregados
             const orderRef = doc(db, "pedidos", id);
             const docSnap = await getDoc(orderRef);
 
@@ -545,25 +561,42 @@
                     <input type="hidden" id="edit-order-id" value="${id}">
                     <div>
                         <label for="edit-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
-                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
+                        <input type="tel" id="edit-telefone" value="${order.endereco.telefone || ''}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     </div>
                     <div>
                         <label for="edit-rua" class="block text-sm font-medium text-gray-700">Rua</label>
-                        <input type="text" id="edit-rua" value="${order.endereco.rua}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <input type="text" id="edit-rua" value="${order.endereco.rua}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     </div>
                      <div>
                         <label for="edit-numero" class="block text-sm font-medium text-gray-700">Número</label>
-                        <input type="text" id="edit-numero" value="${order.endereco.numero}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <input type="text" id="edit-numero" value="${order.endereco.numero}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     </div>
                     <div>
                         <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
-                        <input type="text" id="edit-bairro" value="${order.endereco.bairro}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></select>
                     </div>
                     <div class="mt-4 flex justify-between">
                         <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
                         <button id="delete-order-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">Excluir Pedido</button>
                     </div>
                 `;
+
+                const bairroSelect = document.getElementById('edit-bairro');
+                bairroSelect.innerHTML = '<option value="">Selecione um bairro</option>';
+                deliveryFeesData.forEach(fee => {
+                    const option = document.createElement('option');
+                    option.value = fee.neighborhood;
+                    option.textContent = fee.neighborhood;
+                    if (fee.neighborhood === order.endereco.bairro) {
+                        option.selected = true;
+                    }
+                    bairroSelect.appendChild(option);
+                });
+
                 editOrderModal.style.display = 'flex';
             } else {
                 console.log("Nenhum pedido encontrado!");
@@ -584,6 +617,7 @@
             const orderRef = doc(db, "pedidos", id);
             const updatedData = {
                 "endereco.clientName": document.getElementById('edit-clientName').value,
+                "endereco.telefone": document.getElementById('edit-telefone').value,
                 "endereco.rua": document.getElementById('edit-rua').value,
                 "endereco.numero": document.getElementById('edit-numero').value,
                 "endereco.bairro": document.getElementById('edit-bairro').value,
