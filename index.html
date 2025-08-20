@@ -2947,7 +2947,9 @@
                 deferredPrompt = e;
                 
                 if (!isPwaInstalled()) {
-                    installPromptModal.style.display = 'flex';
+                    setTimeout(() => {
+                        installPromptModal.style.display = 'flex';
+                    }, 2000); // 2 segundos de atraso
                 }
             });
 
