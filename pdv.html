@@ -589,7 +589,7 @@
                 deliveryFeesData.forEach(fee => {
                     const option = document.createElement('option');
                     option.value = fee.neighborhood;
-                    option.textContent = fee.neighborhood;
+                    option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`;
                     if (fee.neighborhood === order.endereco.bairro) {
                         option.selected = true;
                     }
