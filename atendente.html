@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -149,8 +150,8 @@
             <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                 <h3 class="font-bold mb-2 text-lg">1. Identificação</h3>
                  <div class="mb-2">
-                    <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Mesa / Cliente</label>
-                    <input type="text" id="manual-clientName" required class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: Mesa 04 ou João">
+                    <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Cliente</label>
+                    <input type="text" id="manual-clientName" required class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2" placeholder="Ex: João Silva">
                 </div>
                 <div class="flex flex-wrap gap-4 items-center mb-2">
                     <div class="flex items-center">
@@ -316,6 +317,7 @@
 
         // Elementos do DOM
         const manualOrderForm = document.getElementById('manual-order-form');
+        const manualClientNameInput = document.getElementById('manual-clientName');
         const mesaCheckbox = document.getElementById('mesa-checkbox');
         const pickupCheckbox = document.getElementById('pickup-checkbox');
         const deliveryCheckbox = document.getElementById('delivery-checkbox');
@@ -1032,21 +1034,31 @@
 
             const finalTotal = subtotal + deliveryFee;
 
-            let rua = "Atendimento Interno";
-            if(isDelivery) rua = street;
-            if(isPickup) rua = "Retirada no Balcão";
-            if(isMesa) rua = "Mesa";
+            let endereco = {
+                clientName,
+                telefone: clientPhone,
+                rua: "",
+                numero: "",
+                bairro: "",
+                referencia: ""
+            };
+
+            if (isDelivery) {
+                endereco.rua = street;
+                endereco.numero = number;
+                endereco.bairro = neighborhood;
+                endereco.referencia = reference;
+            } else if (isPickup) {
+                endereco.rua = "Retirada no Balcão";
+            } else if (isMesa) {
+                endereco.rua = "Mesa";
+            } else {
+                endereco.rua = "Atendimento Interno";
+            }
 
             const newOrder = {
                 itens: manualOrderItems,
-                endereco: {
-                    clientName,
-                    telefone: clientPhone,
-                    rua: rua,
-                    numero: isDelivery ? number : (isPickup ? "" : "N/A"),
-                    bairro: isDelivery ? neighborhood : "",
-                    referencia: isDelivery ? reference : ""
-                },
+                endereco: endereco,
                 total: { subtotal, deliveryFee, finalTotal, discount: 0 },
                 pagamento: paymentMethod,
                 status: 'Novo',
@@ -1113,34 +1125,42 @@
         });
         manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
 
-        mesaCheckbox.addEventListener('change', () => {
-            if (mesaCheckbox.checked) {
-                pickupCheckbox.checked = false;
-                deliveryCheckbox.checked = false;
-                deliveryFields.style.display = 'none';
-            }
-            updateManualOrderDisplay();
-        });
+        function handleOrderTypeChange(changedCheckboxId) {
+            const checkboxes = {
+                mesa: mesaCheckbox,
+                pickup: pickupCheckbox,
+                delivery: deliveryCheckbox
+            };
 
-        pickupCheckbox.addEventListener('change', () => {
-            if (pickupCheckbox.checked) {
-                mesaCheckbox.checked = false;
-                deliveryCheckbox.checked = false;
-                deliveryFields.style.display = 'none';
+            if (checkboxes[changedCheckboxId].checked) {
+                for (const key in checkboxes) {
+                    if (key !== changedCheckboxId) {
+                        checkboxes[key].checked = false;
+                    }
+                }
             }
-            updateManualOrderDisplay();
-        });
-
-        deliveryCheckbox.addEventListener('change', () => {
+            
             if (deliveryCheckbox.checked) {
-                mesaCheckbox.checked = false;
-                pickupCheckbox.checked = false;
                 deliveryFields.style.display = 'block';
+                manualClientNameInput.placeholder = "Ex: João Silva";
             } else {
                 deliveryFields.style.display = 'none';
             }
+
+            if (mesaCheckbox.checked) {
+                manualClientNameInput.placeholder = "Ex: Mesa 05";
+            } else if (pickupCheckbox.checked) {
+                manualClientNameInput.placeholder = "Ex: João (Retirada)";
+            } else if (!deliveryCheckbox.checked) {
+                manualClientNameInput.placeholder = "Ex: João Silva";
+            }
+            
             updateManualOrderDisplay();
-        });
+        }
+
+        mesaCheckbox.addEventListener('change', () => handleOrderTypeChange('mesa'));
+        pickupCheckbox.addEventListener('change', () => handleOrderTypeChange('pickup'));
+        deliveryCheckbox.addEventListener('change', () => handleOrderTypeChange('delivery'));
         
         manualNeighborhoodSelect.addEventListener('change', updateManualOrderDisplay);
         manualOrderItemsContainer.addEventListener('click', (e) => {
