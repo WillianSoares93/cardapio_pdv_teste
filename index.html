@@ -1882,6 +1882,7 @@
                     informAddressBtn.classList.add('hidden');
                     editDeliveryAddressBtn.classList.remove('hidden');
                 } else {
+                    selectedAddress.deliveryFee = 0; // Ensure fee is 0 if no bairro
                     deliveryFeeDisplay.textContent = '';
                     deliveryFeeDisplay.classList.add('hidden');
                     informAddressBtn.classList.remove('hidden');
@@ -2345,57 +2346,41 @@
                         return;
                     }
                     
-                    let newActiveCategory = null;
-                    
-                    let closestSection = null;
-                    let minDistance = Infinity;
-
                     entries.forEach(entry => {
-                        const rect = entry.boundingClientRect;
-                        const distance = Math.abs(rect.top - stickyHeaderHeight);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            closestSection = entry.target;
+                        if (entry.isIntersecting) {
+                            const newActiveCategory = entry.target.id.replace('-section', '');
+
+                            if (isSelectingHalfPizza) {
+                                const targetCategory = newActiveCategory.toLowerCase();
+                                const isPromotional = targetCategory === 'promocionais';
+
+                                if (isFirstHalfPromotional && !isPromotional) {
+                                    isScrollingFromClick = true;
+                                    document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    setTimeout(() => { isScrollingFromClick = false; }, 700);
+                                    showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
+                                    return;
+                                } else if (!isFirstHalfPromotional && isPromotional) {
+                                    isScrollingFromClick = true;
+                                    const originalCategory = firstHalfPizza.category.toLowerCase();
+                                    setActiveCategoryButton(originalCategory);
+                                    document.getElementById(`${originalCategory}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    setTimeout(() => { isScrollingFromClick = false; }, 700);
+                                    showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
+                                    return;
+                                }
+                            }
+
+                            if (newActiveCategory !== currentActiveCategoryByScroll) {
+                                setActiveCategoryButton(newActiveCategory);
+                                currentActiveCategoryByScroll = newActiveCategory;
+                            }
                         }
                     });
-
-                    if (closestSection) {
-                        newActiveCategory = closestSection.id.replace('-section', '');
-                    }
-                    
-                    if (isSelectingHalfPizza) {
-                        if (isFirstHalfPromotional) {
-                            if (newActiveCategory && newActiveCategory.toLowerCase() !== 'promocionais') {
-                                setActiveCategoryButton('promocionais');
-                                currentActiveCategoryByScroll = 'promocionais'; 
-                                isScrollingFromClick = true; 
-                                document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                setTimeout(() => { isScrollingFromClick = false; }, 700); 
-                                showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
-                                return; 
-                            }
-                        } else {
-                            if (newActiveCategory && newActiveCategory.toLowerCase() === 'promocionais') {
-                                const originalCategory = firstHalfPizza.category.toLowerCase();
-                                setActiveCategoryButton(originalCategory); 
-                                currentActiveCategoryByScroll = originalCategory;
-                                isScrollingFromClick = true;
-                                document.getElementById(`${originalCategory}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                setTimeout(() => { isScrollingFromClick = false; }, 700);
-                                showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
-                                return;
-                            }
-                        }
-                    }
-
-                    if (newActiveCategory && newActiveCategory !== currentActiveCategoryByScroll) {
-                        setActiveCategoryButton(newActiveCategory);
-                        currentActiveCategoryByScroll = newActiveCategory;
-                    }
                 }, {
                     root: null,
-                    rootMargin: `-${stickyHeaderHeight}px 0px -99% 0px`, 
-                    threshold: 0 
+                    rootMargin: `-${stickyHeaderHeight}px 0px -${window.innerHeight - stickyHeaderHeight - 1}px 0px`,
+                    threshold: 0
                 });
 
                 categorySections.forEach(section => {
@@ -2593,13 +2578,16 @@
             
             pickupCheckbox.addEventListener('change', () => {
                 isPickupOrder = pickupCheckbox.checked;
-                if (isPickupOrder) {
-                    selectedAddress = {
-                        clientName: selectedAddress.clientName,
-                        telefone: selectedAddress.telefone,
-                        bairro: null, rua: null, numero: null, referencia: null, deliveryFee: 0
-                    };
-                }
+                
+                // Clear address details whenever the mode (pickup/delivery) changes.
+                // This forces the user to confirm their details again for the new mode.
+                // Name and phone are preserved.
+                selectedAddress.bairro = null;
+                selectedAddress.rua = null;
+                selectedAddress.numero = null;
+                selectedAddress.referencia = null;
+                selectedAddress.deliveryFee = 0;
+                
                 updateOrderDisplay();
             });
 
@@ -2948,8 +2936,10 @@
                 
                 if (!isPwaInstalled()) {
                     setTimeout(() => {
-                        installPromptModal.style.display = 'flex';
-                    }, 2000); // 2 segundos de atraso
+                        if(deferredPrompt) {
+                           installPromptModal.style.display = 'flex';
+                        }
+                    }, 2000);
                 }
             });
 
