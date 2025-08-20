@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2333,7 +2332,6 @@ teste
                 }
             }
 
-            // FUNÇÃO DE OBSERVER CORRIGIDA
             function setupCategoryObserver() {
                 if (categoryObserver) {
                     categoryObserver.disconnect();
@@ -2341,47 +2339,63 @@ teste
 
                 const categorySections = document.querySelectorAll('.pizza-category-section');
                 const stickyHeaderHeight = getStickyHeaderHeight();
-
+                
                 categoryObserver = new IntersectionObserver((entries) => {
                     if (isScrollingFromClick) {
                         return;
                     }
+                    
+                    let newActiveCategory = null;
+                    
+                    let closestSection = null;
+                    let minDistance = Infinity;
 
                     entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const newActiveCategory = entry.target.id.replace('-section', '');
-
-                            if (isSelectingHalfPizza) {
-                                const targetCategory = newActiveCategory.toLowerCase();
-                                const isPromotional = targetCategory === 'promocionais';
-
-                                if (isFirstHalfPromotional && !isPromotional) {
-                                    isScrollingFromClick = true;
-                                    document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    setTimeout(() => { isScrollingFromClick = false; }, 700);
-                                    showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
-                                    return;
-                                } else if (!isFirstHalfPromotional && isPromotional) {
-                                    isScrollingFromClick = true;
-                                    const originalCategory = firstHalfPizza.category.toLowerCase();
-                                    setActiveCategoryButton(originalCategory);
-                                    document.getElementById(`${originalCategory}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    setTimeout(() => { isScrollingFromClick = false; }, 700);
-                                    showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
-                                    return;
-                                }
-                            }
-
-                            if (newActiveCategory !== currentActiveCategoryByScroll) {
-                                setActiveCategoryButton(newActiveCategory);
-                                currentActiveCategoryByScroll = newActiveCategory;
-                            }
+                        const rect = entry.boundingClientRect;
+                        const distance = Math.abs(rect.top - stickyHeaderHeight);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closestSection = entry.target;
                         }
                     });
+
+                    if (closestSection) {
+                        newActiveCategory = closestSection.id.replace('-section', '');
+                    }
+                    
+                    if (isSelectingHalfPizza) {
+                        if (isFirstHalfPromotional) {
+                            if (newActiveCategory && newActiveCategory.toLowerCase() !== 'promocionais') {
+                                setActiveCategoryButton('promocionais');
+                                currentActiveCategoryByScroll = 'promocionais'; 
+                                isScrollingFromClick = true; 
+                                document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                setTimeout(() => { isScrollingFromClick = false; }, 700); 
+                                showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
+                                return; 
+                            }
+                        } else {
+                            if (newActiveCategory && newActiveCategory.toLowerCase() === 'promocionais') {
+                                const originalCategory = firstHalfPizza.category.toLowerCase();
+                                setActiveCategoryButton(originalCategory); 
+                                currentActiveCategoryByScroll = originalCategory;
+                                isScrollingFromClick = true;
+                                document.getElementById(`${originalCategory}-section`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                setTimeout(() => { isScrollingFromClick = false; }, 700);
+                                showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
+                                return;
+                            }
+                        }
+                    }
+
+                    if (newActiveCategory && newActiveCategory !== currentActiveCategoryByScroll) {
+                        setActiveCategoryButton(newActiveCategory);
+                        currentActiveCategoryByScroll = newActiveCategory;
+                    }
                 }, {
                     root: null,
-                    rootMargin: `-${stickyHeaderHeight}px 0px -${window.innerHeight - stickyHeaderHeight - 1}px 0px`,
-                    threshold: 0
+                    rootMargin: `-${stickyHeaderHeight}px 0px -99% 0px`, 
+                    threshold: 0 
                 });
 
                 categorySections.forEach(section => {
