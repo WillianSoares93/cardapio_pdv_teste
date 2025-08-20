@@ -578,6 +578,12 @@
                     <span id="discount-value-display" class="font-bold">- R$ 0,00</span>
                 </div>
                 
+                <!-- CHECKBOX DE RETIRADA ADICIONADO -->
+                <div class="flex items-center mb-2 pt-2 border-t border-gray-100">
+                    <input type="checkbox" id="pickupCheckbox" class="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                    <label for="pickupCheckbox" class="ml-2 block text-sm text-gray-900">Irei fazer a Retirada</label>
+                </div>
+
                 <div id="deliveryFeeSection" class="flex justify-between mb-2">
                     <span class="text-gray-600">Taxa de entrega:</span>
                     <div id="deliveryFeeContainer" class="flex items-center">
@@ -778,44 +784,45 @@
                 </label>
                 <input type="text" id="clientNameInput" placeholder="Seu nome" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
             </div>
-            <!-- CAMPO DE CONTATO ADICIONADO -->
             <div class="mb-4">
                 <label for="contactInput" class="block text-gray-700 text-sm font-bold mb-2">
                     Contato (Telefone):
                 </label>
                 <input type="tel" id="contactInput" placeholder="(99) 99999-9999" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
             </div>
-            <div class="mb-4">
-                <label for="neighborhoodSelect" class="block text-gray-700 text-sm font-bold mb-2">
-                    Bairro:
-                </label>
-                <select id="neighborhoodSelect" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                    <option value="">Selecione um bairro</option>
-                    </select>
-            </div>
-            <div class="mb-4">
-                <label for="streetInput" class="block text-gray-700 text-sm font-bold mb-2">
-                    Rua:
-                </label>
-                <input type="text" id="streetInput" placeholder="Nome da Rua" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-            </div>
-            <div class="mb-4">
-                <div class="flex items-center justify-between mb-2">
-                    <label for="numberInput" class="block text-gray-700 text-sm font-bold">
-                        Número:
+            <div id="address-fields-container">
+                <div class="mb-4">
+                    <label for="neighborhoodSelect" class="block text-gray-700 text-sm font-bold mb-2">
+                        Bairro:
                     </label>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="noNumberCheckbox" class="form-checkbox text-red-600">
-                        <label for="noNumberCheckbox" class="ml-2 text-gray-700 text-sm">Sem Número</label>
-                    </div>
+                    <select id="neighborhoodSelect" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="">Selecione um bairro</option>
+                        </select>
                 </div>
-                <input type="number" inputmode="numeric" id="numberInput" placeholder="Número" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-            </div>
-            <div class="mb-6">
-                <label for="referencePointInput" class="block text-gray-700 text-sm font-bold mb-2">
-                    Ponto de Referência (Opcional):
-                </label>
-                <input type="text" id="referencePointInput" placeholder="Ex: Próximo à praça" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <div class="mb-4">
+                    <label for="streetInput" class="block text-gray-700 text-sm font-bold mb-2">
+                        Rua:
+                    </label>
+                    <input type="text" id="streetInput" placeholder="Nome da Rua" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="numberInput" class="block text-gray-700 text-sm font-bold">
+                            Número:
+                        </label>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="noNumberCheckbox" class="form-checkbox text-red-600">
+                            <label for="noNumberCheckbox" class="ml-2 text-gray-700 text-sm">Sem Número</label>
+                        </div>
+                    </div>
+                    <input type="number" inputmode="numeric" id="numberInput" placeholder="Número" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-6">
+                    <label for="referencePointInput" class="block text-gray-700 text-sm font-bold mb-2">
+                        Ponto de Referência (Opcional):
+                    </label>
+                    <input type="text" id="referencePointInput" placeholder="Ex: Próximo à praça" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
             </div>
             <button id="confirmAddressBtn" class="btn-confirm-green w-full py-2 px-4 rounded-full text-white font-bold transition duration-300">
                 Confirmar Dados
@@ -885,8 +892,8 @@
             let isCheckoutInitiated = false; 
             let discountPromotion = null;
             let contactInfo = {};
+            let isPickupOrder = false; // NOVA VARIÁVEL DE ESTADO
             
-            // OBJETO DE ENDEREÇO ATUALIZADO
             let selectedAddress = {
                 clientName: null, 
                 telefone: null,
@@ -903,7 +910,6 @@
             const cartCount = document.getElementById('cartCount');
             const orderItemsContainer = document.getElementById('orderItems');
             const emptyOrderMessage = document.getElementById('emptyOrderMessage');
-            // ... (restante das suas constantes de elementos)
             const messageModal = document.getElementById('message-modal');
             const closeMessageModalBtn = document.getElementById('close-message-modal');
             const okMessageModalBtn = document.getElementById('ok-message-modal');
@@ -957,7 +963,7 @@
             const addressInputModal = document.getElementById('address-input-modal');
             const closeAddressModalBtn = document.getElementById('close-address-modal');
             const clientNameInput = document.getElementById('clientNameInput');
-            const contactInput = document.getElementById('contactInput'); // NOVA CONSTANTE
+            const contactInput = document.getElementById('contactInput'); 
             const neighborhoodSelect = document.getElementById('neighborhoodSelect');
             const streetInput = document.getElementById('streetInput');
             const numberInput = document.getElementById('numberInput');
@@ -966,7 +972,7 @@
             const confirmAddressBtn = document.getElementById('confirmAddressBtn');
             const addressSummarySection = document.getElementById('address-summary-section');
             const clientNameDisplay = document.getElementById('client-name-display');
-            const contactDisplay = document.getElementById('contact-display'); // NOVA CONSTANTE
+            const contactDisplay = document.getElementById('contact-display'); 
             const addressDisplay = document.getElementById('address-display');
             const neighborhoodDisplay = document.getElementById('neighborhood-display');
             const referenceDisplay = document.getElementById('reference-display');
@@ -979,6 +985,8 @@
             const footerPhone = document.getElementById('footer-phone');
             const footerEmail = document.getElementById('footer-email');
             const socialLinksContainer = document.getElementById('social-links-container');
+            const pickupCheckbox = document.getElementById('pickupCheckbox'); // NOVA CONSTANTE
+            const addressFieldsContainer = document.getElementById('address-fields-container'); // NOVA CONSTANTE
 
             let currentPizzaData = {}; 
             let firstHalfPizza = null; 
@@ -1860,7 +1868,15 @@
                     }
                 }
                 
-                if (selectedAddress.bairro) {
+                // LÓGICA ATUALIZADA PARA TAXA DE ENTREGA
+                if (isPickupOrder) {
+                    selectedAddress.deliveryFee = 0;
+                    deliveryFeeDisplay.textContent = 'R$ 0,00';
+                    deliveryFeeDisplay.classList.remove('hidden');
+                    informAddressBtn.classList.add('hidden');
+                    editDeliveryAddressBtn.classList.add('hidden');
+                    addressSummarySection.classList.add('hidden');
+                } else if (selectedAddress.bairro) {
                     deliveryFeeDisplay.textContent = 'R$ ' + selectedAddress.deliveryFee.toFixed(2).replace('.', ',');
                     deliveryFeeDisplay.classList.remove('hidden');
                     informAddressBtn.classList.add('hidden');
@@ -2012,9 +2028,14 @@
                     return;
                 }
 
-                if (!selectedAddress.clientName || !selectedAddress.bairro || (!selectedAddress.numero && !noNumberCheckbox.checked)) {
+                // LÓGICA DE VALIDAÇÃO DE ENDEREÇO ATUALIZADA
+                if (!isPickupOrder && (!selectedAddress.clientName || !selectedAddress.bairro || (!selectedAddress.numero && !noNumberCheckbox.checked))) {
                     isCheckoutInitiated = true;
-                    showAddressInputModal();
+                    showAddressInputModal(false); // Abre o modal completo
+                    return;
+                } else if (isPickupOrder && !selectedAddress.clientName) {
+                    isCheckoutInitiated = true;
+                    showAddressInputModal(true); // Abre o modal simplificado
                     return;
                 }
 
@@ -2383,11 +2404,19 @@
                 });
             }
 
-            function showAddressInputModal() {
+            function showAddressInputModal(isPickup = false) {
                 addressInputModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
+                
+                // Mostra ou esconde os campos de endereço
+                if (isPickup) {
+                    addressFieldsContainer.style.display = 'none';
+                } else {
+                    addressFieldsContainer.style.display = 'block';
+                }
+
                 clientNameInput.value = selectedAddress.clientName || '';
-                contactInput.value = selectedAddress.telefone || ''; // ATUALIZADO
+                contactInput.value = selectedAddress.telefone || '';
                 if (selectedAddress.bairro) {
                     neighborhoodSelect.value = selectedAddress.bairro;
                 } else {
@@ -2421,19 +2450,26 @@
             }
 
             function showAddressSummary() {
-                if (selectedAddress.bairro) {
+                if (selectedAddress.clientName) {
                     addressSummarySection.classList.remove('hidden');
-                    clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName || 'Não informado'}`;
-                    // LÓGICA DE EXIBIÇÃO DO CONTATO
+                    clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName}`;
+                    
                     if (selectedAddress.telefone) {
                         contactDisplay.textContent = `Contato: ${selectedAddress.telefone}`;
                         contactDisplay.classList.remove('hidden');
                     } else {
                         contactDisplay.classList.add('hidden');
                     }
-                    addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
-                    neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
-                    referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
+
+                    if (isPickupOrder) {
+                        addressDisplay.textContent = 'Retirada no Balcão';
+                        neighborhoodDisplay.textContent = '';
+                        referenceDisplay.textContent = '';
+                    } else {
+                        addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
+                        neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
+                        referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
+                    }
                 } else {
                     hideAddressSummary();
                 }
@@ -2442,26 +2478,33 @@
             function hideAddressSummary() {
                 addressSummarySection.classList.add('hidden');
                 clientNameDisplay.textContent = '';
-                contactDisplay.textContent = ''; // Limpa o contato
+                contactDisplay.textContent = '';
                 addressDisplay.textContent = '';
                 neighborhoodDisplay.textContent = '';
                 referenceDisplay.textContent = '';
             }
 
             function updateAddressDisplay() {
-                if (selectedAddress.bairro && selectedAddress.rua) {
+                if (selectedAddress.clientName) {
                     addressSummarySection.classList.remove('hidden');
-                    clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName || 'Não informado'}`;
-                    // LÓGICA DE EXIBIÇÃO DO CONTATO
+                    clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName}`;
+                    
                     if (selectedAddress.telefone) {
                         contactDisplay.textContent = `Contato: ${selectedAddress.telefone}`;
                         contactDisplay.classList.remove('hidden');
                     } else {
                         contactDisplay.classList.add('hidden');
                     }
-                    addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
-                    neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
-                    referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
+
+                    if (isPickupOrder) {
+                        addressDisplay.textContent = 'Retirada no Balcão';
+                        neighborhoodDisplay.textContent = '';
+                        referenceDisplay.textContent = '';
+                    } else if (selectedAddress.bairro && selectedAddress.rua) {
+                        addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
+                        neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
+                        referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
+                    }
                 } else {
                     addressSummarySection.classList.add('hidden');
                 }
@@ -2550,6 +2593,19 @@
             backToMenuBtn.addEventListener('click', backToMenu);
             checkoutButton.addEventListener('click', handleCheckoutFlow);
             
+            pickupCheckbox.addEventListener('change', () => {
+                isPickupOrder = pickupCheckbox.checked;
+                if (isPickupOrder) {
+                    // Limpa o endereço para forçar a taxa de entrega a zero
+                    selectedAddress = {
+                        clientName: selectedAddress.clientName, // Mantém o nome se já foi inserido
+                        telefone: selectedAddress.telefone, // Mantém o contato se já foi inserido
+                        bairro: null, rua: null, numero: null, referencia: null, deliveryFee: 0
+                    };
+                }
+                updateOrderDisplay();
+            });
+
             burgerIngredientsContainer.addEventListener('click', (e) => {
                 const target = e.target;
                 const optionLabel = target.closest('.ingredient-option');
@@ -2810,45 +2866,53 @@
                 }
             });
 
-            // LISTENER DO BOTÃO DE CONFIRMAR ENDEREÇO ATUALIZADO
             confirmAddressBtn.addEventListener('click', function() {
                 const clientName = clientNameInput.value.trim();
                 const contato = contactInput.value.trim();
-                const bairro = neighborhoodSelect.value;
-                const rua = streetInput.value.trim();
-                let numero = numberInput.value.trim();
-                const referencia = referencePointInput.value.trim();
-                const isNoNumber = noNumberCheckbox.checked;
 
-                if (!clientName || !bairro || !rua) {
-                    showMessageModal('Por favor, preencha o nome do cliente, o bairro e a rua para continuar.');
-                    return;
-                }
-                
-                if (!isNoNumber && !numero) {
-                    showMessageModal('Por favor, preencha o número ou marque a opção "Sem Número".');
+                if (!clientName) {
+                    showMessageModal('Por favor, preencha pelo menos o seu nome.');
                     return;
                 }
 
-                if (isNoNumber) {
-                    numero = 'S/N';
-                }
+                if (isPickupOrder) {
+                    selectedAddress = {
+                        clientName: clientName,
+                        telefone: contato,
+                        bairro: "Retirada",
+                        rua: "Retirada no Balcão",
+                        numero: "S/N",
+                        referencia: "",
+                        deliveryFee: 0
+                    };
+                } else {
+                    const bairro = neighborhoodSelect.value;
+                    const rua = streetInput.value.trim();
+                    let numero = numberInput.value.trim();
+                    const referencia = referencePointInput.value.trim();
+                    const isNoNumber = noNumberCheckbox.checked;
 
-                const selectedFee = deliveryFeesData.find(fee => fee.neighborhood === bairro);
-                if (!selectedFee) {
-                    showMessageModal('Bairro selecionado inválido. Por favor, selecione um bairro da lista.');
-                    return;
-                }
+                    if (!bairro || !rua) {
+                        showMessageModal('Por favor, preencha o bairro e a rua para continuar.');
+                        return;
+                    }
+                    if (!isNoNumber && !numero) {
+                        showMessageModal('Por favor, preencha o número ou marque a opção "Sem Número".');
+                        return;
+                    }
+                    if (isNoNumber) numero = 'S/N';
 
-                selectedAddress = {
-                    clientName: clientName,
-                    telefone: contato,
-                    bairro: bairro,
-                    rua: rua,
-                    numero: numero,
-                    referencia: referencia,
-                    deliveryFee: selectedFee.deliveryFee
-                };
+                    const selectedFee = deliveryFeesData.find(fee => fee.neighborhood === bairro);
+                    if (!selectedFee) {
+                        showMessageModal('Bairro selecionado inválido. Por favor, selecione um bairro da lista.');
+                        return;
+                    }
+
+                    selectedAddress = {
+                        clientName, telefone: contato, bairro, rua, numero, referencia,
+                        deliveryFee: selectedFee.deliveryFee
+                    };
+                }
 
                 hideAddressInputModal();
                 updateOrderDisplay();
@@ -2860,15 +2924,15 @@
             });
 
             editAddressBtn.addEventListener('click', function() {
-                showAddressInputModal();
+                showAddressInputModal(isPickupOrder);
             });
 
             informAddressBtn.addEventListener('click', function() {
-                showAddressInputModal();
+                showAddressInputModal(false);
             });
 
             editDeliveryAddressBtn.addEventListener('click', function() {
-                showAddressInputModal();
+                showAddressInputModal(false);
             });
 
             if ('serviceWorker' in navigator) {
