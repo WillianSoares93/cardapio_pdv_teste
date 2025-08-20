@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -615,12 +614,31 @@ teste
         async function saveOrderChanges() {
             const id = document.getElementById('edit-order-id').value;
             const orderRef = doc(db, "pedidos", id);
+            
+            // Pega os dados atuais do pedido para recalcular o total
+            const docSnap = await getDoc(orderRef);
+            if (!docSnap.exists()) {
+                console.error("Pedido não encontrado para atualização.");
+                return;
+            }
+            const currentOrderData = docSnap.data();
+
+            const newBairro = document.getElementById('edit-bairro').value;
+            const feeInfo = deliveryFeesData.find(fee => fee.neighborhood === newBairro);
+            const newDeliveryFee = feeInfo ? feeInfo.deliveryFee : 0;
+
+            const subtotal = currentOrderData.total.subtotal;
+            const discount = currentOrderData.total.discount || 0;
+            const newFinalTotal = subtotal - discount + newDeliveryFee;
+
             const updatedData = {
                 "endereco.clientName": document.getElementById('edit-clientName').value,
                 "endereco.telefone": document.getElementById('edit-telefone').value,
                 "endereco.rua": document.getElementById('edit-rua').value,
                 "endereco.numero": document.getElementById('edit-numero').value,
-                "endereco.bairro": document.getElementById('edit-bairro').value,
+                "endereco.bairro": newBairro,
+                "total.deliveryFee": newDeliveryFee,
+                "total.finalTotal": newFinalTotal
             };
             try {
                 await updateDoc(orderRef, updatedData);
