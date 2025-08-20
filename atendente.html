@@ -12,6 +12,7 @@
         body {
             font-family: 'Roboto', sans-serif;
             visibility: hidden;
+            background-color: #f3f4f6; /* Fundo cinza claro */
         }
         .modal {
             display: none;
@@ -22,42 +23,72 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(0,0,0,0.4);
+            background-color: rgba(0,0,0,0.6); /* Fundo mais escuro */
             justify-content: center;
             align-items: center;
         }
         .modal-content {
-            background-color: #fefefe;
+            background-color: #ffffff;
             margin: auto;
-            padding: 20px;
-            border-radius: 8px;
+            padding: 32px; /* Aumenta o padding */
+            border-radius: 12px; /* Aumenta o arredondamento */
             width: 90%;
             max-width: 500px;
-            position: relative; /* Para posicionar o feedback flutuante */
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); /* Sombra mais destacada */
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .ingredient-option {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px;
-            border-radius: 6px;
-            margin-bottom: 6px;
+            padding: 12px; /* Aumenta o padding */
+            border-radius: 8px;
+            margin-bottom: 8px;
             cursor: pointer;
-            border: 1px solid #e5e7eb;
-            transition: background-color 0.2s, border-color 0.2s;
+            border: 1px solid #d1d5db; /* Borda cinza mais clara */
+            transition: all 0.2s ease-in-out;
+        }
+        .ingredient-option:hover {
+            background-color: #f9fafb;
+            border-color: #ef4444; /* Borda vermelha ao passar o mouse */
         }
         .ingredient-option.selected-ingredient {
-            background-color: #fee2e2; /* Cor de fundo avermelhada */
-            border-color: #ef4444; /* Borda vermelha */
+            background-color: #fee2e2;
+            border-color: #ef4444;
+            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.1);
+        }
+        .category-filter-btn {
+            background-color: #e5e7eb;
+            color: #4b5563;
+            padding: 8px 16px;
+            border-radius: 9999px; /* Cantos totalmente arredondados */
+            border: none;
+            transition: all 0.2s ease-in-out;
         }
         .category-filter-btn.active {
             background-color: #3b82f6;
             color: white;
-            border-color: #3b82f6;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+        }
+        .category-filter-btn:hover:not(.active):not(:disabled) {
+            background-color: #d1d5db;
         }
         .category-filter-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+        .quantity-btn {
+            background-color: #e5e7eb;
+            color: #4b5563;
+            transition: all 0.2s ease-in-out;
+        }
+        .quantity-btn:hover:not(:disabled) {
+            background-color: #d1d5db;
         }
         .quantity-btn:disabled {
             opacity: 0.4;
@@ -65,9 +96,10 @@
         }
         .floating-feedback {
             position: absolute;
+            top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: #22c55e; /* green-500 */
+            background-color: #22c55e;
             color: white;
             padding: 8px 16px;
             border-radius: 6px;
@@ -76,19 +108,29 @@
             z-index: 1050;
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            white-space: nowrap; /* Garante que o texto não quebre a linha */
+            white-space: nowrap;
+            opacity: 1;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
         }
         .feedback-progress-bar {
             position: absolute;
             bottom: 0;
             left: 0;
             height: 4px;
-            background-color: #86efac; /* green-300 */
+            background-color: #86efac;
             animation: progress-countdown 1.7s linear forwards;
         }
         @keyframes progress-countdown {
             from { width: 100%; }
             to { width: 0%; }
+        }
+        .item-card-shadow {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .item-card-shadow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0,0,0,0.1);
         }
     </style>
 </head>
@@ -104,7 +146,7 @@
     <main class="max-w-4xl mx-auto p-4">
         <form id="manual-order-form">
             <!-- Dados do Cliente -->
-            <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4">
+            <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                 <h3 class="font-bold mb-2 text-lg">1. Identificação</h3>
                  <div class="mb-2">
                     <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Mesa / Cliente</label>
@@ -148,15 +190,15 @@
             </div>
 
             <!-- Itens do Pedido -->
-            <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4">
+            <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                 <h3 class="font-bold mb-2 text-lg">2. Itens do Pedido</h3>
                 <div id="manual-order-feedback" class="text-sm text-green-600 font-semibold mb-2 h-4"></div>
                 <div id="manual-order-items" class="space-y-2 mb-2"></div>
-                <button type="button" id="add-item-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-semibold">+ Adicionar Item</button>
+                <button type="button" id="add-item-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-semibold transition-colors">+ Adicionar Item</button>
             </div>
 
             <!-- Totais e Pagamento -->
-            <div class="p-4 bg-white border border-gray-200 rounded-lg">
+            <div class="p-4 bg-white border border-gray-200 rounded-lg item-card-shadow">
                 <h3 class="font-bold mb-2 text-lg">3. Pagamento e Total</h3>
                 <div class="space-y-1">
                     <div class="flex justify-between text-sm"><span class="text-gray-600">Subtotal:</span> <span id="manual-subtotal" class="font-medium">R$ 0,00</span></div>
@@ -175,7 +217,7 @@
             </div>
 
             <div class="mt-6 flex justify-end">
-                <button type="submit" class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded-md hover:bg-purple-700 text-lg">Salvar Pedido</button>
+                <button type="submit" class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded-md hover:bg-purple-700 text-lg transition-colors">Salvar Pedido</button>
             </div>
         </form>
     </main>
@@ -209,8 +251,8 @@
                 <span id="burger-total-price-manual" class="text-2xl font-bold text-red-600">R$ 0,00</span>
             </div>
             <div class="flex gap-4 mt-4">
-                <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition">Adicionar ao Pedido</button>
+                <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">Cancelar</button>
+                <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition-colors">Adicionar ao Pedido</button>
             </div>
         </div>
     </div>
@@ -672,8 +714,8 @@
                         <span id="burger-total-price-manual" class="text-2xl font-bold text-red-600">R$ 0,00</span>
                     </div>
                     <div class="flex gap-4 mt-4">
-                        <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
-                        <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition">${editIndex !== null ? 'Atualizar Item' : 'Adicionar ao Pedido'}</button>
+                        <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">Cancelar</button>
+                        <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition-colors">${editIndex !== null ? 'Atualizar Item' : 'Adicionar ao Pedido'}</button>
                     </div>
                 </div>
             `;
