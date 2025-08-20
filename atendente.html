@@ -154,8 +154,12 @@
                 </div>
                 <div class="flex flex-wrap gap-4 items-center mb-2">
                     <div class="flex items-center">
+                        <input type="checkbox" id="mesa-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
+                        <label for="mesa-checkbox" class="ml-2 block text-sm text-gray-900">Mesa</label>
+                    </div>
+                    <div class="flex items-center">
                         <input type="checkbox" id="pickup-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
-                        <label for="pickup-checkbox" class="ml-2 block text-sm text-gray-900">Para Viagem / Retirada</label>
+                        <label for="pickup-checkbox" class="ml-2 block text-sm text-gray-900">Retira no Balcão</label>
                     </div>
                     <div class="flex items-center">
                         <input type="checkbox" id="delivery-checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
@@ -312,6 +316,7 @@
 
         // Elementos do DOM
         const manualOrderForm = document.getElementById('manual-order-form');
+        const mesaCheckbox = document.getElementById('mesa-checkbox');
         const pickupCheckbox = document.getElementById('pickup-checkbox');
         const deliveryCheckbox = document.getElementById('delivery-checkbox');
         const deliveryFields = document.getElementById('delivery-fields');
@@ -350,7 +355,7 @@
                 const response = await fetch('/api/menu');
                 if (!response.ok) throw new Error('Network response was not ok');
                 const data = await response.json();
-                fullMenuData.cardapio = data.cardapio; // CORREÇÃO: Carrega todos os itens
+                fullMenuData.cardapio = data.cardapio;
                 fullMenuData.deliveryFees = data.deliveryFees;
                 const burgerIngredients = data.ingredientesHamburguer || [];
                 fullMenuData.ingredientesHamburguer = burgerIngredients.reduce((acc, current) => {
@@ -377,7 +382,6 @@
                     const isSecondHalf = manualFirstHalfPizza !== null;
                     renderItemList(searchItemInput.value, activeFilter, isSecondHalf);
                 }
-                updateItemsAvailability(unavailableItems); // CORREÇÃO: Atualiza a lista principal também
             });
         }
         
@@ -1001,6 +1005,8 @@
             e.preventDefault();
             const clientName = document.getElementById('manual-clientName').value;
             const clientPhone = manualClientPhone.value;
+            const isMesa = mesaCheckbox.checked;
+            const isPickup = pickupCheckbox.checked;
             const isDelivery = deliveryCheckbox.checked;
             const street = document.getElementById('manual-street').value;
             const number = document.getElementById('manual-number').value;
@@ -1026,13 +1032,18 @@
 
             const finalTotal = subtotal + deliveryFee;
 
+            let rua = "Atendimento Interno";
+            if(isDelivery) rua = street;
+            if(isPickup) rua = "Retirada no Balcão";
+            if(isMesa) rua = "Mesa";
+
             const newOrder = {
                 itens: manualOrderItems,
                 endereco: {
                     clientName,
                     telefone: clientPhone,
-                    rua: isDelivery ? street : (pickupCheckbox.checked ? "Retirada no Balcão" : "Mesa"),
-                    numero: isDelivery ? number : (pickupCheckbox.checked ? "" : "N/A"),
+                    rua: rua,
+                    numero: isDelivery ? number : (isPickup ? "" : "N/A"),
                     bairro: isDelivery ? neighborhood : "",
                     referencia: isDelivery ? reference : ""
                 },
@@ -1048,6 +1059,7 @@
                 manualOrderItems = [];
                 deliveryCheckbox.checked = false;
                 pickupCheckbox.checked = false;
+                mesaCheckbox.checked = false;
                 deliveryFields.style.display = 'none';
                 updateManualOrderDisplay();
                 document.getElementById('manual-clientName').focus();
@@ -1057,7 +1069,6 @@
             }
         }
         
-        // CORREÇÃO: Lógica de disponibilidade
         function updateItemsAvailability(unavailableItems = {}) {
             fullMenuData.cardapio.forEach(item => {
                 const card = document.querySelector(`[data-item-id-card="${item.id}"]`);
@@ -1102,8 +1113,18 @@
         });
         manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
 
+        mesaCheckbox.addEventListener('change', () => {
+            if (mesaCheckbox.checked) {
+                pickupCheckbox.checked = false;
+                deliveryCheckbox.checked = false;
+                deliveryFields.style.display = 'none';
+            }
+            updateManualOrderDisplay();
+        });
+
         pickupCheckbox.addEventListener('change', () => {
             if (pickupCheckbox.checked) {
+                mesaCheckbox.checked = false;
                 deliveryCheckbox.checked = false;
                 deliveryFields.style.display = 'none';
             }
@@ -1112,6 +1133,7 @@
 
         deliveryCheckbox.addEventListener('change', () => {
             if (deliveryCheckbox.checked) {
+                mesaCheckbox.checked = false;
                 pickupCheckbox.checked = false;
                 deliveryFields.style.display = 'block';
             } else {
