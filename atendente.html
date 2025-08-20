@@ -97,6 +97,7 @@
     <header class="bg-white shadow-md">
         <div class="max-w-4xl mx-auto py-4 px-4 flex justify-between items-center">
             <h1 class="text-xl font-bold text-gray-800">Lançamento de Pedido</h1>
+            <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">Sair</button>
         </div>
     </header>
 
@@ -242,7 +243,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -291,6 +292,8 @@
         const manualReferenceInput = document.getElementById('manual-reference');
         const manualClientPhone = document.getElementById('manual-clientPhone');
         const editSplitButtonsContainer = document.getElementById('edit-split-buttons');
+        const logoutBtn = document.getElementById('logout-btn');
+
 
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let manualOrderItems = [];
@@ -1038,6 +1041,10 @@
                 const index = parseInt(editArea.dataset.index);
                 handleEditItem(index);
             }
+        });
+        
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth).catch((error) => console.error("Erro ao fazer logout:", error));
         });
 
         // Edit Split Pizza Modal Listeners
