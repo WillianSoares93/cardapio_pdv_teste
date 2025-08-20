@@ -600,6 +600,7 @@
             <div id="address-summary-section" class="border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50 hidden">
                 <h4 class="font-bold text-gray-800 mb-2">Detalhes da Entrega:</h4>
                 <p id="client-name-display" class="text-gray-700 text-sm"></p>
+                <p id="contact-display" class="text-gray-700 text-sm"></p>
                 <p id="address-display" class="text-gray-700 text-sm"></p>
                 <p id="neighborhood-display" class="text-gray-600 text-sm"></p>
                 <p id="reference-display" class="text-gray-600 text-sm italic"></p>
@@ -777,6 +778,13 @@
                 </label>
                 <input type="text" id="clientNameInput" placeholder="Seu nome" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
             </div>
+            <!-- CAMPO DE CONTATO ADICIONADO -->
+            <div class="mb-4">
+                <label for="contactInput" class="block text-gray-700 text-sm font-bold mb-2">
+                    Contato (Telefone):
+                </label>
+                <input type="tel" id="contactInput" placeholder="(99) 99999-9999" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
             <div class="mb-4">
                 <label for="neighborhoodSelect" class="block text-gray-700 text-sm font-bold mb-2">
                     Bairro:
@@ -878,8 +886,10 @@
             let discountPromotion = null;
             let contactInfo = {};
             
+            // OBJETO DE ENDEREÇO ATUALIZADO
             let selectedAddress = {
                 clientName: null, 
+                telefone: null,
                 bairro: null,
                 rua: null,
                 numero: null,
@@ -947,6 +957,7 @@
             const addressInputModal = document.getElementById('address-input-modal');
             const closeAddressModalBtn = document.getElementById('close-address-modal');
             const clientNameInput = document.getElementById('clientNameInput');
+            const contactInput = document.getElementById('contactInput'); // NOVA CONSTANTE
             const neighborhoodSelect = document.getElementById('neighborhoodSelect');
             const streetInput = document.getElementById('streetInput');
             const numberInput = document.getElementById('numberInput');
@@ -955,6 +966,7 @@
             const confirmAddressBtn = document.getElementById('confirmAddressBtn');
             const addressSummarySection = document.getElementById('address-summary-section');
             const clientNameDisplay = document.getElementById('client-name-display');
+            const contactDisplay = document.getElementById('contact-display'); // NOVA CONSTANTE
             const addressDisplay = document.getElementById('address-display');
             const neighborhoodDisplay = document.getElementById('neighborhood-display');
             const referenceDisplay = document.getElementById('reference-display');
@@ -2375,6 +2387,7 @@
                 addressInputModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
                 clientNameInput.value = selectedAddress.clientName || '';
+                contactInput.value = selectedAddress.telefone || ''; // ATUALIZADO
                 if (selectedAddress.bairro) {
                     neighborhoodSelect.value = selectedAddress.bairro;
                 } else {
@@ -2411,6 +2424,13 @@
                 if (selectedAddress.bairro) {
                     addressSummarySection.classList.remove('hidden');
                     clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName || 'Não informado'}`;
+                    // LÓGICA DE EXIBIÇÃO DO CONTATO
+                    if (selectedAddress.telefone) {
+                        contactDisplay.textContent = `Contato: ${selectedAddress.telefone}`;
+                        contactDisplay.classList.remove('hidden');
+                    } else {
+                        contactDisplay.classList.add('hidden');
+                    }
                     addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
                     neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
                     referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
@@ -2422,6 +2442,7 @@
             function hideAddressSummary() {
                 addressSummarySection.classList.add('hidden');
                 clientNameDisplay.textContent = '';
+                contactDisplay.textContent = ''; // Limpa o contato
                 addressDisplay.textContent = '';
                 neighborhoodDisplay.textContent = '';
                 referenceDisplay.textContent = '';
@@ -2431,6 +2452,13 @@
                 if (selectedAddress.bairro && selectedAddress.rua) {
                     addressSummarySection.classList.remove('hidden');
                     clientNameDisplay.textContent = `Nome do Cliente: ${selectedAddress.clientName || 'Não informado'}`;
+                    // LÓGICA DE EXIBIÇÃO DO CONTATO
+                    if (selectedAddress.telefone) {
+                        contactDisplay.textContent = `Contato: ${selectedAddress.telefone}`;
+                        contactDisplay.classList.remove('hidden');
+                    } else {
+                        contactDisplay.classList.add('hidden');
+                    }
                     addressDisplay.textContent = `Rua: ${selectedAddress.rua}, Nº ${selectedAddress.numero}`;
                     neighborhoodDisplay.textContent = `Bairro: ${selectedAddress.bairro}`;
                     referenceDisplay.textContent = selectedAddress.referencia ? `Ponto de Referência: ${selectedAddress.referencia}` : '';
@@ -2782,8 +2810,10 @@
                 }
             });
 
+            // LISTENER DO BOTÃO DE CONFIRMAR ENDEREÇO ATUALIZADO
             confirmAddressBtn.addEventListener('click', function() {
                 const clientName = clientNameInput.value.trim();
+                const contato = contactInput.value.trim();
                 const bairro = neighborhoodSelect.value;
                 const rua = streetInput.value.trim();
                 let numero = numberInput.value.trim();
@@ -2812,6 +2842,7 @@
 
                 selectedAddress = {
                     clientName: clientName,
+                    telefone: contato,
                     bairro: bairro,
                     rua: rua,
                     numero: numero,
