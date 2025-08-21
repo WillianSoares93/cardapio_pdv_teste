@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -82,7 +83,6 @@
         .mesa-status-livre { background-color: #dcfce7; border-color: #22c55e; color: #166534; }
         .mesa-status-ocupada { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; }
         .mesa-status-conta { background-color: #fef9c3; border-color: #facc15; color: #854d0e; }
-        /* INÍCIO DA ALTERAÇÃO: Estilos para junção de mesas */
         .mesa-status-juntada { background-color: #e0e7ff; border-color: #4f46e5; color: #3730a3; }
         .mesa-item.selected-for-join {
             outline: 4px solid #3b82f6;
@@ -96,7 +96,6 @@
             cursor: not-allowed;
             opacity: 0.5;
         }
-        /* FIM DA ALTERAÇÃO */
         .tab-btn.active {
             border-bottom-color: #3b82f6; /* blue-500 */
             color: #3b82f6;
@@ -173,7 +172,6 @@
         </div>
 
         <div id="tab-content-mesas" class="tab-content hidden">
-            <!-- INÍCIO DA ALTERAÇÃO: Botões de controle para junção de mesas -->
             <div id="mesas-controls" class="mt-4 p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
                 <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
                     <i class="fas fa-link mr-2"></i>Juntar Mesas
@@ -183,7 +181,6 @@
                     <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
                 </div>
             </div>
-            <!-- FIM DA ALTERAÇÃO -->
             <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mt-4">
                 <!-- As mesas serão inseridas aqui pelo JavaScript -->
             </div>
@@ -625,44 +622,71 @@
                     }
                 });
 
-                snapshot.docs.forEach(doc => {
-                    const orderData = doc.data();
-                    const orderId = doc.id;
-                    const card = createOrderCard(orderData, orderId);
+                // INÍCIO DA ALTERAÇÃO: Processa grupos de mesas primeiro
+                const processedTables = new Set();
+                const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                    const orderDate = orderData.criadoEm ? new Date(orderData.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
+                activeOrders.filter(order => order.grupoMesas && order.grupoMesas.length > 1 && order.status !== 'Finalizado')
+                    .forEach(order => {
+                        const sortedGroup = [...order.grupoMesas].sort((a, b) => a - b);
+                        const primaryTableNumber = sortedGroup[0];
+                        
+                        const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
+                        if (primaryTableEl) {
+                            primaryTableEl.classList.remove('mesa-status-livre', 'sm:grid-cols-3', 'md:grid-cols-4', 'lg:grid-cols-6');
+                            primaryTableEl.classList.add('mesa-status-juntada', `col-span-${sortedGroup.length}`);
+                            primaryTableEl.querySelector('span:last-child').textContent = 'Juntadas';
+                            primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
+                            primaryTableEl.dataset.status = 'ocupada';
+                            primaryTableEl.dataset.orderId = order.id;
+                            processedTables.add(primaryTableNumber);
+
+                            for (let i = 1; i < sortedGroup.length; i++) {
+                                const secondaryTableNumber = sortedGroup[i];
+                                const secondaryTableEl = document.getElementById(`mesa-${secondaryTableNumber}`);
+                                if (secondaryTableEl) {
+                                    secondaryTableEl.classList.add('hidden');
+                                }
+                                processedTables.add(secondaryTableNumber);
+                            }
+                        }
+                    });
+                // FIM DA ALTERAÇÃO
+
+                activeOrders.forEach(order => {
+                    const orderId = order.id;
+                    const card = createOrderCard(order, orderId);
+
+                    const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
                     if(orderDate === today) {
                         totalOrdersToday++;
-                        totalRevenueToday += orderData.total.finalTotal;
+                        totalRevenueToday += order.total.finalTotal;
                     }
 
-                    const tipoPedido = identifyOrderType(orderData);
+                    const tipoPedido = identifyOrderType(order);
 
                     if (tipoPedido === 'delivery') {
-                        if (orderData.status === 'Novo') colDeliveryNovo.appendChild(card);
-                        else if (orderData.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
-                        else if (orderData.status === 'Pronto para Entrega') colDeliveryEntrega.appendChild(card);
-                        else if (orderData.status === 'Finalizado') colDeliveryFinalizado.appendChild(card);
+                        if (order.status === 'Novo') colDeliveryNovo.appendChild(card);
+                        else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
+                        else if (order.status === 'Pronto para Entrega') colDeliveryEntrega.appendChild(card);
+                        else if (order.status === 'Finalizado') colDeliveryFinalizado.appendChild(card);
                     } else if (tipoPedido === 'retirada') {
-                        if (orderData.status === 'Novo') colRetiradaNovo.appendChild(card);
-                        else if (orderData.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
-                        else if (orderData.status === 'Pronto para Entrega') colRetiradaPronto.appendChild(card);
-                        else if (orderData.status === 'Finalizado') colRetiradaFinalizado.appendChild(card);
-                    } else if (tipoPedido === 'mesa') {
-                        const mesasDoPedido = orderData.grupoMesas || [parseInt((orderData.endereco.clientName || "").replace(/[^0-9]/g, ''))];
-                        
-                        mesasDoPedido.forEach(numeroMesa => {
-                            if (numeroMesa && numeroMesa <= NUMERO_DE_MESAS && orderData.status !== 'Finalizado') {
-                                const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
-                                mesaEl.classList.remove('mesa-status-livre');
-                                const statusClass = mesasDoPedido.length > 1 ? 'mesa-status-juntada' : 'mesa-status-ocupada';
-                                const statusText = mesasDoPedido.length > 1 ? `Juntada (${mesasDoPedido.join('+')})` : 'Ocupada';
-                                mesaEl.classList.add(statusClass);
-                                mesaEl.querySelector('span:last-child').textContent = statusText;
-                                mesaEl.dataset.status = 'ocupada';
-                                mesaEl.dataset.orderId = orderId;
-                            }
-                        });
+                        if (order.status === 'Novo') colRetiradaNovo.appendChild(card);
+                        else if (order.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
+                        else if (order.status === 'Pronto para Entrega') colRetiradaPronto.appendChild(card);
+                        else if (order.status === 'Finalizado') colRetiradaFinalizado.appendChild(card);
+                    } else if (tipoPedido === 'mesa' && !order.grupoMesas) {
+                        const clientName = order.endereco.clientName || "";
+                        const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
+                        if (numeroMesa && !processedTables.has(numeroMesa) && order.status !== 'Finalizado') {
+                            const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
+                            mesaEl.classList.remove('mesa-status-livre');
+                            mesaEl.classList.add('mesa-status-ocupada');
+                            mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
+                            mesaEl.dataset.status = 'ocupada';
+                            mesaEl.dataset.orderId = orderId;
+                            processedTables.add(numeroMesa);
+                        }
                     }
                 });
                 document.getElementById('stats-total-orders').textContent = totalOrdersToday;
