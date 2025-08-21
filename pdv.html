@@ -84,6 +84,16 @@
             background-color: #2563eb; /* blue-600 */
             color: white;
         }
+        /* Estilos para a Aba Ativa */
+        .tab-btn.active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #3b82f6;
+        }
+        /* Estilo para toggle desativado */
+        .toggle-checkbox:disabled + .toggle-label {
+            background-color: #d1d5db; /* gray-300 */
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -210,25 +220,60 @@
     <div id="menu-management-modal" class="modal">
         <div class="modal-content !max-w-3xl">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">Gerenciar Disponibilidade de Itens</h2>
+                <h2 class="text-xl font-bold">Gerenciar Disponibilidade</h2>
                 <button id="close-menu-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <!-- Filtros e Busca -->
-            <div class="mb-4 p-4 bg-gray-50 rounded-lg">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="search-menu-input" placeholder="Buscar item pelo nome..." class="p-2 border border-gray-300 rounded-md w-full">
-                    <select id="category-filter-select" class="p-2 border border-gray-300 rounded-md w-full">
-                        <option value="all">Todas as Categorias</option>
-                    </select>
+
+            <!-- Abas de Navegação -->
+            <div class="border-b border-gray-200 mb-4">
+                <nav id="tabs" class="flex space-x-4 -mb-px" aria-label="Tabs">
+                    <button id="tab-items" class="tab-btn active whitespace-nowrap px-3 py-2 font-medium text-sm rounded-t-lg border-b-2">
+                        Itens do Cardápio
+                    </button>
+                    <button id="tab-ingredients" class="tab-btn whitespace-nowrap px-3 py-2 font-medium text-sm rounded-t-lg border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Ingredientes do Hambúrguer
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Conteúdo da Aba de Itens -->
+            <div id="tab-content-items">
+                <!-- Filtros e Busca -->
+                <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="search-menu-input" placeholder="Buscar item pelo nome..." class="p-2 border border-gray-300 rounded-md w-full">
+                        <select id="category-filter-select" class="p-2 border border-gray-300 rounded-md w-full">
+                            <option value="all">Todas as Categorias</option>
+                        </select>
+                    </div>
                 </div>
-                <div id="status-filter-buttons" class="mt-2 flex space-x-2">
-                    <button class="status-filter-btn active px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="all">Todos</button>
-                    <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="available">Disponíveis</button>
-                    <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="unavailable">Esgotados</button>
+                <!-- Lista de Itens -->
+                <div id="menu-items-container" class="space-y-2 max-h-80 overflow-y-auto pr-2">
+                     <!-- Cabeçalho das Colunas -->
+                    <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
+                        <span class="flex-grow">Item</span>
+                        <div class="flex items-center space-x-8 mr-2">
+                            <span class="w-10 text-center">Exibir</span>
+                            <span class="w-10 text-center">Disponível</span>
+                        </div>
+                    </div>
+                    <!-- Itens serão inseridos aqui -->
                 </div>
             </div>
-            <div id="menu-items-container" class="space-y-2 max-h-80 overflow-y-auto">
-                <!-- Itens do cardápio serão inseridos aqui -->
+
+            <!-- Conteúdo da Aba de Ingredientes -->
+            <div id="tab-content-ingredients" class="hidden">
+                 <div id="ingredients-container" class="space-y-2 max-h-80 overflow-y-auto pr-2">
+                    <!-- Cabeçalho das Colunas -->
+                    <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
+                        <span class="flex-grow">Ingrediente</span>
+                        <div class="flex items-center space-x-8 mr-2">
+                            <span class="w-10 text-center">Exibir</span>
+                            <span class="w-10 text-center">Disponível</span>
+                        </div>
+                    </div>
+                    <!-- Ingredientes serão inseridos aqui -->
+                </div>
             </div>
         </div>
     </div>
@@ -281,7 +326,6 @@
                 document.body.style.visibility = 'visible';
                 checkCashRegisterStatus();
             } else {
-                // ** LÓGICA DE REDIRECIONAMENTO ATUALIZADA **
                 window.location.href = `login.html?redirect=pdv.html`;
             }
         });
@@ -349,9 +393,9 @@
         const menuManagementModal = document.getElementById('menu-management-modal');
         const closeMenuModalBtn = document.getElementById('close-menu-modal');
         const menuItemsContainer = document.getElementById('menu-items-container');
+        const ingredientsContainer = document.getElementById('ingredients-container');
         const searchMenuInput = document.getElementById('search-menu-input');
         const categoryFilterSelect = document.getElementById('category-filter-select');
-        const statusFilterButtons = document.getElementById('status-filter-buttons');
         const closeCashRegisterBtn = document.getElementById('close-cash-register-btn');
         const closeCashModal = document.getElementById('close-cash-modal');
         const closeCashForm = document.getElementById('close-cash-form');
@@ -359,7 +403,7 @@
         const finalValueInput = document.getElementById('final-value');
         
         let orderIdToDelete = null;
-        let deliveryFeesData = []; // Armazena os bairros e taxas
+        let deliveryFeesData = [];
 
         async function loadDeliveryFees() {
             if (deliveryFeesData.length > 0) return;
@@ -374,7 +418,7 @@
         }
 
         function initializePDV() {
-            loadDeliveryFees(); // Carrega os bairros ao iniciar
+            loadDeliveryFees();
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             function playNotificationSound() {
                 const oscillator = audioContext.createOscillator();
@@ -506,7 +550,6 @@
                 </div>
             `;
             
-            // LÓGICA PARA EXIBIR O CONTATO
             let contactHtml = '';
             if (order.endereco.telefone && order.endereco.telefone.trim() !== '') {
                 contactHtml = `<p class="text-sm text-gray-600 mt-1"><i class="fas fa-phone-alt fa-xs mr-1"></i>${order.endereco.telefone}</p>`;
@@ -550,7 +593,7 @@
         }
 
         async function openEditModal(id) {
-            await loadDeliveryFees(); // Garante que os bairros estão carregados
+            await loadDeliveryFees();
             const orderRef = doc(db, "pedidos", id);
             const docSnap = await getDoc(orderRef);
 
@@ -615,7 +658,6 @@
             const id = document.getElementById('edit-order-id').value;
             const orderRef = doc(db, "pedidos", id);
             
-            // Pega os dados atuais do pedido para recalcular o total
             const docSnap = await getDoc(orderRef);
             if (!docSnap.exists()) {
                 console.error("Pedido não encontrado para atualização.");
@@ -673,14 +715,12 @@
                     const order = docSnap.data();
                     let printContent = '';
                     
-                    // LÓGICA PARA ADICIONAR CONTATO NA IMPRESSÃO
                     let contactPrintHtml = '';
                     if (order.endereco.telefone && order.endereco.telefone.trim() !== '') {
                         contactPrintHtml = `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>`;
                     }
 
                     if (type === 'kitchen') {
-                        // Lógica para a comanda da cozinha - incluindo os ingredientes do hambúrguer
                         let itemsKitchenHtml = order.itens.map(item => {
                             let itemString = `<li style="padding: 8px 0; border-bottom: 1px dashed #ccc;"><strong>1x</strong> ${item.name}</li>`;
                             if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
@@ -769,99 +809,6 @@
             await batch.commit();
         }
 
-        // --- LÓGICA ATUALIZADA PARA GERENCIAR O CARDÁPIO ---
-        function filterMenuItems() {
-            const searchText = searchMenuInput.value.toLowerCase();
-            const selectedCategory = categoryFilterSelect.value;
-            const activeStatusFilter = statusFilterButtons.querySelector('.active').dataset.filter;
-
-            const items = menuItemsContainer.querySelectorAll('.menu-item-row');
-            items.forEach(item => {
-                const itemName = item.dataset.name.toLowerCase();
-                const itemCategory = item.dataset.category;
-                const itemStatus = item.querySelector('.toggle-checkbox').checked ? 'available' : 'unavailable';
-
-                const nameMatch = itemName.includes(searchText);
-                const categoryMatch = selectedCategory === 'all' || itemCategory === selectedCategory;
-                const statusMatch = activeStatusFilter === 'all' || itemStatus === activeStatusFilter;
-
-                if (nameMatch && categoryMatch && statusMatch) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
-
-        async function openMenuManagementModal() {
-            menuItemsContainer.innerHTML = '<p>Carregando cardápio...</p>';
-            menuManagementModal.style.display = 'flex';
-
-            try {
-                const response = await fetch('/api/menu');
-                if (!response.ok) throw new Error('Falha ao carregar o cardápio');
-                
-                const data = await response.json();
-                
-                const allItems = data.cardapio.filter(item => item.id && item.name);
-                const categories = [...new Set(allItems.map(item => item.category))];
-
-                categoryFilterSelect.innerHTML = '<option value="all">Todas as Categorias</option>';
-                categories.forEach(category => {
-                    const option = document.createElement('option');
-                    option.value = category;
-                    option.textContent = category;
-                    categoryFilterSelect.appendChild(option);
-                });
-                
-                const itemStatusRef = doc(db, "config", "item_status");
-                const itemStatusSnap = await getDoc(itemStatusRef);
-                const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
-
-                menuItemsContainer.innerHTML = '';
-                allItems.forEach(item => {
-                    const isChecked = !unavailableItems.hasOwnProperty(item.id);
-                    const itemElement = document.createElement('div');
-                    itemElement.className = 'menu-item-row flex items-center justify-between p-2 bg-gray-50 rounded';
-                    itemElement.dataset.name = item.name;
-                    itemElement.dataset.category = item.category;
-
-                    itemElement.innerHTML = `
-                        <div>
-                            <span class="font-medium">${item.name}</span>
-                            <span class="text-xs text-gray-500 ml-2">${item.category}</span>
-                        </div>
-                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" name="toggle" id="toggle-${item.id}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" 
-                                   data-item-id="${item.id}" ${isChecked ? 'checked' : ''}/>
-                            <label for="toggle-${item.id}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                        </div>
-                    `;
-                    menuItemsContainer.appendChild(itemElement);
-
-                    itemElement.querySelector('.toggle-checkbox').addEventListener('change', async (e) => {
-                        const itemId = e.target.dataset.itemId;
-                        const available = e.target.checked;
-                        
-                        const currentStatusSnap = await getDoc(itemStatusRef);
-                        const currentStatus = currentStatusSnap.exists() ? currentStatusSnap.data() : {};
-
-                        if (available) {
-                            delete currentStatus[itemId];
-                        } else {
-                            currentStatus[itemId] = false;
-                        }
-
-                        await setDoc(itemStatusRef, currentStatus);
-                    });
-                });
-                filterMenuItems(); // Aplica o filtro inicial
-
-            } catch (error) {
-                menuItemsContainer.innerHTML = `<p class="text-red-500">Erro ao carregar cardápio: ${error.message}</p>`;
-            }
-        }
-
         manageMenuBtn.addEventListener('click', openMenuManagementModal);
         closeMenuModalBtn.addEventListener('click', () => {
             menuManagementModal.style.display = 'none';
@@ -869,15 +816,7 @@
 
         searchMenuInput.addEventListener('input', filterMenuItems);
         categoryFilterSelect.addEventListener('change', filterMenuItems);
-        statusFilterButtons.addEventListener('click', (e) => {
-            if (e.target.classList.contains('status-filter-btn')) {
-                statusFilterButtons.querySelector('.active').classList.remove('active');
-                e.target.classList.add('active');
-                filterMenuItems();
-            }
-        });
-        // --- FIM DA LÓGICA ATUALIZADA ---
-
+        
         closeCashRegisterBtn.addEventListener('click', async () => {
             if (!currentCashRegister) {
                 alert("Nenhum caixa aberto para fechar.");
