@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -366,10 +367,10 @@
         let manualOrderItems = [];
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let unavailableItems = {};
+        let hiddenItems = {};
         let manualFirstHalfPizza = null;
         let editingItemIndex = null;
         let currentItemForQuantity = null;
-        let currentBurgerBasePrice = 0;
 
         function showView(viewName) {
             initialSelectionView.classList.add('hidden');
@@ -394,15 +395,22 @@
         }
 
         function listenToItemStatus() {
-            const itemStatusRef = doc(db, "config", "item_status");
-            onSnapshot(itemStatusRef, (doc) => {
+            onSnapshot(doc(db, "config", "item_status"), (doc) => {
                 unavailableItems = doc.exists() ? doc.data() : {};
-                if (addItemModal.style.display === 'flex') {
-                    const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-                    const isSecondHalf = manualFirstHalfPizza !== null;
-                    renderItemList(searchItemInput.value, activeFilter, isSecondHalf);
-                }
+                refreshItemListIfOpen();
             });
+            onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
+                hiddenItems = doc.exists() ? doc.data() : {};
+                refreshItemListIfOpen();
+            });
+        }
+        
+        function refreshItemListIfOpen() {
+            if (addItemModal.style.display === 'flex') {
+                const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
+                const isSecondHalf = manualFirstHalfPizza !== null;
+                renderItemList(searchItemInput.value, activeFilter, isSecondHalf);
+            }
         }
 
         function updateMesasGrid(activeOrders) {
@@ -761,7 +769,8 @@
             filteredMenu = filteredMenu.filter(item => {
                 const nameMatch = item.name.toLowerCase().includes(filterText.toLowerCase());
                 const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
-                return nameMatch && categoryMatch;
+                const isVisible = hiddenItems[item.id] !== false;
+                return nameMatch && categoryMatch && isVisible;
             });
 
             const itemsByCategory = filteredMenu.reduce((acc, item) => {
