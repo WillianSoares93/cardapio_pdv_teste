@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1114,6 +1115,25 @@
 
         confirmDeleteBtn.addEventListener('click', executeDelete);
         clearFinishedBtn.addEventListener('click', clearFinishedOrders);
+        
+        const tabItems = document.getElementById('tab-items');
+        const tabIngredients = document.getElementById('tab-ingredients');
+        const contentItems = document.getElementById('tab-content-items');
+        const contentIngredients = document.getElementById('tab-content-ingredients');
+
+        tabItems.addEventListener('click', () => {
+            tabItems.classList.add('active');
+            tabIngredients.classList.remove('active');
+            contentItems.classList.remove('hidden');
+            contentIngredients.classList.add('hidden');
+        });
+
+        tabIngredients.addEventListener('click', () => {
+            tabIngredients.classList.add('active');
+            tabItems.classList.remove('active');
+            contentIngredients.classList.remove('hidden');
+            contentItems.classList.add('hidden');
+        });
 
     </script>
 </body>
