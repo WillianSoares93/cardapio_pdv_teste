@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -411,6 +410,11 @@ teste
         
         let orderIdToDelete = null;
         let deliveryFeesData = [];
+        // INÍCIO DA ALTERAÇÃO: Variáveis para armazenar dados dos filtros
+        let allMenuItems = [];
+        let unavailableItemsData = {};
+        let hiddenItemsData = {};
+        // FIM DA ALTERAÇÃO
 
         async function loadDeliveryFees() {
             if (deliveryFeesData.length > 0) return;
@@ -836,10 +840,12 @@ teste
                 if (!response.ok) throw new Error('Falha ao carregar o cardápio');
                 
                 const data = await response.json();
-                const allItems = data.cardapio.filter(item => item.id && item.name);
+                // INÍCIO DA ALTERAÇÃO: Armazena a lista completa de itens
+                allMenuItems = data.cardapio.filter(item => item.id && item.name);
                 const allIngredients = data.ingredientesHamburguer.filter(ing => ing.id && ing.name);
+                // FIM DA ALTERAÇÃO
                 
-                const categories = [...new Set(allItems.map(item => item.category))];
+                const categories = [...new Set(allMenuItems.map(item => item.category))];
                 categoryFilterSelect.innerHTML = '<option value="all">Todas as Categorias</option>';
                 categories.forEach(category => {
                     const option = document.createElement('option');
@@ -853,25 +859,16 @@ teste
                 const ingredientStatusSnap = await getDoc(doc(db, "config", "ingredient_status"));
                 const ingredientVisibilitySnap = await getDoc(doc(db, "config", "ingredient_visibility"));
 
-                const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
-                const hiddenItems = itemVisibilitySnap.exists() ? itemVisibilitySnap.data() : {};
+                // INÍCIO DA ALTERAÇÃO: Armazena os dados de status e visibilidade
+                unavailableItemsData = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
+                hiddenItemsData = itemVisibilitySnap.exists() ? itemVisibilitySnap.data() : {};
+                // FIM DA ALTERAÇÃO
                 const unavailableIngredients = ingredientStatusSnap.exists() ? ingredientStatusSnap.data() : {};
                 const hiddenIngredients = ingredientVisibilitySnap.exists() ? ingredientVisibilitySnap.data() : {};
 
-                menuItemsContainer.innerHTML = `
-                    <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
-                        <span class="flex-grow">Item</span>
-                        <div class="flex items-center space-x-8 mr-2">
-                            <span class="w-10 text-center">Exibir</span>
-                            <span class="w-10 text-center">Disponível</span>
-                        </div>
-                    </div>`;
-                allItems.forEach(item => {
-                    const isVisible = hiddenItems[item.id] !== false;
-                    const isAvailable = unavailableItems[item.id] !== false;
-                    const itemElement = createControlRow(item.name, item.id, isVisible, isAvailable, 'item');
-                    menuItemsContainer.appendChild(itemElement);
-                });
+                // INÍCIO DA ALTERAÇÃO: Aplica os filtros iniciais em vez de renderizar tudo
+                applyMenuFilters();
+                // FIM DA ALTERAÇÃO
 
                 ingredientsContainer.innerHTML = `
                     <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
@@ -892,6 +889,60 @@ teste
                 menuItemsContainer.innerHTML = `<p class="text-red-500">Erro ao carregar cardápio: ${error.message}</p>`;
             }
         }
+
+        // INÍCIO DA ALTERAÇÃO: Nova função para renderizar os itens filtrados
+        function renderFilteredMenuItems(itemsToRender) {
+            menuItemsContainer.innerHTML = `
+                <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
+                    <span class="flex-grow">Item</span>
+                    <div class="flex items-center space-x-8 mr-2">
+                        <span class="w-10 text-center">Exibir</span>
+                        <span class="w-10 text-center">Disponível</span>
+                    </div>
+                </div>`;
+            
+            if (itemsToRender.length === 0) {
+                menuItemsContainer.innerHTML += '<p class="text-center text-gray-500 mt-4">Nenhum item encontrado com os filtros aplicados.</p>';
+                return;
+            }
+
+            itemsToRender.forEach(item => {
+                const isVisible = hiddenItemsData[item.id] !== false;
+                const isAvailable = unavailableItemsData[item.id] !== false;
+                const itemElement = createControlRow(item.name, item.id, isVisible, isAvailable, 'item');
+                menuItemsContainer.appendChild(itemElement);
+            });
+        }
+        // FIM DA ALTERAÇÃO
+
+        // INÍCIO DA ALTERAÇÃO: Nova função para aplicar todos os filtros
+        function applyMenuFilters() {
+            const searchTerm = searchMenuInput.value.toLowerCase();
+            const selectedCategory = categoryFilterSelect.value;
+            const statusFilter = document.querySelector('#status-filter-buttons-items .active').dataset.filter;
+
+            let filteredItems = allMenuItems;
+
+            // 1. Filtro por termo de busca
+            if (searchTerm) {
+                filteredItems = filteredItems.filter(item => item.name.toLowerCase().includes(searchTerm));
+            }
+
+            // 2. Filtro por categoria
+            if (selectedCategory !== 'all') {
+                filteredItems = filteredItems.filter(item => item.category === selectedCategory);
+            }
+
+            // 3. Filtro por status
+            if (statusFilter === 'available') {
+                filteredItems = filteredItems.filter(item => unavailableItemsData[item.id] !== false);
+            } else if (statusFilter === 'unavailable') {
+                filteredItems = filteredItems.filter(item => unavailableItemsData[item.id] === false);
+            }
+
+            renderFilteredMenuItems(filteredItems);
+        }
+        // FIM DA ALTERAÇÃO
 
         function createControlRow(name, id, isVisible, isAvailable, type) {
             const element = document.createElement('div');
@@ -936,6 +987,10 @@ teste
             const docName = `${type}_${control}`;
             const docRef = doc(db, "config", docName);
             try {
+                // Atualiza o estado local primeiro para uma resposta de UI mais rápida
+                if (docName === 'item_status') unavailableItemsData[id] = !value ? false : undefined;
+                if (docName === 'item_visibility') hiddenItemsData[id] = !value ? false : undefined;
+
                 const currentDoc = await getDoc(docRef);
                 const data = currentDoc.exists() ? currentDoc.data() : {};
                 if (value) {
@@ -954,9 +1009,17 @@ teste
             menuManagementModal.style.display = 'none';
         });
 
-        searchMenuInput.addEventListener('input', () => { /* Lógica de filtro */ });
-        categoryFilterSelect.addEventListener('change', () => { /* Lógica de filtro */ });
-        statusFilterButtonsItems.addEventListener('click', () => { /* Lógica de filtro */ });
+        // INÍCIO DA ALTERAÇÃO: Adiciona os event listeners para os filtros
+        searchMenuInput.addEventListener('input', applyMenuFilters);
+        categoryFilterSelect.addEventListener('change', applyMenuFilters);
+        statusFilterButtonsItems.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                statusFilterButtonsItems.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                applyMenuFilters();
+            }
+        });
+        // FIM DA ALTERAÇÃO
         
         closeCashRegisterBtn.addEventListener('click', async () => {
             if (!currentCashRegister) {
