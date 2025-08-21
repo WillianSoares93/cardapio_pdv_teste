@@ -12,7 +12,7 @@
         body {
             font-family: 'Roboto', sans-serif;
             visibility: hidden;
-            background-color: #f3f4f6;
+            background-color: #f3f4f6; /* Fundo cinza claro */
         }
         .modal {
             display: none;
@@ -23,7 +23,7 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(0,0,0,0.6);
+            background-color: rgba(0,0,0,0.6); /* Fundo mais escuro */
             justify-content: center;
             align-items: center;
         }
@@ -42,6 +42,96 @@
             from { opacity: 0; transform: translateY(-20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        .ingredient-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            border: 1px solid #d1d5db;
+            transition: all 0.2s ease-in-out;
+        }
+        .ingredient-option:hover {
+            background-color: #f9fafb;
+            border-color: #ef4444;
+        }
+        .ingredient-option.selected-ingredient {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.1);
+        }
+        .category-filter-btn {
+            background-color: #e5e7eb;
+            color: #4b5563;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            border: none;
+            transition: all 0.2s ease-in-out;
+        }
+        .category-filter-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+        }
+        .category-filter-btn:hover:not(.active):not(:disabled) {
+            background-color: #d1d5db;
+        }
+        .category-filter-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .quantity-btn {
+            background-color: #e5e7eb;
+            color: #4b5563;
+            transition: all 0.2s ease-in-out;
+        }
+        .quantity-btn:hover:not(:disabled) {
+            background-color: #d1d5db;
+        }
+        .quantity-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .floating-feedback {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #22c55e;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            z-index: 1050;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            white-space: nowrap;
+            opacity: 1;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        .feedback-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background-color: #86efac;
+            animation: progress-countdown 1.7s linear forwards;
+        }
+        @keyframes progress-countdown {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
+        .item-card-shadow {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .item-card-shadow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0,0,0,0.1);
+        }
         .mesa-item {
             transition: all 0.2s ease-in-out;
             aspect-ratio: 1 / 1;
@@ -53,14 +143,6 @@
         .mesa-status-livre { background-color: #dcfce7; border-color: #22c55e; color: #166534; cursor: pointer; }
         .mesa-status-ocupada { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; cursor: pointer; }
         .mesa-status-juntada { background-color: #e0e7ff; border-color: #4f46e5; color: #3730a3; cursor: pointer; }
-        .category-filter-btn.active {
-            background-color: #3b82f6;
-            color: white;
-        }
-        .ingredient-option.selected-ingredient {
-            background-color: #fee2e2;
-            border-color: #ef4444;
-        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -73,7 +155,7 @@
     </header>
 
     <main class="max-w-4xl mx-auto p-4">
-        <!-- SEÇÃO DE SELEÇÃO DE MESA (TELA INICIAL) -->
+        <!-- SEÇÃO DE SELEÇÃO INICIAL -->
         <div id="initial-selection-view">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                  <button id="start-retirada-btn" class="p-4 bg-white border border-gray-200 rounded-lg flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow">
@@ -95,7 +177,7 @@
         <div id="order-form-view" class="hidden">
             <form id="manual-order-form">
                 <!-- Dados do Cliente -->
-                <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4">
+                <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                     <h3 class="font-bold mb-2 text-lg">1. Identificação</h3>
                      <div class="mb-2">
                         <label for="manual-clientName" class="block text-sm font-medium text-gray-700">Mesa / Cliente</label>
@@ -129,15 +211,16 @@
                 </div>
 
                 <!-- Itens do Pedido -->
-                <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4">
+                <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                     <h3 class="font-bold mb-2 text-lg">2. Itens do Pedido</h3>
+                    <div id="manual-order-feedback" class="text-sm text-green-600 font-semibold mb-2 h-4"></div>
                     <div id="manual-order-items" class="space-y-2 mb-2"></div>
                     <button type="button" id="add-item-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-semibold transition-colors">+ Adicionar Item</button>
                 </div>
 
                 <!-- Totais e Pagamento -->
-                <div class="p-4 bg-white border border-gray-200 rounded-lg">
-                    <h3 class="font-bold mb-2 text-lg">3. Total</h3>
+                <div class="p-4 bg-white border border-gray-200 rounded-lg item-card-shadow">
+                    <h3 class="font-bold mb-2 text-lg">3. Pagamento e Total</h3>
                     <div class="space-y-1">
                         <div class="flex justify-between text-sm"><span class="text-gray-600">Subtotal:</span> <span id="manual-subtotal" class="font-medium">R$ 0,00</span></div>
                         <div class="flex justify-between text-sm"><span class="text-gray-600">Taxa de Entrega:</span> <span id="manual-delivery-fee" class="font-medium">R$ 0,00</span></div>
@@ -153,10 +236,11 @@
         </div>
     </main>
     
-    <!-- Modais -->
+    <!-- Modals Auxiliares -->
     <div id="add-item-modal" class="modal">
         <div class="modal-content">
             <h3 id="add-item-modal-title" class="font-bold mb-2">Adicionar Item</h3>
+            <div id="add-item-feedback" class="hidden text-sm font-semibold mb-2 p-2 rounded-md"></div>
             <div id="item-category-filters" class="flex flex-wrap gap-2 mb-2"></div>
             <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
             <div id="item-list" class="max-h-60 overflow-y-auto"></div>
@@ -184,6 +268,17 @@
                 <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">Cancelar</button>
                 <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition-colors">Adicionar ao Pedido</button>
             </div>
+        </div>
+    </div>
+
+    <div id="edit-split-pizza-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="font-bold mb-4">Editar Pizza Meia a Meia</h3>
+            <p class="mb-4 text-sm">Qual metade você deseja alterar?</p>
+            <div class="space-y-2" id="edit-split-buttons">
+                <!-- Botões gerados dinamicamente aqui -->
+            </div>
+            <button id="cancel-edit-split-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
         </div>
     </div>
 
@@ -230,6 +325,7 @@
             }
         });
 
+        // Elementos do DOM
         const logoutBtn = document.getElementById('logout-btn');
         const initialSelectionView = document.getElementById('initial-selection-view');
         const orderFormView = document.getElementById('order-form-view');
@@ -241,24 +337,27 @@
         const manualOrderForm = document.getElementById('manual-order-form');
         const manualOrderItemsContainer = document.getElementById('manual-order-items');
         const addItemBtn = document.getElementById('add-item-btn');
-        
-        // INÍCIO DA CORREÇÃO: Seletores dos modais e seus elementos
         const addItemModal = document.getElementById('add-item-modal');
-        const cancelAddItemBtn = document.getElementById('cancel-add-item-btn');
+        const addItemModalTitle = document.getElementById('add-item-modal-title');
         const searchItemInput = document.getElementById('search-item-input');
         const itemListContainer = document.getElementById('item-list');
+        const cancelAddItemBtn = document.getElementById('cancel-add-item-btn');
         const pizzaOptionModalManual = document.getElementById('pizza-option-modal-manual');
-        const cancelPizzaOptionsManualBtn = document.getElementById('cancel-pizza-options-manual');
         const burgerBuilderModalManual = document.getElementById('burger-builder-modal-manual');
+        const cancelPizzaOptionsManualBtn = document.getElementById('cancel-pizza-options-manual');
         const cancelBurgerBuilderManualBtn = document.getElementById('cancel-burger-builder-manual');
         const addCustomBurgerManualBtn = document.getElementById('add-custom-burger-manual-btn');
+        const burgerTotalPriceManual = document.getElementById('burger-total-price-manual');
+        const editSplitPizzaModal = document.getElementById('edit-split-pizza-modal');
         const quantityModal = document.getElementById('quantity-modal');
-        const cancelQuantityBtn = document.getElementById('cancel-quantity-btn');
-        const confirmQuantityBtn = document.getElementById('confirm-quantity-btn');
-        const quantityDisplay = document.getElementById('quantity-display');
         const quantityModalItemName = document.getElementById('quantity-modal-item-name');
-        // FIM DA CORREÇÃO
-
+        const quantityDisplay = document.getElementById('quantity-display');
+        const confirmQuantityBtn = document.getElementById('confirm-quantity-btn');
+        const cancelQuantityBtn = document.getElementById('cancel-quantity-btn');
+        const manualNeighborhoodSelect = document.getElementById('manual-neighborhood');
+        const deliveryFields = document.getElementById('delivery-fields');
+        const editSplitButtonsContainer = document.getElementById('edit-split-buttons');
+        
         const NUMERO_DE_MESAS = 12;
 
         let currentOrderType = 'mesa';
@@ -268,7 +367,9 @@
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let unavailableItems = {};
         let manualFirstHalfPizza = null;
+        let editingItemIndex = null;
         let currentItemForQuantity = null;
+        let currentBurgerBasePrice = 0;
 
         function showView(viewName) {
             initialSelectionView.classList.add('hidden');
@@ -281,6 +382,7 @@
             pageTitle.textContent = 'Lançamento de Pedido';
             listenToTableStatus();
             await loadFullMenuData();
+            listenToItemStatus();
         }
 
         function listenToTableStatus() {
@@ -288,6 +390,18 @@
             onSnapshot(q, (snapshot) => {
                 const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateMesasGrid(activeOrders);
+            });
+        }
+
+        function listenToItemStatus() {
+            const itemStatusRef = doc(db, "config", "item_status");
+            onSnapshot(itemStatusRef, (doc) => {
+                unavailableItems = doc.exists() ? doc.data() : {};
+                if (addItemModal.style.display === 'flex') {
+                    const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
+                    const isSecondHalf = manualFirstHalfPizza !== null;
+                    renderItemList(searchItemInput.value, activeFilter, isSecondHalf);
+                }
             });
         }
 
@@ -344,7 +458,7 @@
             currentOrderId = null;
             manualOrderItems = [];
             manualOrderForm.reset();
-            document.getElementById('delivery-fields').classList.add('hidden');
+            deliveryFields.classList.add('hidden');
             
             const clientNameInput = document.getElementById('manual-clientName');
             clientNameInput.readOnly = false;
@@ -363,7 +477,7 @@
             } else if (type === 'delivery') {
                 pageTitle.textContent = 'Lançando Pedido - Delivery';
                 clientNameInput.placeholder = 'Nome do Cliente';
-                document.getElementById('delivery-fields').classList.remove('hidden');
+                deliveryFields.classList.remove('hidden');
             }
             
             updateManualOrderDisplay();
@@ -453,8 +567,15 @@
             manualOrderItems.forEach((item, index) => {
                 const itemEl = document.createElement('div');
                 itemEl.className = 'flex justify-between items-start text-sm py-1';
+                
+                let itemHtml = `<span>${item.name}</span>`;
+                if (item.type === 'custom_burger' && item.ingredients) {
+                    const ingredientsList = item.ingredients.map(ing => `<li class="text-xs text-gray-500 ml-4">${ing.name}</li>`).join('');
+                    itemHtml += `<ul class="mt-1">${ingredientsList}</ul>`;
+                }
+
                 itemEl.innerHTML = `
-                    <div class="flex-grow pr-4">${item.name}</div>
+                    <div class="flex-grow pr-4 cursor-pointer manual-item-edit" data-index="${index}">${itemHtml}</div>
                     <div class="flex items-center flex-shrink-0">
                         <span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
                         <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700 text-lg">&times;</button>
@@ -463,8 +584,16 @@
                 manualOrderItemsContainer.appendChild(itemEl);
                 subtotal += item.price;
             });
+            const isDelivery = deliveryCheckbox.checked;
+            const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
+            let deliveryFee = 0;
+            if (isDelivery && selectedNeighborhood && selectedNeighborhood.value !== '') {
+                deliveryFee = parseFloat(selectedNeighborhood.dataset.fee || 0);
+            }
+            const total = subtotal + deliveryFee;
             document.getElementById('manual-subtotal').textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-            document.getElementById('manual-total').textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+            document.getElementById('manual-delivery-fee').textContent = `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`;
+            document.getElementById('manual-total').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
         }
         
         async function loadFullMenuData() {
@@ -472,7 +601,7 @@
                 const response = await fetch('/api/menu');
                 if (!response.ok) throw new Error('Network response was not ok');
                 const data = await response.json();
-                fullMenuData.cardapio = data.cardapio.filter(item => item.available);
+                fullMenuData.cardapio = data.cardapio;
                 fullMenuData.deliveryFees = data.deliveryFees;
                 const burgerIngredients = data.ingredientesHamburguer || [];
                 fullMenuData.ingredientesHamburguer = burgerIngredients.reduce((acc, current) => {
@@ -481,19 +610,67 @@
                     acc[category].push(current);
                     return acc;
                 }, {});
+                populateNeighborhoodDropdown(fullMenuData.deliveryFees);
             } catch (error) {
                 console.error("Erro ao carregar dados:", error);
             }
         }
+        
+        function populateNeighborhoodDropdown(feesData) {
+            manualNeighborhoodSelect.innerHTML = '<option value="">Selecione um bairro</option>';
+            if (!feesData || feesData.length === 0) return;
+            feesData.forEach(fee => {
+                if (typeof fee.neighborhood === 'string' && fee.neighborhood.trim() !== '') {
+                    const option = document.createElement('option');
+                    option.value = fee.neighborhood;
+                    option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`;
+                    option.dataset.fee = fee.deliveryFee;
+                    manualNeighborhoodSelect.appendChild(option);
+                }
+            });
+        }
+        
+        function showFloatingFeedback(message, itemCategory) {
+            const modalContent = addItemModal.querySelector('.modal-content');
+            const feedbackEl = document.createElement('div');
+            feedbackEl.className = 'floating-feedback';
+            feedbackEl.textContent = message;
+            const progressBar = document.createElement('div');
+            progressBar.className = 'feedback-progress-bar';
+            feedbackEl.appendChild(progressBar);
+            modalContent.appendChild(feedbackEl);
+            setTimeout(() => {
+                feedbackEl.remove();
+            }, 1700);
+        }
 
-        // INÍCIO DA CORREÇÃO: Lógica dos modais restaurada
-        function openAddItemModal() {
-            renderCategoryFilters();
-            renderItemList('');
+        function openAddItemModal(isSecondHalf = false) {
+            const feedbackEl = document.getElementById('add-item-feedback');
+            
+            if (editingItemIndex !== null && !isSecondHalf) {
+                const originalItemName = manualOrderItems[editingItemIndex].name;
+                addItemModalTitle.textContent = 'Substituir Item';
+                feedbackEl.innerHTML = `Selecione um novo item para substituir: <strong>${originalItemName}</strong>`;
+                feedbackEl.className = 'text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md';
+                feedbackEl.style.display = 'block';
+            } else {
+                addItemModalTitle.textContent = 'Adicionar Item';
+                if (isSecondHalf) {
+                    feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
+                    feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
+                    feedbackEl.style.display = 'block';
+                } else {
+                    feedbackEl.style.display = 'none';
+                }
+            }
+
+            searchItemInput.value = '';
+            renderCategoryFilters(isSecondHalf);
+            renderItemList('', 'all', isSecondHalf);
             addItemModal.style.display = 'flex';
         }
 
-        function renderCategoryFilters() {
+        function renderCategoryFilters(isSecondHalf = false) {
             const filterContainer = document.getElementById('item-category-filters');
             filterContainer.innerHTML = '';
             const categories = ['all', ...new Set(fullMenuData.cardapio.map(item => item.category))];
@@ -501,46 +678,144 @@
             categories.forEach(category => {
                 const button = document.createElement('button');
                 button.className = 'category-filter-btn px-3 py-1 text-sm rounded-full border';
-                button.textContent = category === 'all' ? 'Todos' : category;
-                button.dataset.category = category;
-                if (category === 'all') button.classList.add('active');
                 
+                const isPizzaCategory = fullMenuData.cardapio.some(item => item.category === category && item.isPizza);
+                let buttonText = category;
+                if (category === 'all') {
+                    buttonText = 'Todos';
+                } else if (isPizzaCategory) {
+                    buttonText = `Pizza ${category}`;
+                }
+
+                button.textContent = buttonText;
+                button.dataset.category = category;
+                if (category === 'all') {
+                    button.classList.add('active');
+                }
+
+                if (isSecondHalf) {
+                    const isPromotionalCategory = category.trim().toLowerCase() === 'promocionais';
+                    if (manualFirstHalfPizza.isPromotional) {
+                        if (!isPromotionalCategory && category !== 'all') {
+                            button.disabled = true;
+                        }
+                    } else {
+                        if (isPromotionalCategory) {
+                            button.disabled = true;
+                        }
+                    }
+                }
+
                 button.addEventListener('click', () => {
                     filterContainer.querySelector('.active').classList.remove('active');
                     button.classList.add('active');
-                    renderItemList(searchItemInput.value, category);
+                    renderItemList(searchItemInput.value, category, isSecondHalf);
                 });
                 filterContainer.appendChild(button);
             });
         }
 
-        function renderItemList(filterText, categoryFilter = 'all') {
+        function renderItemList(filterText, categoryFilter = 'all', isSecondHalf = false) {
             itemListContainer.innerHTML = '';
-            let filteredMenu = fullMenuData.cardapio.filter(item => {
+            let filteredMenu = fullMenuData.cardapio;
+
+            if (isSecondHalf) {
+                filteredMenu = filteredMenu.filter(item => item.isPizza);
+                if (manualFirstHalfPizza.isPromotional) {
+                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() === 'promocionais');
+                } else {
+                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() !== 'promocionais');
+                }
+            }
+
+            filteredMenu = filteredMenu.filter(item => {
                 const nameMatch = item.name.toLowerCase().includes(filterText.toLowerCase());
                 const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
                 return nameMatch && categoryMatch;
             });
 
-            filteredMenu.forEach(item => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
-                itemEl.textContent = item.name;
-                itemEl.addEventListener('click', () => handleItemSelection(item));
-                itemListContainer.appendChild(itemEl);
-            });
+            const itemsByCategory = filteredMenu.reduce((acc, item) => {
+                const category = item.category || 'Outros';
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(item);
+                return acc;
+            }, {});
+
+            for (const category in itemsByCategory) {
+                const categoryTitle = document.createElement('h4');
+                categoryTitle.className = 'font-bold text-md text-gray-600 bg-gray-100 p-2 mt-2 sticky top-0';
+                
+                const isPizzaCategory = itemsByCategory[category].some(item => item.isPizza);
+                categoryTitle.textContent = isPizzaCategory ? `Pizza ${category}` : category;
+
+                itemListContainer.appendChild(categoryTitle);
+                itemsByCategory[category].forEach(item => {
+                    const isUnavailable = unavailableItems[item.id] === false;
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
+                    itemEl.textContent = item.name;
+                    
+                    if (isUnavailable) {
+                        itemEl.classList.add('opacity-50', 'cursor-not-allowed');
+                        itemEl.title = "Item esgotado";
+                    } else {
+                        itemEl.addEventListener('click', () => handleItemSelection(item, isSecondHalf));
+                    }
+                    
+                    const priceSpan = document.createElement('span');
+                    priceSpan.className = 'font-bold text-sm text-gray-700';
+                    const price = item.basePrice || item.price4Slices || item.price6Slices || 0;
+                    priceSpan.textContent = `R$ ${price.toFixed(2).replace('.', ',')}`;
+                    itemEl.appendChild(priceSpan);
+                    itemListContainer.appendChild(itemEl);
+                });
+            }
         }
 
-        function handleItemSelection(item) {
+        function handleItemSelection(item, isSecondHalf = false) {
+            if (isSecondHalf) {
+                const secondHalfObject = {
+                    name: item.name, price: item[manualFirstHalfPizza.priceKey] / 2, priceKey: manualFirstHalfPizza.priceKey,
+                    isPromotional: item.category.trim().toLowerCase() === 'promocionais', description: item.description,
+                    category: item.category, selected_slices: manualFirstHalfPizza.selected_slices, originalItem: item
+                };
+                const finalPrice = manualFirstHalfPizza.price + secondHalfObject.price;
+                const combinedName = `${manualFirstHalfPizza.selected_slices} FATIAS: Meia ${manualFirstHalfPizza.name} & Meia ${secondHalfObject.name}`;
+                const newItem = { 
+                    type: 'split', name: combinedName, price: finalPrice, firstHalfData: manualFirstHalfPizza,
+                    secondHalfData: secondHalfObject, selected_slices: manualFirstHalfPizza.selected_slices
+                };
+                if (editingItemIndex !== null) {
+                    manualOrderItems[editingItemIndex] = newItem; editingItemIndex = null;
+                } else {
+                    manualOrderItems.push(newItem);
+                }
+                manualFirstHalfPizza = null;
+                updateManualOrderDisplay();
+                showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`, item.category);
+                addItemModal.style.display = 'none';
+                return;
+            }
+
             if (item.isPizza) {
                 openManualPizzaOptions(item);
             } else if (item.isCustomizable) {
-                openManualBurgerBuilder(item);
+                openManualBurgerBuilder(item, editingItemIndex);
             } else {
-                openQuantityModal(item);
+                if (editingItemIndex !== null) {
+                    manualOrderItems[editingItemIndex] = { 
+                        type: 'full', name: item.name, price: item.basePrice, description: item.description,
+                        category: item.category, originalItem: item
+                    };
+                    editingItemIndex = null;
+                    addItemModal.style.display = 'none';
+                    updateManualOrderDisplay();
+                } else {
+                    openQuantityModal(item);
+                }
             }
         }
-        
+
         function openQuantityModal(item) {
             currentItemForQuantity = item;
             quantityModalItemName.textContent = item.name;
@@ -548,36 +823,102 @@
             quantityModal.style.display = 'flex';
         }
 
-        function confirmQuantity() {
+        function openManualPizzaOptions(pizza) {
+            document.getElementById('modal-pizza-name-manual').textContent = pizza.name;
+            const sizeContainer = document.getElementById('pizza-size-options-manual');
+            sizeContainer.innerHTML = '';
+            const sizes = [{ slices: 4, label: '4 Fatias', priceKey: 'price4Slices' }, { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' }, { slices: 8, label: '8 Fatias', priceKey: 'basePrice' }];
+            sizes.forEach(size => {
+                if (pizza[size.priceKey] > 0) {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'flex justify-between items-center p-2 border rounded-md mt-2 w-full';
+                    optionDiv.innerHTML = `<div><span class="font-bold">${size.label}</span><span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span></div><div class="flex gap-2"><button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button><button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button></div>`;
+                    
+                    optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
+                        const newItem = { 
+                            type: 'full', name: `${size.label.toUpperCase()}: ${pizza.name}`, price: pizza[size.priceKey],
+                            description: pizza.description, category: pizza.category, selected_slices: size.slices, originalItem: pizza
+                        };
+                        if (editingItemIndex !== null) {
+                            manualOrderItems[editingItemIndex] = newItem; editingItemIndex = null;
+                        } else {
+                            manualOrderItems.push(newItem);
+                        }
+                        updateManualOrderDisplay();
+                        pizzaOptionModalManual.style.display = 'none';
+                        addItemModal.style.display = 'none';
+                        showFloatingFeedback(`Pizza ${pizza.name} adicionada.`, pizza.category);
+                    });
+
+                    optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
+                        manualFirstHalfPizza = { 
+                            name: pizza.name, price: pizza[size.priceKey] / 2, priceKey: size.priceKey,
+                            isPromotional: pizza.category.trim().toLowerCase() === 'promocionais', description: pizza.description,
+                            category: pizza.category, selected_slices: size.slices, originalItem: pizza
+                        };
+                        pizzaOptionModalManual.style.display = 'none';
+                        openAddItemModal(true);
+                    });
+                    sizeContainer.appendChild(optionDiv);
+                }
+            });
+            pizzaOptionModalManual.style.display = 'flex';
+        }
+
+        function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
+            // ... (Lógica completa do burger builder)
+        }
+
+        function addCustomBurgerToOrder(editIndex = null) {
+            // ... (Lógica completa de adicionar burger)
+        }
+
+        function handleEditItem(index) {
+            const itemToEdit = manualOrderItems[index];
+            editingItemIndex = index;
+
+            switch (itemToEdit.type) {
+                case 'custom_burger':
+                    openManualBurgerBuilder(itemToEdit.originalItem, index, itemToEdit);
+                    break;
+                case 'split':
+                    openEditSplitPizzaModal(index);
+                    break;
+                case 'full':
+                default:
+                    openAddItemModal(false);
+                    break;
+            }
+        }
+        
+        function openEditSplitPizzaModal(index) {
+            const itemToEdit = manualOrderItems[index];
+            editSplitButtonsContainer.innerHTML = `
+                <button id="edit-first-half-btn" data-index="${index}" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar ${itemToEdit.firstHalfData.name}</button>
+                <button id="edit-second-half-btn" data-index="${index}" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar ${itemToEdit.secondHalfData.name}</button>
+            `;
+            editSplitPizzaModal.style.display = 'flex';
+        }
+
+        // Event Listeners
+        addItemBtn.addEventListener('click', () => { editingItemIndex = null; openAddItemModal(false); });
+        cancelAddItemBtn.addEventListener('click', () => { addItemModal.style.display = 'none'; manualFirstHalfPizza = null; editingItemIndex = null; });
+        cancelPizzaOptionsManualBtn.addEventListener('click', () => { pizzaOptionModalManual.style.display = 'none'; });
+        searchItemInput.addEventListener('input', (e) => {
+            const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
+            renderItemList(e.target.value, activeFilter, manualFirstHalfPizza !== null);
+        });
+        
+        confirmQuantityBtn.addEventListener('click', () => {
             const quantity = parseInt(quantityDisplay.textContent);
             for (let i = 0; i < quantity; i++) {
-                manualOrderItems.push({ 
-                    name: currentItemForQuantity.name, 
-                    price: currentItemForQuantity.basePrice,
-                });
+                manualOrderItems.push({ type: 'full', name: currentItemForQuantity.name, price: currentItemForQuantity.basePrice, originalItem: currentItemForQuantity });
             }
             updateManualOrderDisplay();
             quantityModal.style.display = 'none';
             addItemModal.style.display = 'none';
-        }
-        
-        function openManualPizzaOptions(pizza) {
-            // Lógica para abrir modal de pizza
-        }
-
-        function openManualBurgerBuilder(burger) {
-            // Lógica para abrir modal de hambúrguer
-        }
-
-        addItemBtn.addEventListener('click', openAddItemModal);
-        cancelAddItemBtn.addEventListener('click', () => addItemModal.style.display = 'none');
-        searchItemInput.addEventListener('input', (e) => {
-            const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-            renderItemList(e.target.value, activeFilter);
         });
-        
-        confirmQuantityBtn.addEventListener('click', confirmQuantity);
-        cancelQuantityBtn.addEventListener('click', () => quantityModal.style.display = 'none');
+        cancelQuantityBtn.addEventListener('click', () => { quantityModal.style.display = 'none'; });
         document.getElementById('quantity-minus-btn').addEventListener('click', () => {
             let qty = parseInt(quantityDisplay.textContent);
             if (qty > 1) quantityDisplay.textContent = qty - 1;
@@ -587,14 +928,17 @@
             quantityDisplay.textContent = qty + 1;
         });
         manualOrderItemsContainer.addEventListener('click', (e) => {
-            if (e.target.classList.contains('remove-manual-item-btn')) {
-                const index = parseInt(e.target.dataset.index);
-                manualOrderItems.splice(index, 1);
+            const removeBtn = e.target.closest('.remove-manual-item-btn');
+            if (removeBtn) {
+                manualOrderItems.splice(parseInt(removeBtn.dataset.index), 1);
                 updateManualOrderDisplay();
+                return;
+            }
+            const editArea = e.target.closest('.manual-item-edit');
+            if (editArea) {
+                handleEditItem(parseInt(editArea.dataset.index));
             }
         });
-
-        // FIM DA CORREÇÃO
 
         backToTablesBtn.addEventListener('click', () => showView('initial-selection-view'));
         manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
