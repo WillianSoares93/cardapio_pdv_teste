@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -174,10 +173,10 @@ teste
         <div id="tab-content-mesas" class="tab-content hidden">
             <div id="mesas-controls" class="mt-4 p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
                 <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
-                    <i class="fas fa-link mr-2"></i>Juntar Mesas
+                    <i class="fas fa-link mr-2"></i>Agrupar Mesas
                 </button>
                 <div id="joining-controls" class="hidden space-x-2">
-                    <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Junção</button>
+                    <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
                     <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
                 </div>
             </div>
@@ -622,7 +621,6 @@ teste
                     }
                 });
 
-                // INÍCIO DA ALTERAÇÃO: Processa grupos de mesas primeiro
                 const processedTables = new Set();
                 const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -635,7 +633,7 @@ teste
                         if (primaryTableEl) {
                             primaryTableEl.classList.remove('mesa-status-livre', 'sm:grid-cols-3', 'md:grid-cols-4', 'lg:grid-cols-6');
                             primaryTableEl.classList.add('mesa-status-juntada', `col-span-${sortedGroup.length}`);
-                            primaryTableEl.querySelector('span:last-child').textContent = 'Juntadas';
+                            primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
                             primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
                             primaryTableEl.dataset.status = 'ocupada';
                             primaryTableEl.dataset.orderId = order.id;
@@ -651,7 +649,6 @@ teste
                             }
                         }
                     });
-                // FIM DA ALTERAÇÃO
 
                 activeOrders.forEach(order => {
                     const orderId = order.id;
@@ -680,12 +677,14 @@ teste
                         const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
                         if (numeroMesa && !processedTables.has(numeroMesa) && order.status !== 'Finalizado') {
                             const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
-                            mesaEl.classList.remove('mesa-status-livre');
-                            mesaEl.classList.add('mesa-status-ocupada');
-                            mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
-                            mesaEl.dataset.status = 'ocupada';
-                            mesaEl.dataset.orderId = orderId;
-                            processedTables.add(numeroMesa);
+                            if (mesaEl) {
+                                mesaEl.classList.remove('mesa-status-livre');
+                                mesaEl.classList.add('mesa-status-ocupada');
+                                mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
+                                mesaEl.dataset.status = 'ocupada';
+                                mesaEl.dataset.orderId = orderId;
+                                processedTables.add(numeroMesa);
+                            }
                         }
                     }
                 });
@@ -1491,7 +1490,6 @@ teste
                 return;
             }
             const sortedTables = selectedTablesForJoining.sort((a, b) => a - b);
-            const groupName = `Mesas ${sortedTables.join(' + ')}`;
             const tablesParam = sortedTables.join(',');
             
             // Abre a tela de atendente com os parâmetros para criar o pedido do grupo
