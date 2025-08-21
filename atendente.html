@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -30,7 +31,7 @@
         .modal-content {
             background-color: #ffffff;
             margin: auto;
-            padding: 32px;
+            padding: 24px;
             border-radius: 12px;
             width: 90%;
             max-width: 500px;
@@ -53,6 +54,10 @@
         .mesa-status-livre { background-color: #dcfce7; border-color: #22c55e; color: #166534; cursor: pointer; }
         .mesa-status-ocupada { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; cursor: pointer; }
         .mesa-status-juntada { background-color: #e0e7ff; border-color: #4f46e5; color: #3730a3; cursor: pointer; }
+        .category-filter-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -67,7 +72,7 @@
     <main class="max-w-4xl mx-auto p-4">
         <!-- SEÇÃO DE SELEÇÃO DE MESA (TELA INICIAL) -->
         <div id="initial-selection-view">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                  <button id="start-retirada-btn" class="p-4 bg-white border border-gray-200 rounded-lg flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow">
                     <i class="fas fa-shopping-bag text-3xl text-yellow-500 mb-2"></i>
                     <span class="font-bold text-gray-700">Pedido para Retirada</span>
@@ -138,18 +143,61 @@
                 </div>
 
                 <div class="mt-6 flex justify-between items-center">
-                    <button type="button" id="back-to-tables-btn" class="px-4 py-2 bg-gray-300 text-gray-800 font-bold rounded-md hover:bg-gray-400">Voltar para Mesas</button>
+                    <button type="button" id="back-to-tables-btn" class="px-4 py-2 bg-gray-300 text-gray-800 font-bold rounded-md hover:bg-gray-400">Voltar</button>
                     <button type="submit" class="bg-purple-600 text-white font-bold py-3 px-4 rounded-md hover:bg-purple-700 text-lg transition-colors">Salvar Pedido</button>
                 </div>
             </form>
         </div>
     </main>
     
-    <!-- Modais (reutilizados do index.html, mas com IDs diferentes para evitar conflitos) -->
-    <div id="add-item-modal" class="modal">...</div>
-    <div id="pizza-option-modal-manual" class="modal">...</div>
-    <div id="burger-builder-modal-manual" class="modal">...</div>
-    <div id="quantity-modal" class="modal">...</div>
+    <!-- Modais -->
+    <div id="add-item-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="add-item-modal-title" class="font-bold mb-2">Adicionar Item</h3>
+            <div id="item-category-filters" class="flex flex-wrap gap-2 mb-2"></div>
+            <input type="text" id="search-item-input" placeholder="Buscar item..." class="w-full p-2 border border-gray-300 rounded-md mb-2">
+            <div id="item-list" class="max-h-60 overflow-y-auto"></div>
+            <button id="cancel-add-item-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Fechar</button>
+        </div>
+    </div>
+
+    <div id="pizza-option-modal-manual" class="modal">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="modal-pizza-name-manual"></h3>
+            <div id="pizza-size-options-manual" class="grid grid-cols-1 gap-2 justify-items-center"></div>
+            <button id="cancel-pizza-options-manual" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="burger-builder-modal-manual" class="modal">
+        <div class="modal-content !max-w-2xl">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Monte o Hambúrguer</h3>
+            <div id="burger-ingredients-container-manual" class="mb-4 max-h-80 overflow-y-auto p-2"></div>
+            <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
+                <span class="text-lg font-bold">Total do Hambúrguer:</span>
+                <span id="burger-total-price-manual" class="text-2xl font-bold text-red-600">R$ 0,00</span>
+            </div>
+            <div class="flex gap-4 mt-4">
+                <button type="button" id="cancel-burger-builder-manual" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">Cancelar</button>
+                <button type="button" id="add-custom-burger-manual-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition-colors">Adicionar ao Pedido</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="quantity-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="quantity-modal-item-name" class="font-bold mb-4 text-center text-lg"></h3>
+            <div class="flex items-center justify-center space-x-4 my-4">
+                <button type="button" id="quantity-minus-btn" class="quantity-btn bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center text-2xl font-bold">-</button>
+                <span id="quantity-display" class="font-bold text-2xl w-12 text-center">1</span>
+                <button type="button" id="quantity-plus-btn" class="quantity-btn bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center text-2xl font-bold">+</button>
+            </div>
+            <div class="flex gap-4 mt-6">
+                 <button type="button" id="cancel-quantity-btn" class="w-full bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-400">Cancelar</button>
+                <button type="button" id="confirm-quantity-btn" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600">Confirmar</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -179,17 +227,26 @@
             }
         });
 
+        const logoutBtn = document.getElementById('logout-btn');
         const initialSelectionView = document.getElementById('initial-selection-view');
         const orderFormView = document.getElementById('order-form-view');
         const mesasGrid = document.getElementById('mesas-grid-atendente');
         const pageTitle = document.getElementById('page-title');
         const backToTablesBtn = document.getElementById('back-to-tables-btn');
+        const startRetiradaBtn = document.getElementById('start-retirada-btn');
+        const startDeliveryBtn = document.getElementById('start-delivery-btn');
+        const manualOrderForm = document.getElementById('manual-order-form');
+        const manualOrderItemsContainer = document.getElementById('manual-order-items');
+        const addItemBtn = document.getElementById('add-item-btn');
+
         const NUMERO_DE_MESAS = 12;
 
-        let currentOrderType = 'mesa'; // 'mesa', 'retirada', 'delivery'
+        let currentOrderType = 'mesa';
         let currentOrderId = null;
+        let currentMesaData = {};
         let manualOrderItems = [];
-        // ... (outras variáveis globais necessárias para os modais de itens)
+        let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
+        let unavailableItems = {};
 
         function showView(viewName) {
             initialSelectionView.classList.add('hidden');
@@ -197,12 +254,11 @@
             document.getElementById(viewName).classList.remove('hidden');
         }
 
-        function initializeAtendenteView() {
+        async function initializeAtendenteView() {
             showView('initial-selection-view');
+            pageTitle.textContent = 'Lançamento de Pedido';
             listenToTableStatus();
-            
-            // Lógica para carregar o menu, etc. (reutilizada do código antigo)
-            // loadFullMenuData(); 
+            await loadFullMenuData();
         }
 
         function listenToTableStatus() {
@@ -234,7 +290,7 @@
                 });
 
             for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
-                if (occupiedTables.has(i) && !groupedTables.has(i)) continue; // Skip secondary tables in a group
+                if (occupiedTables.has(i) && !groupedTables.has(i)) continue;
 
                 const mesaEl = document.createElement('div');
                 mesaEl.dataset.number = i;
@@ -255,7 +311,7 @@
                 } else {
                     mesaEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg mesa-status-livre';
                     mesaEl.innerHTML = `<span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span><span class="text-sm font-medium mt-2">Livre</span>`;
-                    mesaEl.addEventListener('click', () => startNewOrder('mesa', i));
+                    mesaEl.addEventListener('click', () => startNewOrder('mesa', { number: i }));
                 }
                 mesasGrid.appendChild(mesaEl);
             }
@@ -265,16 +321,20 @@
             currentOrderType = type;
             currentOrderId = null;
             manualOrderItems = [];
-            document.getElementById('manual-order-form').reset();
+            manualOrderForm.reset();
             document.getElementById('delivery-fields').classList.add('hidden');
             
             const clientNameInput = document.getElementById('manual-clientName');
             clientNameInput.readOnly = false;
+            currentMesaData = {};
 
             if (type === 'mesa') {
-                pageTitle.textContent = `Lançando Pedido - Mesa ${identifier}`;
-                clientNameInput.value = `Mesa ${identifier}`;
+                const isGroup = Array.isArray(identifier.group);
+                const title = isGroup ? `Mesas ${identifier.group.join(' + ')}` : `Mesa ${identifier.number}`;
+                pageTitle.textContent = `Lançando Pedido - ${title}`;
+                clientNameInput.value = title;
                 clientNameInput.readOnly = true;
+                currentMesaData = isGroup ? { group: identifier.group } : { number: identifier.number };
             } else if (type === 'retirada') {
                 pageTitle.textContent = 'Lançando Pedido - Retirada';
                 clientNameInput.placeholder = 'Nome do Cliente';
@@ -323,10 +383,9 @@
             }
             
             const subtotal = manualOrderItems.reduce((sum, item) => sum + item.price, 0);
-            // ... (cálculo de taxa de entrega se for delivery)
-            const finalTotal = subtotal; // + deliveryFee
+            const finalTotal = subtotal; // Simplificado por enquanto
 
-            if (currentOrderId) { // Atualizando um pedido existente
+            if (currentOrderId) {
                 const orderRef = doc(db, "pedidos", currentOrderId);
                 await updateDoc(orderRef, {
                     itens: manualOrderItems,
@@ -334,40 +393,79 @@
                     "total.finalTotal": finalTotal
                 });
                 alert("Itens adicionados com sucesso!");
-            } else { // Criando um novo pedido
+            } else {
                 let endereco = {};
-                if (currentOrderType === 'mesa') {
-                    endereco = {
-                        clientName: document.getElementById('manual-clientName').value,
-                        rua: "Mesa",
-                        // ... outros campos
-                    };
-                }
-                // ... (lógica para retirada e delivery)
+                let grupoMesas = null;
 
-                await addDoc(collection(db, "pedidos"), {
+                if (currentOrderType === 'mesa') {
+                    endereco = { clientName: document.getElementById('manual-clientName').value, rua: "Mesa" };
+                    if (currentMesaData.group) {
+                        grupoMesas = currentMesaData.group;
+                    }
+                } else if (currentOrderType === 'retirada') {
+                    endereco = { clientName: document.getElementById('manual-clientName').value, rua: "Retirada no Balcão" };
+                } else {
+                    // Lógica para delivery...
+                }
+
+                const newOrder = {
                     itens: manualOrderItems,
                     endereco: endereco,
                     total: { subtotal, finalTotal, deliveryFee: 0, discount: 0 },
-                    status: 'Em Preparo', // Pedidos de mesa já começam em preparo
+                    status: 'Em Preparo',
                     criadoEm: serverTimestamp()
-                });
+                };
+                if (grupoMesas) {
+                    newOrder.grupoMesas = grupoMesas;
+                }
+
+                await addDoc(collection(db, "pedidos"), newOrder);
                 alert("Pedido criado com sucesso!");
             }
             showView('initial-selection-view');
         }
 
         function updateManualOrderDisplay() {
-            // ... (código existente para renderizar itens e totais)
+            manualOrderItemsContainer.innerHTML = '';
+            let subtotal = 0;
+            manualOrderItems.forEach((item, index) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flex justify-between items-start text-sm py-1';
+                itemEl.innerHTML = `
+                    <div class="flex-grow pr-4">${item.name}</div>
+                    <div class="flex items-center flex-shrink-0">
+                        <span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
+                        <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700 text-lg">&times;</button>
+                    </div>
+                `;
+                manualOrderItemsContainer.appendChild(itemEl);
+                subtotal += item.price;
+            });
+            document.getElementById('manual-subtotal').textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+            document.getElementById('manual-total').textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+        }
+        
+        async function loadFullMenuData() {
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                fullMenuData.cardapio = data.cardapio;
+                //... carregar outros dados
+            } catch (error) {
+                console.error("Erro ao carregar dados:", error);
+            }
         }
 
         backToTablesBtn.addEventListener('click', () => showView('initial-selection-view'));
-        document.getElementById('manual-order-form').addEventListener('submit', handleManualOrderSubmit);
-        document.getElementById('start-retirada-btn').addEventListener('click', () => startNewOrder('retirada'));
-        document.getElementById('start-delivery-btn').addEventListener('click', () => startNewOrder('delivery'));
+        manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
+        startRetiradaBtn.addEventListener('click', () => startNewOrder('retirada'));
+        startDeliveryBtn.addEventListener('click', () => startNewOrder('delivery'));
         logoutBtn.addEventListener('click', () => signOut(auth));
 
-        // ... (resto do código para os modais de adicionar item, pizza, burger, etc.)
+        // Adicionar o resto da lógica dos modais aqui (openAddItemModal, etc.)
+        // ...
+
     </script>
 </body>
 </html>
