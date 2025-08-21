@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -521,8 +520,48 @@ teste
                 return;
             }
             
+            const clientName = document.getElementById('manual-clientName').value;
+            if (!clientName) {
+                alert("Por favor, preencha o nome do cliente ou da mesa.");
+                return;
+            }
+
             const subtotal = manualOrderItems.reduce((sum, item) => sum + item.price, 0);
-            const finalTotal = subtotal; // Simplificado por enquanto
+            let deliveryFee = 0;
+            let endereco = {};
+            let grupoMesas = null;
+            let status = 'Em Preparo'; // Padrão para mesas
+
+            if (currentOrderType === 'mesa') {
+                endereco = { clientName: clientName, rua: "Mesa" };
+                if (currentMesaData.group) {
+                    grupoMesas = currentMesaData.group;
+                }
+            } else if (currentOrderType === 'retirada') {
+                status = 'Novo';
+                endereco = { clientName: clientName, rua: "Retirada no Balcão" };
+            } else if (currentOrderType === 'delivery') {
+                status = 'Novo';
+                const street = document.getElementById('manual-street').value;
+                const number = document.getElementById('manual-number').value;
+                const neighborhood = manualNeighborhoodSelect.value;
+                if (!street || !number || !neighborhood) {
+                    alert("Para pedidos de delivery, preencha Rua, Número e Bairro.");
+                    return;
+                }
+                const selectedNeighborhoodOption = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
+                deliveryFee = parseFloat(selectedNeighborhoodOption.dataset.fee || 0);
+                endereco = {
+                    clientName: clientName,
+                    telefone: document.getElementById('manual-clientPhone').value,
+                    rua: street,
+                    numero: number,
+                    bairro: neighborhood,
+                    referencia: document.getElementById('manual-reference').value
+                };
+            }
+
+            const finalTotal = subtotal + deliveryFee;
 
             if (currentOrderId) {
                 const orderRef = doc(db, "pedidos", currentOrderId);
@@ -533,25 +572,11 @@ teste
                 });
                 alert("Itens adicionados com sucesso!");
             } else {
-                let endereco = {};
-                let grupoMesas = null;
-
-                if (currentOrderType === 'mesa') {
-                    endereco = { clientName: document.getElementById('manual-clientName').value, rua: "Mesa" };
-                    if (currentMesaData.group) {
-                        grupoMesas = currentMesaData.group;
-                    }
-                } else if (currentOrderType === 'retirada') {
-                    endereco = { clientName: document.getElementById('manual-clientName').value, rua: "Retirada no Balcão" };
-                } else {
-                    // Lógica para delivery...
-                }
-
                 const newOrder = {
                     itens: manualOrderItems,
                     endereco: endereco,
-                    total: { subtotal, finalTotal, deliveryFee: 0, discount: 0 },
-                    status: 'Em Preparo',
+                    total: { subtotal, finalTotal, deliveryFee, discount: 0 },
+                    status: status,
                     criadoEm: serverTimestamp()
                 };
                 if (grupoMesas) {
