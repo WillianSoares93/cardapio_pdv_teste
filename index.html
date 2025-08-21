@@ -578,7 +578,6 @@
                     <span id="discount-value-display" class="font-bold">- R$ 0,00</span>
                 </div>
                 
-                <!-- CHECKBOX DE RETIRADA ADICIONADO -->
                 <div class="flex items-center mb-2 pt-2 border-t border-gray-100">
                     <input type="checkbox" id="pickupCheckbox" class="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
                     <label for="pickupCheckbox" class="ml-2 block text-sm text-gray-900">Irei fazer a Retirada</label>
@@ -893,7 +892,11 @@
             let discountPromotion = null;
             let contactInfo = {};
             let isPickupOrder = false;
-            let currentBurgerBasePrice = 0; // CORREÇÃO: Variável segura para o preço base
+            let currentBurgerBasePrice = 0;
+            let itemVisibility = {};
+            let unavailableItems = {};
+            let ingredientVisibility = {};
+            let ingredientStatus = {};
             
             let selectedAddress = {
                 clientName: null, 
@@ -1082,37 +1085,46 @@
                 }
             }
 
-            function updateItemsAvailability(unavailableItems = {}) {
-                document.querySelectorAll('.add-item-btn').forEach(button => {
-                    const itemId = button.dataset.itemId;
-                    const isUnavailable = unavailableItems[itemId] === false;
-                    const card = button.closest('.flavor-card');
-                    const item = allMenuData.find(i => i.id === itemId);
-
-                    if (isUnavailable) {
-                        button.disabled = true;
-                        button.textContent = 'Esgotado';
-                        button.classList.remove('bg-red-600', 'hover:bg-red-700');
-                        button.classList.add('bg-gray-400', 'cursor-not-allowed');
-                        if (card) card.classList.add('opacity-60');
-                    } else {
-                        if (item) {
-                            button.disabled = false;
-                            button.textContent = item.isCustomizable ? 'Montar' : 'Adicionar';
-                            button.classList.add('bg-red-600', 'hover:bg-red-700');
-                            button.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                            if (card) card.classList.remove('opacity-60');
-                        }
+            function updateUI() {
+                const visibleItems = allMenuData.filter(item => itemVisibility[item.id] !== false);
+                
+                const orderedCategories = [];
+                const seenCategories = new Set();
+                visibleItems.forEach(item => {
+                    if (!seenCategories.has(item.category)) {
+                        seenCategories.add(item.category);
+                        orderedCategories.push(item.category);
                     }
                 });
+
+                createCategoryButtons(orderedCategories);
+                populateMenu(visibleItems, orderedCategories);
+
+                if (burgerBuilderModal.style.display === 'flex') {
+                    const currentBurgerId = burgerBuilderModal.dataset.burgerId;
+                    const burgerItem = allMenuData.find(item => item.id === currentBurgerId);
+                    if (burgerItem) {
+                        openBurgerBuilderModal(burgerItem);
+                    }
+                }
             }
 
-            function listenToItemStatus() {
-                const itemStatusRef = doc(db, "config", "item_status");
-                onSnapshot(itemStatusRef, (doc) => {
-                    console.log("Status dos itens atualizado em tempo real.");
-                    const unavailableItems = doc.exists() ? doc.data() : {};
-                    updateItemsAvailability(unavailableItems);
+            function listenToControls() {
+                onSnapshot(doc(db, "config", "item_status"), (doc) => {
+                    unavailableItems = doc.exists() ? doc.data() : {};
+                    updateUI();
+                });
+                onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
+                    itemVisibility = doc.exists() ? doc.data() : {};
+                    updateUI();
+                });
+                onSnapshot(doc(db, "config", "ingredient_status"), (doc) => {
+                    ingredientStatus = doc.exists() ? doc.data() : {};
+                    updateUI();
+                });
+                onSnapshot(doc(db, "config", "ingredient_visibility"), (doc) => {
+                    ingredientVisibility = doc.exists() ? doc.data() : {};
+                    updateUI();
                 });
             }
 
@@ -1153,7 +1165,7 @@
                     if (itemsByCategory[category]) {
                         itemsByCategory[category].forEach(item => {
                             let itemHtml = '';
-                            const isUnavailable = !item.available;
+                            const isUnavailable = unavailableItems[item.id] === false;
                             
                             const trimmedImageUrl = String(item.imageUrl || '').trim();
                             let imageElement = '';
@@ -1231,18 +1243,6 @@
                     const data = await response.json(); 
                     
                     allMenuData = data.cardapio;
-
-                    allMenuData.forEach(item => {
-                        for (const key in item) {
-                            if (key.toLowerCase().includes('montavel') || key.toLowerCase().includes('montável')) {
-                                if (key !== 'isCustomizable') {
-                                    item.isCustomizable = item[key];
-                                    delete item[key];
-                                }
-                            }
-                        }
-                    });
-
                     allPromotionsData = data.promocoes;
                     deliveryFeesData = data.deliveryFees;
                     
@@ -1259,18 +1259,9 @@
                     }, {});
                     
                     discountPromotion = allPromotionsData.find(promo => promo.name === 'Desconto no Pedido' && promo.active);
-
-                    let orderedUniqueCategories = [];
-                    const seenCategories = new Set();
-                    allMenuData.forEach(item => {
-                        if (!seenCategories.has(item.category)) {
-                            seenCategories.add(item.category);
-                            orderedUniqueCategories.push(item.category);
-                        }
-                    });
                     
-                    createCategoryButtons(orderedUniqueCategories); 
-                    populateMenu(allMenuData, orderedUniqueCategories); 
+                    listenToControls();
+                    
                     populateNeighborhoodDropdown(deliveryFeesData); 
                     populateContactInfo(data.contact);
                     setupCategoryObserver(); 
@@ -1280,11 +1271,6 @@
                     updateCheckoutButtonText(); 
                     showAddressSummary(); 
                     
-                    toggleAddItemButtons(true);
-                    toggleCategoryButtons(true);
-                    
-                    listenToItemStatus();
-
                     setTimeout(() => window.dispatchEvent(new Event('scroll')), 100);
 
                 } catch (error) {
@@ -1294,13 +1280,16 @@
             }
             
             function openBurgerBuilderModal(baseBurgerItem) {
+                burgerBuilderModal.dataset.burgerId = baseBurgerItem.id;
                 burgerIngredientsContainer.innerHTML = '';
-                currentBurgerBasePrice = baseBurgerItem.basePrice; // CORREÇÃO: Usa a variável segura
-                
+                currentBurgerBasePrice = baseBurgerItem.basePrice;
+
                 for (const categoryName in allBurgerIngredients) {
                     const ingredients = allBurgerIngredients[categoryName];
-                    if (ingredients.length > 0) {
-                        const firstIngredient = ingredients[0];
+                    const visibleIngredients = ingredients.filter(ing => ingredientVisibility[ing.id] !== false);
+
+                    if (visibleIngredients.length > 0) {
+                        const firstIngredient = visibleIngredients[0];
                         const isSingleChoice = firstIngredient.isSingleChoice;
                         const limit = firstIngredient.limit || Infinity;
                         const isRequired = firstIngredient.isRequired || false;
@@ -1321,18 +1310,19 @@
 
                         categoryDiv.innerHTML = `<h4>${categoryTitle}</h4>`;
 
-                        ingredients.forEach(ingredient => {
+                        visibleIngredients.forEach(ingredient => {
+                            const isUnavailable = ingredientStatus[ingredient.id] === false;
                             const ingredientLimit = ingredient.ingredientLimit || 1;
                             const priceDisplay = ingredient.price > 0 ? `+ R$ ${ingredient.price.toFixed(2).replace('.', ',')}` : '';
                             const label = document.createElement('label');
-                            label.className = 'ingredient-option';
+                            label.className = `ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''}`;
 
                             if (isSingleChoice) {
                                 const inputType = 'radio';
                                 const inputName = categoryName;
                                 label.innerHTML = `
-                                    <input type="${inputType}" id="${inputName}-${ingredient.id}" name="${inputName}" value="${ingredient.id}" data-price="${ingredient.price}" class="form-${inputType}">
-                                    <span class="flex-grow">${ingredient.name}</span>
+                                    <input type="${inputType}" id="${inputName}-${ingredient.id}" name="${inputName}" value="${ingredient.id}" data-price="${ingredient.price}" class="form-${inputType}" ${isUnavailable ? 'disabled' : ''}>
+                                    <span class="flex-grow">${ingredient.name} ${isUnavailable ? '(Esgotado)' : ''}</span>
                                     <span class="price ml-2">${priceDisplay}</span>
                                 `;
                                 label.querySelector('input').addEventListener('change', (e) => {
@@ -1347,13 +1337,13 @@
                             } else {
                                 label.innerHTML = `
                                     <div class="flex-grow">
-                                        <span>${ingredient.name}</span>
+                                        <span>${ingredient.name} ${isUnavailable ? '(Esgotado)' : ''}</span>
                                         <span class="price ml-2">${priceDisplay}</span>
                                     </div>
                                     <div class="flex items-center space-x-3" data-ingredient-id="${ingredient.id}" data-price="${ingredient.price}" data-limit="${ingredientLimit}">
-                                        <button type="button" class="quantity-btn minus-btn bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold">-</button>
+                                        <button type="button" class="quantity-btn minus-btn bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold" ${isUnavailable ? 'disabled' : ''}>-</button>
                                         <span class="quantity-display font-bold text-lg w-4 text-center">0</span>
-                                        <button type="button" class="quantity-btn plus-btn bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold">+</button>
+                                        <button type="button" class="quantity-btn plus-btn bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold" ${isUnavailable ? 'disabled' : ''}>+</button>
                                     </div>
                                 `;
                             }
@@ -1370,7 +1360,7 @@
             }
 
             function updateBurgerPrice() {
-                let total = currentBurgerBasePrice; // CORREÇÃO: Usa a variável segura
+                let total = currentBurgerBasePrice;
                 document.querySelectorAll('#burger-ingredients-container input:checked').forEach(input => {
                     total += parseFloat(input.dataset.price);
                 });
@@ -1387,7 +1377,7 @@
 
             function addCustomBurgerToOrder(baseBurgerItem) {
                 const selectedIngredients = [];
-                let finalTotal = currentBurgerBasePrice; // CORREÇÃO: Usa a variável segura
+                let finalTotal = currentBurgerBasePrice;
 
                 let allRequiredCategoriesFilled = true;
                 for (const categoryName in allBurgerIngredients) {
