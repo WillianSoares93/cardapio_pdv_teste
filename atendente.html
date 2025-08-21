@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -227,6 +226,17 @@ teste
                         <div class="flex justify-between text-sm"><span class="text-gray-600">Taxa de Entrega:</span> <span id="manual-delivery-fee" class="font-medium">R$ 0,00</span></div>
                         <div class="flex justify-between font-bold mt-1 text-xl"><span class="text-gray-800">Total:</span> <span id="manual-total" class="text-gray-800">R$ 0,00</span></div>
                     </div>
+                    <!-- INÍCIO DA CORREÇÃO: Seção de Pagamento Adicionada -->
+                    <div class="mt-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Forma de Pagamento</h4>
+                        <div class="flex flex-wrap gap-x-4 gap-y-2">
+                            <label class="flex items-center"><input type="radio" name="manual-payment" value="A Definir" checked class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">A Definir</span></label>
+                            <label class="flex items-center"><input type="radio" name="manual-payment" value="Dinheiro" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Dinheiro</span></label>
+                            <label class="flex items-center"><input type="radio" name="manual-payment" value="Cartão de Crédito/Débito" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Cartão</span></label>
+                            <label class="flex items-center"><input type="radio" name="manual-payment" value="Pix" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Pix</span></label>
+                        </div>
+                    </div>
+                    <!-- FIM DA CORREÇÃO -->
                 </div>
 
                 <div class="mt-6 flex justify-between items-center">
@@ -539,6 +549,7 @@ teste
             let endereco = {};
             let grupoMesas = null;
             let status = 'Em Preparo'; // Padrão para mesas
+            const paymentMethod = document.querySelector('input[name="manual-payment"]:checked').value;
 
             if (currentOrderType === 'mesa') {
                 endereco = { clientName: clientName, rua: "Mesa" };
@@ -576,7 +587,8 @@ teste
                 await updateDoc(orderRef, {
                     itens: manualOrderItems,
                     "total.subtotal": subtotal,
-                    "total.finalTotal": finalTotal
+                    "total.finalTotal": finalTotal,
+                    pagamento: paymentMethod
                 });
                 alert("Itens adicionados com sucesso!");
             } else {
@@ -584,6 +596,7 @@ teste
                     itens: manualOrderItems,
                     endereco: endereco,
                     total: { subtotal, finalTotal, deliveryFee, discount: 0 },
+                    pagamento: paymentMethod,
                     status: status,
                     criadoEm: serverTimestamp()
                 };
