@@ -821,7 +821,111 @@
 
         async function openMenuManagementModal() {
             menuManagementModal.style.display = 'flex';
-            // Lógica para carregar e exibir os itens e ingredientes...
+            menuItemsContainer.innerHTML = '<p class="text-center">Carregando itens...</p>';
+            ingredientsContainer.innerHTML = '<p class="text-center">Carregando ingredientes...</p>';
+            
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Falha ao carregar o cardápio');
+                
+                const data = await response.json();
+                const allItems = data.cardapio.filter(item => item.id && item.name);
+                const allIngredients = data.ingredientesHamburguer.filter(ing => ing.id && ing.name);
+                
+                const categories = [...new Set(allItems.map(item => item.category))];
+                categoryFilterSelect.innerHTML = '<option value="all">Todas as Categorias</option>';
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    categoryFilterSelect.appendChild(option);
+                });
+
+                const itemStatusSnap = await getDoc(doc(db, "config", "item_status"));
+                const itemVisibilitySnap = await getDoc(doc(db, "config", "item_visibility"));
+                const ingredientStatusSnap = await getDoc(doc(db, "config", "ingredient_status"));
+                const ingredientVisibilitySnap = await getDoc(doc(db, "config", "ingredient_visibility"));
+
+                const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
+                const hiddenItems = itemVisibilitySnap.exists() ? itemVisibilitySnap.data() : {};
+                const unavailableIngredients = ingredientStatusSnap.exists() ? ingredientStatusSnap.data() : {};
+                const hiddenIngredients = ingredientVisibilitySnap.exists() ? ingredientVisibilitySnap.data() : {};
+
+                menuItemsContainer.innerHTML = ''; // Limpa o container
+                allItems.forEach(item => {
+                    const isVisible = hiddenItems[item.id] !== false;
+                    const isAvailable = unavailableItems[item.id] !== false;
+                    const itemElement = createControlRow(item.name, item.id, isVisible, isAvailable, 'item');
+                    menuItemsContainer.appendChild(itemElement);
+                });
+
+                ingredientsContainer.innerHTML = ''; // Limpa o container
+                allIngredients.forEach(ing => {
+                    const isVisible = hiddenIngredients[ing.id] !== false;
+                    const isAvailable = unavailableIngredients[ing.id] !== false;
+                    const ingElement = createControlRow(ing.name, ing.id, isVisible, isAvailable, 'ingredient');
+                    ingredientsContainer.appendChild(ingElement);
+                });
+
+            } catch (error) {
+                menuItemsContainer.innerHTML = `<p class="text-red-500">Erro ao carregar cardápio: ${error.message}</p>`;
+            }
+        }
+
+        function createControlRow(name, id, isVisible, isAvailable, type) {
+            const element = document.createElement('div');
+            element.className = 'flex items-center justify-between p-2 bg-gray-50 rounded-md';
+            element.innerHTML = `
+                <span class="font-medium text-gray-700 flex-grow">${name}</span>
+                <div class="flex items-center space-x-8">
+                    <div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" data-id="${id}" data-type="${type}" data-control="visibility" class="toggle-checkbox toggle-exibir absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isVisible ? 'checked' : ''}/>
+                        <label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                    <div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" data-id="${id}" data-type="${type}" data-control="status" class="toggle-checkbox toggle-disponivel absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isAvailable ? 'checked' : ''} ${!isVisible ? 'disabled' : ''}/>
+                        <label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
+            `;
+
+            const toggleExibir = element.querySelector('.toggle-exibir');
+            const toggleDisponivel = element.querySelector('.toggle-disponivel');
+
+            toggleExibir.addEventListener('change', async () => {
+                const visible = toggleExibir.checked;
+                if (!visible) {
+                    toggleDisponivel.checked = false;
+                    toggleDisponivel.disabled = true;
+                    await updateFirestoreState(id, type, 'status', false);
+                } else {
+                    toggleDisponivel.disabled = false;
+                }
+                await updateFirestoreState(id, type, 'visibility', visible);
+            });
+
+            toggleDisponivel.addEventListener('change', async () => {
+                await updateFirestoreState(id, type, 'status', toggleDisponivel.checked);
+            });
+
+            return element;
+        }
+
+        async function updateFirestoreState(id, type, control, value) {
+            const docName = `${type}_${control}`;
+            const docRef = doc(db, "config", docName);
+            try {
+                const currentDoc = await getDoc(docRef);
+                const data = currentDoc.exists() ? currentDoc.data() : {};
+                if (value) {
+                    delete data[id]; // Se está visível/disponível, remove a entrada (padrão é true)
+                } else {
+                    data[id] = false; // Se está escondido/indisponível, adiciona a entrada
+                }
+                await setDoc(docRef, data);
+            } catch (error) {
+                console.error(`Erro ao atualizar ${docName}:`, error);
+            }
         }
 
         manageMenuBtn.addEventListener('click', openMenuManagementModal);
