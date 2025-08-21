@@ -75,13 +75,28 @@
             transition: all 0.2s ease-in-out;
             aspect-ratio: 1 / 1;
         }
-        .mesa-item:hover {
+        .mesa-item:hover:not(.joining-mode) {
             transform: translateY(-4px);
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
         .mesa-status-livre { background-color: #dcfce7; border-color: #22c55e; color: #166534; }
         .mesa-status-ocupada { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; }
         .mesa-status-conta { background-color: #fef9c3; border-color: #facc15; color: #854d0e; }
+        /* INÍCIO DA ALTERAÇÃO: Estilos para junção de mesas */
+        .mesa-status-juntada { background-color: #e0e7ff; border-color: #4f46e5; color: #3730a3; }
+        .mesa-item.selected-for-join {
+            outline: 4px solid #3b82f6;
+            outline-offset: 2px;
+            transform: scale(1.05);
+        }
+        .joining-mode .mesa-item.mesa-status-livre {
+            cursor: pointer;
+        }
+        .joining-mode .mesa-item:not(.mesa-status-livre) {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        /* FIM DA ALTERAÇÃO */
         .tab-btn.active {
             border-bottom-color: #3b82f6; /* blue-500 */
             color: #3b82f6;
@@ -158,6 +173,17 @@
         </div>
 
         <div id="tab-content-mesas" class="tab-content hidden">
+            <!-- INÍCIO DA ALTERAÇÃO: Botões de controle para junção de mesas -->
+            <div id="mesas-controls" class="mt-4 p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
+                <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
+                    <i class="fas fa-link mr-2"></i>Juntar Mesas
+                </button>
+                <div id="joining-controls" class="hidden space-x-2">
+                    <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Junção</button>
+                    <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
+                </div>
+            </div>
+            <!-- FIM DA ALTERAÇÃO -->
             <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mt-4">
                 <!-- As mesas serão inseridas aqui pelo JavaScript -->
             </div>
@@ -470,6 +496,15 @@
         let unavailableItemsData = {};
         let hiddenItemsData = {};
 
+        // INÍCIO DA ALTERAÇÃO: Lógica para junção de mesas
+        const joinTablesBtn = document.getElementById('join-tables-btn');
+        const joiningControls = document.getElementById('joining-controls');
+        const confirmJoinBtn = document.getElementById('confirm-join-btn');
+        const cancelJoinBtn = document.getElementById('cancel-join-btn');
+        let isJoiningTables = false;
+        let selectedTablesForJoining = [];
+        // FIM DA ALTERAÇÃO
+
         // Lógica de troca de abas
         mainTabs.addEventListener('click', (e) => {
             const tabButton = e.target.closest('.main-tab-btn');
@@ -491,6 +526,7 @@
                 mesaEl.id = `mesa-${i}`;
                 mesaEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-livre';
                 mesaEl.dataset.status = 'livre';
+                mesaEl.dataset.number = i;
                 mesaEl.innerHTML = `
                     <span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span>
                     <span class="text-sm font-medium mt-2">Livre</span>
@@ -504,6 +540,20 @@
             const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
             const status = mesaEl.dataset.status;
             
+            if (isJoiningTables) {
+                if (status === 'livre') {
+                    const index = selectedTablesForJoining.indexOf(numeroMesa);
+                    if (index > -1) {
+                        selectedTablesForJoining.splice(index, 1);
+                        mesaEl.classList.remove('selected-for-join');
+                    } else {
+                        selectedTablesForJoining.push(numeroMesa);
+                        mesaEl.classList.add('selected-for-join');
+                    }
+                }
+                return;
+            }
+
             if (status === 'livre') {
                 window.open(`atendente.html?mesa=${numeroMesa}`, '_blank');
             } else {
@@ -599,16 +649,20 @@
                         else if (orderData.status === 'Pronto para Entrega') colRetiradaPronto.appendChild(card);
                         else if (orderData.status === 'Finalizado') colRetiradaFinalizado.appendChild(card);
                     } else if (tipoPedido === 'mesa') {
-                        const clientName = orderData.endereco.clientName || "";
-                        const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
-                        if (numeroMesa && numeroMesa <= NUMERO_DE_MESAS && orderData.status !== 'Finalizado') {
-                            const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
-                            mesaEl.classList.remove('mesa-status-livre');
-                            mesaEl.classList.add('mesa-status-ocupada');
-                            mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
-                            mesaEl.dataset.status = 'ocupada';
-                            mesaEl.dataset.orderId = orderId;
-                        }
+                        const mesasDoPedido = orderData.grupoMesas || [parseInt((orderData.endereco.clientName || "").replace(/[^0-9]/g, ''))];
+                        
+                        mesasDoPedido.forEach(numeroMesa => {
+                            if (numeroMesa && numeroMesa <= NUMERO_DE_MESAS && orderData.status !== 'Finalizado') {
+                                const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
+                                mesaEl.classList.remove('mesa-status-livre');
+                                const statusClass = mesasDoPedido.length > 1 ? 'mesa-status-juntada' : 'mesa-status-ocupada';
+                                const statusText = mesasDoPedido.length > 1 ? `Juntada (${mesasDoPedido.join('+')})` : 'Ocupada';
+                                mesaEl.classList.add(statusClass);
+                                mesaEl.querySelector('span:last-child').textContent = statusText;
+                                mesaEl.dataset.status = 'ocupada';
+                                mesaEl.dataset.orderId = orderId;
+                            }
+                        });
                     }
                 });
                 document.getElementById('stats-total-orders').textContent = totalOrdersToday;
@@ -1391,6 +1445,37 @@
             contentIngredients.classList.remove('hidden');
             contentItems.classList.add('hidden');
         });
+
+        // INÍCIO DA ALTERAÇÃO: Event listeners para junção de mesas
+        function toggleJoinMode(active) {
+            isJoiningTables = active;
+            mesasGrid.classList.toggle('joining-mode', active);
+            joinTablesBtn.classList.toggle('hidden', active);
+            joiningControls.classList.toggle('hidden', !active);
+
+            if (!active) {
+                selectedTablesForJoining = [];
+                document.querySelectorAll('.mesa-item.selected-for-join').forEach(el => el.classList.remove('selected-for-join'));
+            }
+        }
+
+        joinTablesBtn.addEventListener('click', () => toggleJoinMode(true));
+        cancelJoinBtn.addEventListener('click', () => toggleJoinMode(false));
+        confirmJoinBtn.addEventListener('click', () => {
+            if (selectedTablesForJoining.length < 2) {
+                alert("Selecione pelo menos duas mesas para juntar.");
+                return;
+            }
+            const sortedTables = selectedTablesForJoining.sort((a, b) => a - b);
+            const groupName = `Mesas ${sortedTables.join(' + ')}`;
+            const tablesParam = sortedTables.join(',');
+            
+            // Abre a tela de atendente com os parâmetros para criar o pedido do grupo
+            window.open(`atendente.html?grupo=${tablesParam}`, '_blank');
+            
+            toggleJoinMode(false);
+        });
+        // FIM DA ALTERAÇÃO
 
     </script>
 </body>
