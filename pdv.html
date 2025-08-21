@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -492,14 +493,12 @@
         let unavailableItemsData = {};
         let hiddenItemsData = {};
 
-        // INÍCIO DA ALTERAÇÃO: Lógica para junção de mesas
         const joinTablesBtn = document.getElementById('join-tables-btn');
         const joiningControls = document.getElementById('joining-controls');
         const confirmJoinBtn = document.getElementById('confirm-join-btn');
         const cancelJoinBtn = document.getElementById('cancel-join-btn');
         let isJoiningTables = false;
         let selectedTablesForJoining = [];
-        // FIM DA ALTERAÇÃO
 
         // Lógica de troca de abas
         mainTabs.addEventListener('click', (e) => {
@@ -523,6 +522,7 @@
                 mesaEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-livre';
                 mesaEl.dataset.status = 'livre';
                 mesaEl.dataset.number = i;
+                mesaEl.style.gridColumn = ''; // Reseta o span
                 mesaEl.innerHTML = `
                     <span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span>
                     <span class="text-sm font-medium mt-2">Livre</span>
@@ -631,8 +631,8 @@
                         
                         const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
                         if (primaryTableEl) {
-                            primaryTableEl.classList.remove('mesa-status-livre', 'sm:grid-cols-3', 'md:grid-cols-4', 'lg:grid-cols-6');
-                            primaryTableEl.classList.add('mesa-status-juntada', `col-span-${sortedGroup.length}`);
+                            primaryTableEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-juntada';
+                            primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
                             primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
                             primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
                             primaryTableEl.dataset.status = 'ocupada';
