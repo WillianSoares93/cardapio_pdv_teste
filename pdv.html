@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -81,7 +82,6 @@
         }
         .mesa-status-livre { background-color: #dcfce7; border-color: #22c55e; color: #166534; }
         .mesa-status-ocupada { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; }
-        .mesa-status-conta { background-color: #fef9c3; border-color: #facc15; color: #854d0e; }
         .mesa-status-juntada { background-color: #e0e7ff; border-color: #4f46e5; color: #3730a3; }
         .mesa-item.selected-for-join {
             outline: 4px solid #3b82f6;
@@ -338,21 +338,39 @@
         </div>
     </div>
 
-    <div id="edit-order-modal" class="modal">
+    <!-- MODAL DE GERENCIAMENTO DE MESA -->
+    <div id="manage-table-modal" class="modal">
         <div class="modal-content">
-            <!-- INÍCIO DA ALTERAÇÃO: Header do Modal de Edição -->
             <div class="flex justify-between items-center mb-4 pb-4 border-b">
-                <div>
-                    <h2 class="text-xl font-bold">Gerenciar Pedido</h2>
-                    <p id="edit-modal-order-id" class="text-sm text-gray-500"></p>
-                </div>
-                <div id="edit-modal-print-buttons" class="flex items-center space-x-2">
-                    <!-- Botões de impressão serão inseridos aqui -->
-                </div>
-                <button id="close-edit-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                <h2 id="manage-table-title" class="text-xl font-bold">Gerenciar Mesa</h2>
+                <button id="close-manage-table-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <!-- FIM DA ALTERAÇÃO -->
-            <div id="edit-modal-body" class="space-y-4"></div>
+            <div id="manage-table-body" class="space-y-4">
+                <div class="max-h-60 overflow-y-auto p-2 border rounded-md bg-gray-50">
+                    <h4 class="font-bold mb-2">Itens Consumidos:</h4>
+                    <ul id="table-order-items-list" class="text-sm space-y-1"></ul>
+                </div>
+                <div class="text-right font-bold text-lg">
+                    Total: <span id="table-order-total">R$ 0,00</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4 pt-4 border-t">
+                    <button id="print-partial-btn" class="p-3 bg-blue-500 text-white rounded-md hover:bg-blue-600">Imprimir Parcial</button>
+                    <button id="transfer-table-btn" class="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">Transferir Mesa</button>
+                    <button id="close-account-btn" class="col-span-2 p-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-bold text-lg">Fechar Conta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para Transferir Mesa -->
+    <div id="transfer-table-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4">Transferir para qual mesa livre?</h3>
+            <select id="free-tables-select" class="w-full p-2 border rounded-md"></select>
+            <div class="flex justify-end gap-4 mt-4">
+                <button id="cancel-transfer-btn" class="px-4 py-2 bg-gray-300 rounded-md">Cancelar</button>
+                <button id="confirm-transfer-btn" class="px-4 py-2 bg-blue-500 text-white rounded-md">Confirmar</button>
+            </div>
         </div>
     </div>
 
@@ -445,19 +463,16 @@
         });
         // --- FIM DA LÓGICA DE CAIXA ---
 
-        // --- INÍCIO DA REESTRUTURAÇÃO ---
         const mainTabs = document.getElementById('main-tabs');
         const tabContents = document.querySelectorAll('.tab-content');
         const mesasGrid = document.getElementById('mesas-grid');
         const NUMERO_DE_MESAS = 12;
 
-        // Colunas para Delivery
         const colDeliveryNovo = document.getElementById('col-delivery-novo');
         const colDeliveryPreparo = document.getElementById('col-delivery-preparo');
         const colDeliveryEntrega = document.getElementById('col-delivery-entrega');
         const colDeliveryFinalizado = document.getElementById('col-delivery-finalizado');
 
-        // Colunas para Retirada
         const colRetiradaNovo = document.getElementById('col-retirada-novo');
         const colRetiradaPreparo = document.getElementById('col-retirada-preparo');
         const colRetiradaPronto = document.getElementById('col-retirada-pronto');
@@ -507,6 +522,12 @@
         let isJoiningTables = false;
         let selectedTablesForJoining = [];
 
+        const manageTableModal = document.getElementById('manage-table-modal');
+        const closeManageTableModalBtn = document.getElementById('close-manage-table-modal');
+        const transferTableModal = document.getElementById('transfer-table-modal');
+        let currentManagingOrderId = null;
+        let currentManagingOrderData = null;
+
         // Lógica de troca de abas
         mainTabs.addEventListener('click', (e) => {
             const tabButton = e.target.closest('.main-tab-btn');
@@ -541,6 +562,7 @@
 
         function handleMesaClick(numeroMesa) {
             const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
+            if (!mesaEl) return;
             const status = mesaEl.dataset.status;
             
             if (isJoiningTables) {
@@ -562,7 +584,7 @@
             } else {
                 const orderId = mesaEl.dataset.orderId;
                 if (orderId) {
-                    openEditModal(orderId);
+                    openManageTableModal(orderId);
                 }
             }
         }
@@ -822,66 +844,21 @@
             return card;
         }
 
-        async function openEditModal(id) {
-            await loadDeliveryFees();
-            const orderRef = doc(db, "pedidos", id);
+        async function openManageTableModal(orderId) {
+            currentManagingOrderId = orderId;
+            const orderRef = doc(db, "pedidos", orderId);
             const docSnap = await getDoc(orderRef);
 
             if (docSnap.exists()) {
-                const order = docSnap.data();
+                currentManagingOrderData = docSnap.data();
+                document.getElementById('manage-table-title').textContent = `Gerenciar ${currentManagingOrderData.endereco.clientName}`;
                 
-                // INÍCIO DA ALTERAÇÃO: Adiciona botões de impressão ao modal
-                document.getElementById('edit-modal-order-id').textContent = `Pedido #${id.substring(0, 5)}`;
-                const printButtonsContainer = document.getElementById('edit-modal-print-buttons');
-                printButtonsContainer.innerHTML = `
-                    <button data-id="${id}" data-type="kitchen" class="print-btn text-gray-500 hover:text-gray-700" title="Imprimir Comanda da Cozinha"><i class="fas fa-utensils"></i></button>
-                    <button data-id="${id}" data-type="client" class="print-btn text-gray-500 hover:text-gray-700" title="Imprimir Recibo do Cliente"><i class="fas fa-receipt"></i></button>
-                `;
-                // FIM DA ALTERAÇÃO
+                const itemsList = document.getElementById('table-order-items-list');
+                itemsList.innerHTML = currentManagingOrderData.itens.map(item => `<li>${item.name} - R$ ${item.price.toFixed(2).replace('.',',')}</li>`).join('');
+                
+                document.getElementById('table-order-total').textContent = `R$ ${currentManagingOrderData.total.finalTotal.toFixed(2).replace('.',',')}`;
 
-                editModalBody.innerHTML = `
-                    <input type="hidden" id="edit-order-id" value="${id}">
-                    <div>
-                        <label for="edit-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
-                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label for="edit-telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
-                        <input type="tel" id="edit-telefone" value="${order.endereco.telefone || ''}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label for="edit-rua" class="block text-sm font-medium text-gray-700">Rua</label>
-                        <input type="text" id="edit-rua" value="${order.endereco.rua}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    </div>
-                     <div>
-                        <label for="edit-numero" class="block text-sm font-medium text-gray-700">Número</label>
-                        <input type="text" id="edit-numero" value="${order.endereco.numero}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
-                        <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></select>
-                    </div>
-                    <div class="mt-4 flex justify-between">
-                        <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
-                        <button id="delete-order-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">Excluir Pedido</button>
-                    </div>
-                `;
-
-                const bairroSelect = document.getElementById('edit-bairro');
-                bairroSelect.innerHTML = '<option value="">Selecione um bairro</option>';
-                deliveryFeesData.forEach(fee => {
-                    const option = document.createElement('option');
-                    option.value = fee.neighborhood;
-                    option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`;
-                    if (fee.neighborhood === order.endereco.bairro) {
-                        option.selected = true;
-                    }
-                    bairroSelect.appendChild(option);
-                });
-
-                editOrderModal.style.display = 'flex';
-            } else {
-                console.log("Nenhum pedido encontrado!");
+                manageTableModal.style.display = 'flex';
             }
         }
 
@@ -1459,17 +1436,6 @@
             }
         });
         
-        // INÍCIO DA ALTERAÇÃO: Adiciona listener para os botões de impressão no modal
-        document.getElementById('edit-order-modal').addEventListener('click', (e) => {
-            const printBtn = e.target.closest('.print-btn');
-            if(printBtn) {
-                const orderId = printBtn.dataset.id;
-                const printType = printBtn.dataset.type;
-                printOrder(orderId, printType);
-            }
-        });
-        // FIM DA ALTERAÇÃO
-
         cancelDeleteBtn.addEventListener('click', () => {
             deleteConfirmModal.style.display = 'none';
             orderIdToDelete = null;
@@ -1522,6 +1488,72 @@
             window.open(`atendente.html?grupo=${tablesParam}`, '_blank');
             
             toggleJoinMode(false);
+        });
+
+        closeManageTableModalBtn.addEventListener('click', () => {
+            manageTableModal.style.display = 'none';
+        });
+
+        document.getElementById('print-partial-btn').addEventListener('click', () => {
+            if(currentManagingOrderId) printOrder(currentManagingOrderId, 'client');
+        });
+
+        document.getElementById('close-account-btn').addEventListener('click', async () => {
+            if(currentManagingOrderId) {
+                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
+                alert("Conta fechada com sucesso!");
+                manageTableModal.style.display = 'none';
+            }
+        });
+
+        document.getElementById('transfer-table-btn').addEventListener('click', () => {
+            const freeTablesSelect = document.getElementById('free-tables-select');
+            freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
+            const freeTables = [];
+            document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
+                freeTables.push(mesaEl.dataset.number);
+                const option = document.createElement('option');
+                option.value = mesaEl.dataset.number;
+                option.textContent = `Mesa ${mesaEl.dataset.number}`;
+                freeTablesSelect.appendChild(option);
+            });
+
+            if (freeTables.length === 0) {
+                alert("Nenhuma mesa livre para transferir.");
+                return;
+            }
+            transferTableModal.style.display = 'flex';
+        });
+
+        document.getElementById('cancel-transfer-btn').addEventListener('click', () => {
+            transferTableModal.style.display = 'none';
+        });
+
+        document.getElementById('confirm-transfer-btn').addEventListener('click', async () => {
+            const newTableNumber = document.getElementById('free-tables-select').value;
+            if (!newTableNumber) {
+                alert("Por favor, selecione uma mesa para a transferência.");
+                return;
+            }
+
+            if (currentManagingOrderId && currentManagingOrderData) {
+                const newClientName = `Mesa ${newTableNumber}`;
+                const newOrderData = {
+                    ...currentManagingOrderData,
+                    "endereco.clientName": newClientName,
+                    grupoMesas: null // Remove o grupo se houver
+                };
+
+                // Cria um novo pedido para a nova mesa
+                const newOrderRef = await addDoc(collection(db, "pedidos"), newOrderData);
+                
+                // Finaliza o pedido antigo
+                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
+
+                alert(`Pedido transferido com sucesso para a ${newClientName}`);
+                transferTableModal.style.display = 'none';
+                manageTableModal.style.display = 'none';
+            }
         });
 
     </script>
