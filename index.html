@@ -893,6 +893,7 @@
             let discountPromotion = null;
             let contactInfo = {};
             let isPickupOrder = false;
+            let currentBurgerBasePrice = 0; // CORREÇÃO: Variável segura para o preço base
             
             let selectedAddress = {
                 clientName: null, 
@@ -1294,8 +1295,8 @@
             
             function openBurgerBuilderModal(baseBurgerItem) {
                 burgerIngredientsContainer.innerHTML = '';
-                burgerBuilderModal.dataset.basePrice = baseBurgerItem.basePrice;
-
+                currentBurgerBasePrice = baseBurgerItem.basePrice; // CORREÇÃO: Usa a variável segura
+                
                 for (const categoryName in allBurgerIngredients) {
                     const ingredients = allBurgerIngredients[categoryName];
                     if (ingredients.length > 0) {
@@ -1369,11 +1370,11 @@
             }
 
             function updateBurgerPrice() {
-                let total = parseFloat(burgerBuilderModal.dataset.basePrice) || 0;
-                document.querySelectorAll('input:checked').forEach(input => {
+                let total = currentBurgerBasePrice; // CORREÇÃO: Usa a variável segura
+                document.querySelectorAll('#burger-ingredients-container input:checked').forEach(input => {
                     total += parseFloat(input.dataset.price);
                 });
-                document.querySelectorAll('.quantity-display').forEach(display => {
+                document.querySelectorAll('#burger-ingredients-container .quantity-display').forEach(display => {
                     const quantity = parseInt(display.textContent);
                     if (quantity > 0) {
                         const container = display.closest('[data-ingredient-id]');
@@ -1386,7 +1387,7 @@
 
             function addCustomBurgerToOrder(baseBurgerItem) {
                 const selectedIngredients = [];
-                let finalTotal = parseFloat(burgerBuilderModal.dataset.basePrice);
+                let finalTotal = currentBurgerBasePrice; // CORREÇÃO: Usa a variável segura
 
                 let allRequiredCategoriesFilled = true;
                 for (const categoryName in allBurgerIngredients) {
@@ -1570,7 +1571,6 @@
                 const itemImageUrl = item.isPizza ? item.imageUrl : null;
                 
                 if (item.isCustomizable) {
-                    burgerBuilderModal.dataset.basePrice = item.basePrice;
                     openBurgerBuilderModal(item);
                     return;
                 }
@@ -1624,7 +1624,6 @@
                     showTemporaryFeedback('Pizza meio a meia adicionada ao pedido!', 'bg-green-500'); 
                     
                 } else if (item.isCustomizable) {
-                    burgerBuilderModal.dataset.basePrice = item.basePrice;
                     openBurgerBuilderModal(item);
                     return;
                 } else if (item.isPizza) {
@@ -1868,7 +1867,6 @@
                     }
                 }
                 
-                // LÓGICA ATUALIZADA PARA TAXA DE ENTREGA
                 if (isPickupOrder) {
                     selectedAddress.deliveryFee = 0;
                     deliveryFeeDisplay.textContent = 'R$ 0,00';
@@ -1882,7 +1880,7 @@
                     informAddressBtn.classList.add('hidden');
                     editDeliveryAddressBtn.classList.remove('hidden');
                 } else {
-                    selectedAddress.deliveryFee = 0; // Ensure fee is 0 if no bairro
+                    selectedAddress.deliveryFee = 0;
                     deliveryFeeDisplay.textContent = '';
                     deliveryFeeDisplay.classList.add('hidden');
                     informAddressBtn.classList.remove('hidden');
@@ -2029,14 +2027,13 @@
                     return;
                 }
 
-                // LÓGICA DE VALIDAÇÃO DE ENDEREÇO ATUALIZADA
                 if (!isPickupOrder && (!selectedAddress.clientName || !selectedAddress.bairro || (!selectedAddress.numero && !noNumberCheckbox.checked))) {
                     isCheckoutInitiated = true;
-                    showAddressInputModal(false); // Abre o modal completo
+                    showAddressInputModal(false);
                     return;
                 } else if (isPickupOrder && !selectedAddress.clientName) {
                     isCheckoutInitiated = true;
-                    showAddressInputModal(true); // Abre o modal simplificado
+                    showAddressInputModal(true);
                     return;
                 }
 
@@ -2579,14 +2576,23 @@
             pickupCheckbox.addEventListener('change', () => {
                 isPickupOrder = pickupCheckbox.checked;
                 
-                // Clear address details whenever the mode (pickup/delivery) changes.
-                // This forces the user to confirm their details again for the new mode.
-                // Name and phone are preserved.
-                selectedAddress.bairro = null;
-                selectedAddress.rua = null;
-                selectedAddress.numero = null;
-                selectedAddress.referencia = null;
-                selectedAddress.deliveryFee = 0;
+                if (isPickupOrder) {
+                    selectedAddress = {
+                        clientName: selectedAddress.clientName,
+                        telefone: selectedAddress.telefone,
+                        bairro: "Retirada",
+                        rua: "Retirada no Balcão",
+                        numero: "S/N",
+                        referencia: "",
+                        deliveryFee: 0
+                    };
+                } else {
+                    selectedAddress.bairro = null;
+                    selectedAddress.rua = null;
+                    selectedAddress.numero = null;
+                    selectedAddress.referencia = null;
+                    selectedAddress.deliveryFee = 0;
+                }
                 
                 updateOrderDisplay();
             });
