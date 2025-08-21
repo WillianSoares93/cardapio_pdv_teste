@@ -1,3 +1,4 @@
+test
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -218,7 +219,7 @@
     
     <!-- Modal Gerenciar Cardápio -->
     <div id="menu-management-modal" class="modal">
-        <div class="modal-content !max-w-3xl">
+        <div class="modal-content !max-w-4xl">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold">Gerenciar Disponibilidade</h2>
                 <button id="close-menu-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
@@ -246,11 +247,26 @@
                             <option value="all">Todas as Categorias</option>
                         </select>
                     </div>
-                    <div id="status-filter-buttons-items" class="mt-2 flex space-x-2">
-                        <button class="status-filter-btn active px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="all">Todos</button>
-                        <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="available">Disponíveis</button>
-                        <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="unavailable">Esgotados</button>
+                    <!-- INÍCIO DA ALTERAÇÃO: Wrapper para os filtros de status -->
+                    <div class="mt-4 flex flex-wrap items-center gap-x-8 gap-y-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm font-medium text-gray-600">Disponibilidade:</span>
+                            <div id="status-filter-buttons-items" class="flex space-x-2">
+                                <button class="status-filter-btn active px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="all">Todos</button>
+                                <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="available">Disponíveis</button>
+                                <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="unavailable">Esgotados</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm font-medium text-gray-600">Visibilidade:</span>
+                            <div id="visibility-filter-buttons-items" class="flex space-x-2">
+                                <button class="status-filter-btn active px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="all">Todos</button>
+                                <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="visible">À Mostra</button>
+                                <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="hidden">Ocultados</button>
+                            </div>
+                        </div>
                     </div>
+                    <!-- FIM DA ALTERAÇÃO -->
                 </div>
                 <!-- Lista de Itens -->
                 <div id="menu-items-container" class="space-y-2 max-h-80 overflow-y-auto pr-2">
@@ -402,6 +418,9 @@
         const searchMenuInput = document.getElementById('search-menu-input');
         const categoryFilterSelect = document.getElementById('category-filter-select');
         const statusFilterButtonsItems = document.getElementById('status-filter-buttons-items');
+        // INÍCIO DA ALTERAÇÃO: Pega o novo container de botões
+        const visibilityFilterButtonsItems = document.getElementById('visibility-filter-buttons-items');
+        // FIM DA ALTERAÇÃO
         const closeCashRegisterBtn = document.getElementById('close-cash-register-btn');
         const closeCashModal = document.getElementById('close-cash-modal');
         const closeCashForm = document.getElementById('close-cash-form');
@@ -410,11 +429,9 @@
         
         let orderIdToDelete = null;
         let deliveryFeesData = [];
-        // INÍCIO DA ALTERAÇÃO: Variáveis para armazenar dados dos filtros
         let allMenuItems = [];
         let unavailableItemsData = {};
         let hiddenItemsData = {};
-        // FIM DA ALTERAÇÃO
 
         async function loadDeliveryFees() {
             if (deliveryFeesData.length > 0) return;
@@ -840,10 +857,8 @@
                 if (!response.ok) throw new Error('Falha ao carregar o cardápio');
                 
                 const data = await response.json();
-                // INÍCIO DA ALTERAÇÃO: Armazena a lista completa de itens
                 allMenuItems = data.cardapio.filter(item => item.id && item.name);
                 const allIngredients = data.ingredientesHamburguer.filter(ing => ing.id && ing.name);
-                // FIM DA ALTERAÇÃO
                 
                 const categories = [...new Set(allMenuItems.map(item => item.category))];
                 categoryFilterSelect.innerHTML = '<option value="all">Todas as Categorias</option>';
@@ -859,16 +874,12 @@
                 const ingredientStatusSnap = await getDoc(doc(db, "config", "ingredient_status"));
                 const ingredientVisibilitySnap = await getDoc(doc(db, "config", "ingredient_visibility"));
 
-                // INÍCIO DA ALTERAÇÃO: Armazena os dados de status e visibilidade
                 unavailableItemsData = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
                 hiddenItemsData = itemVisibilitySnap.exists() ? itemVisibilitySnap.data() : {};
-                // FIM DA ALTERAÇÃO
                 const unavailableIngredients = ingredientStatusSnap.exists() ? ingredientStatusSnap.data() : {};
                 const hiddenIngredients = ingredientVisibilitySnap.exists() ? ingredientVisibilitySnap.data() : {};
 
-                // INÍCIO DA ALTERAÇÃO: Aplica os filtros iniciais em vez de renderizar tudo
                 applyMenuFilters();
-                // FIM DA ALTERAÇÃO
 
                 ingredientsContainer.innerHTML = `
                     <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
@@ -890,7 +901,6 @@
             }
         }
 
-        // INÍCIO DA ALTERAÇÃO: Nova função para renderizar os itens filtrados
         function renderFilteredMenuItems(itemsToRender) {
             menuItemsContainer.innerHTML = `
                 <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
@@ -913,13 +923,13 @@
                 menuItemsContainer.appendChild(itemElement);
             });
         }
-        // FIM DA ALTERAÇÃO
 
-        // INÍCIO DA ALTERAÇÃO: Nova função para aplicar todos os filtros
+        // INÍCIO DA ALTERAÇÃO: Função de filtro atualizada
         function applyMenuFilters() {
             const searchTerm = searchMenuInput.value.toLowerCase();
             const selectedCategory = categoryFilterSelect.value;
             const statusFilter = document.querySelector('#status-filter-buttons-items .active').dataset.filter;
+            const visibilityFilter = document.querySelector('#visibility-filter-buttons-items .active').dataset.filter;
 
             let filteredItems = allMenuItems;
 
@@ -933,11 +943,18 @@
                 filteredItems = filteredItems.filter(item => item.category === selectedCategory);
             }
 
-            // 3. Filtro por status
+            // 3. Filtro por status de disponibilidade
             if (statusFilter === 'available') {
                 filteredItems = filteredItems.filter(item => unavailableItemsData[item.id] !== false);
             } else if (statusFilter === 'unavailable') {
                 filteredItems = filteredItems.filter(item => unavailableItemsData[item.id] === false);
+            }
+
+            // 4. Filtro por status de visibilidade
+            if (visibilityFilter === 'visible') {
+                filteredItems = filteredItems.filter(item => hiddenItemsData[item.id] !== false);
+            } else if (visibilityFilter === 'hidden') {
+                filteredItems = filteredItems.filter(item => hiddenItemsData[item.id] === false);
             }
 
             renderFilteredMenuItems(filteredItems);
@@ -987,9 +1004,12 @@
             const docName = `${type}_${control}`;
             const docRef = doc(db, "config", docName);
             try {
-                // Atualiza o estado local primeiro para uma resposta de UI mais rápida
-                if (docName === 'item_status') unavailableItemsData[id] = !value ? false : undefined;
-                if (docName === 'item_visibility') hiddenItemsData[id] = !value ? false : undefined;
+                if (docName === 'item_status') {
+                    if (value) delete unavailableItemsData[id]; else unavailableItemsData[id] = false;
+                }
+                if (docName === 'item_visibility') {
+                    if (value) delete hiddenItemsData[id]; else hiddenItemsData[id] = false;
+                }
 
                 const currentDoc = await getDoc(docRef);
                 const data = currentDoc.exists() ? currentDoc.data() : {};
@@ -1009,12 +1029,20 @@
             menuManagementModal.style.display = 'none';
         });
 
-        // INÍCIO DA ALTERAÇÃO: Adiciona os event listeners para os filtros
         searchMenuInput.addEventListener('input', applyMenuFilters);
         categoryFilterSelect.addEventListener('change', applyMenuFilters);
         statusFilterButtonsItems.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON') {
                 statusFilterButtonsItems.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                applyMenuFilters();
+            }
+        });
+        
+        // INÍCIO DA ALTERAÇÃO: Adiciona event listener para o novo filtro
+        visibilityFilterButtonsItems.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                visibilityFilterButtonsItems.querySelector('.active').classList.remove('active');
                 e.target.classList.add('active');
                 applyMenuFilters();
             }
