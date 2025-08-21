@@ -473,9 +473,11 @@
                 currentMesaData = isGroup ? { group: identifier.group } : { number: identifier.number };
             } else if (type === 'retirada') {
                 pageTitle.textContent = 'Lançando Pedido - Retirada';
+                clientNameInput.value = '';
                 clientNameInput.placeholder = 'Nome do Cliente';
             } else if (type === 'delivery') {
                 pageTitle.textContent = 'Lançando Pedido - Delivery';
+                clientNameInput.value = '';
                 clientNameInput.placeholder = 'Nome do Cliente';
                 deliveryFields.classList.remove('hidden');
             }
@@ -584,12 +586,15 @@
                 manualOrderItemsContainer.appendChild(itemEl);
                 subtotal += item.price;
             });
-            const isDelivery = deliveryCheckbox.checked;
-            const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
+
             let deliveryFee = 0;
-            if (isDelivery && selectedNeighborhood && selectedNeighborhood.value !== '') {
-                deliveryFee = parseFloat(selectedNeighborhood.dataset.fee || 0);
+            if (currentOrderType === 'delivery') {
+                const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
+                if (selectedNeighborhood && selectedNeighborhood.value !== '') {
+                    deliveryFee = parseFloat(selectedNeighborhood.dataset.fee || 0);
+                }
             }
+            
             const total = subtotal + deliveryFee;
             document.getElementById('manual-subtotal').textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
             document.getElementById('manual-delivery-fee').textContent = `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`;
