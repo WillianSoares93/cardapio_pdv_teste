@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -245,6 +246,11 @@
                         <select id="category-filter-select" class="p-2 border border-gray-300 rounded-md w-full">
                             <option value="all">Todas as Categorias</option>
                         </select>
+                    </div>
+                    <div id="status-filter-buttons-items" class="mt-2 flex space-x-2">
+                        <button class="status-filter-btn active px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="all">Todos</button>
+                        <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="available">Disponíveis</button>
+                        <button class="status-filter-btn px-3 py-1 text-sm bg-gray-200 rounded-full" data-filter="unavailable">Esgotados</button>
                     </div>
                 </div>
                 <!-- Lista de Itens -->
@@ -851,7 +857,14 @@
                 const unavailableIngredients = ingredientStatusSnap.exists() ? ingredientStatusSnap.data() : {};
                 const hiddenIngredients = ingredientVisibilitySnap.exists() ? ingredientVisibilitySnap.data() : {};
 
-                menuItemsContainer.innerHTML = ''; // Limpa o container
+                menuItemsContainer.innerHTML = `
+                    <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
+                        <span class="flex-grow">Item</span>
+                        <div class="flex items-center space-x-8 mr-2">
+                            <span class="w-10 text-center">Exibir</span>
+                            <span class="w-10 text-center">Disponível</span>
+                        </div>
+                    </div>`;
                 allItems.forEach(item => {
                     const isVisible = hiddenItems[item.id] !== false;
                     const isAvailable = unavailableItems[item.id] !== false;
@@ -859,7 +872,14 @@
                     menuItemsContainer.appendChild(itemElement);
                 });
 
-                ingredientsContainer.innerHTML = ''; // Limpa o container
+                ingredientsContainer.innerHTML = `
+                    <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
+                        <span class="flex-grow">Ingrediente</span>
+                        <div class="flex items-center space-x-8 mr-2">
+                            <span class="w-10 text-center">Exibir</span>
+                            <span class="w-10 text-center">Disponível</span>
+                        </div>
+                    </div>`;
                 allIngredients.forEach(ing => {
                     const isVisible = hiddenIngredients[ing.id] !== false;
                     const isAvailable = unavailableIngredients[ing.id] !== false;
@@ -918,9 +938,9 @@
                 const currentDoc = await getDoc(docRef);
                 const data = currentDoc.exists() ? currentDoc.data() : {};
                 if (value) {
-                    delete data[id]; // Se está visível/disponível, remove a entrada (padrão é true)
+                    delete data[id];
                 } else {
-                    data[id] = false; // Se está escondido/indisponível, adiciona a entrada
+                    data[id] = false;
                 }
                 await setDoc(docRef, data);
             } catch (error) {
