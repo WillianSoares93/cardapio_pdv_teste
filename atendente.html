@@ -155,6 +155,7 @@
     </header>
 
     <main class="max-w-4xl mx-auto p-4">
+        <!-- SEÇÃO DE SELEÇÃO INICIAL -->
         <div id="initial-selection-view">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                  <button id="start-retirada-btn" class="p-4 bg-white border border-gray-200 rounded-lg flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow">
@@ -168,11 +169,14 @@
             </div>
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Selecionar Mesa</h2>
             <div id="mesas-grid-atendente" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mt-4">
-                </div>
+                <!-- As mesas serão inseridas aqui pelo JavaScript -->
+            </div>
         </div>
 
+        <!-- TELA DE LANÇAMENTO DE PEDIDO -->
         <div id="order-form-view" class="hidden">
             <form id="manual-order-form">
+                <!-- Dados do Cliente -->
                 <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                     <h3 class="font-bold mb-2 text-lg">1. Identificação</h3>
                      <div class="mb-2">
@@ -206,6 +210,7 @@
                     </div>
                 </div>
 
+                <!-- Itens do Pedido -->
                 <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                     <h3 class="font-bold mb-2 text-lg">2. Itens do Pedido</h3>
                     <div id="manual-order-feedback" class="text-sm text-green-600 font-semibold mb-2 h-4"></div>
@@ -213,6 +218,7 @@
                     <button type="button" id="add-item-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-semibold transition-colors">+ Adicionar Item</button>
                 </div>
 
+                <!-- Totais e Pagamento -->
                 <div class="p-4 bg-white border border-gray-200 rounded-lg item-card-shadow">
                     <h3 class="font-bold mb-2 text-lg">3. Pagamento e Total</h3>
                     <div class="space-y-1">
@@ -239,6 +245,7 @@
         </div>
     </main>
     
+    <!-- Modals Auxiliares -->
     <div id="add-item-modal" class="modal">
         <div class="modal-content">
             <h3 id="add-item-modal-title" class="font-bold mb-2">Adicionar Item</h3>
@@ -278,7 +285,8 @@
             <h3 class="font-bold mb-4">Editar Pizza Meia a Meia</h3>
             <p class="mb-4 text-sm">Qual metade você deseja alterar?</p>
             <div class="space-y-2" id="edit-split-buttons">
-                </div>
+                <!-- Botões gerados dinamicamente aqui -->
+            </div>
             <button id="cancel-edit-split-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
         </div>
     </div>
@@ -714,11 +722,9 @@
             }, 1700);
         }
 
-        // *** NOVA FUNÇÃO ***
-        // Centraliza a lógica de atualização do modal de itens
         function updateAddItemModal(isSecondHalf = false) {
             const feedbackEl = document.getElementById('add-item-feedback');
-
+            
             if (editingItemIndex !== null && !isSecondHalf) {
                 const originalItemName = manualOrderItems[editingItemIndex].name;
                 addItemModalTitle.textContent = 'Substituir Item';
@@ -735,11 +741,14 @@
                     feedbackEl.style.display = 'none';
                 }
             }
-            
-            searchItemInput.value = '';
+
+            if (addItemModal.style.display !== 'flex') {
+                searchItemInput.value = '';
+                addItemModal.style.display = 'flex';
+            }
+
             renderCategoryFilters(isSecondHalf);
-            renderItemList('', 'all', isSecondHalf);
-            addItemModal.style.display = 'flex';
+            renderItemList(searchItemInput.value, 'all', isSecondHalf);
         }
 
         function renderCategoryFilters(isSecondHalf = false) {
@@ -858,18 +867,16 @@
                     type: 'split', name: combinedName, price: finalPrice, firstHalfData: manualFirstHalfPizza,
                     secondHalfData: secondHalfObject, selected_slices: manualFirstHalfPizza.selected_slices
                 };
-
                 if (editingItemIndex !== null) {
                     manualOrderItems[editingItemIndex] = newItem;
                     editingItemIndex = null;
                 } else {
                     manualOrderItems.push(newItem);
                 }
-
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
-                addItemModal.style.display = 'none'; // *** MUDANÇA AQUI: fecha o modal ao finalizar
+                updateAddItemModal(false); // *** MUDANÇA AQUI: Reseta o modal para o estado inicial
                 return;
             }
 
@@ -904,7 +911,6 @@
             const sizeContainer = document.getElementById('pizza-size-options-manual');
             sizeContainer.innerHTML = '';
             const sizes = [{ slices: 4, label: '4 Fatias', priceKey: 'price4Slices' }, { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' }, { slices: 8, label: '8 Fatias', priceKey: 'basePrice' }];
-            
             sizes.forEach(size => {
                 if (pizza[size.priceKey] > 0) {
                     const optionDiv = document.createElement('div');
@@ -923,9 +929,11 @@
                         }
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
-                        addItemModal.style.display = 'none'; // Fecha o modal de itens
                         showFloatingFeedback(`Pizza ${pizza.name} adicionada.`);
-                        editingItemIndex = null;
+                        if (editingItemIndex !== null) {
+                            addItemModal.style.display = 'none';
+                            editingItemIndex = null;
+                        }
                     });
 
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
@@ -935,14 +943,13 @@
                             category: pizza.category, selected_slices: size.slices, originalItem: pizza
                         };
                         pizzaOptionModalManual.style.display = 'none';
-                        updateAddItemModal(true); // *** MUDANÇA AQUI: atualiza o modal ao invés de reabrir
+                        updateAddItemModal(true);
                     });
                     sizeContainer.appendChild(optionDiv);
                 }
             });
             pizzaOptionModalManual.style.display = 'flex';
         }
-
 
         function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
             currentBurgerForBuilder = { burger, editIndex, existingItem }; // Salva o estado atual
@@ -1125,6 +1132,7 @@
             
             updateManualOrderDisplay();
             burgerBuilderModalManual.style.display = 'none';
+            addItemModal.style.display = 'none'; // Fecha o modal principal
         }
 
         function handleEditItem(index) {
@@ -1173,7 +1181,6 @@
             }
             updateManualOrderDisplay();
             quantityModal.style.display = 'none';
-            addItemModal.style.display = 'none'; // Fecha o modal de itens
             showFloatingFeedback(`${quantity}x ${currentItemForQuantity.name} adicionado(s).`);
         });
         cancelQuantityBtn.addEventListener('click', () => { quantityModal.style.display = 'none'; });
