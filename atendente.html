@@ -926,9 +926,11 @@
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
                         showFloatingFeedback(`Pizza ${pizza.name} adicionada.`);
+                        // INÍCIO DA CORREÇÃO: Não fecha o modal principal
                         if (editingItemIndex !== null) {
                             addItemModal.style.display = 'none';
                         }
+                        // FIM DA CORREÇÃO
                     });
 
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
