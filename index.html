@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1003,6 +1002,7 @@ teste
             // Variáveis para controle do observador de rolagem
             let isScrollingFromClick = false;
             let categoryObserver;
+            let firstPizzaSectionId = null; 
 
             const sizes = [
                 { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
@@ -1038,17 +1038,14 @@ teste
                 updatePromotionButtonVisibility(); 
             }
             
-            // CORREÇÃO: Função showMessageModal revisada para evitar o erro de 'replaceChild'
             function showMessageModal(message, onOkCallback = null) {
                 messageModalText.textContent = message;
                 messageModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
 
-                // Busca os botões dentro do modal toda vez que a função é chamada
                 let okBtn = document.getElementById('ok-message-modal');
                 let closeBtn = document.getElementById('close-message-modal');
 
-                // Cria clones para remover listeners antigos
                 const newOkBtn = okBtn.cloneNode(true);
                 okBtn.parentNode.replaceChild(newOkBtn, okBtn);
                 const newCloseBtn = closeBtn.cloneNode(true);
@@ -1104,7 +1101,7 @@ teste
 
                 createCategoryButtons(orderedCategories);
                 populateMenu(visibleItems, orderedCategories);
-                setupCategoryObserver(); // Recria o observador com as seções atualizadas
+                setupCategoryObserver(); 
 
                 if (burgerBuilderModal.style.display === 'flex') {
                     const currentBurgerId = burgerBuilderModal.dataset.burgerId;
@@ -1137,6 +1134,7 @@ teste
             function populateMenu(menuItems, orderedCategories) {
                 const dynamicSectionsContainer = document.getElementById('dynamic-pizza-sections');
                 dynamicSectionsContainer.innerHTML = ''; 
+                firstPizzaSectionId = null; 
 
                 const itemsByCategory = {};
                 menuItems.forEach(item => {
@@ -1159,6 +1157,9 @@ teste
                         sectionEl.className = 'pizza-category-section mb-8';
                         
                         const isPizzaCategory = itemsByCategory[category] && itemsByCategory[category].some(item => item.isPizza);
+                        if (isPizzaCategory && !firstPizzaSectionId) {
+                            firstPizzaSectionId = sectionId;
+                        }
                         const title = isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
 
                         sectionEl.innerHTML = `
@@ -2331,7 +2332,11 @@ teste
                                 document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
                                 showMessageModal("Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.");
                             } else if (!isFirstHalfPromotional && isPromotionalSection) {
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                if (firstPizzaSectionId) {
+                                    document.getElementById(firstPizzaSectionId).scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                } else {
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }
                                 showMessageModal("Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.");
                             }
                         }
