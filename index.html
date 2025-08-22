@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -509,7 +508,6 @@ teste
             font-size: 0.875rem;
             color: #4b5563;
         }
-        /* CORREÇÃO: Adicionando classe para desativar categorias */
         .category-btn.disabled-for-half-pizza,
         .pizza-category-section.disabled-for-half-pizza {
             opacity: 0.4;
@@ -1478,10 +1476,10 @@ teste
                     el.classList.remove('disabled-for-half-pizza');
                 });
 
-                if (!enableAll && isSelectingHalfPizza) {
+                if (!enableAll && isSelectingHalfPizza && firstHalfPizza) {
                     const isPromotional = isFirstHalfPromotional;
                     document.querySelectorAll('.category-btn, .pizza-category-section').forEach(el => {
-                        const category = el.id.replace('-section', '').replace(/-/g, ' ') || el.dataset.category;
+                        const category = el.dataset.category || el.id.replace('-section', '').replace(/-/g, ' ');
                         if (!category) return;
 
                         const isPromoCategory = category.toLowerCase() === 'promocionais';
@@ -2241,11 +2239,10 @@ teste
 
             let isScrollingFromClick = false; 
             let categoryObserver; 
-            let orderedCategoryIds = [];
 
             function getStickyHeaderHeight() {
                 const stickyHeader = document.querySelector('.category-bar-mobile-sticky');
-                return stickyHeader ? stickyHeader.offsetHeight + 16 : 16; // Adiciona um padding
+                return stickyHeader ? stickyHeader.offsetHeight + 16 : 16;
             }
 
             function setActiveCategoryButton(category) {
@@ -2258,19 +2255,20 @@ teste
                 if (targetBtn) {
                     targetBtn.classList.remove('bg-gray-200', 'text-gray-800'); 
                     targetBtn.classList.add('bg-red-600', 'text-white'); 
-                    targetBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    if (isScrollingFromClick) {
+                        targetBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    }
                 }
             }
 
             function setupCategoryObserver() {
                 if (categoryObserver) categoryObserver.disconnect();
 
-                orderedCategoryIds = Array.from(document.querySelectorAll('.pizza-category-section')).map(s => s.id);
-
+                const stickyHeaderHeight = getStickyHeaderHeight();
                 const options = {
                     root: null,
-                    rootMargin: `-${getStickyHeaderHeight()}px 0px 0px 0px`,
-                    threshold: 0.1
+                    rootMargin: `-${stickyHeaderHeight}px 0px -${window.innerHeight - stickyHeaderHeight - 150}px 0px`,
+                    threshold: 0
                 };
 
                 categoryObserver = new IntersectionObserver((entries) => {
@@ -2280,26 +2278,30 @@ teste
                         const sectionId = entry.target.id;
                         const category = sectionId.replace(/-section$/, '').replace(/-/g, ' ');
 
-                        if (isSelectingHalfPizza) {
-                            const promoSectionId = 'promocionais-section';
-                            const firstHalfCategory = firstHalfPizza.category;
-
-                            if (isFirstHalfPromotional) {
-                                if (sectionId !== promoSectionId && entry.isIntersecting) {
-                                    document.getElementById(promoSectionId).scrollIntoView({behavior: 'smooth', block: 'start'});
-                                    showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
-                                }
-                            } else {
-                                if (sectionId === promoSectionId && entry.isIntersecting) {
-                                    const originalSectionId = `${firstHalfCategory.replace(/\s+/g, '-')}-section`;
-                                    document.getElementById(originalSectionId).scrollIntoView({behavior: 'smooth', block: 'start'});
-                                    showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
-                                }
-                            }
-                        }
-
                         if (entry.isIntersecting) {
                             setActiveCategoryButton(category);
+                        }
+                        
+                        if (isSelectingHalfPizza && firstHalfPizza) {
+                            const promoSection = document.getElementById('promocionais-section');
+                            if (!promoSection) return;
+
+                            if (isFirstHalfPromotional) {
+                                if (sectionId !== promoSection.id && entry.isIntersecting) {
+                                    isScrollingFromClick = true;
+                                    promoSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
+                                    setTimeout(() => { isScrollingFromClick = false; }, 1000);
+                                }
+                            } else {
+                                if (sectionId === promoSection.id && entry.isIntersecting) {
+                                    const firstHalfSection = document.getElementById(`${firstHalfPizza.category.replace(/\s+/g, '-')}-section`);
+                                    isScrollingFromClick = true;
+                                    if(firstHalfSection) firstHalfSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
+                                    setTimeout(() => { isScrollingFromClick = false; }, 1000);
+                                }
+                            }
                         }
                     });
                 }, options);
