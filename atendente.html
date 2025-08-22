@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -438,7 +439,7 @@
             if (burgerBuilderModalManual.style.display === 'flex') {
                 const { burger, editIndex, existingItem } = currentBurgerForBuilder;
                 if (burger) {
-                    openManualBurgerBuilder(burger, editIndex, existingItem);
+                    renderBurgerIngredients(burger, existingItem);
                 }
             }
         }
@@ -1174,7 +1175,7 @@
             }
             updateManualOrderDisplay();
             quantityModal.style.display = 'none';
-            addItemModal.style.display = 'none';
+            showFloatingFeedback(`${quantity}x ${currentItemForQuantity.name} adicionado(s).`);
         });
         cancelQuantityBtn.addEventListener('click', () => { quantityModal.style.display = 'none'; });
         document.getElementById('quantity-minus-btn').addEventListener('click', () => {
