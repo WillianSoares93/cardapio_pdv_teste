@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -428,9 +429,7 @@
         
         function refreshItemListIfOpen() {
             if (addItemModal.style.display === 'flex') {
-                const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-                const isSecondHalf = manualFirstHalfPizza !== null;
-                renderItemList(searchItemInput.value, activeFilter, isSecondHalf);
+                applyMenuFilters();
             }
         }
 
@@ -724,9 +723,9 @@
 
         function openAddItemModal() {
             addItemModal.style.display = 'flex';
-            setHalfPizzaMode(false); // Garante que o modal sempre abra no estado normal
-            renderCategoryFilters(false);
-            renderItemList(searchItemInput.value, 'all', false);
+            setHalfPizzaMode(false); 
+            renderCategoryFilters();
+            renderItemList();
         }
 
         function setHalfPizzaMode(isEntering) {
@@ -742,12 +741,10 @@
                 feedbackEl.style.display = 'none';
                 manualFirstHalfPizza = null;
             }
-
-            renderCategoryFilters(isEntering);
-            renderItemList(searchItemInput.value, 'all', isEntering);
+            applyMenuFilters();
         }
 
-        function renderCategoryFilters(isSecondHalf = false) {
+        function renderCategoryFilters() {
             const filterContainer = document.getElementById('item-category-filters');
             filterContainer.innerHTML = '';
             const categories = ['all', ...new Set(fullMenuData.cardapio.map(item => item.category))];
@@ -758,60 +755,25 @@
                 
                 const isPizzaCategory = fullMenuData.cardapio.some(item => item.category === category && item.isPizza);
                 let buttonText = category;
-                if (category === 'all') {
-                    buttonText = 'Todos';
-                } else if (isPizzaCategory) {
-                    buttonText = `Pizza ${category}`;
-                }
+                if (category === 'all') buttonText = 'Todos';
+                else if (isPizzaCategory) buttonText = `Pizza ${category}`;
 
                 button.textContent = buttonText;
                 button.dataset.category = category;
 
-                if (isSecondHalf) {
-                    const isPromotionalCategory = category.trim().toLowerCase() === 'promocionais';
-                    if (manualFirstHalfPizza.isPromotional) {
-                        if (!isPromotionalCategory && category !== 'all') {
-                            button.disabled = true;
-                        }
-                    } else {
-                        if (isPromotionalCategory) {
-                            button.disabled = true;
-                        }
-                    }
-                }
-
                 button.addEventListener('click', () => {
                     filterContainer.querySelectorAll('.active').forEach(btn => btn.classList.remove('active'));
                     button.classList.add('active');
-                    renderItemList(searchItemInput.value, category, isSecondHalf);
+                    applyMenuFilters();
                 });
                 filterContainer.appendChild(button);
             });
-            // Ativa o filtro 'all' por padrão
             filterContainer.querySelector('.category-filter-btn[data-category="all"]').classList.add('active');
         }
 
-        function renderItemList(filterText, categoryFilter = 'all', isSecondHalf = false) {
+        function renderItemList() {
             itemListContainer.innerHTML = '';
-            let filteredMenu = fullMenuData.cardapio;
-
-            if (isSecondHalf) {
-                filteredMenu = filteredMenu.filter(item => item.isPizza);
-                if (manualFirstHalfPizza.isPromotional) {
-                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() === 'promocionais');
-                } else {
-                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() !== 'promocionais');
-                }
-            }
-
-            filteredMenu = filteredMenu.filter(item => {
-                const nameMatch = item.name.toLowerCase().includes(filterText.toLowerCase());
-                const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
-                const isVisible = hiddenItems[item.id] !== false;
-                return nameMatch && categoryMatch && isVisible;
-            });
-
-            const itemsByCategory = filteredMenu.reduce((acc, item) => {
+            const itemsByCategory = fullMenuData.cardapio.reduce((acc, item) => {
                 const category = item.category || 'Outros';
                 if (!acc[category]) acc[category] = [];
                 acc[category].push(item);
@@ -824,21 +786,19 @@
                 
                 const isPizzaCategory = itemsByCategory[category].some(item => item.isPizza);
                 categoryTitle.textContent = isPizzaCategory ? `Pizza ${category}` : category;
+                categoryTitle.dataset.categoryTitle = category;
 
                 itemListContainer.appendChild(categoryTitle);
                 itemsByCategory[category].forEach(item => {
-                    const isUnavailable = unavailableItems[item.id] === false;
                     const itemEl = document.createElement('div');
                     itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
                     itemEl.dataset.itemId = item.id;
                     itemEl.textContent = item.name;
                     
-                    if (isUnavailable) {
-                        itemEl.classList.add('opacity-50', 'cursor-not-allowed');
-                        itemEl.title = "Item esgotado";
-                    } else {
-                        itemEl.addEventListener('click', () => handleItemSelection(item, isSecondHalf));
-                    }
+                    itemEl.addEventListener('click', () => {
+                        const isSecondHalf = manualFirstHalfPizza !== null;
+                        handleItemSelection(item, isSecondHalf);
+                    });
                     
                     const priceSpan = document.createElement('span');
                     priceSpan.className = 'font-bold text-sm text-gray-700';
@@ -848,9 +808,63 @@
                     itemListContainer.appendChild(itemEl);
                 });
             }
+            applyMenuFilters();
+        }
+
+        function applyMenuFilters() {
+            const searchTerm = searchItemInput.value.toLowerCase();
+            const categoryFilter = document.querySelector('#item-category-filters .active')?.dataset.category || 'all';
+            const isSecondHalf = manualFirstHalfPizza !== null;
+
+            document.querySelectorAll('#item-list [data-item-id]').forEach(itemEl => {
+                const itemId = itemEl.dataset.itemId;
+                const itemData = fullMenuData.cardapio.find(i => i.id === itemId);
+                if (!itemData) return;
+
+                const nameMatch = itemData.name.toLowerCase().includes(searchTerm);
+                const categoryMatch = categoryFilter === 'all' || itemData.category === categoryFilter;
+                const isVisible = hiddenItems[itemData.id] !== false;
+                
+                let isSelectableForHalf = true;
+                if (isSecondHalf) {
+                    if (!itemData.isPizza) {
+                        isSelectableForHalf = false;
+                    } else if (manualFirstHalfPizza.isPromotional && itemData.category.trim().toLowerCase() !== 'promocionais') {
+                        isSelectableForHalf = false;
+                    } else if (!manualFirstHalfPizza.isPromotional && itemData.category.trim().toLowerCase() === 'promocionais') {
+                        isSelectableForHalf = false;
+                    }
+                }
+
+                if (nameMatch && categoryMatch && isVisible) {
+                    itemEl.style.display = 'flex';
+                } else {
+                    itemEl.style.display = 'none';
+                }
+
+                if (isSelectableForHalf && unavailableItems[itemData.id] !== false) {
+                    itemEl.classList.remove('opacity-50', 'cursor-not-allowed');
+                    itemEl.title = "";
+                } else {
+                    itemEl.classList.add('opacity-50', 'cursor-not-allowed');
+                    itemEl.title = isSelectableForHalf ? "Item esgotado" : "Não selecionável para meia pizza";
+                }
+            });
+
+            document.querySelectorAll('#item-list [data-category-title]').forEach(titleEl => {
+                const category = titleEl.dataset.categoryTitle;
+                const hasVisibleItems = Array.from(itemListContainer.querySelectorAll('[data-item-id]')).some(itemEl => {
+                    const itemData = fullMenuData.cardapio.find(i => i.id === itemEl.dataset.itemId);
+                    return itemData && itemData.category === category && itemEl.style.display !== 'none';
+                });
+                titleEl.style.display = hasVisibleItems ? 'block' : 'none';
+            });
         }
 
         function handleItemSelection(item, isSecondHalf = false) {
+            const itemEl = itemListContainer.querySelector(`[data-item-id="${item.id}"]`);
+            if (itemEl && itemEl.classList.contains('cursor-not-allowed')) return;
+
             if (isSecondHalf) {
                 const secondHalfObject = {
                     name: item.name, price: item[manualFirstHalfPizza.priceKey] / 2, priceKey: manualFirstHalfPizza.priceKey,
@@ -1163,10 +1177,7 @@
         cancelBurgerBuilderManualBtn.addEventListener('click', () => { burgerBuilderModalManual.style.display = 'none'; });
         addCustomBurgerManualBtn.addEventListener('click', () => addCustomBurgerToOrder(editingItemIndex));
 
-        searchItemInput.addEventListener('input', (e) => {
-            const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-            renderItemList(e.target.value, activeFilter, manualFirstHalfPizza !== null);
-        });
+        searchItemInput.addEventListener('input', applyMenuFilters);
         
         confirmQuantityBtn.addEventListener('click', () => {
             const quantity = parseInt(quantityDisplay.textContent);
@@ -1271,4 +1282,4 @@
 
     </script>
 </body>
-</html>
+</ht
