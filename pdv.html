@@ -400,7 +400,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, getDoc, updateDoc, query, orderBy, where, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, getDoc, updateDoc, query, orderBy, where, writeBatch, getDocs, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -474,7 +474,6 @@
         });
         // --- FIM DA LÓGICA DE CAIXA ---
 
-        // --- INÍCIO DA REESTRUTURAÇÃO ---
         const mainTabs = document.getElementById('main-tabs');
         const tabContents = document.querySelectorAll('.tab-content');
         const mesasGrid = document.getElementById('mesas-grid');
@@ -1471,7 +1470,12 @@
             }
             if (manageBtn) {
                 const orderId = manageBtn.dataset.id;
-                openEditModal(orderId);
+                const orderType = identifyOrderTypeFromCard(manageBtn.closest('.order-card'));
+                if (orderType === 'mesa') {
+                    openManageTableModal(orderId);
+                } else {
+                    openEditModal(orderId);
+                }
             }
             if (printBtn) {
                 const orderId = printBtn.dataset.id;
