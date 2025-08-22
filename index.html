@@ -1151,6 +1151,8 @@
                     if (!sectionEl) {
                         sectionEl = document.createElement('div');
                         sectionEl.id = sectionId;
+                        // CORREÇÃO: Adicionando o dataset com o nome original da categoria
+                        sectionEl.dataset.category = category;
                         sectionEl.className = 'pizza-category-section mb-8';
                         
                         const isPizzaCategory = itemsByCategory[category] && itemsByCategory[category].some(item => item.isPizza);
@@ -2313,12 +2315,12 @@
                     if (isScrollingFromClick) return;
 
                     entries.forEach(entry => {
-                        const sectionId = entry.target.id;
-                        const category = sectionId.replace('-section', '').replace(/-/g, ' ');
-                        const isPromotionalSection = sectionId.includes('promocionais');
+                        // CORREÇÃO: Lê o nome da categoria diretamente do dataset da seção
+                        const category = entry.target.dataset.category;
+                        const isPromotionalSection = category.toLowerCase() === 'promocionais';
 
                         if (entry.isIntersecting) {
-                            setActiveCategoryButton(capitalizeFirstLetter(category));
+                            setActiveCategoryButton(category);
                         }
 
                         // Lógica de restrição para pizza meia a meia
