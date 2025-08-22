@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -377,13 +376,12 @@ teste
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let unavailableItems = {};
         let hiddenItems = {};
-        // INÍCIO DA CORREÇÃO: Variáveis para status de ingredientes
         let unavailableIngredients = {};
         let hiddenIngredients = {};
-        // FIM DA CORREÇÃO
         let manualFirstHalfPizza = null;
         let editingItemIndex = null;
         let currentItemForQuantity = null;
+        let currentBurgerForBuilder = { burger: null, editIndex: null, existingItem: null };
 
         function showView(viewName) {
             initialSelectionView.classList.add('hidden');
@@ -418,14 +416,14 @@ teste
                 hiddenItems = doc.exists() ? doc.data() : {};
                 refreshItemListIfOpen();
             });
-            // INÍCIO DA CORREÇÃO: Listeners para status de ingredientes
             onSnapshot(doc(db, "config", "ingredient_status"), (doc) => {
                 unavailableIngredients = doc.exists() ? doc.data() : {};
+                refreshBurgerBuilderIfOpen();
             });
             onSnapshot(doc(db, "config", "ingredient_visibility"), (doc) => {
                 hiddenIngredients = doc.exists() ? doc.data() : {};
+                refreshBurgerBuilderIfOpen();
             });
-            // FIM DA CORREÇÃO
         }
         
         function refreshItemListIfOpen() {
@@ -433,6 +431,15 @@ teste
                 const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
                 const isSecondHalf = manualFirstHalfPizza !== null;
                 renderItemList(searchItemInput.value, activeFilter, isSecondHalf);
+            }
+        }
+
+        function refreshBurgerBuilderIfOpen() {
+            if (burgerBuilderModalManual.style.display === 'flex') {
+                const { burger, editIndex, existingItem } = currentBurgerForBuilder;
+                if (burger) {
+                    openManualBurgerBuilder(burger, editIndex, existingItem);
+                }
             }
         }
 
@@ -933,6 +940,12 @@ teste
         }
 
         function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
+            currentBurgerForBuilder = { burger, editIndex, existingItem }; // Salva o estado atual
+            renderBurgerIngredients(burger, existingItem);
+            burgerBuilderModalManual.style.display = 'flex';
+        }
+
+        function renderBurgerIngredients(burger, existingItem = null) {
             const burgerModal = document.getElementById('burger-builder-modal-manual');
             burgerModal.dataset.basePrice = burger.basePrice;
             burgerModal.dataset.burgerItem = JSON.stringify(burger);
@@ -959,10 +972,8 @@ teste
                 categoryDiv.innerHTML = `<h4 class="font-bold border-b pb-1 mb-2">${title}</h4>`;
 
                 ingredients.forEach(ing => {
-                    // INÍCIO DA CORREÇÃO: Verifica visibilidade e disponibilidade do ingrediente
-                    if (hiddenIngredients[ing.id] === false) return; // Não renderiza se estiver oculto
+                    if (hiddenIngredients[ing.id] === false) return;
                     const isUnavailable = unavailableIngredients[ing.id] === false;
-                    // FIM DA CORREÇÃO
 
                     const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
                     const optionLabel = document.createElement('label');
@@ -1019,7 +1030,6 @@ teste
                 ingredientsContainer.appendChild(categoryDiv);
             }
             updateManualBurgerPrice();
-            burgerModal.style.display = 'flex';
         }
 
         function updateManualBurgerPrice() {
