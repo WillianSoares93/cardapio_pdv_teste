@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -156,7 +155,6 @@ teste
     </header>
 
     <main class="max-w-4xl mx-auto p-4">
-        <!-- SEÇÃO DE SELEÇÃO INICIAL -->
         <div id="initial-selection-view">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                  <button id="start-retirada-btn" class="p-4 bg-white border border-gray-200 rounded-lg flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow">
@@ -170,14 +168,11 @@ teste
             </div>
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Selecionar Mesa</h2>
             <div id="mesas-grid-atendente" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mt-4">
-                <!-- As mesas serão inseridas aqui pelo JavaScript -->
-            </div>
+                </div>
         </div>
 
-        <!-- TELA DE LANÇAMENTO DE PEDIDO -->
         <div id="order-form-view" class="hidden">
             <form id="manual-order-form">
-                <!-- Dados do Cliente -->
                 <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                     <h3 class="font-bold mb-2 text-lg">1. Identificação</h3>
                      <div class="mb-2">
@@ -211,7 +206,6 @@ teste
                     </div>
                 </div>
 
-                <!-- Itens do Pedido -->
                 <div class="p-4 bg-white border border-gray-200 rounded-lg mb-4 item-card-shadow">
                     <h3 class="font-bold mb-2 text-lg">2. Itens do Pedido</h3>
                     <div id="manual-order-feedback" class="text-sm text-green-600 font-semibold mb-2 h-4"></div>
@@ -219,7 +213,6 @@ teste
                     <button type="button" id="add-item-btn" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-semibold transition-colors">+ Adicionar Item</button>
                 </div>
 
-                <!-- Totais e Pagamento -->
                 <div class="p-4 bg-white border border-gray-200 rounded-lg item-card-shadow">
                     <h3 class="font-bold mb-2 text-lg">3. Pagamento e Total</h3>
                     <div class="space-y-1">
@@ -246,7 +239,6 @@ teste
         </div>
     </main>
     
-    <!-- Modals Auxiliares -->
     <div id="add-item-modal" class="modal">
         <div class="modal-content">
             <h3 id="add-item-modal-title" class="font-bold mb-2">Adicionar Item</h3>
@@ -286,8 +278,7 @@ teste
             <h3 class="font-bold mb-4">Editar Pizza Meia a Meia</h3>
             <p class="mb-4 text-sm">Qual metade você deseja alterar?</p>
             <div class="space-y-2" id="edit-split-buttons">
-                <!-- Botões gerados dinamicamente aqui -->
-            </div>
+                </div>
             <button id="cancel-edit-split-btn" class="mt-4 w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
         </div>
     </div>
@@ -723,9 +714,11 @@ teste
             }, 1700);
         }
 
-        function openAddItemModal(isSecondHalf = false) {
+        // *** NOVA FUNÇÃO ***
+        // Centraliza a lógica de atualização do modal de itens
+        function updateAddItemModal(isSecondHalf = false) {
             const feedbackEl = document.getElementById('add-item-feedback');
-            
+
             if (editingItemIndex !== null && !isSecondHalf) {
                 const originalItemName = manualOrderItems[editingItemIndex].name;
                 addItemModalTitle.textContent = 'Substituir Item';
@@ -733,7 +726,7 @@ teste
                 feedbackEl.className = 'text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md';
                 feedbackEl.style.display = 'block';
             } else {
-                addItemModalTitle.textContent = 'Adicionar Item';
+                addItemModalTitle.textContent = isSecondHalf ? 'Escolha a 2ª Metade' : 'Adicionar Item';
                 if (isSecondHalf) {
                     feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
                     feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
@@ -742,7 +735,7 @@ teste
                     feedbackEl.style.display = 'none';
                 }
             }
-
+            
             searchItemInput.value = '';
             renderCategoryFilters(isSecondHalf);
             renderItemList('', 'all', isSecondHalf);
@@ -865,17 +858,18 @@ teste
                     type: 'split', name: combinedName, price: finalPrice, firstHalfData: manualFirstHalfPizza,
                     secondHalfData: secondHalfObject, selected_slices: manualFirstHalfPizza.selected_slices
                 };
+
                 if (editingItemIndex !== null) {
-                    manualOrderItems[editingItemIndex] = newItem; editingItemIndex = null;
+                    manualOrderItems[editingItemIndex] = newItem;
+                    editingItemIndex = null;
                 } else {
                     manualOrderItems.push(newItem);
                 }
+
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
-                // INÍCIO DA CORREÇÃO: Não fecha o modal, apenas reseta o estado interno
-                openAddItemModal(false);
-                // FIM DA CORREÇÃO
+                addItemModal.style.display = 'none'; // *** MUDANÇA AQUI: fecha o modal ao finalizar
                 return;
             }
 
@@ -910,6 +904,7 @@ teste
             const sizeContainer = document.getElementById('pizza-size-options-manual');
             sizeContainer.innerHTML = '';
             const sizes = [{ slices: 4, label: '4 Fatias', priceKey: 'price4Slices' }, { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' }, { slices: 8, label: '8 Fatias', priceKey: 'basePrice' }];
+            
             sizes.forEach(size => {
                 if (pizza[size.priceKey] > 0) {
                     const optionDiv = document.createElement('div');
@@ -922,18 +917,15 @@ teste
                             description: pizza.description, category: pizza.category, selected_slices: size.slices, originalItem: pizza
                         };
                         if (editingItemIndex !== null) {
-                            manualOrderItems[editingItemIndex] = newItem; editingItemIndex = null;
+                            manualOrderItems[editingItemIndex] = newItem;
                         } else {
                             manualOrderItems.push(newItem);
                         }
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
+                        addItemModal.style.display = 'none'; // Fecha o modal de itens
                         showFloatingFeedback(`Pizza ${pizza.name} adicionada.`);
-                        // INÍCIO DA CORREÇÃO: Não fecha o modal principal
-                        if (editingItemIndex !== null) {
-                           addItemModal.style.display = 'none';
-                        }
-                        // FIM DA CORREÇÃO
+                        editingItemIndex = null;
                     });
 
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
@@ -943,13 +935,14 @@ teste
                             category: pizza.category, selected_slices: size.slices, originalItem: pizza
                         };
                         pizzaOptionModalManual.style.display = 'none';
-                        openAddItemModal(true);
+                        updateAddItemModal(true); // *** MUDANÇA AQUI: atualiza o modal ao invés de reabrir
                     });
                     sizeContainer.appendChild(optionDiv);
                 }
             });
             pizzaOptionModalManual.style.display = 'flex';
         }
+
 
         function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
             currentBurgerForBuilder = { burger, editIndex, existingItem }; // Salva o estado atual
@@ -1147,7 +1140,7 @@ teste
                     break;
                 case 'full':
                 default:
-                    openAddItemModal(false);
+                    updateAddItemModal(false);
                     break;
             }
         }
@@ -1162,7 +1155,7 @@ teste
         }
 
         // Event Listeners
-        addItemBtn.addEventListener('click', () => { editingItemIndex = null; openAddItemModal(false); });
+        addItemBtn.addEventListener('click', () => { editingItemIndex = null; updateAddItemModal(false); });
         cancelAddItemBtn.addEventListener('click', () => { addItemModal.style.display = 'none'; manualFirstHalfPizza = null; editingItemIndex = null; });
         cancelPizzaOptionsManualBtn.addEventListener('click', () => { pizzaOptionModalManual.style.display = 'none'; });
         cancelBurgerBuilderManualBtn.addEventListener('click', () => { burgerBuilderModalManual.style.display = 'none'; });
@@ -1180,6 +1173,7 @@ teste
             }
             updateManualOrderDisplay();
             quantityModal.style.display = 'none';
+            addItemModal.style.display = 'none'; // Fecha o modal de itens
             showFloatingFeedback(`${quantity}x ${currentItemForQuantity.name} adicionado(s).`);
         });
         cancelQuantityBtn.addEventListener('click', () => { quantityModal.style.display = 'none'; });
@@ -1212,14 +1206,14 @@ teste
                 const itemToEdit = manualOrderItems[index];
                 manualFirstHalfPizza = itemToEdit.secondHalfData;
                 editSplitPizzaModal.style.display = 'none';
-                openAddItemModal(true);
+                updateAddItemModal(true);
             }
             if (secondHalfBtn) {
                 const index = parseInt(secondHalfBtn.dataset.index);
                 const itemToEdit = manualOrderItems[index];
                 manualFirstHalfPizza = itemToEdit.firstHalfData;
                 editSplitPizzaModal.style.display = 'none';
-                openAddItemModal(true);
+                updateAddItemModal(true);
             }
         });
         document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
