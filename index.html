@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -518,7 +519,7 @@
     <header class="header-bg text-white py-16 px-4 text-center">
         <div class="max-w-4xl mx-auto">
             <img src="https://raw.githubusercontent.com/WillianSoares93/catalogo_pizzaria/refs/heads/main/logo.png" alt="Logotipo Sâmia" class="h-64 mx-auto mb-4 object-contain">
-            <p class="text-2xl mb-8">Pizzaria Artesanal</p>
+            <p class="text-2xl mb-8">Pizzaria & Hamburgueria</p>
             <div class="flex justify-center space-x-4">
                 <a href="#menu" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition duration-300">
                     Ver Cardápio
@@ -919,8 +920,6 @@
             const orderItemsContainer = document.getElementById('orderItems');
             const emptyOrderMessage = document.getElementById('emptyOrderMessage');
             const messageModal = document.getElementById('message-modal');
-            const closeMessageModalBtn = document.getElementById('close-message-modal');
-            const okMessageModalBtn = document.getElementById('ok-message-modal');
             const messageModalText = document.getElementById('message-modal-text');
             const promotionPopup = document.getElementById('promotion-popup');
             const closePromotionPopupBtn = document.getElementById('close-promotion-popup');
@@ -1039,17 +1038,22 @@
                 updatePromotionButtonVisibility(); 
             }
             
+            // CORREÇÃO: Função showMessageModal revisada para evitar o erro de 'replaceChild'
             function showMessageModal(message, onOkCallback = null) {
                 messageModalText.textContent = message;
                 messageModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
 
-                // Limpa listeners antigos para evitar chamadas múltiplas
-                const newOkBtn = okMessageModalBtn.cloneNode(true);
-                okMessageModalBtn.parentNode.replaceChild(newOkBtn, okMessageModalBtn);
-                const newCloseBtn = closeMessageModalBtn.cloneNode(true);
-                closeMessageModalBtn.parentNode.replaceChild(newCloseBtn, closeMessageModalBtn);
-                
+                // Busca os botões dentro do modal toda vez que a função é chamada
+                let okBtn = document.getElementById('ok-message-modal');
+                let closeBtn = document.getElementById('close-message-modal');
+
+                // Cria clones para remover listeners antigos
+                const newOkBtn = okBtn.cloneNode(true);
+                okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+                const newCloseBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+
                 const hideAndCallback = () => {
                     hideMessageModal();
                     if (onOkCallback) onOkCallback();
@@ -1151,7 +1155,6 @@
                     if (!sectionEl) {
                         sectionEl = document.createElement('div');
                         sectionEl.id = sectionId;
-                        // CORREÇÃO: Adicionando o dataset com o nome original da categoria
                         sectionEl.dataset.category = category;
                         sectionEl.className = 'pizza-category-section mb-8';
                         
@@ -2315,7 +2318,6 @@
                     if (isScrollingFromClick) return;
 
                     entries.forEach(entry => {
-                        // CORREÇÃO: Lê o nome da categoria diretamente do dataset da seção
                         const category = entry.target.dataset.category;
                         const isPromotionalSection = category.toLowerCase() === 'promocionais';
 
