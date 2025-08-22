@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -731,7 +732,7 @@
             const feedbackEl = document.getElementById('add-item-feedback');
             
             if (isEntering) {
-                if (!manualFirstHalfPizza) { // Safety check
+                if (!manualFirstHalfPizza) { 
                     console.error("Cannot enter half pizza mode without a first half.");
                     return;
                 }
@@ -869,6 +870,8 @@
             if (itemEl && itemEl.classList.contains('cursor-not-allowed')) return;
 
             if (isSecondHalf) {
+                const wasEditing = editingItemIndex !== null; // ** CORREÇÃO AQUI **
+
                 const secondHalfObject = {
                     name: item.name, price: item[manualFirstHalfPizza.priceKey] / 2, priceKey: manualFirstHalfPizza.priceKey,
                     isPromotional: item.category.trim().toLowerCase() === 'promocionais', description: item.description,
@@ -888,6 +891,10 @@
                 }
                 updateManualOrderDisplay();
                 showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
+                
+                if (wasEditing) {
+                    addItemModal.style.display = 'none';
+                }
                 setHalfPizzaMode(false);
                 return;
             }
@@ -1236,11 +1243,10 @@
             
             editSplitPizzaModal.style.display = 'none';
             
-            // Manually open and render, bypassing the reset in openAddItemModal
             addItemModal.style.display = 'flex';
             renderCategoryFilters();
             renderItemList();
-            setHalfPizzaMode(true); // Apply the correct state
+            setHalfPizzaMode(true); 
         });
         document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
             editSplitPizzaModal.style.display = 'none';
