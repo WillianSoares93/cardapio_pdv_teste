@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -723,33 +722,29 @@ teste
             }, 1700);
         }
 
-        function updateAddItemModal(isSecondHalf = false) {
+        function openAddItemModal() {
+            addItemModal.style.display = 'flex';
+            setHalfPizzaMode(false); // Garante que o modal sempre abra no estado normal
+            renderCategoryFilters(false);
+            renderItemList(searchItemInput.value, 'all', false);
+        }
+
+        function setHalfPizzaMode(isEntering) {
             const feedbackEl = document.getElementById('add-item-feedback');
             
-            if (editingItemIndex !== null && !isSecondHalf) {
-                const originalItemName = manualOrderItems[editingItemIndex].name;
-                addItemModalTitle.textContent = 'Substituir Item';
-                feedbackEl.innerHTML = `Selecione um novo item para substituir: <strong>${originalItemName}</strong>`;
-                feedbackEl.className = 'text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md';
+            if (isEntering) {
+                addItemModalTitle.textContent = 'Escolha a 2ª Metade';
+                feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
+                feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
                 feedbackEl.style.display = 'block';
             } else {
-                addItemModalTitle.textContent = isSecondHalf ? 'Escolha a 2ª Metade' : 'Adicionar Item';
-                if (isSecondHalf) {
-                    feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
-                    feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
-                    feedbackEl.style.display = 'block';
-                } else {
-                    feedbackEl.style.display = 'none';
-                }
+                addItemModalTitle.textContent = 'Adicionar Item';
+                feedbackEl.style.display = 'none';
+                manualFirstHalfPizza = null;
             }
 
-            if (addItemModal.style.display !== 'flex') {
-                searchItemInput.value = '';
-                addItemModal.style.display = 'flex';
-            }
-
-            renderCategoryFilters(isSecondHalf);
-            renderItemList(searchItemInput.value, 'all', isSecondHalf);
+            renderCategoryFilters(isEntering);
+            renderItemList(searchItemInput.value, 'all', isEntering);
         }
 
         function renderCategoryFilters(isSecondHalf = false) {
@@ -771,9 +766,6 @@ teste
 
                 button.textContent = buttonText;
                 button.dataset.category = category;
-                if (category === 'all') {
-                    button.classList.add('active');
-                }
 
                 if (isSecondHalf) {
                     const isPromotionalCategory = category.trim().toLowerCase() === 'promocionais';
@@ -789,12 +781,14 @@ teste
                 }
 
                 button.addEventListener('click', () => {
-                    filterContainer.querySelector('.active').classList.remove('active');
+                    filterContainer.querySelectorAll('.active').forEach(btn => btn.classList.remove('active'));
                     button.classList.add('active');
                     renderItemList(searchItemInput.value, category, isSecondHalf);
                 });
                 filterContainer.appendChild(button);
             });
+            // Ativa o filtro 'all' por padrão
+            filterContainer.querySelector('.category-filter-btn[data-category="all"]').classList.add('active');
         }
 
         function renderItemList(filterText, categoryFilter = 'all', isSecondHalf = false) {
@@ -836,6 +830,7 @@ teste
                     const isUnavailable = unavailableItems[item.id] === false;
                     const itemEl = document.createElement('div');
                     itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
+                    itemEl.dataset.itemId = item.id;
                     itemEl.textContent = item.name;
                     
                     if (isUnavailable) {
@@ -874,10 +869,9 @@ teste
                 } else {
                     manualOrderItems.push(newItem);
                 }
-                manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
-                updateAddItemModal(false); // *** MUDANÇA AQUI: Reseta o modal para o estado inicial
+                setHalfPizzaMode(false);
                 return;
             }
 
@@ -925,16 +919,14 @@ teste
                         };
                         if (editingItemIndex !== null) {
                             manualOrderItems[editingItemIndex] = newItem;
+                            editingItemIndex = null;
+                            addItemModal.style.display = 'none';
                         } else {
                             manualOrderItems.push(newItem);
                         }
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
                         showFloatingFeedback(`Pizza ${pizza.name} adicionada.`);
-                        if (editingItemIndex !== null) {
-                            addItemModal.style.display = 'none';
-                            editingItemIndex = null;
-                        }
                     });
 
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
@@ -944,7 +936,7 @@ teste
                             category: pizza.category, selected_slices: size.slices, originalItem: pizza
                         };
                         pizzaOptionModalManual.style.display = 'none';
-                        updateAddItemModal(true);
+                        setHalfPizzaMode(true);
                     });
                     sizeContainer.appendChild(optionDiv);
                 }
@@ -953,7 +945,7 @@ teste
         }
 
         function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
-            currentBurgerForBuilder = { burger, editIndex, existingItem }; // Salva o estado atual
+            currentBurgerForBuilder = { burger, editIndex, existingItem };
             renderBurgerIngredients(burger, existingItem);
             burgerBuilderModalManual.style.display = 'flex';
         }
@@ -1149,7 +1141,8 @@ teste
                     break;
                 case 'full':
                 default:
-                    updateAddItemModal(false);
+                    openAddItemModal();
+                    // Pre-seleciona filtros ou busca se necessário
                     break;
             }
         }
@@ -1164,8 +1157,8 @@ teste
         }
 
         // Event Listeners
-        addItemBtn.addEventListener('click', () => { editingItemIndex = null; updateAddItemModal(false); });
-        cancelAddItemBtn.addEventListener('click', () => { addItemModal.style.display = 'none'; manualFirstHalfPizza = null; editingItemIndex = null; });
+        addItemBtn.addEventListener('click', () => { editingItemIndex = null; openAddItemModal(); });
+        cancelAddItemBtn.addEventListener('click', () => { addItemModal.style.display = 'none'; setHalfPizzaMode(false); editingItemIndex = null; });
         cancelPizzaOptionsManualBtn.addEventListener('click', () => { pizzaOptionModalManual.style.display = 'none'; });
         cancelBurgerBuilderManualBtn.addEventListener('click', () => { burgerBuilderModalManual.style.display = 'none'; });
         addCustomBurgerManualBtn.addEventListener('click', () => addCustomBurgerToOrder(editingItemIndex));
@@ -1214,14 +1207,16 @@ teste
                 const itemToEdit = manualOrderItems[index];
                 manualFirstHalfPizza = itemToEdit.secondHalfData;
                 editSplitPizzaModal.style.display = 'none';
-                updateAddItemModal(true);
+                openAddItemModal();
+                setHalfPizzaMode(true);
             }
             if (secondHalfBtn) {
                 const index = parseInt(secondHalfBtn.dataset.index);
                 const itemToEdit = manualOrderItems[index];
                 manualFirstHalfPizza = itemToEdit.firstHalfData;
                 editSplitPizzaModal.style.display = 'none';
-                updateAddItemModal(true);
+                openAddItemModal();
+                setHalfPizzaMode(true);
             }
         });
         document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
