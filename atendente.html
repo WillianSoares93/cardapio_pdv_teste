@@ -722,9 +722,9 @@
 
         function openAddItemModal() {
             addItemModal.style.display = 'flex';
-            setHalfPizzaMode(false); 
             renderCategoryFilters();
             renderItemList();
+            setHalfPizzaMode(false); 
         }
 
         function setHalfPizzaMode(isEntering) {
@@ -1155,7 +1155,6 @@
                 case 'full':
                 default:
                     openAddItemModal();
-                    // Pre-seleciona filtros ou busca se necessário
                     break;
             }
         }
@@ -1170,8 +1169,15 @@
         }
 
         // Event Listeners
-        addItemBtn.addEventListener('click', () => { editingItemIndex = null; openAddItemModal(); });
-        cancelAddItemBtn.addEventListener('click', () => { addItemModal.style.display = 'none'; setHalfPizzaMode(false); editingItemIndex = null; });
+        addItemBtn.addEventListener('click', () => { 
+            editingItemIndex = null; 
+            openAddItemModal(); 
+        });
+        cancelAddItemBtn.addEventListener('click', () => { 
+            addItemModal.style.display = 'none'; 
+            setHalfPizzaMode(false); 
+            editingItemIndex = null; 
+        });
         cancelPizzaOptionsManualBtn.addEventListener('click', () => { pizzaOptionModalManual.style.display = 'none'; });
         cancelBurgerBuilderManualBtn.addEventListener('click', () => { burgerBuilderModalManual.style.display = 'none'; });
         addCustomBurgerManualBtn.addEventListener('click', () => addCustomBurgerToOrder(editingItemIndex));
@@ -1212,22 +1218,21 @@
         editSplitButtonsContainer.addEventListener('click', (e) => {
             const firstHalfBtn = e.target.closest('#edit-first-half-btn');
             const secondHalfBtn = e.target.closest('#edit-second-half-btn');
+            const index = parseInt(e.target.dataset.index);
+            const itemToEdit = manualOrderItems[index];
+            editingItemIndex = index;
+
             if (firstHalfBtn) {
-                const index = parseInt(firstHalfBtn.dataset.index);
-                const itemToEdit = manualOrderItems[index];
                 manualFirstHalfPizza = itemToEdit.secondHalfData;
-                editSplitPizzaModal.style.display = 'none';
-                openAddItemModal();
-                setHalfPizzaMode(true);
-            }
-            if (secondHalfBtn) {
-                const index = parseInt(secondHalfBtn.dataset.index);
-                const itemToEdit = manualOrderItems[index];
+            } else if (secondHalfBtn) {
                 manualFirstHalfPizza = itemToEdit.firstHalfData;
-                editSplitPizzaModal.style.display = 'none';
-                openAddItemModal();
-                setHalfPizzaMode(true);
+            } else {
+                return;
             }
+            
+            editSplitPizzaModal.style.display = 'none';
+            openAddItemModal();
+            setHalfPizzaMode(true);
         });
         document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
             editSplitPizzaModal.style.display = 'none';
