@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -376,6 +377,10 @@
         let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
         let unavailableItems = {};
         let hiddenItems = {};
+        // INÍCIO DA CORREÇÃO: Variáveis para status de ingredientes
+        let unavailableIngredients = {};
+        let hiddenIngredients = {};
+        // FIM DA CORREÇÃO
         let manualFirstHalfPizza = null;
         let editingItemIndex = null;
         let currentItemForQuantity = null;
@@ -413,6 +418,14 @@
                 hiddenItems = doc.exists() ? doc.data() : {};
                 refreshItemListIfOpen();
             });
+            // INÍCIO DA CORREÇÃO: Listeners para status de ingredientes
+            onSnapshot(doc(db, "config", "ingredient_status"), (doc) => {
+                unavailableIngredients = doc.exists() ? doc.data() : {};
+            });
+            onSnapshot(doc(db, "config", "ingredient_visibility"), (doc) => {
+                hiddenIngredients = doc.exists() ? doc.data() : {};
+            });
+            // FIM DA CORREÇÃO
         }
         
         function refreshItemListIfOpen() {
@@ -946,6 +959,11 @@
                 categoryDiv.innerHTML = `<h4 class="font-bold border-b pb-1 mb-2">${title}</h4>`;
 
                 ingredients.forEach(ing => {
+                    // INÍCIO DA CORREÇÃO: Verifica visibilidade e disponibilidade do ingrediente
+                    if (hiddenIngredients[ing.id] === false) return; // Não renderiza se estiver oculto
+                    const isUnavailable = unavailableIngredients[ing.id] === false;
+                    // FIM DA CORREÇÃO
+
                     const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
                     const optionLabel = document.createElement('label');
                     optionLabel.className = 'ingredient-option';
@@ -954,7 +972,7 @@
                         const isChecked = existingItem && existingItem.ingredients.some(i => i.name === ing.name);
                         optionLabel.innerHTML = `
                             <div>
-                                <input type="radio" name="${categoryName}" class="form-radio mr-2" data-price="${ing.price}" value="${ing.name}" ${isChecked ? 'checked' : ''}>
+                                <input type="radio" name="${categoryName}" class="form-radio mr-2" data-price="${ing.price}" value="${ing.name}" ${isChecked ? 'checked' : ''} ${isUnavailable ? 'disabled' : ''}>
                                 <span>${ing.name}</span>
                             </div>
                             <span class="font-medium text-sm">${priceDisplay}</span>`;
@@ -984,13 +1002,17 @@
                                 <span class="font-medium text-sm ml-2">${priceDisplay}</span>
                             </div>
                             <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}" data-limit="${ingredientLimit}">
-                                <button type="button" class="quantity-btn minus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">-</button>
+                                <button type="button" class="quantity-btn minus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold" ${isUnavailable ? 'disabled' : ''}>-</button>
                                 <span class="quantity-display font-bold text-base w-4 text-center">${quantity}</span>
-                                <button type="button" class="quantity-btn plus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">+</button>
+                                <button type="button" class="quantity-btn plus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold" ${isUnavailable ? 'disabled' : ''}>+</button>
                             </div>`;
                         if (quantity > 0) {
                             optionLabel.classList.add('selected-ingredient');
                         }
+                    }
+                    if (isUnavailable) {
+                        optionLabel.classList.add('opacity-50', 'cursor-not-allowed');
+                        optionLabel.title = "Ingrediente esgotado";
                     }
                     categoryDiv.appendChild(optionLabel);
                 });
