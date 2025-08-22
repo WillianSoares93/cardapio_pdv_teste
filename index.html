@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -13,6 +12,9 @@ teste
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        html {
+            scroll-behavior: smooth;
+        }
         body {
             font-family: 'Poppins', sans-serif;
             background-color: #f8f4e9;
@@ -263,13 +265,14 @@ teste
                 position: sticky;
                 top: 0;
                 z-index: 10;
-                background-color: #f9fafb;
+                background-color: #f8f4e9; /* Cor de fundo para a barra */
                 padding-top: 1rem;
                 padding-bottom: 0.5rem;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             }
         }
         .pizza-category-section {
+             /* Margem no topo para compensar a altura da barra de categoria pegajosa */
             scroll-margin-top: 6rem;
         }
         .suggested-drink-item {
@@ -509,18 +512,10 @@ teste
             font-size: 0.875rem;
             color: #4b5563;
         }
-        .category-btn.disabled-for-half-pizza,
-        .pizza-category-section.disabled-for-half-pizza {
-            opacity: 0.4;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
-    <header class="header-bg text-white py-16 px-4 text-center relative">
-        <a href="login.html" class="absolute top-4 right-4 bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-full transition duration-300 text-sm">
-            <i class="fas fa-user-shield mr-2"></i>Área Restrita
-        </a>
+    <header class="header-bg text-white py-16 px-4 text-center">
         <div class="max-w-4xl mx-auto">
             <img src="https://raw.githubusercontent.com/WillianSoares93/catalogo_pizzaria/refs/heads/main/logo.png" alt="Logotipo Sâmia" class="h-64 mx-auto mb-4 object-contain">
             <p class="text-2xl mb-8">Pizzaria Artesanal</p>
@@ -1006,6 +1001,10 @@ teste
             let isSelectingSecondHalf = false; 
             let qrCodeInstance = null;
 
+            // Variáveis para controle do observador de rolagem
+            let isScrollingFromClick = false;
+            let categoryObserver;
+
             const sizes = [
                 { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
                 { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
@@ -1045,31 +1044,24 @@ teste
                 messageModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
 
-                okMessageModalBtn.removeEventListener('click', hideMessageModal);
-                closeMessageModalBtn.removeEventListener('click', hideMessageModal);
-                messageModal.onclick = null; 
+                // Limpa listeners antigos para evitar chamadas múltiplas
+                const newOkBtn = okMessageModalBtn.cloneNode(true);
+                okMessageModalBtn.parentNode.replaceChild(newOkBtn, okMessageModalBtn);
+                const newCloseBtn = closeMessageModalBtn.cloneNode(true);
+                closeMessageModalBtn.parentNode.replaceChild(newCloseBtn, closeMessageModalBtn);
+                
+                const hideAndCallback = () => {
+                    hideMessageModal();
+                    if (onOkCallback) onOkCallback();
+                };
 
-                if (onOkCallback) {
-                    const specificAction = () => {
-                        hideMessageModal();
-                        onOkCallback();
-                    };
-                    okMessageModalBtn.addEventListener('click', specificAction);
-                    closeMessageModalBtn.addEventListener('click', specificAction);
-                    messageModal.onclick = (event) => {
-                        if (event.target === messageModal) {
-                            specificAction();
-                        }
-                    };
-                } else {
-                    okMessageModalBtn.addEventListener('click', hideMessageModal);
-                    closeMessageModalBtn.addEventListener('click', hideMessageModal);
-                    messageModal.onclick = (event) => {
-                        if (event.target === messageModal) {
-                            hideMessageModal();
-                        }
-                    };
-                }
+                newOkBtn.addEventListener('click', hideAndCallback);
+                newCloseBtn.addEventListener('click', hideAndCallback);
+                messageModal.onclick = (event) => {
+                    if (event.target === messageModal) {
+                        hideAndCallback();
+                    }
+                };
             }
 
             function hideMessageModal() {
@@ -1086,9 +1078,10 @@ teste
                     }
                     firstHalfPizza = null;
                     isSelectingSecondHalf = false;
-                    isSelectingHalfPizza = false; 
+                    isSelectingHalfPizza = false;
                     isFirstHalfPromotional = false;
-                    toggleCategoryAvailability(true);
+                    toggleAddItemButtons(true);
+                    toggleCategoryButtons(true);
                     showMessageModal('Seleção de meia pizza cancelada.');
                 }
             }
@@ -1099,7 +1092,7 @@ teste
                 const orderedCategories = [];
                 const seenCategories = new Set();
                 visibleItems.forEach(item => {
-                    if (!seenCategories.has(item.category)) {
+                    if (item.category && !seenCategories.has(item.category)) {
                         seenCategories.add(item.category);
                         orderedCategories.push(item.category);
                     }
@@ -1107,6 +1100,7 @@ teste
 
                 createCategoryButtons(orderedCategories);
                 populateMenu(visibleItems, orderedCategories);
+                setupCategoryObserver(); // Recria o observador com as seções atualizadas
 
                 if (burgerBuilderModal.style.display === 'flex') {
                     const currentBurgerId = burgerBuilderModal.dataset.burgerId;
@@ -1142,14 +1136,16 @@ teste
 
                 const itemsByCategory = {};
                 menuItems.forEach(item => {
-                    if (!itemsByCategory[item.category]) {
-                        itemsByCategory[item.category] = [];
+                    if (item.category) {
+                        if (!itemsByCategory[item.category]) {
+                            itemsByCategory[item.category] = [];
+                        }
+                        itemsByCategory[item.category].push(item);
                     }
-                    itemsByCategory[item.category].push(item);
                 });
 
                 orderedCategories.forEach(category => {
-                    const sectionId = `${category.replace(/\s+/g, '-')}-section`;
+                    const sectionId = `${category.toLowerCase().replace(/\s+/g, '-')}-section`;
                     let sectionEl = document.getElementById(sectionId);
 
                     if (!sectionEl) {
@@ -1162,12 +1158,12 @@ teste
 
                         sectionEl.innerHTML = `
                             <h3 class="text-xl font-bold text-white p-2 rounded-md bg-red-600 mb-6">${title}</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="${category.replace(/\s+/g, '-')}-items"></div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="${category}-items"></div>
                         `;
                         dynamicSectionsContainer.appendChild(sectionEl);
                     }
 
-                    const categoryItemsEl = document.getElementById(`${category.replace(/\s+/g, '-')}-items`);
+                    const categoryItemsEl = document.getElementById(`${category}-items`);
                     categoryItemsEl.innerHTML = ''; 
 
                     if (itemsByCategory[category]) {
@@ -1178,12 +1174,10 @@ teste
                             const trimmedImageUrl = String(item.imageUrl || '').trim();
                             let imageElement = '';
 
-                            if (trimmedImageUrl.toLowerCase() === 'sem imagem') {
-                                imageElement = `<div class="no-image-placeholder">Sem Imagem</div>`;
-                            } else if (trimmedImageUrl.length > 0) {
-                                imageElement = `<img src="${trimmedImageUrl}" alt="Imagem de ${item.name}" class="w-full h-40 object-cover" onerror="this.onerror=null;this.src='';">`;
+                            if (trimmedImageUrl.toLowerCase() === 'sem imagem' || !trimmedImageUrl) {
+                                imageElement = `<div class="no-image-placeholder">Sâmia</div>`;
                             } else {
-                                imageElement = '';
+                                imageElement = `<img src="${trimmedImageUrl}" alt="Imagem de ${item.name}" class="w-full h-40 object-cover" onerror="this.parentElement.innerHTML = '<div class=\\'no-image-placeholder\\'>Sâmia</div>';">`;
                             }
 
                             const cardOpacityClass = isUnavailable ? 'opacity-60' : '';
@@ -1272,15 +1266,12 @@ teste
                     
                     populateNeighborhoodDropdown(deliveryFeesData); 
                     populateContactInfo(data.contact);
-                    setupCategoryObserver(); 
                     updatePromotionButtonVisibility(); 
                     updateCartCount(); 
                     updateOrderDisplay(); 
                     updateCheckoutButtonText(); 
                     showAddressSummary(); 
                     
-                    setTimeout(() => window.dispatchEvent(new Event('scroll')), 100);
-
                 } catch (error) {
                     console.error('Erro ao carregar o cardápio:', error);
                     showMessageModal('Não foi possível carregar o cardápio no momento. Por favor, tente novamente mais tarde.');
@@ -1437,6 +1428,7 @@ teste
             }
 
             function capitalizeFirstLetter(string) {
+                if (!string) return '';
                 return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
             }
 
@@ -1446,6 +1438,7 @@ teste
 
                 categories.forEach((category, index) => {
                     const button = document.createElement('button');
+                    const sectionId = `${category.toLowerCase().replace(/\s+/g, '-')}-section`;
                     button.className = 'category-btn px-4 py-2 rounded-full bg-gray-200 text-gray-800 whitespace-nowrap lg:flex-grow-0 lg:flex-shrink-0';
                     
                     const firstItemOfCategory = allMenuData.find(item => item.category === category);
@@ -1453,16 +1446,21 @@ teste
                     button.textContent = isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
 
                     button.dataset.category = category;
-                    button.dataset.targetId = `${category.replace(/\s+/g, '-')}-section`;
+                    button.dataset.targetId = sectionId;
                     
                     button.addEventListener('click', function(event) { 
                         const targetId = this.dataset.targetId;
-                        isScrollingFromClick = true;
-                        document.getElementById(targetId).scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        setActiveCategoryButton(this.dataset.category);
-                        setTimeout(() => {
-                            isScrollingFromClick = false;
-                        }, 700); 
+                        const targetElement = document.getElementById(targetId);
+
+                        if (targetElement) {
+                            isScrollingFromClick = true;
+                            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            setActiveCategoryButton(category);
+                            // O timeout previne que o IntersectionObserver interfira com o clique
+                            setTimeout(() => {
+                                isScrollingFromClick = false;
+                            }, 1000); 
+                        }
                     });
                     categoryButtonsContainer.appendChild(button);
                 });
@@ -1475,29 +1473,62 @@ teste
                 });
             }
 
-            function toggleCategoryAvailability(enableAll = true) {
-                document.querySelectorAll('.category-btn, .pizza-category-section').forEach(el => {
-                    el.classList.remove('disabled-for-half-pizza');
-                });
+            function toggleAddItemButtons(enableAll = true) {
+                document.querySelectorAll('.add-item-btn').forEach(button => {
+                    const itemId = button.dataset.itemId;
+                    const item = allMenuData.find(i => i.id === itemId);
 
-                if (!enableAll && isSelectingHalfPizza && firstHalfPizza) {
-                    const isPromotional = isFirstHalfPromotional;
-                    document.querySelectorAll('.category-btn, .pizza-category-section').forEach(el => {
-                        const category = el.dataset.category || el.id.replace('-section', '').replace(/-/g, ' ');
-                        if (!category) return;
-
-                        const isPromoCategory = category.toLowerCase() === 'promocionais';
-                        const isPizzaCategory = allMenuData.some(item => item.category === category && item.isPizza);
-                        
-                        if (!isPizzaCategory) {
-                             el.classList.add('disabled-for-half-pizza');
-                        } else if (isPromotional && !isPromoCategory) {
-                             el.classList.add('disabled-for-half-pizza');
-                        } else if (!isPromotional && isPromoCategory) {
-                             el.classList.add('disabled-for-half-pizza');
+                    if (enableAll || !isSelectingHalfPizza) { 
+                        button.removeAttribute('disabled');
+                        button.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } else { 
+                        if (isFirstHalfPromotional) {
+                            if (item && item.category.toLowerCase() === 'promocionais') {
+                                button.removeAttribute('disabled');
+                                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                            } else {
+                                button.setAttribute('disabled', 'true');
+                                button.classList.add('opacity-50', 'cursor-not-allowed');
+                            }
+                        } else { 
+                            if (item && item.category.toLowerCase() === 'promocionais') {
+                                button.setAttribute('disabled', 'true');
+                                button.classList.add('opacity-50', 'cursor-not-allowed');
+                            } else {
+                                button.removeAttribute('disabled'); 
+                                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                            }
                         }
-                    });
-                }
+                    }
+                });
+            }
+
+            function toggleCategoryButtons(enableAll = true) {
+                document.querySelectorAll('.category-btn').forEach(button => {
+                    const category = button.dataset.category.toLowerCase();
+                    if (enableAll || !isSelectingHalfPizza) { 
+                        button.removeAttribute('disabled');
+                        button.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } else { 
+                        if (isFirstHalfPromotional) {
+                            if (category === 'promocionais') {
+                                button.removeAttribute('disabled');
+                                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                            } else {
+                                button.setAttribute('disabled', 'true');
+                                button.classList.add('opacity-50', 'cursor-not-allowed');
+                            }
+                        } else { 
+                            if (category === 'promocionais') {
+                                button.setAttribute('disabled', 'true');
+                                button.classList.add('opacity-50', 'cursor-not-allowed');
+                            } else {
+                                button.removeAttribute('disabled'); 
+                                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                            }
+                        }
+                    }
+                });
             }
 
             function handleAddButtonClick(e) {
@@ -1505,7 +1536,9 @@ teste
                 const itemId = clickedButton.dataset.itemId;
                 const item = allMenuData.find(i => i.id === itemId);
 
-                if (!item) return;
+                if (!item) {
+                    return;
+                }
 
                 const itemImageUrl = item.isPizza ? item.imageUrl : null;
                 
@@ -1558,7 +1591,8 @@ teste
                     isSelectingSecondHalf = false;
                     isSelectingHalfPizza = false; 
                     isFirstHalfPromotional = false; 
-                    toggleCategoryAvailability(true);
+                    toggleAddItemButtons(true); 
+                    toggleCategoryButtons(true); 
                     showTemporaryFeedback('Pizza meio a meia adicionada ao pedido!', 'bg-green-500'); 
                     
                 } else if (item.isCustomizable) {
@@ -1634,7 +1668,8 @@ teste
                             pizzaOptionModal.style.display = 'none';
                             updatePromotionButtonVisibility(); 
 
-                            toggleCategoryAvailability(false);
+                            toggleAddItemButtons(false); 
+                            toggleCategoryButtons(false); 
                             
                             addToOrderOnly(
                                 {
@@ -1694,7 +1729,7 @@ teste
                 const flyingEl = document.createElement('div');
                 flyingEl.classList.add('fly-to-cart-animation');
                 
-                if (imageUrl) {
+                if (imageUrl && imageUrl !== 'https://www.bakelitsul.com.br/Assets/img/sem-produto-detalhe.png') {
                     flyingEl.innerHTML = `<img src="${imageUrl}" alt="item" class="w-full h-full object-cover rounded-full">`;
                 } else {
                     flyingEl.innerHTML = '<i class="fas fa-plus"></i>'; 
@@ -1869,7 +1904,8 @@ teste
                     isSelectingSecondHalf = false;
                     isSelectingHalfPizza = false; 
                     isFirstHalfPromotional = false; 
-                    toggleCategoryAvailability(true);
+                    toggleAddItemButtons(true); 
+                    toggleCategoryButtons(true); 
                     showMessageModal('Seleção de meia pizza cancelada.', 'bg-red-600'); 
                 }
             }
@@ -1882,7 +1918,8 @@ teste
                 isSelectingSecondHalf = false;
                 isSelectingHalfPizza = false; 
                 isFirstHalfPromotional = false; 
-                toggleCategoryAvailability(true);
+                toggleAddItemButtons(true); 
+                toggleCategoryButtons(true);
                 updateCheckoutButtonText();
             }
             
@@ -2226,51 +2263,48 @@ teste
             }
 
             function calculateOrderTotal() {
-                let subtotal = 0;
+                let currentSubtotal = 0;
                 order.forEach(item => {
                     if (item.type !== 'discount') {
-                        subtotal += item.price;
+                        currentSubtotal += item.price;
                     }
                 });
 
                 let finalDiscountAmount = 0;
                 if (discountPromotion) {
-                    finalDiscountAmount = subtotal * (discountPromotion.promoPrice / 100);
+                    finalDiscountAmount = currentSubtotal * (discountPromotion.promoPrice / 100);
                 }
 
                 return currentSubtotal - finalDiscountAmount + selectedAddress.deliveryFee;
             }
 
-            let isScrollingFromClick = false; 
-            let categoryObserver; 
-
             function getStickyHeaderHeight() {
                 const stickyHeader = document.querySelector('.category-bar-mobile-sticky');
-                return stickyHeader ? stickyHeader.offsetHeight + 16 : 16;
+                return stickyHeader ? stickyHeader.offsetHeight : 60; // Fallback
             }
 
             function setActiveCategoryButton(category) {
                 document.querySelectorAll('.category-btn').forEach(btn => {
-                    btn.classList.remove('bg-red-600', 'text-white');
-                    btn.classList.add('bg-gray-200', 'text-gray-800');
-                });
-
-                const targetBtn = document.querySelector(`.category-btn[data-category="${category}"]`);
-                if (targetBtn) {
-                    targetBtn.classList.remove('bg-gray-200', 'text-gray-800'); 
-                    targetBtn.classList.add('bg-red-600', 'text-white'); 
-                    if (isScrollingFromClick) {
-                        targetBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    if (btn.dataset.category === category) {
+                        btn.classList.add('bg-red-600', 'text-white');
+                        btn.classList.remove('bg-gray-200', 'text-gray-800');
+                        // Garante que o botão ativo esteja visível na barra de rolagem horizontal
+                        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    } else {
+                        btn.classList.remove('bg-red-600', 'text-white');
+                        btn.classList.add('bg-gray-200', 'text-gray-800');
                     }
-                }
+                });
             }
 
             function setupCategoryObserver() {
-                if (categoryObserver) categoryObserver.disconnect();
+                if (categoryObserver) {
+                    categoryObserver.disconnect();
+                }
 
                 const stickyHeaderHeight = getStickyHeaderHeight();
                 const options = {
-                    root: null,
+                    root: null, // Observa em relação ao viewport
                     rootMargin: `-${stickyHeaderHeight}px 0px -${window.innerHeight - stickyHeaderHeight - 150}px 0px`,
                     threshold: 0
                 };
@@ -2278,42 +2312,26 @@ teste
                 categoryObserver = new IntersectionObserver((entries) => {
                     if (isScrollingFromClick) return;
 
-                    let topmostVisibleSection = null;
                     entries.forEach(entry => {
+                        const sectionId = entry.target.id;
+                        const category = sectionId.replace('-section', '').replace(/-/g, ' ');
+                        const isPromotionalSection = sectionId.includes('promocionais');
+
                         if (entry.isIntersecting) {
-                            if (!topmostVisibleSection || entry.boundingClientRect.top < topmostVisibleSection.boundingClientRect.top) {
-                                topmostVisibleSection = entry;
+                            setActiveCategoryButton(capitalizeFirstLetter(category));
+                        }
+
+                        // Lógica de restrição para pizza meia a meia
+                        if (isSelectingHalfPizza && entry.isIntersecting) {
+                            if (isFirstHalfPromotional && !isPromotionalSection) {
+                                document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                showMessageModal("Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.");
+                            } else if (!isFirstHalfPromotional && isPromotionalSection) {
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                showMessageModal("Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.");
                             }
                         }
                     });
-
-                    if (topmostVisibleSection) {
-                        const sectionId = topmostVisibleSection.target.id;
-                        const category = sectionId.replace(/-section$/, '').replace(/-/g, ' ');
-                        setActiveCategoryButton(category);
-
-                        if (isSelectingHalfPizza && firstHalfPizza) {
-                            const promoSectionId = 'promocionais-section';
-                            
-                            if (isFirstHalfPromotional) {
-                                if (sectionId !== promoSectionId) {
-                                    isScrollingFromClick = true;
-                                    document.getElementById(promoSectionId).scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
-                                    setTimeout(() => { isScrollingFromClick = false; }, 1000);
-                                }
-                            } else {
-                                if (sectionId === promoSectionId) {
-                                    const firstHalfSectionId = `${firstHalfPizza.category.replace(/\s+/g, '-')}-section`;
-                                    const firstHalfSection = document.getElementById(firstHalfSectionId);
-                                    isScrollingFromClick = true;
-                                    if(firstHalfSection) firstHalfSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
-                                    setTimeout(() => { isScrollingFromClick = false; }, 1000);
-                                }
-                            }
-                        }
-                    }
                 }, options);
 
                 document.querySelectorAll('.pizza-category-section').forEach(section => {
