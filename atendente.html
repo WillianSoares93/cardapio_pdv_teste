@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -872,9 +873,7 @@
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
-                // INÍCIO DA CORREÇÃO: Não fecha o modal principal
-                openAddItemModal(false); // Reabre o modal para o estado normal
-                // FIM DA CORREÇÃO
+                openAddItemModal(false);
                 return;
             }
 
@@ -928,11 +927,9 @@
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
                         showFloatingFeedback(`Pizza ${pizza.name} adicionada.`);
-                        // INÍCIO DA CORREÇÃO: Não fecha o modal principal
                         if (editingItemIndex !== null) {
-                           addItemModal.style.display = 'none';
+                            addItemModal.style.display = 'none';
                         }
-                        // FIM DA CORREÇÃO
                     });
 
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
