@@ -516,7 +516,10 @@
     </style>
 </head>
 <body>
-    <header class="header-bg text-white py-16 px-4 text-center">
+    <header class="header-bg text-white py-16 px-4 text-center relative">
+        <a href="login.html" class="absolute top-4 right-4 bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-full transition duration-300 text-sm">
+            <i class="fas fa-user-shield mr-2"></i>Área Restrita
+        </a>
         <div class="max-w-4xl mx-auto">
             <img src="https://raw.githubusercontent.com/WillianSoares93/catalogo_pizzaria/refs/heads/main/logo.png" alt="Logotipo Sâmia" class="h-64 mx-auto mb-4 object-contain">
             <p class="text-2xl mb-8">Pizzaria Artesanal</p>
@@ -2222,16 +2225,16 @@
             }
 
             function calculateOrderTotal() {
-                let currentSubtotal = 0;
+                let subtotal = 0;
                 order.forEach(item => {
                     if (item.type !== 'discount') {
-                        currentSubtotal += item.price;
+                        subtotal += item.price;
                     }
                 });
 
                 let finalDiscountAmount = 0;
                 if (discountPromotion) {
-                    finalDiscountAmount = currentSubtotal * (discountPromotion.promoPrice / 100);
+                    finalDiscountAmount = subtotal * (discountPromotion.promoPrice / 100);
                 }
 
                 return currentSubtotal - finalDiscountAmount + selectedAddress.deliveryFee;
@@ -2274,28 +2277,34 @@
                 categoryObserver = new IntersectionObserver((entries) => {
                     if (isScrollingFromClick) return;
 
+                    let topmostVisibleSection = null;
                     entries.forEach(entry => {
-                        const sectionId = entry.target.id;
-                        const category = sectionId.replace(/-section$/, '').replace(/-/g, ' ');
-
                         if (entry.isIntersecting) {
-                            setActiveCategoryButton(category);
+                            if (!topmostVisibleSection || entry.boundingClientRect.top < topmostVisibleSection.boundingClientRect.top) {
+                                topmostVisibleSection = entry;
+                            }
                         }
-                        
-                        if (isSelectingHalfPizza && firstHalfPizza) {
-                            const promoSection = document.getElementById('promocionais-section');
-                            if (!promoSection) return;
+                    });
 
+                    if (topmostVisibleSection) {
+                        const sectionId = topmostVisibleSection.target.id;
+                        const category = sectionId.replace(/-section$/, '').replace(/-/g, ' ');
+                        setActiveCategoryButton(category);
+
+                        if (isSelectingHalfPizza && firstHalfPizza) {
+                            const promoSectionId = 'promocionais-section';
+                            
                             if (isFirstHalfPromotional) {
-                                if (sectionId !== promoSection.id && entry.isIntersecting) {
+                                if (sectionId !== promoSectionId) {
                                     isScrollingFromClick = true;
-                                    promoSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    document.getElementById(promoSectionId).scrollIntoView({ behavior: 'smooth', block: 'start' });
                                     showMessageModal('Para pizzas promocionais, a segunda metade deve ser também de uma pizza promocional.');
                                     setTimeout(() => { isScrollingFromClick = false; }, 1000);
                                 }
                             } else {
-                                if (sectionId === promoSection.id && entry.isIntersecting) {
-                                    const firstHalfSection = document.getElementById(`${firstHalfPizza.category.replace(/\s+/g, '-')}-section`);
+                                if (sectionId === promoSectionId) {
+                                    const firstHalfSectionId = `${firstHalfPizza.category.replace(/\s+/g, '-')}-section`;
+                                    const firstHalfSection = document.getElementById(firstHalfSectionId);
                                     isScrollingFromClick = true;
                                     if(firstHalfSection) firstHalfSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                                     showMessageModal('Você começou a montar uma pizza meio a meio com um sabor não promocional. A segunda metade não pode ser de uma pizza promocional.');
@@ -2303,7 +2312,7 @@
                                 }
                             }
                         }
-                    });
+                    }
                 }, options);
 
                 document.querySelectorAll('.pizza-category-section').forEach(section => {
