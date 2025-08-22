@@ -872,6 +872,9 @@
                 manualFirstHalfPizza = null;
                 updateManualOrderDisplay();
                 showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
+                // INÍCIO DA CORREÇÃO: Não fecha o modal, apenas reseta o estado interno
+                openAddItemModal(false);
+                // FIM DA CORREÇÃO
                 return;
             }
 
