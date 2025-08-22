@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -856,7 +857,7 @@
                 const secondHalfObject = {
                     name: item.name, price: item[manualFirstHalfPizza.priceKey] / 2, priceKey: manualFirstHalfPizza.priceKey,
                     isPromotional: item.category.trim().toLowerCase() === 'promocionais', description: item.description,
-                    category: item.category, selected_slices: manualFirstHalfPizza.selected_slices, originalItem: item
+                    category: item.category, selected_slices: manualFirstHalfPizza.selected_slices
                 };
                 const finalPrice = manualFirstHalfPizza.price + secondHalfObject.price;
                 const combinedName = `${manualFirstHalfPizza.selected_slices} FATIAS: Meia ${manualFirstHalfPizza.name} & Meia ${secondHalfObject.name}`;
