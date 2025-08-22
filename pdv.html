@@ -373,6 +373,18 @@
         </div>
     </div>
 
+    <!-- INÍCIO DA CORREÇÃO: Modal de Edição para Delivery/Retirada -->
+    <div id="edit-order-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Gerenciar Pedido</h2>
+                <button id="close-edit-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="edit-modal-body" class="space-y-4"></div>
+        </div>
+    </div>
+    <!-- FIM DA CORREÇÃO -->
+
     <div id="delete-confirm-modal" class="modal">
         <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
             <h3 class="text-lg font-bold text-gray-900 mb-4">Confirmar Exclusão</h3>
@@ -388,7 +400,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, getDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, getDoc, updateDoc, query, orderBy, where, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -403,850 +415,1213 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Proteção da página
+        // --- LÓGICA DE AUTENTICAÇÃO E CAIXA ---
+        let currentCashRegister = null;
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.body.style.visibility = 'visible';
-                initializeAtendenteView();
+                checkCashRegisterStatus();
             } else {
-                window.location.href = `login.html?redirect=atendente.html`;
+                window.location.href = `login.html?redirect=pdv.html`;
             }
         });
 
-        // Elementos do DOM
         const logoutBtn = document.getElementById('logout-btn');
-        const initialSelectionView = document.getElementById('initial-selection-view');
-        const orderFormView = document.getElementById('order-form-view');
-        const mesasGrid = document.getElementById('mesas-grid-atendente');
-        const pageTitle = document.getElementById('page-title');
-        const backToTablesBtn = document.getElementById('back-to-tables-btn');
-        const startRetiradaBtn = document.getElementById('start-retirada-btn');
-        const startDeliveryBtn = document.getElementById('start-delivery-btn');
-        const manualOrderForm = document.getElementById('manual-order-form');
-        const manualOrderItemsContainer = document.getElementById('manual-order-items');
-        const addItemBtn = document.getElementById('add-item-btn');
-        const addItemModal = document.getElementById('add-item-modal');
-        const addItemModalTitle = document.getElementById('add-item-modal-title');
-        const searchItemInput = document.getElementById('search-item-input');
-        const itemListContainer = document.getElementById('item-list');
-        const cancelAddItemBtn = document.getElementById('cancel-add-item-btn');
-        const pizzaOptionModalManual = document.getElementById('pizza-option-modal-manual');
-        const burgerBuilderModalManual = document.getElementById('burger-builder-modal-manual');
-        const cancelPizzaOptionsManualBtn = document.getElementById('cancel-pizza-options-manual');
-        const cancelBurgerBuilderManualBtn = document.getElementById('cancel-burger-builder-manual');
-        const addCustomBurgerManualBtn = document.getElementById('add-custom-burger-manual-btn');
-        const burgerTotalPriceManual = document.getElementById('burger-total-price-manual');
-        const editSplitPizzaModal = document.getElementById('edit-split-pizza-modal');
-        const quantityModal = document.getElementById('quantity-modal');
-        const quantityModalItemName = document.getElementById('quantity-modal-item-name');
-        const quantityDisplay = document.getElementById('quantity-display');
-        const confirmQuantityBtn = document.getElementById('confirm-quantity-btn');
-        const cancelQuantityBtn = document.getElementById('cancel-quantity-btn');
-        const manualNeighborhoodSelect = document.getElementById('manual-neighborhood');
-        const deliveryFields = document.getElementById('delivery-fields');
-        const editSplitButtonsContainer = document.getElementById('edit-split-buttons');
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth).catch((error) => console.error("Erro ao fazer logout:", error));
+        });
         
+        const openCashModal = document.getElementById('open-cash-modal');
+        const openCashForm = document.getElementById('open-cash-form');
+        const pdvOverlay = document.getElementById('pdv-overlay');
+
+        async function checkCashRegisterStatus() {
+            const q = query(collection(db, "caixas"), where("status", "==", "aberto"), limit(1));
+            const querySnapshot = await getDocs(q);
+            
+            if (querySnapshot.empty) {
+                pdvOverlay.style.display = 'block';
+                openCashModal.style.display = 'flex';
+            } else {
+                currentCashRegister = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+                pdvOverlay.style.display = 'none';
+                openCashModal.style.display = 'none';
+                initializePDV();
+            }
+        }
+
+        openCashForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const initialValue = parseFloat(document.getElementById('initial-value').value);
+            if (isNaN(initialValue) || initialValue < 0) {
+                alert("Por favor, insira um valor inicial válido.");
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, "caixas"), {
+                    dataAbertura: serverTimestamp(),
+                    usuarioAbertura: auth.currentUser.email,
+                    valorInicial: initialValue,
+                    status: 'aberto'
+                });
+                checkCashRegisterStatus();
+            } catch (error) {
+                console.error("Erro ao abrir o caixa:", error);
+                alert("Não foi possível abrir o caixa. Tente novamente.");
+            }
+        });
+        // --- FIM DA LÓGICA DE CAIXA ---
+
+        // --- INÍCIO DA REESTRUTURAÇÃO ---
+        const mainTabs = document.getElementById('main-tabs');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const mesasGrid = document.getElementById('mesas-grid');
         const NUMERO_DE_MESAS = 12;
 
-        let currentOrderType = 'mesa';
-        let currentOrderId = null;
-        let currentMesaData = {};
-        let manualOrderItems = [];
-        let fullMenuData = { cardapio: [], deliveryFees: [], ingredientesHamburguer: {} };
-        let unavailableItems = {};
-        let hiddenItems = {};
-        let manualFirstHalfPizza = null;
-        let editingItemIndex = null;
-        let currentItemForQuantity = null;
+        // Colunas para Delivery
+        const colDeliveryNovo = document.getElementById('col-delivery-novo');
+        const colDeliveryPreparo = document.getElementById('col-delivery-preparo');
+        const colDeliveryEntrega = document.getElementById('col-delivery-entrega');
+        const colDeliveryFinalizado = document.getElementById('col-delivery-finalizado');
 
-        function showView(viewName) {
-            initialSelectionView.classList.add('hidden');
-            orderFormView.classList.add('hidden');
-            document.getElementById(viewName).classList.remove('hidden');
-            if (viewName === 'initial-selection-view') {
-                pageTitle.textContent = 'Lançamento de Pedido';
-            }
-        }
-
-        async function initializeAtendenteView() {
-            showView('initial-selection-view');
-            listenToTableStatus();
-            await loadFullMenuData();
-            listenToItemStatus();
-        }
-
-        function listenToTableStatus() {
-            const q = query(collection(db, "pedidos"));
-            onSnapshot(q, (snapshot) => {
-                const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateMesasGrid(activeOrders);
-            });
-        }
-
-        function listenToItemStatus() {
-            onSnapshot(doc(db, "config", "item_status"), (doc) => {
-                unavailableItems = doc.exists() ? doc.data() : {};
-                refreshItemListIfOpen();
-            });
-            onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
-                hiddenItems = doc.exists() ? doc.data() : {};
-                refreshItemListIfOpen();
-            });
-        }
+        // Colunas para Retirada
+        const colRetiradaNovo = document.getElementById('col-retirada-novo');
+        const colRetiradaPreparo = document.getElementById('col-retirada-preparo');
+        const colRetiradaPronto = document.getElementById('col-retirada-pronto');
+        const colRetiradaFinalizado = document.getElementById('col-retirada-finalizado');
         
-        function refreshItemListIfOpen() {
-            if (addItemModal.style.display === 'flex') {
-                const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-                const isSecondHalf = manualFirstHalfPizza !== null;
-                renderItemList(searchItemInput.value, activeFilter, isSecondHalf);
-            }
-        }
+        const connectionStatus = document.getElementById('connection-status');
+        const editOrderModal = document.getElementById('edit-order-modal');
+        const editModalBody = document.getElementById('edit-modal-body');
+        const closeEditModalBtn = document.getElementById('close-edit-modal');
+        const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const clearFinishedBtn = document.getElementById('clear-finished-btn');
+        const manageMenuBtn = document.getElementById('manage-menu-btn');
+        const menuManagementModal = document.getElementById('menu-management-modal');
+        const closeMenuModalBtn = document.getElementById('close-menu-modal');
+        const menuItemsContainer = document.getElementById('menu-items-container');
+        const ingredientsContainer = document.getElementById('ingredients-container');
+        const searchMenuInput = document.getElementById('search-menu-input');
+        const categoryFilterSelect = document.getElementById('category-filter-select');
+        const statusFilterButtonsItems = document.getElementById('status-filter-buttons-items');
+        const visibilityFilterButtonsItems = document.getElementById('visibility-filter-buttons-items');
+        const closeCashRegisterBtn = document.getElementById('close-cash-register-btn');
+        const closeCashModal = document.getElementById('close-cash-modal');
+        const closeCashForm = document.getElementById('close-cash-form');
+        const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn');
+        const finalValueInput = document.getElementById('final-value');
 
-        function updateMesasGrid(activeOrders) {
+        const searchIngredientInput = document.getElementById('search-ingredient-input');
+        const categoryFilterSelectIngredients = document.getElementById('category-filter-select-ingredients');
+        const statusFilterButtonsIngredients = document.getElementById('status-filter-buttons-ingredients');
+        const visibilityFilterButtonsIngredients = document.getElementById('visibility-filter-buttons-ingredients');
+        let allIngredients = [];
+        let unavailableIngredientsData = {};
+        let hiddenIngredientsData = {};
+
+        let orderIdToDelete = null;
+        let deliveryFeesData = [];
+        let allMenuItems = [];
+        let unavailableItemsData = {};
+        let hiddenItemsData = {};
+
+        const joinTablesBtn = document.getElementById('join-tables-btn');
+        const joiningControls = document.getElementById('joining-controls');
+        const confirmJoinBtn = document.getElementById('confirm-join-btn');
+        const cancelJoinBtn = document.getElementById('cancel-join-btn');
+        let isJoiningTables = false;
+        let selectedTablesForJoining = [];
+
+        const manageTableModal = document.getElementById('manage-table-modal');
+        const closeManageTableModalBtn = document.getElementById('close-manage-table-modal');
+        const transferTableModal = document.getElementById('transfer-table-modal');
+        let currentManagingOrderId = null;
+        let currentManagingOrderData = null;
+
+        // Lógica de troca de abas
+        mainTabs.addEventListener('click', (e) => {
+            const tabButton = e.target.closest('.main-tab-btn');
+            if (!tabButton) return;
+
+            mainTabs.querySelector('.active').classList.remove('active');
+            tabButton.classList.add('active');
+
+            tabContents.forEach(content => content.classList.add('hidden'));
+            const tabName = tabButton.dataset.tab;
+            document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
+        });
+
+        // Inicializa as mesas
+        function initializeMesas() {
             mesasGrid.innerHTML = '';
-            const occupiedTables = new Set();
-            const groupedTables = new Map();
-
-            activeOrders.filter(order => order.status !== 'Finalizado' && order.endereco.rua === 'Mesa')
-                .forEach(order => {
-                    if (order.grupoMesas && order.grupoMesas.length > 0) {
-                        const sortedGroup = [...order.grupoMesas].sort((a,b) => a-b);
-                        groupedTables.set(sortedGroup[0], { orderId: order.id, group: sortedGroup });
-                        sortedGroup.forEach(tableNum => occupiedTables.add(tableNum));
-                    } else {
-                        const tableNum = parseInt((order.endereco.clientName || "").replace(/[^0-9]/g, ''));
-                        if (tableNum) {
-                            occupiedTables.add(tableNum);
-                            groupedTables.set(tableNum, { orderId: order.id, group: [tableNum] });
-                        }
-                    }
-                });
-
             for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
-                if (occupiedTables.has(i) && !groupedTables.has(i)) continue;
-
                 const mesaEl = document.createElement('div');
+                mesaEl.id = `mesa-${i}`;
+                mesaEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-livre';
+                mesaEl.dataset.status = 'livre';
                 mesaEl.dataset.number = i;
-
-                if (groupedTables.has(i)) {
-                    const { orderId, group } = groupedTables.get(i);
-                    mesaEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg';
-                    mesaEl.dataset.orderId = orderId;
-
-                    if (group.length > 1) {
-                        mesaEl.classList.add('mesa-status-juntada', `col-span-${group.length}`);
-                        mesaEl.innerHTML = `<span class="text-3xl font-bold">${group.join(' + ')}</span><span class="text-sm font-medium mt-2">Agrupada</span>`;
-                    } else {
-                        mesaEl.classList.add('mesa-status-ocupada');
-                        mesaEl.innerHTML = `<span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span><span class="text-sm font-medium mt-2">Ocupada</span>`;
-                    }
-                    mesaEl.addEventListener('click', () => loadExistingOrder(orderId));
-                } else {
-                    mesaEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg mesa-status-livre';
-                    mesaEl.innerHTML = `<span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span><span class="text-sm font-medium mt-2">Livre</span>`;
-                    mesaEl.addEventListener('click', () => startNewOrder('mesa', { number: i }));
-                }
+                mesaEl.style.gridColumn = ''; // Reseta o span
+                mesaEl.innerHTML = `
+                    <span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span>
+                    <span class="text-sm font-medium mt-2">Livre</span>
+                `;
+                mesaEl.addEventListener('click', () => handleMesaClick(i));
                 mesasGrid.appendChild(mesaEl);
             }
         }
 
-        function startNewOrder(type, identifier = null) {
-            currentOrderType = type;
-            currentOrderId = null;
-            manualOrderItems = [];
-            manualOrderForm.reset();
-            deliveryFields.classList.add('hidden');
+        function handleMesaClick(numeroMesa) {
+            const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
+            if (!mesaEl) return;
+            const status = mesaEl.dataset.status;
             
-            const clientNameInput = document.getElementById('manual-clientName');
-            clientNameInput.readOnly = false;
-            currentMesaData = {};
-
-            if (type === 'mesa') {
-                const isGroup = Array.isArray(identifier.group);
-                const title = isGroup ? `Mesas ${identifier.group.join(' + ')}` : `Mesa ${identifier.number}`;
-                pageTitle.textContent = `Lançando Pedido - ${title}`;
-                clientNameInput.value = title;
-                clientNameInput.readOnly = false;
-                currentMesaData = isGroup ? { group: identifier.group } : { number: identifier.number };
-            } else if (type === 'retirada') {
-                pageTitle.textContent = 'Lançando Pedido - Retirada';
-                clientNameInput.value = '';
-                clientNameInput.placeholder = 'Nome do Cliente';
-            } else if (type === 'delivery') {
-                pageTitle.textContent = 'Lançando Pedido - Delivery';
-                clientNameInput.value = '';
-                clientNameInput.placeholder = 'Nome do Cliente';
-                deliveryFields.classList.remove('hidden');
+            if (isJoiningTables) {
+                if (status === 'livre') {
+                    const index = selectedTablesForJoining.indexOf(numeroMesa);
+                    if (index > -1) {
+                        selectedTablesForJoining.splice(index, 1);
+                        mesaEl.classList.remove('selected-for-join');
+                    } else {
+                        selectedTablesForJoining.push(numeroMesa);
+                        mesaEl.classList.add('selected-for-join');
+                    }
+                }
+                return;
             }
-            
-            updateManualOrderDisplay();
-            showView('order-form-view');
+
+            if (status === 'livre') {
+                window.open(`atendente.html?mesa=${numeroMesa}`, '_blank');
+            } else {
+                const orderId = mesaEl.dataset.orderId;
+                if (orderId) {
+                    openManageTableModal(orderId);
+                }
+            }
+        }
+        
+        async function loadDeliveryFees() {
+            if (deliveryFeesData.length > 0) return;
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                deliveryFeesData = data.deliveryFees;
+            } catch (error) {
+                console.error("Erro ao carregar dados de entrega:", error);
+            }
         }
 
-        async function loadExistingOrder(orderId) {
+        function initializePDV() {
+            loadDeliveryFees();
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let audioResumed = false;
+
+            document.body.addEventListener('click', () => {
+                if (!audioResumed && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                    audioResumed = true;
+                }
+            }, { once: true });
+
+            function playNotificationSound() {
+                if (audioContext.state !== 'running') return;
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 1);
+            }
+            
+            initializeMesas();
+
+            const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
+
+            onSnapshot(q, (snapshot) => {
+                connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
+                
+                [colDeliveryNovo, colDeliveryPreparo, colDeliveryEntrega, colDeliveryFinalizado,
+                 colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto, colRetiradaFinalizado]
+                 .forEach(col => col.innerHTML = '');
+                initializeMesas();
+
+                let totalOrdersToday = 0;
+                let totalRevenueToday = 0;
+                const today = new Date().setHours(0, 0, 0, 0);
+
+                snapshot.docChanges().forEach((change) => {
+                    const orderData = change.doc.data();
+                    if (change.type === "added" && orderData.status === 'Novo' && identifyOrderType(orderData) !== 'mesa') {
+                        playNotificationSound();
+                    }
+                });
+
+                const processedTables = new Set();
+                const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                activeOrders.filter(order => order.grupoMesas && order.grupoMesas.length > 1 && order.status !== 'Finalizado')
+                    .forEach(order => {
+                        const sortedGroup = [...order.grupoMesas].sort((a, b) => a - b);
+                        const primaryTableNumber = sortedGroup[0];
+                        
+                        const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
+                        if (primaryTableEl) {
+                            primaryTableEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-juntada';
+                            primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
+                            primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
+                            primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
+                            primaryTableEl.dataset.status = 'ocupada';
+                            primaryTableEl.dataset.orderId = order.id;
+                            processedTables.add(primaryTableNumber);
+
+                            for (let i = 1; i < sortedGroup.length; i++) {
+                                const secondaryTableNumber = sortedGroup[i];
+                                const secondaryTableEl = document.getElementById(`mesa-${secondaryTableNumber}`);
+                                if (secondaryTableEl) {
+                                    secondaryTableEl.classList.add('hidden');
+                                }
+                                processedTables.add(secondaryTableNumber);
+                            }
+                        }
+                    });
+
+                activeOrders.forEach(order => {
+                    const orderId = order.id;
+                    const card = createOrderCard(order, orderId);
+
+                    const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
+                    if(orderDate === today) {
+                        totalOrdersToday++;
+                        totalRevenueToday += order.total.finalTotal;
+                    }
+
+                    const tipoPedido = identifyOrderType(order);
+
+                    if (tipoPedido === 'delivery') {
+                        if (order.status === 'Novo') colDeliveryNovo.appendChild(card);
+                        else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
+                        else if (order.status === 'Pronto para Entrega') colDeliveryEntrega.appendChild(card);
+                        else if (order.status === 'Finalizado') colDeliveryFinalizado.appendChild(card);
+                    } else if (tipoPedido === 'retirada') {
+                        if (order.status === 'Novo') colRetiradaNovo.appendChild(card);
+                        else if (order.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
+                        else if (order.status === 'Pronto para Entrega') colRetiradaPronto.appendChild(card);
+                        else if (order.status === 'Finalizado') colRetiradaFinalizado.appendChild(card);
+                    } else if (tipoPedido === 'mesa' && !order.grupoMesas) {
+                        const clientName = order.endereco.clientName || "";
+                        const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
+                        if (numeroMesa && !processedTables.has(numeroMesa) && order.status !== 'Finalizado') {
+                            const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
+                            if (mesaEl) {
+                                mesaEl.classList.remove('mesa-status-livre');
+                                mesaEl.classList.add('mesa-status-ocupada');
+                                mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
+                                mesaEl.dataset.status = 'ocupada';
+                                mesaEl.dataset.orderId = orderId;
+                                processedTables.add(numeroMesa);
+                            }
+                        }
+                    }
+                });
+                document.getElementById('stats-total-orders').textContent = totalOrdersToday;
+                document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
+                document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
+            });
+        }
+
+        function identifyOrderType(orderData) {
+            if (orderData.endereco && orderData.endereco.rua === "Retirada no Balcão") {
+                return 'retirada';
+            }
+            if (orderData.endereco && orderData.endereco.rua === "Mesa") {
+                return 'mesa';
+            }
+            return 'delivery';
+        }
+
+        function createOrderCard(order, id) {
+            const card = document.createElement('div');
+            card.className = 'order-card bg-white rounded-lg shadow-md border-l-4';
+            
+            let itemsHtml = order.itens.map(item => {
+                let itemContent = `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${item.price.toFixed(2).replace('.', ',')}</span></li>`;
+
+                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                    const ingredientsList = item.ingredients.map(ingredient => `
+                        <li class="text-xs text-gray-500 ml-4 list-disc">${ingredient.name}</li>
+                    `).join('');
+                    itemContent += `<ul class="mt-1 space-y-1">${ingredientsList}</ul>`;
+                }
+
+                return itemContent;
+            }).join('');
+
+            const timestamp = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).toLocaleTimeString('pt-BR') : 'agora';
+
+            let buttonHtml = '';
+            if (order.status === 'Novo') {
+                card.classList.add('border-red-500');
+                buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors">Iniciar Preparo</button>`;
+            } else if (order.status === 'Em Preparo') {
+                card.classList.add('border-yellow-500');
+                buttonHtml = `<button data-id="${id}" data-status="Pronto para Entrega" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">Pronto</button>`;
+            } else if (order.status === 'Pronto para Entrega') {
+                card.classList.add('border-green-500');
+                buttonHtml = `<button data-id="${id}" data-status="Finalizado" class="move-btn w-full mt-4 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">Finalizar Pedido</button>`;
+            }
+
+            let paymentHtml = '';
+            if (order.pagamento) {
+                let paymentText = '';
+                if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                    paymentText = `Dinheiro (Troco p/ R$ ${order.pagamento.trocoPara.toFixed(2).replace('.', ',')})`;
+                } else {
+                    paymentText = order.pagamento;
+                }
+                paymentHtml = `<div class="text-sm mt-2 pt-2 border-t border-gray-200"><strong>Pagamento:</strong> ${paymentText}</div>`;
+            }
+
+            let totalDetailsHtml = `
+                <div class="text-right text-sm space-y-1 mt-2 pt-2 border-t border-gray-200">
+                    <div class="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</span>
+                    </div>
+            `;
+            if (order.total.discount > 0) {
+                totalDetailsHtml += `
+                    <div class="flex justify-between text-red-600">
+                        <span>Desconto:</span>
+                        <span>- R$ ${order.total.discount.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                `;
+            }
+            totalDetailsHtml += `
+                    <div class="flex justify-between">
+                        <span>Taxa de Entrega:</span>
+                        <span>R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-lg text-gray-800">
+                        <span>Total:</span>
+                        <span>R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                </div>
+            `;
+            
+            let contactHtml = '';
+            if (order.endereco.telefone && order.endereco.telefone.trim() !== '') {
+                contactHtml = `<p class="text-sm text-gray-600 mt-1"><i class="fas fa-phone-alt fa-xs mr-1"></i>${order.endereco.telefone}</p>`;
+            }
+
+            card.innerHTML = `
+                <div class="card-header flex justify-between items-start cursor-pointer p-4">
+                    <div>
+                        <h3 class="font-bold text-gray-800">Pedido #${id.substring(0, 5)}</h3>
+                        <p class="text-sm font-medium text-gray-700">${order.endereco.clientName}</p>
+                        ${contactHtml}
+                    </div>
+                    <div class="text-right flex-shrink-0 ml-4">
+                        <span class="font-bold text-lg text-gray-800 block">R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</span>
+                        <span class="text-xs text-gray-500">Clique para ver mais</span>
+                    </div>
+                </div>
+                <div class="details-container">
+                    <div class="px-4 pb-4">
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-medium text-gray-500">${timestamp}</span>
+                                <div class="flex items-center space-x-2">
+                                    <button data-id="${id}" data-type="kitchen" class="print-btn text-gray-500 hover:text-gray-700" title="Imprimir Comanda da Cozinha"><i class="fas fa-utensils"></i></button>
+                                    <button data-id="${id}" data-type="client" class="print-btn text-gray-500 hover:text-gray-700" title="Imprimir Recibo do Cliente"><i class="fas fa-receipt"></i></button>
+                                    <button data-id="${id}" class="manage-btn text-blue-500 hover:text-blue-700" title="Editar Pedido"><i class="fas fa-edit"></i></button>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                            </div>
+                            <ul class="border-t border-b border-gray-200 py-2 my-2 space-y-1">${itemsHtml}</ul>
+                            ${totalDetailsHtml}
+                            ${paymentHtml}
+                            ${buttonHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        async function openManageTableModal(orderId) {
+            currentManagingOrderId = orderId;
             const orderRef = doc(db, "pedidos", orderId);
             const docSnap = await getDoc(orderRef);
 
             if (docSnap.exists()) {
-                const orderData = docSnap.data();
-                currentOrderId = orderId;
-                manualOrderItems = orderData.itens || [];
+                currentManagingOrderData = docSnap.data();
+                document.getElementById('manage-table-title').textContent = `Gerenciar ${currentManagingOrderData.endereco.clientName}`;
                 
-                let title = '';
-                if (orderData.grupoMesas && orderData.grupoMesas.length > 0) {
-                    title = `Adicionando Itens - Mesas ${orderData.grupoMesas.join(' + ')}`;
-                } else {
-                    title = `Adicionando Itens - ${orderData.endereco.clientName}`;
-                }
-                pageTitle.textContent = title;
+                const itemsList = document.getElementById('table-order-items-list');
+                itemsList.innerHTML = currentManagingOrderData.itens.map(item => `<li>${item.name} - R$ ${item.price.toFixed(2).replace('.',',')}</li>`).join('');
                 
-                const clientNameInput = document.getElementById('manual-clientName');
-                clientNameInput.value = orderData.endereco.clientName;
-                clientNameInput.readOnly = false;
-                
-                updateManualOrderDisplay();
-                showView('order-form-view');
-            } else {
-                alert("Erro: Pedido não encontrado.");
+                document.getElementById('table-order-total').textContent = `R$ ${currentManagingOrderData.total.finalTotal.toFixed(2).replace('.',',')}`;
+
+                manageTableModal.style.display = 'flex';
             }
         }
-        
-        async function handleManualOrderSubmit(e) {
-            e.preventDefault();
-            if (manualOrderItems.length === 0) {
-                alert("Adicione pelo menos um item ao pedido.");
-                return;
-            }
-            
-            const clientName = document.getElementById('manual-clientName').value;
-            if (!clientName) {
-                alert("Por favor, preencha o nome do cliente ou da mesa.");
-                return;
-            }
 
-            const subtotal = manualOrderItems.reduce((sum, item) => sum + item.price, 0);
-            let deliveryFee = 0;
-            let endereco = {};
-            let grupoMesas = null;
-            let status = 'Em Preparo'; // Padrão para mesas
-            const paymentMethod = document.querySelector('input[name="manual-payment"]:checked').value;
+        async function openEditModal(id) {
+            await loadDeliveryFees();
+            const orderRef = doc(db, "pedidos", id);
+            const docSnap = await getDoc(orderRef);
 
-            if (currentOrderType === 'mesa') {
-                endereco = { clientName: clientName, rua: "Mesa" };
-                if (currentMesaData.group) {
-                    grupoMesas = currentMesaData.group;
-                }
-            } else if (currentOrderType === 'retirada') {
-                status = 'Novo';
-                endereco = { clientName: clientName, rua: "Retirada no Balcão" };
-            } else if (currentOrderType === 'delivery') {
-                status = 'Novo';
-                const street = document.getElementById('manual-street').value;
-                const number = document.getElementById('manual-number').value;
-                const neighborhood = manualNeighborhoodSelect.value;
-                if (!street || !number || !neighborhood) {
-                    alert("Para pedidos de delivery, preencha Rua, Número e Bairro.");
-                    return;
-                }
-                const selectedNeighborhoodOption = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
-                deliveryFee = parseFloat(selectedNeighborhoodOption.dataset.fee || 0);
-                endereco = {
-                    clientName: clientName,
-                    telefone: document.getElementById('manual-clientPhone').value,
-                    rua: street,
-                    numero: number,
-                    bairro: neighborhood,
-                    referencia: document.getElementById('manual-reference').value
-                };
-            }
-
-            const finalTotal = subtotal + deliveryFee;
-
-            if (currentOrderId) {
-                const orderRef = doc(db, "pedidos", currentOrderId);
-                await updateDoc(orderRef, {
-                    itens: manualOrderItems,
-                    "endereco.clientName": clientName, // Atualiza o nome do cliente
-                    "total.subtotal": subtotal,
-                    "total.finalTotal": finalTotal,
-                    pagamento: paymentMethod
-                });
-                alert("Itens adicionados com sucesso!");
-            } else {
-                const newOrder = {
-                    itens: manualOrderItems,
-                    endereco: endereco,
-                    total: { subtotal, finalTotal, deliveryFee, discount: 0 },
-                    pagamento: paymentMethod,
-                    status: status,
-                    criadoEm: serverTimestamp()
-                };
-                if (grupoMesas) {
-                    newOrder.grupoMesas = grupoMesas;
-                }
-
-                await addDoc(collection(db, "pedidos"), newOrder);
-                alert("Pedido criado com sucesso!");
-            }
-            showView('initial-selection-view');
-        }
-
-        function updateManualOrderDisplay() {
-            manualOrderItemsContainer.innerHTML = '';
-            let subtotal = 0;
-            manualOrderItems.forEach((item, index) => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'flex justify-between items-start text-sm py-1';
-                
-                let itemHtml = `<span>${item.name}</span>`;
-                if (item.type === 'custom_burger' && item.ingredients) {
-                    const ingredientsList = item.ingredients.map(ing => `<li class="text-xs text-gray-500 ml-4">${ing.name}</li>`).join('');
-                    itemHtml += `<ul class="mt-1">${ingredientsList}</ul>`;
-                }
-
-                itemEl.innerHTML = `
-                    <div class="flex-grow pr-4 cursor-pointer manual-item-edit" data-index="${index}">${itemHtml}</div>
-                    <div class="flex items-center flex-shrink-0">
-                        <span class="font-medium mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>
-                        <button type="button" data-index="${index}" class="remove-manual-item-btn text-red-500 hover:text-red-700 text-lg">&times;</button>
+            if (docSnap.exists()) {
+                const order = docSnap.data();
+                editModalBody.innerHTML = `
+                    <input type="hidden" id="edit-order-id" value="${id}">
+                    <div>
+                        <label for="edit-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
+                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
+                        <input type="tel" id="edit-telefone" value="${order.endereco.telefone || ''}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-rua" class="block text-sm font-medium text-gray-700">Rua</label>
+                        <input type="text" id="edit-rua" value="${order.endereco.rua}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                     <div>
+                        <label for="edit-numero" class="block text-sm font-medium text-gray-700">Número</label>
+                        <input type="text" id="edit-numero" value="${order.endereco.numero}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
+                        <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></select>
+                    </div>
+                    <div class="mt-4 flex justify-between">
+                        <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
+                        <button id="delete-order-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">Excluir Pedido</button>
                     </div>
                 `;
-                manualOrderItemsContainer.appendChild(itemEl);
-                subtotal += item.price;
-            }
-        });
 
-        function openAddItemModal(isSecondHalf = false) {
-            const feedbackEl = document.getElementById('add-item-feedback');
-            
-            if (editingItemIndex !== null && !isSecondHalf) {
-                const originalItemName = manualOrderItems[editingItemIndex].name;
-                addItemModalTitle.textContent = 'Substituir Item';
-                feedbackEl.innerHTML = `Selecione um novo item para substituir: <strong>${originalItemName}</strong>`;
-                feedbackEl.className = 'text-sm text-blue-600 font-semibold mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md';
-                feedbackEl.style.display = 'block';
+                const bairroSelect = document.getElementById('edit-bairro');
+                bairroSelect.innerHTML = '<option value="">Selecione um bairro</option>';
+                deliveryFeesData.forEach(fee => {
+                    const option = document.createElement('option');
+                    option.value = fee.neighborhood;
+                    option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`;
+                    if (fee.neighborhood === order.endereco.bairro) {
+                        option.selected = true;
+                    }
+                    bairroSelect.appendChild(option);
+                });
+
+                editOrderModal.style.display = 'flex';
             } else {
-                addItemModalTitle.textContent = 'Adicionar Item';
-                if (isSecondHalf) {
-                    feedbackEl.innerHTML = `1ª Metade: <strong>${manualFirstHalfPizza.name}</strong>. Selecione a segunda metade abaixo.`;
-                    feedbackEl.className = 'text-sm text-yellow-800 font-semibold mb-2 p-2 bg-yellow-100 border border-yellow-200 rounded-md';
-                    feedbackEl.style.display = 'block';
-                } else {
-                    feedbackEl.style.display = 'none';
-                }
+                console.log("Nenhum pedido encontrado!");
             }
-
-            searchItemInput.value = '';
-            renderCategoryFilters(isSecondHalf);
-            renderItemList('', 'all', isSecondHalf);
-            addItemModal.style.display = 'flex';
         }
 
-        function renderCategoryFilters(isSecondHalf = false) {
-            const filterContainer = document.getElementById('item-category-filters');
-            filterContainer.innerHTML = '';
-            const categories = ['all', ...new Set(fullMenuData.cardapio.map(item => item.category))];
+        async function updateOrderStatus(id, newStatus) {
+            const orderRef = doc(db, "pedidos", id);
+            try {
+                await updateDoc(orderRef, { status: newStatus });
+            } catch (error) {
+                console.error("Erro ao atualizar status: ", error);
+            }
+        }
+        
+        async function saveOrderChanges() {
+            const id = document.getElementById('edit-order-id').value;
+            const orderRef = doc(db, "pedidos", id);
             
-            categories.forEach(category => {
-                const button = document.createElement('button');
-                button.className = 'category-filter-btn px-3 py-1 text-sm rounded-full border';
-                
-                const isPizzaCategory = fullMenuData.cardapio.some(item => item.category === category && item.isPizza);
-                let buttonText = category;
-                if (category === 'all') {
-                    buttonText = 'Todos';
-                } else if (isPizzaCategory) {
-                    buttonText = `Pizza ${category}`;
-                }
-
-                button.textContent = buttonText;
-                button.dataset.category = category;
-                if (category === 'all') {
-                    button.classList.add('active');
-                }
-
-                if (isSecondHalf) {
-                    const isPromotionalCategory = category.trim().toLowerCase() === 'promocionais';
-                    if (manualFirstHalfPizza.isPromotional) {
-                        if (!isPromotionalCategory && category !== 'all') {
-                            button.disabled = true;
-                        }
-                    } else {
-                        if (isPromotionalCategory) {
-                            button.disabled = true;
-                        }
-                    }
-                }
-
-                button.addEventListener('click', () => {
-                    filterContainer.querySelector('.active').classList.remove('active');
-                    button.classList.add('active');
-                    renderItemList(searchItemInput.value, category, isSecondHalf);
-                });
-                filterContainer.appendChild(button);
-            });
-        }
-
-        function renderItemList(filterText, categoryFilter = 'all', isSecondHalf = false) {
-            itemListContainer.innerHTML = '';
-            let filteredMenu = fullMenuData.cardapio;
-
-            if (isSecondHalf) {
-                filteredMenu = filteredMenu.filter(item => item.isPizza);
-                if (manualFirstHalfPizza.isPromotional) {
-                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() === 'promocionais');
-                } else {
-                    filteredMenu = filteredMenu.filter(item => item.category.trim().toLowerCase() !== 'promocionais');
-                }
-            }
-
-            filteredMenu = filteredMenu.filter(item => {
-                const nameMatch = item.name.toLowerCase().includes(filterText.toLowerCase());
-                const categoryMatch = categoryFilter === 'all' || item.category === categoryFilter;
-                const isVisible = hiddenItems[item.id] !== false;
-                return nameMatch && categoryMatch && isVisible;
-            });
-
-            const itemsByCategory = filteredMenu.reduce((acc, item) => {
-                const category = item.category || 'Outros';
-                if (!acc[category]) acc[category] = [];
-                acc[category].push(item);
-                return acc;
-            }, {});
-
-            for (const category in itemsByCategory) {
-                const categoryTitle = document.createElement('h4');
-                categoryTitle.className = 'font-bold text-md text-gray-600 bg-gray-100 p-2 mt-2 sticky top-0';
-                
-                const isPizzaCategory = itemsByCategory[category].some(item => item.isPizza);
-                categoryTitle.textContent = isPizzaCategory ? `Pizza ${category}` : category;
-
-                itemListContainer.appendChild(categoryTitle);
-                itemsByCategory[category].forEach(item => {
-                    const isUnavailable = unavailableItems[item.id] === false;
-                    const itemEl = document.createElement('div');
-                    itemEl.className = 'p-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
-                    itemEl.textContent = item.name;
-                    
-                    if (isUnavailable) {
-                        itemEl.classList.add('opacity-50', 'cursor-not-allowed');
-                        itemEl.title = "Item esgotado";
-                    } else {
-                        itemEl.addEventListener('click', () => handleItemSelection(item, isSecondHalf));
-                    }
-                    
-                    const priceSpan = document.createElement('span');
-                    priceSpan.className = 'font-bold text-sm text-gray-700';
-                    const price = item.basePrice || item.price4Slices || item.price6Slices || 0;
-                    priceSpan.textContent = `R$ ${price.toFixed(2).replace('.', ',')}`;
-                    itemEl.appendChild(priceSpan);
-                    itemListContainer.appendChild(itemEl);
-                });
-            }
-        }
-
-        function handleItemSelection(item, isSecondHalf = false) {
-            if (isSecondHalf) {
-                const secondHalfObject = {
-                    name: item.name, price: item[manualFirstHalfPizza.priceKey] / 2, priceKey: manualFirstHalfPizza.priceKey,
-                    isPromotional: item.category.trim().toLowerCase() === 'promocionais', description: item.description,
-                    category: item.category, selected_slices: manualFirstHalfPizza.selected_slices, originalItem: item
-                };
-                const finalPrice = manualFirstHalfPizza.price + secondHalfObject.price;
-                const combinedName = `${manualFirstHalfPizza.selected_slices} FATIAS: Meia ${manualFirstHalfPizza.name} & Meia ${secondHalfObject.name}`;
-                const newItem = { 
-                    type: 'split', name: combinedName, price: finalPrice, firstHalfData: manualFirstHalfPizza,
-                    secondHalfData: secondHalfObject, selected_slices: manualFirstHalfPizza.selected_slices
-                };
-                if (editingItemIndex !== null) {
-                    manualOrderItems[editingItemIndex] = newItem; editingItemIndex = null;
-                } else {
-                    manualOrderItems.push(newItem);
-                }
-                manualFirstHalfPizza = null;
-                updateManualOrderDisplay();
-                showFloatingFeedback(`Pizza Meia-Meia adicionada/atualizada!`);
-                addItemModal.style.display = 'none';
+            const docSnap = await getDoc(orderRef);
+            if (!docSnap.exists()) {
+                console.error("Pedido não encontrado para atualização.");
                 return;
             }
+            const currentOrderData = docSnap.data();
 
-            if (item.isPizza) {
-                openManualPizzaOptions(item);
-            } else if (item.isCustomizable) {
-                openManualBurgerBuilder(item, editingItemIndex);
-            } else {
-                if (editingItemIndex !== null) {
-                    manualOrderItems[editingItemIndex] = { 
-                        type: 'full', name: item.name, price: item.basePrice, description: item.description,
-                        category: item.category, originalItem: item
-                    };
-                    editingItemIndex = null;
-                    addItemModal.style.display = 'none';
-                    updateManualOrderDisplay();
-                } else {
-                    openQuantityModal(item);
-                }
-            }
-        }
+            const newBairro = document.getElementById('edit-bairro').value;
+            const feeInfo = deliveryFeesData.find(fee => fee.neighborhood === newBairro);
+            const newDeliveryFee = feeInfo ? feeInfo.deliveryFee : 0;
 
-        function openQuantityModal(item) {
-            currentItemForQuantity = item;
-            quantityModalItemName.textContent = item.name;
-            quantityDisplay.textContent = '1';
-            quantityModal.style.display = 'flex';
-        }
+            const subtotal = currentOrderData.total.subtotal;
+            const discount = currentOrderData.total.discount || 0;
+            const newFinalTotal = subtotal - discount + newDeliveryFee;
 
-        function openManualPizzaOptions(pizza) {
-            document.getElementById('modal-pizza-name-manual').textContent = pizza.name;
-            const sizeContainer = document.getElementById('pizza-size-options-manual');
-            sizeContainer.innerHTML = '';
-            const sizes = [{ slices: 4, label: '4 Fatias', priceKey: 'price4Slices' }, { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' }, { slices: 8, label: '8 Fatias', priceKey: 'basePrice' }];
-            sizes.forEach(size => {
-                if (pizza[size.priceKey] > 0) {
-                    const optionDiv = document.createElement('div');
-                    optionDiv.className = 'flex justify-between items-center p-2 border rounded-md mt-2 w-full';
-                    optionDiv.innerHTML = `<div><span class="font-bold">${size.label}</span><span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span></div><div class="flex gap-2"><button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button><button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button></div>`;
-                    
-                    optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
-                        const newItem = { 
-                            type: 'full', name: `${size.label.toUpperCase()}: ${pizza.name}`, price: pizza[size.priceKey],
-                            description: pizza.description, category: pizza.category, selected_slices: size.slices, originalItem: pizza
-                        };
-                        if (editingItemIndex !== null) {
-                            manualOrderItems[editingItemIndex] = newItem; editingItemIndex = null;
-                        } else {
-                            manualOrderItems.push(newItem);
-                        }
-                        updateManualOrderDisplay();
-                        pizzaOptionModalManual.style.display = 'none';
-                        addItemModal.style.display = 'none';
-                        showFloatingFeedback(`Pizza ${pizza.name} adicionada.`);
-                    });
-
-                    optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
-                        manualFirstHalfPizza = { 
-                            name: pizza.name, price: pizza[size.priceKey] / 2, priceKey: size.priceKey,
-                            isPromotional: pizza.category.trim().toLowerCase() === 'promocionais', description: pizza.description,
-                            category: pizza.category, selected_slices: size.slices, originalItem: pizza
-                        };
-                        pizzaOptionModalManual.style.display = 'none';
-                        openAddItemModal(true);
-                    });
-                    sizeContainer.appendChild(optionDiv);
-                }
-            });
-            pizzaOptionModalManual.style.display = 'flex';
-        }
-
-        function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
-            const burgerModal = document.getElementById('burger-builder-modal-manual');
-            burgerModal.dataset.basePrice = burger.basePrice;
-            burgerModal.dataset.burgerItem = JSON.stringify(burger);
-            
-            const ingredientsContainer = burgerModal.querySelector('#burger-ingredients-container-manual');
-            ingredientsContainer.innerHTML = '';
-            
-            for (const categoryName in fullMenuData.ingredientesHamburguer) {
-                const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
-                if (ingredients.length === 0) continue;
-
-                const categoryDiv = document.createElement('div');
-                categoryDiv.className = 'mb-4';
-                
-                const firstIngredient = ingredients[0];
-                const categoryLimit = firstIngredient.limit || Infinity;
-                const isSingleChoice = firstIngredient.isSingleChoice;
-                const isRequired = firstIngredient.isRequired;
-
-                let title = `${categoryName}`;
-                if (isRequired) title += ' (Obrigatório)';
-                else if (categoryLimit !== Infinity && categoryLimit > 1) title += ` (Escolha até ${categoryLimit})`;
-                else if (isSingleChoice) title += ` (Escolha 1)`;
-                categoryDiv.innerHTML = `<h4 class="font-bold border-b pb-1 mb-2">${title}</h4>`;
-
-                ingredients.forEach(ing => {
-                    const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
-                    const optionLabel = document.createElement('label');
-                    optionLabel.className = 'ingredient-option';
-                    
-                    if(isSingleChoice) {
-                        const isChecked = existingItem && existingItem.ingredients.some(i => i.name === ing.name);
-                        optionLabel.innerHTML = `
-                            <div>
-                                <input type="radio" name="${categoryName}" class="form-radio mr-2" data-price="${ing.price}" value="${ing.name}" ${isChecked ? 'checked' : ''}>
-                                <span>${ing.name}</span>
-                            </div>
-                            <span class="font-medium text-sm">${priceDisplay}</span>`;
-                        
-                        if (isChecked) optionLabel.classList.add('selected-ingredient');
-                        
-                        optionLabel.querySelector('input').addEventListener('change', (e) => {
-                            document.querySelectorAll(`input[name="${categoryName}"]`).forEach(radio => {
-                                radio.closest('.ingredient-option').classList.remove('selected-ingredient');
-                            });
-                            if (e.target.checked) e.target.closest('.ingredient-option').classList.add('selected-ingredient');
-                            updateManualBurgerPrice();
-                        });
-
-                    } else {
-                        const ingredientLimit = ing.ingredientLimit || 1;
-                        let quantity = 0;
-                        if (existingItem) {
-                            const existingIng = existingItem.ingredients.find(i => i.name.startsWith(ing.name));
-                            if (existingIng) {
-                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/\(x(\d+)\)/)[1]) : 1;
-                            }
-                        }
-                        optionLabel.innerHTML = `
-                            <div class="flex-grow">
-                                <span>${ing.name}</span>
-                                <span class="font-medium text-sm ml-2">${priceDisplay}</span>
-                            </div>
-                            <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}" data-limit="${ingredientLimit}">
-                                <button type="button" class="quantity-btn minus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">-</button>
-                                <span class="quantity-display font-bold text-base w-4 text-center">${quantity}</span>
-                                <button type="button" class="quantity-btn plus-btn bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold">+</button>
-                            </div>`;
-                        if (quantity > 0) {
-                            optionLabel.classList.add('selected-ingredient');
-                        }
-                    }
-                    categoryDiv.appendChild(optionLabel);
-                });
-                ingredientsContainer.appendChild(categoryDiv);
-            }
-            updateManualBurgerPrice();
-            burgerModal.style.display = 'flex';
-        }
-
-        function updateManualBurgerPrice() {
-            const container = document.getElementById('burger-builder-modal-manual');
-            let total = parseFloat(container.dataset.basePrice) || 0;
-            container.querySelectorAll('input[type="radio"]:checked').forEach(input => {
-                total += parseFloat(input.dataset.price);
-            });
-            container.querySelectorAll('.quantity-display').forEach(display => {
-                const quantity = parseInt(display.textContent);
-                if (quantity > 0) {
-                    const itemContainer = display.closest('[data-ingredient-id]');
-                    total += quantity * parseFloat(itemContainer.dataset.price);
-                }
-            });
-            container.querySelector('#burger-total-price-manual').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
-        }
-
-        function addCustomBurgerToOrder(editIndex = null) {
-            let allRequiredCategoriesFilled = true;
-            const container = document.getElementById('burger-ingredients-container-manual');
-
-            for (const categoryName in fullMenuData.ingredientesHamburguer) {
-                const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
-                if (ingredients.length > 0 && ingredients[0].isRequired) {
-                    const radioChecked = container.querySelector(`input[type="radio"][name="${categoryName}"]:checked`);
-                    let quantitySelected = false;
-                    const categoryH4 = Array.from(container.querySelectorAll('h4')).find(h4 => h4.textContent.startsWith(categoryName));
-                    if (categoryH4) {
-                        const categoryDiv = categoryH4.parentElement;
-                        categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
-                            if (parseInt(display.textContent) > 0) {
-                                quantitySelected = true;
-                            }
-                        });
-                    }
-                    if (!radioChecked && !quantitySelected) {
-                        alert(`Por favor, escolha uma opção na categoria obrigatória: ${categoryName}`);
-                        allRequiredCategoriesFilled = false;
-                        break; 
-                    }
-                }
-            }
-
-            if (!allRequiredCategoriesFilled) {
-                return;
-            }
-
-            const burgerItem = JSON.parse(burgerBuilderModalManual.dataset.burgerItem);
-            const basePrice = parseFloat(burgerBuilderModalManual.dataset.basePrice);
-            const selectedIngredients = [];
-            let ingredientsPrice = 0;
-
-            burgerBuilderModalManual.querySelectorAll('input[type="radio"]:checked').forEach(input => {
-                selectedIngredients.push({ name: input.value });
-                ingredientsPrice += parseFloat(input.dataset.price);
-            });
-            burgerBuilderModalManual.querySelectorAll('.quantity-display').forEach(display => {
-                const quantity = parseInt(display.textContent);
-                if (quantity > 0) {
-                    const container = display.closest('[data-ingredient-id]');
-                    const ingredientName = container.parentElement.querySelector('span').textContent.split(' + R$')[0].trim();
-                    selectedIngredients.push({ name: `${ingredientName} (x${quantity})` });
-                    ingredientsPrice += quantity * parseFloat(container.dataset.price);
-                }
-            });
-
-            const finalPrice = basePrice + ingredientsPrice;
-            
-            const newBurger = { 
-                name: 'Hambúrguer Personalizado',
-                price: finalPrice, 
-                type: 'custom_burger', 
-                ingredients: selectedIngredients,
-                description: burgerItem.description,
-                category: burgerItem.category,
-                originalItem: burgerItem
+            const updatedData = {
+                "endereco.clientName": document.getElementById('edit-clientName').value,
+                "endereco.telefone": document.getElementById('edit-telefone').value,
+                "endereco.rua": document.getElementById('edit-rua').value,
+                "endereco.numero": document.getElementById('edit-numero').value,
+                "endereco.bairro": newBairro,
+                "total.deliveryFee": newDeliveryFee,
+                "total.finalTotal": newFinalTotal
             };
-
-            if (editIndex !== null) {
-                manualOrderItems[editIndex] = newBurger;
-                showFloatingFeedback('Hambúrguer atualizado.');
-                editingItemIndex = null;
-                addItemModal.style.display = 'none';
-            } else {
-                manualOrderItems.push(newBurger);
-                showFloatingFeedback(`Hambúrguer adicionado.`);
+            try {
+                await updateDoc(orderRef, updatedData);
+                editOrderModal.style.display = 'none';
+            } catch (error) {
+                console.error("Erro ao salvar alterações: ", error);
             }
-            
-            updateManualOrderDisplay();
-            burgerBuilderModalManual.style.display = 'none';
         }
 
-        function handleEditItem(index) {
-            const itemToEdit = manualOrderItems[index];
-            editingItemIndex = index;
+        function showDeleteConfirmation() {
+            orderIdToDelete = document.getElementById('edit-order-id').value;
+            deleteConfirmModal.style.display = 'flex';
+        }
 
-            switch (itemToEdit.type) {
-                case 'custom_burger':
-                    openManualBurgerBuilder(itemToEdit.originalItem, index, itemToEdit);
-                    break;
-                case 'split':
-                    openEditSplitPizzaModal(index);
-                    break;
-                case 'full':
-                default:
-                    openAddItemModal(false);
-                    break;
+        async function executeDelete() {
+            if (orderIdToDelete) {
+                try {
+                    await deleteDoc(doc(db, "pedidos", orderIdToDelete));
+                    editOrderModal.style.display = 'none';
+                    deleteConfirmModal.style.display = 'none';
+                    orderIdToDelete = null;
+                } catch (error) {
+                    console.error("Erro ao excluir pedido: ", error);
+                }
             }
+        }
+
+        function printOrder(id, type) {
+            const orderRef = doc(db, "pedidos", id);
+            getDoc(orderRef).then(docSnap => {
+                if (docSnap.exists()) {
+                    const order = docSnap.data();
+                    let printContent = '';
+                    
+                    let contactPrintHtml = '';
+                    if (order.endereco.telefone && order.endereco.telefone.trim() !== '') {
+                        contactPrintHtml = `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>`;
+                    }
+
+                    if (type === 'kitchen') {
+                        let itemsKitchenHtml = order.itens.map(item => {
+                            let itemString = `<li style="padding: 8px 0; border-bottom: 1px dashed #ccc;"><strong>1x</strong> ${item.name}</li>`;
+                            if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                                itemString += `<ul style="list-style: none; padding-left: 20px;">${item.ingredients.map(ing => `<li style="font-size: 16px;">- ${ing.name}</li>`).join('')}</ul>`;
+                            }
+                            return itemString;
+                        }).join('');
+
+                        printContent = `
+                            <div style="font-family: monospace; padding: 20px; font-size: 16px;">
+                                <h2 style="text-align: center; font-size: 28px; margin-bottom: 20px;">COMANDA COZINHA</h2>
+                                <p style="font-size: 18px;"><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                                <p style="font-size: 18px;"><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                                ${contactPrintHtml.replace(/<strong>/g, '<strong style="font-size: 18px;">').replace(/<p>/g, '<p style="font-size: 18px;">')}
+                                <hr style="border-top: 2px dashed black; margin: 15px 0;">
+                                <ul style="font-size: 20px; list-style: none; padding: 0;">
+                                    ${itemsKitchenHtml}
+                                </ul>
+                            </div>
+                        `;
+                    } else { // client receipt
+                        let paymentDetailsHtml = '';
+                        if (order.pagamento) {
+                            let paymentText = '';
+                            let changeText = '';
+                            if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                                paymentText = 'Dinheiro';
+                                changeText = `
+                                    <p>Troco para: R$ ${order.pagamento.trocoPara.toFixed(2).replace('.', ',')}</p>
+                                    <p>Troco: R$ ${(order.pagamento.trocoPara - order.total.finalTotal).toFixed(2).replace('.', ',')}</p>
+                                `;
+                            } else {
+                                paymentText = order.pagamento;
+                            }
+                            paymentDetailsHtml = `
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed black;">
+                                    <p style="font-weight: bold;">Forma de Pagamento: ${paymentText}</p>
+                                    ${changeText}
+                                </div>
+                            `;
+                        }
+
+                        printContent = `
+                            <div style="font-family: monospace; padding: 20px;">
+                                <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2>
+                                <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                                <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                                ${contactPrintHtml}
+                                <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                                <hr style="border-top: 1px dashed black; margin: 15px 0;">
+                                <ul>
+                                    ${order.itens.map((item, index) => `<li style="display: flex; justify-content: space-between; padding: 5px 0; ${index === order.itens.length - 1 ? '' : 'border-bottom: 1px dashed #ccc;'}"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`).join('')}
+                                </ul>
+                                <hr style="border-top: 1px dashed black; margin: 15px 0;">
+                                <div style="text-align: right;">
+                                    <p>Subtotal: R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</p>
+                                    ${order.total.discount > 0 ? `<p>Desconto: -R$ ${order.total.discount.toFixed(2).replace('.', ',')}</p>` : ''}
+                                    <p>Taxa de Entrega: R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</p>
+                                    <p style="font-weight: bold; font-size: 18px;">Total: R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</p>
+                                </div>
+                                ${paymentDetailsHtml}
+                            </div>
+                        `;
+                    }
+
+                    const printWindow = window.open('', '', 'height=600,width=800');
+                    printWindow.document.write('<html><head><title>Imprimir Pedido</title></head><body><div id="print-area">');
+                    printWindow.document.write(printContent);
+                    printWindow.document.write('</div></body></html>');
+                    printWindow.document.close();
+                    printWindow.print();
+                }
+            });
         }
         
-        function openEditSplitPizzaModal(index) {
-            const itemToEdit = manualOrderItems[index];
-            editSplitButtonsContainer.innerHTML = `
-                <button id="edit-first-half-btn" data-index="${index}" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar ${itemToEdit.firstHalfData.name}</button>
-                <button id="edit-second-half-btn" data-index="${index}" class="w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Alterar ${itemToEdit.secondHalfData.name}</button>
-            `;
-            editSplitPizzaModal.style.display = 'flex';
-        }
-
-        // Event Listeners
-        addItemBtn.addEventListener('click', () => { editingItemIndex = null; openAddItemModal(false); });
-        cancelAddItemBtn.addEventListener('click', () => { addItemModal.style.display = 'none'; manualFirstHalfPizza = null; editingItemIndex = null; });
-        cancelPizzaOptionsManualBtn.addEventListener('click', () => { pizzaOptionModalManual.style.display = 'none'; });
-        cancelBurgerBuilderManualBtn.addEventListener('click', () => { burgerBuilderModalManual.style.display = 'none'; });
-        addCustomBurgerManualBtn.addEventListener('click', () => addCustomBurgerToOrder(editingItemIndex));
-
-        searchItemInput.addEventListener('input', (e) => {
-            const activeFilter = document.querySelector('#item-category-filters .active').dataset.category;
-            renderItemList(e.target.value, activeFilter, manualFirstHalfPizza !== null);
-        });
-        
-        confirmQuantityBtn.addEventListener('click', () => {
-            const quantity = parseInt(quantityDisplay.textContent);
-            for (let i = 0; i < quantity; i++) {
-                manualOrderItems.push({ type: 'full', name: currentItemForQuantity.name, price: currentItemForQuantity.basePrice, originalItem: currentItemForQuantity });
-            }
-            updateManualOrderDisplay();
-            quantityModal.style.display = 'none';
-            addItemModal.style.display = 'none';
-        });
-        cancelQuantityBtn.addEventListener('click', () => { quantityModal.style.display = 'none'; });
-        document.getElementById('quantity-minus-btn').addEventListener('click', () => {
-            let qty = parseInt(quantityDisplay.textContent);
-            if (qty > 1) quantityDisplay.textContent = qty - 1;
-        });
-        document.getElementById('quantity-plus-btn').addEventListener('click', () => {
-            let qty = parseInt(quantityDisplay.textContent);
-            quantityDisplay.textContent = qty + 1;
-        });
-        manualOrderItemsContainer.addEventListener('click', (e) => {
-            const removeBtn = e.target.closest('.remove-manual-item-btn');
-            if (removeBtn) {
-                manualOrderItems.splice(parseInt(removeBtn.dataset.index), 1);
-                updateManualOrderDisplay();
+        async function clearFinishedOrders() {
+            if (!confirm("Tem certeza que deseja limpar todos os pedidos finalizados da tela? Eles serão arquivados.")) {
                 return;
             }
-            const editArea = e.target.closest('.manual-item-edit');
-            if (editArea) {
-                handleEditItem(parseInt(editArea.dataset.index));
-            }
-        });
+            const q = query(collection(db, "pedidos"), where("status", "==", "Finalizado"));
+            const snapshot = await getDoc(q);
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => {
+                batch.update(doc.ref, { status: "Arquivado" });
+            });
+            await batch.commit();
+        }
 
-        editSplitButtonsContainer.addEventListener('click', (e) => {
-            const firstHalfBtn = e.target.closest('#edit-first-half-btn');
-            const secondHalfBtn = e.target.closest('#edit-second-half-btn');
-            if (firstHalfBtn) {
-                const index = parseInt(firstHalfBtn.dataset.index);
-                const itemToEdit = manualOrderItems[index];
-                manualFirstHalfPizza = itemToEdit.secondHalfData;
-                editSplitPizzaModal.style.display = 'none';
-                openAddItemModal(true);
-            }
-            if (secondHalfBtn) {
-                const index = parseInt(secondHalfBtn.dataset.index);
-                const itemToEdit = manualOrderItems[index];
-                manualFirstHalfPizza = itemToEdit.firstHalfData;
-                editSplitPizzaModal.style.display = 'none';
-                openAddItemModal(true);
-            }
-        });
-        document.getElementById('cancel-edit-split-btn').addEventListener('click', () => {
-            editSplitPizzaModal.style.display = 'none';
-        });
-        
-        burgerBuilderModalManual.addEventListener('click', (e) => {
-            if (e.target.classList.contains('quantity-btn')) {
-                const container = e.target.closest('[data-ingredient-id]');
-                const quantityDisplay = container.querySelector('.quantity-display');
-                let currentQuantity = parseInt(quantityDisplay.textContent);
-                const ingredientLimit = parseInt(container.dataset.limit);
-                const categoryDiv = container.closest('.mb-4');
-                const categoryName = categoryDiv.querySelector('h4').textContent.split(' (')[0];
-                const firstIngredient = fullMenuData.ingredientesHamburguer[categoryName][0];
-                const categoryLimit = firstIngredient.limit || Infinity;
-
-                let currentCategoryCount = 0;
-                categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                    if (parseInt(d.textContent) > 0) currentCategoryCount++;
+        async function openMenuManagementModal() {
+            menuManagementModal.style.display = 'flex';
+            menuItemsContainer.innerHTML = '<p class="text-center">Carregando itens...</p>';
+            ingredientsContainer.innerHTML = '<p class="text-center">Carregando ingredientes...</p>';
+            
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Falha ao carregar o cardápio');
+                
+                const data = await response.json();
+                allMenuItems = data.cardapio.filter(item => item.id && item.name);
+                allIngredients = data.ingredientesHamburguer.filter(ing => ing.id && ing.name);
+                
+                const itemCategories = [...new Set(allMenuItems.map(item => item.category))];
+                categoryFilterSelect.innerHTML = '<option value="all">Todas as Categorias</option>';
+                itemCategories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    categoryFilterSelect.appendChild(option);
                 });
 
-                if (e.target.classList.contains('plus-btn')) {
-                    if (currentQuantity < ingredientLimit) {
-                        if (currentQuantity === 0 && currentCategoryCount >= categoryLimit) {
-                            alert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                            return;
-                        }
-                        quantityDisplay.textContent = currentQuantity + 1;
-                    }
-                } else if (e.target.classList.contains('minus-btn')) {
-                    if (currentQuantity > 0) {
-                        quantityDisplay.textContent = currentQuantity - 1;
-                    }
+                const ingredientCategories = [...new Set(allIngredients.map(item => item.category))];
+                categoryFilterSelectIngredients.innerHTML = '<option value="all">Todas as Categorias</option>';
+                ingredientCategories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    categoryFilterSelectIngredients.appendChild(option);
+                });
+
+                const itemStatusSnap = await getDoc(doc(db, "config", "item_status"));
+                const itemVisibilitySnap = await getDoc(doc(db, "config", "item_visibility"));
+                const ingredientStatusSnap = await getDoc(doc(db, "config", "ingredient_status"));
+                const ingredientVisibilitySnap = await getDoc(doc(db, "config", "ingredient_visibility"));
+
+                unavailableItemsData = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
+                hiddenItemsData = itemVisibilitySnap.exists() ? itemVisibilitySnap.data() : {};
+                unavailableIngredientsData = ingredientStatusSnap.exists() ? ingredientStatusSnap.data() : {};
+                hiddenIngredientsData = ingredientVisibilitySnap.exists() ? ingredientVisibilitySnap.data() : {};
+
+                applyMenuFilters();
+                applyIngredientFilters();
+
+            } catch (error) {
+                menuItemsContainer.innerHTML = `<p class="text-red-500">Erro ao carregar cardápio: ${error.message}</p>`;
+                ingredientsContainer.innerHTML = `<p class="text-red-500">Erro ao carregar ingredientes: ${error.message}</p>`;
+            }
+        }
+
+        function renderFilteredMenuItems(itemsToRender) {
+            menuItemsContainer.innerHTML = `
+                <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
+                    <span class="flex-grow">Item</span>
+                    <div class="flex items-center space-x-8 mr-2">
+                        <span class="w-10 text-center">Exibir</span>
+                        <span class="w-10 text-center">Disponível</span>
+                    </div>
+                </div>`;
+            
+            if (itemsToRender.length === 0) {
+                menuItemsContainer.innerHTML += '<p class="text-center text-gray-500 mt-4">Nenhum item encontrado com os filtros aplicados.</p>';
+                return;
+            }
+
+            itemsToRender.forEach(item => {
+                const isVisible = hiddenItemsData[item.id] !== false;
+                const isAvailable = unavailableItemsData[item.id] !== false;
+                const itemElement = createControlRow(item.name, item.id, isVisible, isAvailable, 'item');
+                menuItemsContainer.appendChild(itemElement);
+            });
+        }
+
+        function applyMenuFilters() {
+            const searchTerm = searchMenuInput.value.toLowerCase();
+            const selectedCategory = categoryFilterSelect.value;
+            const statusFilter = document.querySelector('#status-filter-buttons-items .active').dataset.filter;
+            const visibilityFilter = document.querySelector('#visibility-filter-buttons-items .active').dataset.filter;
+
+            let filteredItems = allMenuItems;
+
+            if (searchTerm) {
+                filteredItems = filteredItems.filter(item => item.name.toLowerCase().includes(searchTerm));
+            }
+            if (selectedCategory !== 'all') {
+                filteredItems = filteredItems.filter(item => item.category === selectedCategory);
+            }
+            if (statusFilter === 'available') {
+                filteredItems = filteredItems.filter(item => unavailableItemsData[item.id] !== false);
+            } else if (statusFilter === 'unavailable') {
+                filteredItems = filteredItems.filter(item => unavailableItemsData[item.id] === false);
+            }
+            if (visibilityFilter === 'visible') {
+                filteredItems = filteredItems.filter(item => hiddenItemsData[item.id] !== false);
+            } else if (visibilityFilter === 'hidden') {
+                filteredItems = filteredItems.filter(item => hiddenItemsData[item.id] === false);
+            }
+
+            renderFilteredMenuItems(filteredItems);
+        }
+
+        function renderFilteredIngredients(ingredientsToRender) {
+            ingredientsContainer.innerHTML = `
+                <div class="flex justify-between items-center p-2 text-xs font-bold text-gray-500 sticky top-0 bg-gray-50 z-10">
+                    <span class="flex-grow">Ingrediente</span>
+                    <div class="flex items-center space-x-8 mr-2">
+                        <span class="w-10 text-center">Exibir</span>
+                        <span class="w-10 text-center">Disponível</span>
+                    </div>
+                </div>`;
+            
+            if (ingredientsToRender.length === 0) {
+                ingredientsContainer.innerHTML += '<p class="text-center text-gray-500 mt-4">Nenhum ingrediente encontrado com os filtros aplicados.</p>';
+                return;
+            }
+
+            ingredientsToRender.forEach(ing => {
+                const isVisible = hiddenIngredientsData[ing.id] !== false;
+                const isAvailable = unavailableIngredientsData[ing.id] !== false;
+                const ingElement = createControlRow(ing.name, ing.id, isVisible, isAvailable, 'ingredient');
+                ingredientsContainer.appendChild(ingElement);
+            });
+        }
+
+        function applyIngredientFilters() {
+            const searchTerm = searchIngredientInput.value.toLowerCase();
+            const selectedCategory = categoryFilterSelectIngredients.value;
+            const statusFilter = document.querySelector('#status-filter-buttons-ingredients .active').dataset.filter;
+            const visibilityFilter = document.querySelector('#visibility-filter-buttons-ingredients .active').dataset.filter;
+
+            let filteredIngredients = allIngredients;
+
+            if (searchTerm) {
+                filteredIngredients = filteredIngredients.filter(ing => ing.name.toLowerCase().includes(searchTerm));
+            }
+            if (selectedCategory !== 'all') {
+                filteredIngredients = filteredIngredients.filter(ing => ing.category === selectedCategory);
+            }
+            if (statusFilter === 'available') {
+                filteredIngredients = filteredIngredients.filter(ing => unavailableIngredientsData[ing.id] !== false);
+            } else if (statusFilter === 'unavailable') {
+                filteredIngredients = filteredIngredients.filter(ing => unavailableIngredientsData[ing.id] === false);
+            }
+            if (visibilityFilter === 'visible') {
+                filteredIngredients = filteredIngredients.filter(ing => hiddenIngredientsData[ing.id] !== false);
+            } else if (visibilityFilter === 'hidden') {
+                filteredIngredients = filteredIngredients.filter(ing => hiddenIngredientsData[ing.id] === false);
+            }
+
+            renderFilteredIngredients(filteredIngredients);
+        }
+
+        function createControlRow(name, id, isVisible, isAvailable, type) {
+            const element = document.createElement('div');
+            element.className = 'flex items-center justify-between p-2 bg-gray-50 rounded-md';
+            element.innerHTML = `
+                <span class="font-medium text-gray-700 flex-grow">${name}</span>
+                <div class="flex items-center space-x-8">
+                    <div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" data-id="${id}" data-type="${type}" data-control="visibility" class="toggle-checkbox toggle-exibir absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isVisible ? 'checked' : ''}/>
+                        <label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                    <div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" data-id="${id}" data-type="${type}" data-control="status" class="toggle-checkbox toggle-disponivel absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isAvailable ? 'checked' : ''} ${!isVisible ? 'disabled' : ''}/>
+                        <label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
+            `;
+
+            const toggleExibir = element.querySelector('.toggle-exibir');
+            const toggleDisponivel = element.querySelector('.toggle-disponivel');
+
+            toggleExibir.addEventListener('change', async () => {
+                const visible = toggleExibir.checked;
+                if (!visible) {
+                    toggleDisponivel.checked = false;
+                    toggleDisponivel.disabled = true;
+                    await updateFirestoreState(id, type, 'status', false);
+                } else {
+                    toggleDisponivel.disabled = false;
+                }
+                await updateFirestoreState(id, type, 'visibility', visible);
+            });
+
+            toggleDisponivel.addEventListener('change', async () => {
+                await updateFirestoreState(id, type, 'status', toggleDisponivel.checked);
+            });
+
+            return element;
+        }
+
+        async function updateFirestoreState(id, type, control, value) {
+            const docName = `${type}_${control}`;
+            const docRef = doc(db, "config", docName);
+            try {
+                if (docName === 'item_status') {
+                    if (value) delete unavailableItemsData[id]; else unavailableItemsData[id] = false;
+                } else if (docName === 'item_visibility') {
+                    if (value) delete hiddenItemsData[id]; else hiddenItemsData[id] = false;
+                } else if (docName === 'ingredient_status') {
+                    if (value) delete unavailableIngredientsData[id]; else unavailableIngredientsData[id] = false;
+                } else if (docName === 'ingredient_visibility') {
+                    if (value) delete hiddenIngredientsData[id]; else hiddenIngredientsData[id] = false;
                 }
 
-                const optionLabel = container.closest('.ingredient-option');
-                if (parseInt(quantityDisplay.textContent) > 0) {
-                    optionLabel.classList.add('selected-ingredient');
+                const currentDoc = await getDoc(docRef);
+                const data = currentDoc.exists() ? currentDoc.data() : {};
+                if (value) {
+                    delete data[id];
                 } else {
-                    optionLabel.classList.remove('selected-ingredient');
+                    data[id] = false;
                 }
-                updateManualBurgerPrice();
+                await setDoc(docRef, data);
+            } catch (error) {
+                console.error(`Erro ao atualizar ${docName}:`, error);
+            }
+        }
+
+        manageMenuBtn.addEventListener('click', openMenuManagementModal);
+        closeMenuModalBtn.addEventListener('click', () => {
+            menuManagementModal.style.display = 'none';
+        });
+
+        searchMenuInput.addEventListener('input', applyMenuFilters);
+        categoryFilterSelect.addEventListener('change', applyMenuFilters);
+        statusFilterButtonsItems.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                statusFilterButtonsItems.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                applyMenuFilters();
+            }
+        });
+        
+        visibilityFilterButtonsItems.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                visibilityFilterButtonsItems.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                applyMenuFilters();
+            }
+        });
+        
+        searchIngredientInput.addEventListener('input', applyIngredientFilters);
+        categoryFilterSelectIngredients.addEventListener('change', applyIngredientFilters);
+        statusFilterButtonsIngredients.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                statusFilterButtonsIngredients.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                applyIngredientFilters();
+            }
+        });
+        visibilityFilterButtonsIngredients.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                visibilityFilterButtonsIngredients.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                applyIngredientFilters();
+            }
+        });
+        
+        closeCashRegisterBtn.addEventListener('click', async () => {
+            if (!currentCashRegister) {
+                alert("Nenhum caixa aberto para fechar.");
+                return;
+            }
+
+            const ordersQuery = query(
+                collection(db, "pedidos"),
+                where("status", "==", "Finalizado")
+            );
+            const ordersSnapshot = await getDocs(ordersQuery);
+
+            let totalCash = 0;
+            let totalCard = 0;
+            let totalPix = 0;
+
+            ordersSnapshot.forEach(doc => {
+                const order = doc.data();
+                if (order.criadoEm && order.criadoEm.seconds >= currentCashRegister.dataAbertura.seconds) {
+                    const payment = order.pagamento;
+                    const total = order.total.finalTotal;
+
+                    if (typeof payment === 'object' && payment.method === 'Dinheiro') {
+                        totalCash += total;
+                    } else if (payment === 'Cartão de Crédito/Débito') {
+                        totalCard += total;
+                    } else if (payment === 'Pix') {
+                        totalPix += total;
+                    }
+                }
+            });
+
+            const totalSales = totalCash + totalCard + totalPix;
+            const expectedInCash = currentCashRegister.valorInicial + totalCash;
+
+            document.getElementById('summary-initial').textContent = `R$ ${currentCashRegister.valorInicial.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
+
+            closeCashModal.style.display = 'flex';
+        });
+
+        cancelCloseCashBtn.addEventListener('click', () => {
+            closeCashModal.style.display = 'none';
+        });
+
+        finalValueInput.addEventListener('input', () => {
+            const expectedText = document.getElementById('summary-expected').textContent;
+            const expectedValue = parseFloat(expectedText.replace('R$ ', '').replace(',', '.'));
+            const finalValue = parseFloat(finalValueInput.value);
+            const differenceSection = document.getElementById('summary-difference-section');
+            const differenceEl = document.getElementById('summary-difference');
+
+            if (!isNaN(finalValue)) {
+                const difference = finalValue - expectedValue;
+                differenceEl.textContent = `R$ ${difference.toFixed(2).replace('.', ',')}`;
+                if (difference < 0) {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-red-100 text-red-700';
+                } else if (difference > 0) {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-yellow-100 text-yellow-700';
+                } else {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-green-100 text-green-700';
+                }
+                differenceSection.classList.remove('hidden');
+            } else {
+                differenceSection.classList.add('hidden');
             }
         });
 
-        backToTablesBtn.addEventListener('click', () => showView('initial-selection-view'));
-        manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
-        startRetiradaBtn.addEventListener('click', () => startNewOrder('retirada'));
-        startDeliveryBtn.addEventListener('click', () => startNewOrder('delivery'));
-        logoutBtn.addEventListener('click', () => signOut(auth));
+        closeCashForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const finalValue = parseFloat(finalValueInput.value);
+            if (isNaN(finalValue) || finalValue < 0) {
+                alert("Por favor, insira um valor válido.");
+                return;
+            }
+            
+            const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
+            const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
+            const totalSales = parseFloat(document.getElementById('summary-total-sales').textContent.replace('R$ ', '').replace(',', '.'));
+            const totalCash = parseFloat(document.getElementById('summary-cash').textContent.replace('R$ ', '').replace(',', '.'));
+            const totalCard = parseFloat(document.getElementById('summary-card').textContent.replace('R$ ', '').replace(',', '.'));
+            const totalPix = parseFloat(document.getElementById('summary-pix').textContent.replace('R$ ', '').replace(',', '.'));
+
+            try {
+                await updateDoc(cashRegisterRef, {
+                    status: 'fechado',
+                    dataFechamento: serverTimestamp(),
+                    usuarioFechamento: auth.currentUser.email,
+                    valorFinalContado: finalValue,
+                    diferenca: finalValue - expectedValue,
+                    totalVendas: totalSales,
+                    totalDinheiro: totalCash,
+                    totalCartao: totalCard,
+                    totalPix: totalPix
+                });
+                alert("Caixa fechado com sucesso!");
+                closeCashModal.style.display = 'none';
+                checkCashRegisterStatus(); // Bloqueia a tela
+            } catch (error) {
+                console.error("Erro ao fechar o caixa:", error);
+                alert("Não foi possível fechar o caixa. Tente novamente.");
+            }
+        });
+
+        document.querySelector('main').addEventListener('click', function(e) {
+            const moveBtn = e.target.closest('.move-btn');
+            const manageBtn = e.target.closest('.manage-btn');
+            const printBtn = e.target.closest('.print-btn');
+
+            if (moveBtn) {
+                const orderId = moveBtn.dataset.id;
+                const newStatus = moveBtn.dataset.status;
+                updateOrderStatus(orderId, newStatus);
+            }
+            if (manageBtn) {
+                const orderId = manageBtn.dataset.id;
+                openEditModal(orderId);
+            }
+            if (printBtn) {
+                const orderId = printBtn.dataset.id;
+                const printType = printBtn.dataset.type;
+                printOrder(orderId, printType);
+            }
+
+            const cardHeader = e.target.closest('.card-header');
+            if (cardHeader) {
+                const card = cardHeader.closest('.order-card');
+                if (card) {
+                    if (!e.target.closest('button, a')) {
+                        card.classList.toggle('expanded');
+                    }
+                }
+            }
+        });
+
+        closeEditModalBtn.addEventListener('click', () => {
+            editOrderModal.style.display = 'none';
+        });
+
+        editModalBody.addEventListener('click', function(e) {
+            if (e.target.id === 'save-changes-btn') {
+                saveOrderChanges();
+            }
+            if (e.target.id === 'delete-order-btn') {
+                showDeleteConfirmation();
+            }
+        });
+        
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteConfirmModal.style.display = 'none';
+            orderIdToDelete = null;
+        });
+
+        confirmDeleteBtn.addEventListener('click', executeDelete);
+        clearFinishedBtn.addEventListener('click', clearFinishedOrders);
+        
+        const tabItems = document.getElementById('tab-items');
+        const tabIngredients = document.getElementById('tab-ingredients');
+        const contentItems = document.getElementById('tab-content-items');
+        const contentIngredients = document.getElementById('tab-content-ingredients');
+
+        tabItems.addEventListener('click', () => {
+            tabItems.classList.add('active');
+            tabIngredients.classList.remove('active');
+            contentItems.classList.remove('hidden');
+            contentIngredients.classList.add('hidden');
+        });
+
+        tabIngredients.addEventListener('click', () => {
+            tabIngredients.classList.add('active');
+            tabItems.classList.remove('active');
+            contentIngredients.classList.remove('hidden');
+            contentItems.classList.add('hidden');
+        });
+
+        function toggleJoinMode(active) {
+            isJoiningTables = active;
+            mesasGrid.classList.toggle('joining-mode', active);
+            joinTablesBtn.classList.toggle('hidden', active);
+            joiningControls.classList.toggle('hidden', !active);
+
+            if (!active) {
+                selectedTablesForJoining = [];
+                document.querySelectorAll('.mesa-item.selected-for-join').forEach(el => el.classList.remove('selected-for-join'));
+            }
+        }
+
+        joinTablesBtn.addEventListener('click', () => toggleJoinMode(true));
+        cancelJoinBtn.addEventListener('click', () => toggleJoinMode(false));
+        confirmJoinBtn.addEventListener('click', () => {
+            if (selectedTablesForJoining.length < 2) {
+                alert("Selecione pelo menos duas mesas para juntar.");
+                return;
+            }
+            const sortedTables = selectedTablesForJoining.sort((a, b) => a - b);
+            const tablesParam = sortedTables.join(',');
+            
+            window.open(`atendente.html?grupo=${tablesParam}`, '_blank');
+            
+            toggleJoinMode(false);
+        });
+
+        closeManageTableModalBtn.addEventListener('click', () => {
+            manageTableModal.style.display = 'none';
+        });
+
+        document.getElementById('print-partial-btn').addEventListener('click', () => {
+            if(currentManagingOrderId) printOrder(currentManagingOrderId, 'client');
+        });
+
+        document.getElementById('close-account-btn').addEventListener('click', async () => {
+            if(currentManagingOrderId) {
+                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
+                alert("Conta fechada com sucesso!");
+                manageTableModal.style.display = 'none';
+            }
+        });
+
+        document.getElementById('transfer-table-btn').addEventListener('click', () => {
+            const freeTablesSelect = document.getElementById('free-tables-select');
+            freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
+            const freeTables = [];
+            document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
+                freeTables.push(mesaEl.dataset.number);
+                const option = document.createElement('option');
+                option.value = mesaEl.dataset.number;
+                option.textContent = `Mesa ${mesaEl.dataset.number}`;
+                freeTablesSelect.appendChild(option);
+            });
+
+            if (freeTables.length === 0) {
+                alert("Nenhuma mesa livre para transferir.");
+                return;
+            }
+            transferTableModal.style.display = 'flex';
+        });
+
+        document.getElementById('cancel-transfer-btn').addEventListener('click', () => {
+            transferTableModal.style.display = 'none';
+        });
+
+        document.getElementById('confirm-transfer-btn').addEventListener('click', async () => {
+            const newTableNumber = document.getElementById('free-tables-select').value;
+            if (!newTableNumber) {
+                alert("Por favor, selecione uma mesa para a transferência.");
+                return;
+            }
+
+            if (currentManagingOrderId && currentManagingOrderData) {
+                const newClientName = `Mesa ${newTableNumber}`;
+                const newOrderData = {
+                    ...currentManagingOrderData,
+                    "endereco.clientName": newClientName,
+                    grupoMesas: null // Remove o grupo se houver
+                };
+
+                // Cria um novo pedido para a nova mesa
+                const newOrderRef = await addDoc(collection(db, "pedidos"), newOrderData);
+                
+                // Finaliza o pedido antigo
+                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
+
+                alert(`Pedido transferido com sucesso para a ${newClientName}`);
+                transferTableModal.style.display = 'none';
+                manageTableModal.style.display = 'none';
+            }
+        });
 
     </script>
 </body>
