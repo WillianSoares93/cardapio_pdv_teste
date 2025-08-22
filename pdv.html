@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -373,7 +374,6 @@
         </div>
     </div>
 
-    <!-- INÍCIO DA CORREÇÃO: Modal de Edição para Delivery/Retirada -->
     <div id="edit-order-modal" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
@@ -383,7 +383,6 @@
             <div id="edit-modal-body" class="space-y-4"></div>
         </div>
     </div>
-    <!-- FIM DA CORREÇÃO -->
 
     <div id="delete-confirm-modal" class="modal">
         <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
@@ -1470,7 +1469,8 @@
             }
             if (manageBtn) {
                 const orderId = manageBtn.dataset.id;
-                const orderType = identifyOrderTypeFromCard(manageBtn.closest('.order-card'));
+                const card = manageBtn.closest('.order-card');
+                const orderType = identifyOrderTypeFromCard(card);
                 if (orderType === 'mesa') {
                     openManageTableModal(orderId);
                 } else {
@@ -1493,6 +1493,13 @@
                 }
             }
         });
+
+        function identifyOrderTypeFromCard(cardElement) {
+            if (!cardElement) return null;
+            if (cardElement.closest('#tab-content-mesas')) return 'mesa';
+            if (cardElement.closest('#tab-content-retirada')) return 'retirada';
+            return 'delivery';
+        }
 
         closeEditModalBtn.addEventListener('click', () => {
             editOrderModal.style.display = 'none';
