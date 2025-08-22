@@ -925,89 +925,10 @@
                         }
                         updateManualOrderDisplay();
                         pizzaOptionModalManual.style.display = 'none';
-                        addItemModal.style.display = 'none';
                         showFloatingFeedback(`Pizza ${pizza.name} adicionada.`);
-                    });
-
-                    optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
-                        manualFirstHalfPizza = { 
-                            name: pizza.name, price: pizza[size.priceKey] / 2, priceKey: size.priceKey,
-                            isPromotional: pizza.category.trim().toLowerCase() === 'promocionais', description: pizza.description,
-                            category: pizza.category, selected_slices: size.slices, originalItem: pizza
-                        };
-                        pizzaOptionModalManual.style.display = 'none';
-                        openAddItemModal(true);
-                    });
-                    sizeContainer.appendChild(optionDiv);
-                }
-            });
-            pizzaOptionModalManual.style.display = 'flex';
-        }
-
-        function openManualBurgerBuilder(burger, editIndex = null, existingItem = null) {
-            currentBurgerForBuilder = { burger, editIndex, existingItem }; // Salva o estado atual
-            renderBurgerIngredients(burger, existingItem);
-            burgerBuilderModalManual.style.display = 'flex';
-        }
-
-        function renderBurgerIngredients(burger, existingItem = null) {
-            const burgerModal = document.getElementById('burger-builder-modal-manual');
-            burgerModal.dataset.basePrice = burger.basePrice;
-            burgerModal.dataset.burgerItem = JSON.stringify(burger);
-            
-            const ingredientsContainer = burgerModal.querySelector('#burger-ingredients-container-manual');
-            ingredientsContainer.innerHTML = '';
-            
-            for (const categoryName in fullMenuData.ingredientesHamburguer) {
-                const ingredients = fullMenuData.ingredientesHamburguer[categoryName];
-                if (ingredients.length === 0) continue;
-
-                const categoryDiv = document.createElement('div');
-                categoryDiv.className = 'mb-4';
-                
-                const firstIngredient = ingredients[0];
-                const categoryLimit = firstIngredient.limit || Infinity;
-                const isSingleChoice = firstIngredient.isSingleChoice;
-                const isRequired = firstIngredient.isRequired;
-
-                let title = `${categoryName}`;
-                if (isRequired) title += ' (Obrigatório)';
-                else if (categoryLimit !== Infinity && categoryLimit > 1) title += ` (Escolha até ${categoryLimit})`;
-                else if (isSingleChoice) title += ` (Escolha 1)`;
-                categoryDiv.innerHTML = `<h4 class="font-bold border-b pb-1 mb-2">${title}</h4>`;
-
-                ingredients.forEach(ing => {
-                    if (hiddenIngredients[ing.id] === false) return;
-                    const isUnavailable = unavailableIngredients[ing.id] === false;
-
-                    const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
-                    const optionLabel = document.createElement('label');
-                    optionLabel.className = 'ingredient-option';
-                    
-                    if(isSingleChoice) {
-                        const isChecked = existingItem && existingItem.ingredients.some(i => i.name === ing.name);
-                        optionLabel.innerHTML = `
-                            <div>
-                                <input type="radio" name="${categoryName}" class="form-radio mr-2" data-price="${ing.price}" value="${ing.name}" ${isChecked ? 'checked' : ''} ${isUnavailable ? 'disabled' : ''}>
-                                <span>${ing.name}</span>
-                            </div>
-                            <span class="font-medium text-sm">${priceDisplay}</span>`;
-                        
-                        if (isChecked) optionLabel.classList.add('selected-ingredient');
-                        
-                        optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
-                        const newItem = { 
-                            type: 'full', name: `${size.label.toUpperCase()}: ${pizza.name}`, price: pizza[size.priceKey],
-                            description: pizza.description, category: pizza.category, selected_slices: size.slices, originalItem: pizza
-                        };
                         if (editingItemIndex !== null) {
-                            manualOrderItems[editingItemIndex] = newItem; editingItemIndex = null;
-                        } else {
-                            manualOrderItems.push(newItem);
+                            addItemModal.style.display = 'none';
                         }
-                        updateManualOrderDisplay();
-                        pizzaOptionModalManual.style.display = 'none';
-                        showFloatingFeedback(`Pizza ${pizza.name} adicionada.`);
                     });
 
                     optionDiv.querySelector('.add-half-pizza-manual').addEventListener('click', () => {
