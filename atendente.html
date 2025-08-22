@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -385,11 +384,15 @@ teste
             initialSelectionView.classList.add('hidden');
             orderFormView.classList.add('hidden');
             document.getElementById(viewName).classList.remove('hidden');
+            // INÍCIO DA CORREÇÃO: Reseta o título ao voltar para a tela inicial
+            if (viewName === 'initial-selection-view') {
+                pageTitle.textContent = 'Lançamento de Pedido';
+            }
+            // FIM DA CORREÇÃO
         }
 
         async function initializeAtendenteView() {
             showView('initial-selection-view');
-            pageTitle.textContent = 'Lançamento de Pedido';
             listenToTableStatus();
             await loadFullMenuData();
             listenToItemStatus();
@@ -486,9 +489,7 @@ teste
                 const title = isGroup ? `Mesas ${identifier.group.join(' + ')}` : `Mesa ${identifier.number}`;
                 pageTitle.textContent = `Lançando Pedido - ${title}`;
                 clientNameInput.value = title;
-                // INÍCIO DA CORREÇÃO: Permite editar o nome do cliente na mesa
                 clientNameInput.readOnly = false;
-                // FIM DA CORREÇÃO
                 currentMesaData = isGroup ? { group: identifier.group } : { number: identifier.number };
             } else if (type === 'retirada') {
                 pageTitle.textContent = 'Lançando Pedido - Retirada';
@@ -524,9 +525,7 @@ teste
                 
                 const clientNameInput = document.getElementById('manual-clientName');
                 clientNameInput.value = orderData.endereco.clientName;
-                // INÍCIO DA CORREÇÃO: Permite editar o nome do cliente na mesa
                 clientNameInput.readOnly = false;
-                // FIM DA CORREÇÃO
                 
                 updateManualOrderDisplay();
                 showView('order-form-view');
@@ -637,68 +636,8 @@ teste
                 `;
                 manualOrderItemsContainer.appendChild(itemEl);
                 subtotal += item.price;
-            });
-
-            let deliveryFee = 0;
-            if (currentOrderType === 'delivery') {
-                const selectedNeighborhood = manualNeighborhoodSelect.options[manualNeighborhoodSelect.selectedIndex];
-                if (selectedNeighborhood && selectedNeighborhood.value !== '') {
-                    deliveryFee = parseFloat(selectedNeighborhood.dataset.fee || 0);
-                }
             }
-            
-            const total = subtotal + deliveryFee;
-            document.getElementById('manual-subtotal').textContent = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-            document.getElementById('manual-delivery-fee').textContent = `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`;
-            document.getElementById('manual-total').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
-        }
-        
-        async function loadFullMenuData() {
-            try {
-                const response = await fetch('/api/menu');
-                if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.json();
-                fullMenuData.cardapio = data.cardapio;
-                fullMenuData.deliveryFees = data.deliveryFees;
-                const burgerIngredients = data.ingredientesHamburguer || [];
-                fullMenuData.ingredientesHamburguer = burgerIngredients.reduce((acc, current) => {
-                    const category = current.category || 'Outros';
-                    if (!acc[category]) acc[category] = [];
-                    acc[category].push(current);
-                    return acc;
-                }, {});
-                populateNeighborhoodDropdown(fullMenuData.deliveryFees);
-            } catch (error) {
-                console.error("Erro ao carregar dados:", error);
-            }
-        }
-        
-        function populateNeighborhoodDropdown(feesData) {
-            manualNeighborhoodSelect.innerHTML = '<option value="">Selecione um bairro</option>';
-            if (!feesData || feesData.length === 0) return;
-            feesData.forEach(fee => {
-                if (typeof fee.neighborhood === 'string' && fee.neighborhood.trim() !== '') {
-                    const option = document.createElement('option');
-                    option.value = fee.neighborhood;
-                    option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`;
-                    option.dataset.fee = fee.deliveryFee;
-                    manualNeighborhoodSelect.appendChild(option);
-                }
-            });
-        }
-        
-        function showFloatingFeedback(message) {
-            const feedbackEl = document.createElement('div');
-            feedbackEl.className = 'floating-feedback';
-            feedbackEl.textContent = message;
-            const progressBar = document.createElement('div');
-            progressBar.className = 'feedback-progress-bar';
-            feedbackEl.appendChild(progressBar);
-            document.body.appendChild(feedbackEl);
-            setTimeout(() => {
-                feedbackEl.remove();
-            }, 1700);
-        }
+        });
 
         function openAddItemModal(isSecondHalf = false) {
             const feedbackEl = document.getElementById('add-item-feedback');
