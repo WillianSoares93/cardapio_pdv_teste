@@ -1,4 +1,3 @@
-teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -603,15 +602,16 @@ teste
             }
 
             const finalTotal = subtotal + deliveryFee;
-            
-            // INÍCIO DA CORREÇÃO: Sanitiza os itens antes de salvar
-            const sanitizedItems = JSON.parse(JSON.stringify(manualOrderItems));
-            // FIM DA CORREÇÃO
+
+            const cleanedItems = JSON.parse(JSON.stringify(manualOrderItems, (key, value) => {
+                if (key === 'originalItem') return undefined;
+                return value;
+            }));
 
             if (currentOrderId) {
                 const orderRef = doc(db, "pedidos", currentOrderId);
                 await updateDoc(orderRef, {
-                    itens: sanitizedItems,
+                    itens: cleanedItems,
                     "endereco.clientName": clientName,
                     "total.subtotal": subtotal,
                     "total.finalTotal": finalTotal,
@@ -620,7 +620,7 @@ teste
                 alert("Itens adicionados com sucesso!");
             } else {
                 const newOrder = {
-                    itens: sanitizedItems,
+                    itens: cleanedItems,
                     endereco: endereco,
                     total: { subtotal, finalTotal, deliveryFee, discount: 0 },
                     pagamento: paymentMethod,
