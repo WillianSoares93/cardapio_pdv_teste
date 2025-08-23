@@ -64,7 +64,6 @@
     <main class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
         <div class="bg-white p-6 rounded-lg shadow-lg">
             
-            <!-- Abas de Navegação -->
             <div class="border-b border-gray-200 mb-4">
                 <nav id="availability-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
                     <button class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="item-panel">
@@ -77,7 +76,6 @@
             </div>
 
             <div id="availability-container">
-                <!-- Painel de Itens do Cardápio -->
                 <div id="item-panel" class="tab-panel">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <input type="text" id="search-item" placeholder="Buscar item..." class="md:col-span-1 p-2 border rounded-md">
@@ -89,7 +87,6 @@
                     </div>
                 </div>
 
-                <!-- Painel de Ingredientes -->
                 <div id="ingredient-panel" class="tab-panel hidden">
                      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <input type="text" id="search-ingredient" placeholder="Buscar ingrediente..." class="md:col-span-1 p-2 border rounded-md">
@@ -107,15 +104,15 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
-            authDomain: "pizzaria-pdv.firebaseapp.com",
-            projectId: "pizzaria-pdv",
-            storageBucket: "pizzaria-pdv.appspot.com",
-            messagingSenderId: "304171744691",
-            appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+            apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
+            authDomain: "samia-cardapio.firebaseapp.com",
+            projectId: "samia-cardapio",
+            storageBucket: "samia-cardapio.firebasestorage.app",
+            messagingSenderId: "223260436641",
+            appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -204,19 +201,19 @@
         function listenToStatusChanges() {
             onSnapshot(doc(db, "config", "item_status"), (doc) => {
                 itemStatus = doc.exists() ? doc.data() : {};
-                renderItemAvailabilityList();
+                filterLists();
             });
             onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
                 itemVisibility = doc.exists() ? doc.data() : {};
-                renderItemAvailabilityList();
+                filterLists();
             });
             onSnapshot(doc(db, "config", "ingredient_status"), (doc) => {
                 ingredientStatus = doc.exists() ? doc.data() : {};
-                renderIngredientAvailabilityList();
+                filterLists();
             });
             onSnapshot(doc(db, "config", "ingredient_visibility"), (doc) => {
                 ingredientVisibility = doc.exists() ? doc.data() : {};
-                renderIngredientAvailabilityList();
+                filterLists();
             });
         }
 
@@ -284,7 +281,7 @@
             row.className = 'availability-row flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-md bg-gray-50';
             row.dataset.name = item.name.toLowerCase();
             row.dataset.category = item.category || 'Outros';
-            row.dataset.itemId = item.id; // Adicionado para referência no filtro
+            row.dataset.itemId = item.id; // Adicionado para referência
 
             const isAvailable = (type === 'item' ? itemStatus[item.id] : ingredientStatus[item.id]) !== false;
             const isVisible = (type === 'item' ? itemVisibility[item.id] : ingredientVisibility[item.id]) !== false;
@@ -295,25 +292,26 @@
                     <label class="flex items-center cursor-pointer ${!isVisible ? 'opacity-50' : ''}">
                         <span class="mr-3 text-sm font-medium text-gray-900">${isAvailable ? 'Disponível' : 'Esgotado'}</span>
                         <div class="relative">
-                            <input type="checkbox" class="sr-only peer" data-type="availability" ${isAvailable ? 'checked' : ''} ${!isVisible ? 'disabled' : ''}>
+                            <input type="checkbox" data-id="${item.id}" class="sr-only peer availability-toggle" data-type="availability" ${isAvailable ? 'checked' : ''} ${!isVisible ? 'disabled' : ''}>
                             <div class="toggle-bg w-11 h-6 bg-gray-200 rounded-full peer"></div>
                         </div>
                     </label>
                     <label class="flex items-center cursor-pointer">
                         <span class="mr-3 text-sm font-medium text-gray-900">${isVisible ? 'Visível' : 'Oculto'}</span>
                         <div class="relative">
-                            <input type="checkbox" class="sr-only peer" data-type="visibility" ${isVisible ? 'checked' : ''}>
+                            <input type="checkbox" data-id="${item.id}" class="sr-only peer visibility-toggle" data-type="visibility" ${isVisible ? 'checked' : ''}>
                             <div class="toggle-bg w-11 h-6 bg-gray-200 rounded-full peer"></div>
                         </div>
                     </label>
                 </div>
             `;
 
-            row.querySelector('[data-type="availability"]').addEventListener('change', (e) => {
+            row.querySelector('.availability-toggle').addEventListener('change', (e) => {
                 updateStatus(item.id, type, e.target.checked, null);
             });
-            row.querySelector('[data-type="visibility"]').addEventListener('change', (e) => {
+            row.querySelector('.visibility-toggle').addEventListener('change', (e) => {
                 const newVisibility = e.target.checked;
+                // Se está ocultando, também marca como indisponível
                 updateStatus(item.id, type, newVisibility, newVisibility);
             });
 
@@ -325,14 +323,19 @@
             const visibilityCollection = type === 'item' ? 'item_visibility' : 'ingredient_visibility';
 
             try {
-                if (isAvailable !== null) {
-                    const statusRef = doc(db, "config", statusCollection);
-                    await setDoc(statusRef, { [id]: isAvailable }, { merge: true });
-                }
                 if (isVisible !== null) {
                     const visibilityRef = doc(db, "config", visibilityCollection);
                     await setDoc(visibilityRef, { [id]: isVisible }, { merge: true });
                 }
+                
+                // Se a visibilidade for definida como false (oculto), a disponibilidade também deve ser false.
+                const finalAvailability = (isVisible === false) ? false : isAvailable;
+
+                if (finalAvailability !== null) {
+                    const statusRef = doc(db, "config", statusCollection);
+                    await setDoc(statusRef, { [id]: finalAvailability }, { merge: true });
+                }
+
             } catch (error) {
                 console.error("Erro ao atualizar status:", error);
                 alert("Não foi possível atualizar o status. Tente novamente.");
@@ -344,29 +347,36 @@
             if (!activePanel) return;
 
             const type = activePanel.id.includes('item') ? 'item' : 'ingredient';
+            const allData = type === 'item' ? allItems : allIngredients;
+            const statusData = type === 'item' ? itemStatus : ingredientStatus;
+            const visibilityData = type === 'item' ? itemVisibility : ingredientVisibility;
+
+            // Renderiza as listas do zero para garantir que os dados mais recentes do Firestore sejam usados
+            renderList(allData, activePanel.querySelector('.space-y-4'), type);
+            
             const searchTerm = document.getElementById(`search-${type}`).value.toLowerCase();
             const selectedCategory = document.getElementById(`${type}-category-select`).value;
             const activeStatusBtn = document.querySelector(`#${type}-status-filters .bg-white`);
             const activeStatus = activeStatusBtn ? activeStatusBtn.dataset.status : 'Todos';
 
             activePanel.querySelectorAll('.availability-row').forEach(row => {
+                const itemId = row.dataset.itemId;
                 const nameMatch = row.dataset.name.includes(searchTerm);
                 const categoryMatch = selectedCategory === 'Todos' || row.dataset.category === selectedCategory;
-                const itemId = row.dataset.itemId;
 
-                const currentIsAvailable = (type === 'item' ? itemStatus[itemId] : ingredientStatus[itemId]) !== false;
-                const currentIsVisible = (type === 'item' ? itemVisibility[itemId] : ingredientVisibility[itemId]) !== false;
+                const isAvailable = statusData[itemId] !== false;
+                const isVisible = visibilityData[itemId] !== false;
                 
                 let statusMatch = false;
                 switch (activeStatus) {
                     case 'Disponíveis':
-                        statusMatch = currentIsVisible && currentIsAvailable;
+                        statusMatch = isVisible && isAvailable;
                         break;
                     case 'Esgotados':
-                        statusMatch = currentIsVisible && !currentIsAvailable;
+                        statusMatch = isVisible && !isAvailable;
                         break;
                     case 'Ocultos':
-                        statusMatch = !currentIsVisible;
+                        statusMatch = !isVisible;
                         break;
                     default: // 'Todos'
                         statusMatch = true;
