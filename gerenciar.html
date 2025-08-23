@@ -116,8 +116,8 @@
                 const response = await fetch('/api/menu');
                 if (!response.ok) throw new Error('Falha ao buscar o cardápio');
                 const data = await response.json();
-                allItems = data.cardapio;
-                allIngredients = data.ingredientesHamburguer;
+                allItems = data.cardapio || [];
+                allIngredients = data.ingredientesHamburguer || [];
             } catch (error) {
                 console.error("Erro ao carregar dados do menu:", error);
                 itemAvailabilityList.innerHTML = '<p class="text-red-500">Erro ao carregar itens.</p>';
@@ -146,6 +146,10 @@
 
         function renderItemAvailabilityList() {
             itemAvailabilityList.innerHTML = '';
+            if (!Array.isArray(allItems) || allItems.length === 0) {
+                itemAvailabilityList.innerHTML = '<p class="text-gray-500">Nenhum item encontrado.</p>';
+                return;
+            }
             const itemsByCategory = groupByCategory(allItems);
 
             for (const category in itemsByCategory) {
@@ -164,6 +168,10 @@
 
         function renderIngredientAvailabilityList() {
             ingredientAvailabilityList.innerHTML = '';
+            if (!Array.isArray(allIngredients) || allIngredients.length === 0) {
+                ingredientAvailabilityList.innerHTML = '<p class="text-gray-500">Nenhum ingrediente encontrado para gerenciar.</p>';
+                return;
+            }
             const ingredientsByCategory = groupByCategory(allIngredients);
 
             for (const category in ingredientsByCategory) {
@@ -233,6 +241,7 @@
         }
 
         function groupByCategory(items) {
+            if (!Array.isArray(items)) return {};
             return items.reduce((acc, item) => {
                 const category = item.category || 'Outros';
                 if (!acc[category]) {
