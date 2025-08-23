@@ -76,24 +76,27 @@
                 </nav>
             </div>
 
-            <div class="mb-6">
-                <label for="search-item-input" class="block text-sm font-medium text-gray-700">Buscar na Aba Atual</label>
-                <input type="text" id="search-item-input" placeholder="Digite o nome para filtrar..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
-            </div>
-
             <div id="availability-container">
                 <!-- Painel de Itens do Cardápio -->
                 <div id="item-panel" class="tab-panel">
-                    <div id="item-category-filters" class="flex flex-wrap gap-2 mb-4"></div>
-                    <div id="item-availability-list" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <input type="text" id="search-item" placeholder="Buscar item..." class="md:col-span-1 p-2 border rounded-md">
+                        <select id="item-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
+                        <div id="item-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
+                    </div>
+                    <div id="item-availability-list" class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
                         <p class="text-gray-500">Carregando itens...</p>
                     </div>
                 </div>
 
                 <!-- Painel de Ingredientes -->
                 <div id="ingredient-panel" class="tab-panel hidden">
-                    <div id="ingredient-category-filters" class="flex flex-wrap gap-2 mb-4"></div>
-                    <div id="ingredient-availability-list" class="space-y-4">
+                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <input type="text" id="search-ingredient" placeholder="Buscar ingrediente..." class="md:col-span-1 p-2 border rounded-md">
+                        <select id="ingredient-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
+                        <div id="ingredient-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
+                    </div>
+                    <div id="ingredient-availability-list" class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
                         <p class="text-gray-500">Carregando ingredientes...</p>
                     </div>
                 </div>
@@ -133,7 +136,6 @@
 
         const itemAvailabilityList = document.getElementById('item-availability-list');
         const ingredientAvailabilityList = document.getElementById('ingredient-availability-list');
-        const searchInput = document.getElementById('search-item-input');
         const tabsContainer = document.getElementById('availability-tabs');
         const tabPanels = document.querySelectorAll('.tab-panel');
 
@@ -148,7 +150,7 @@
             await fetchMenuData();
             listenToStatusChanges();
             setupTabs();
-            searchInput.addEventListener('input', filterLists);
+            setupFilters();
         }
 
         function setupTabs() {
@@ -161,13 +163,27 @@
 
                 const targetPanelId = clickedTab.dataset.target;
                 tabPanels.forEach(panel => {
-                    if (panel.id === targetPanelId) {
-                        panel.classList.remove('hidden');
-                    } else {
-                        panel.classList.add('hidden');
-                    }
+                    panel.id === targetPanelId ? panel.classList.remove('hidden') : panel.classList.add('hidden');
                 });
                 filterLists(); 
+            });
+        }
+
+        function setupFilters() {
+            ['item', 'ingredient'].forEach(type => {
+                document.getElementById(`search-${type}`).addEventListener('input', filterLists);
+                document.getElementById(`${type}-category-select`).addEventListener('change', filterLists);
+                document.getElementById(`${type}-status-filters`).addEventListener('click', (e) => {
+                    if (e.target.tagName === 'BUTTON') {
+                        document.querySelectorAll(`#${type}-status-filters button`).forEach(btn => {
+                            btn.classList.remove('bg-white', 'shadow');
+                            btn.classList.add('text-gray-500');
+                        });
+                        e.target.classList.add('bg-white', 'shadow');
+                        e.target.classList.remove('text-gray-500');
+                        filterLists();
+                    }
+                });
             });
         }
 
@@ -205,15 +221,24 @@
         }
 
         function renderItemAvailabilityList() {
-            itemAvailabilityList.innerHTML = '';
-            if (!Array.isArray(allItems) || allItems.length === 0) {
-                itemAvailabilityList.innerHTML = '<p class="text-gray-500">Nenhum item encontrado.</p>';
+            renderList(allItems, itemAvailabilityList, 'item');
+            populateCategorySelect(allItems, document.getElementById('item-category-select'));
+            renderStatusFilters(document.getElementById('item-status-filters'));
+        }
+
+        function renderIngredientAvailabilityList() {
+            renderList(allIngredients, ingredientAvailabilityList, 'ingredient');
+            populateCategorySelect(allIngredients, document.getElementById('ingredient-category-select'));
+            renderStatusFilters(document.getElementById('ingredient-status-filters'));
+        }
+
+        function renderList(items, container, type) {
+            container.innerHTML = '';
+            if (!Array.isArray(items) || items.length === 0) {
+                container.innerHTML = `<p class="text-gray-500">Nenhum ${type === 'item' ? 'item' : 'ingrediente'} encontrado.</p>`;
                 return;
             }
-            const itemsByCategory = groupByCategory(allItems);
-            const filterContainer = document.getElementById('item-category-filters');
-            renderCategoryFilters(allItems, filterContainer);
-
+            const itemsByCategory = groupByCategory(items);
             for (const category in itemsByCategory) {
                 const categoryDiv = document.createElement('div');
                 categoryDiv.dataset.categoryGroup = category;
@@ -221,63 +246,35 @@
                 const list = document.createElement('div');
                 list.className = 'mt-2 space-y-3';
                 itemsByCategory[category].forEach(item => {
-                    list.appendChild(createAvailabilityRow(item, 'item'));
+                    list.appendChild(createAvailabilityRow(item, type));
                 });
                 categoryDiv.appendChild(list);
-                itemAvailabilityList.appendChild(categoryDiv);
+                container.appendChild(categoryDiv);
             }
             filterLists();
         }
 
-        function renderIngredientAvailabilityList() {
-            ingredientAvailabilityList.innerHTML = '';
-            if (!Array.isArray(allIngredients) || allIngredients.length === 0) {
-                ingredientAvailabilityList.innerHTML = '<p class="text-gray-500">Nenhum ingrediente encontrado para gerenciar.</p>';
-                return;
-            }
-            const ingredientsByCategory = groupByCategory(allIngredients);
-            const filterContainer = document.getElementById('ingredient-category-filters');
-            renderCategoryFilters(allIngredients, filterContainer);
-
-            for (const category in ingredientsByCategory) {
-                const categoryDiv = document.createElement('div');
-                categoryDiv.dataset.categoryGroup = category;
-                categoryDiv.innerHTML = `<h3 class="text-lg font-medium text-gray-700">${category}</h3>`;
-                const list = document.createElement('div');
-                list.className = 'mt-2 space-y-3';
-                ingredientsByCategory[category].forEach(ing => {
-                    list.appendChild(createAvailabilityRow(ing, 'ingredient'));
-                });
-                categoryDiv.appendChild(list);
-                ingredientAvailabilityList.appendChild(categoryDiv);
-            }
-            filterLists();
-        }
-
-        function renderCategoryFilters(items, container) {
-            container.innerHTML = '';
+        function populateCategorySelect(items, selectElement) {
             const categories = ['Todos', ...new Set(items.map(item => item.category || 'Outros'))];
-            
+            const currentVal = selectElement.value;
+            selectElement.innerHTML = '';
             categories.forEach(category => {
-                const button = document.createElement('button');
-                button.className = 'filter-btn px-3 py-1 text-sm rounded-full border';
-                button.textContent = category;
-                button.dataset.category = category;
-                if (category === 'Todos') {
-                    button.classList.add('bg-blue-500', 'text-white');
-                } else {
-                    button.classList.add('bg-gray-200');
-                }
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                selectElement.appendChild(option);
+            });
+            if (currentVal) selectElement.value = currentVal;
+        }
 
-                button.addEventListener('click', () => {
-                    container.querySelectorAll('.filter-btn').forEach(btn => {
-                        btn.classList.remove('bg-blue-500', 'text-white');
-                        btn.classList.add('bg-gray-200');
-                    });
-                    button.classList.add('bg-blue-500', 'text-white');
-                    button.classList.remove('bg-gray-200');
-                    filterLists();
-                });
+        function renderStatusFilters(container) {
+            if (container.children.length > 0) return; // Renderiza apenas uma vez
+            const statuses = ['Todos', 'Disponíveis', 'Esgotados', 'Ocultos'];
+            statuses.forEach((status, index) => {
+                const button = document.createElement('button');
+                button.className = `filter-btn flex-1 p-1 rounded-md text-sm font-semibold ${index === 0 ? 'bg-white shadow' : 'text-gray-500'}`;
+                button.textContent = status;
+                button.dataset.status = status;
                 container.appendChild(button);
             });
         }
@@ -316,12 +313,7 @@
             });
             row.querySelector('[data-type="visibility"]').addEventListener('change', (e) => {
                 const newVisibility = e.target.checked;
-                if (!newVisibility) {
-                    // Se está ocultando, também torna indisponível
-                    updateStatus(item.id, type, false, false);
-                } else {
-                    updateStatus(item.id, type, null, true);
-                }
+                updateStatus(item.id, type, newVisibility ? true : false, newVisibility);
             });
 
             return row;
@@ -347,23 +339,38 @@
         }
 
         function filterLists() {
-            const searchTerm = searchInput.value.toLowerCase();
             const activePanel = document.querySelector('.tab-panel:not(.hidden)');
             if (!activePanel) return;
 
-            const filterContainer = activePanel.querySelector('[id$="-category-filters"]');
-            if (!filterContainer) return;
+            const type = activePanel.id.includes('item') ? 'item' : 'ingredient';
+            const searchTerm = document.getElementById(`search-${type}`).value.toLowerCase();
+            const selectedCategory = document.getElementById(`${type}-category-select`).value;
+            const activeStatusBtn = document.querySelector(`#${type}-status-filters .bg-white`);
+            const activeStatus = activeStatusBtn ? activeStatusBtn.dataset.status : 'Todos';
 
-            const activeCategoryBtn = filterContainer.querySelector('.bg-blue-500');
-            if (!activeCategoryBtn) return;
-            
-            const activeCategory = activeCategoryBtn.dataset.category;
-            
             activePanel.querySelectorAll('.availability-row').forEach(row => {
                 const nameMatch = row.dataset.name.includes(searchTerm);
-                const categoryMatch = activeCategory === 'Todos' || row.dataset.category === activeCategory;
+                const categoryMatch = selectedCategory === 'Todos' || row.dataset.category === selectedCategory;
 
-                if (nameMatch && categoryMatch) {
+                const currentIsAvailable = (type === 'item' ? itemStatus[row.querySelector('[data-type="availability"]').dataset.itemId] : ingredientStatus[row.querySelector('[data-type="availability"]').dataset.itemId]) !== false;
+                const currentIsVisible = (type === 'item' ? itemVisibility[row.querySelector('[data-type="visibility"]').dataset.itemId] : ingredientVisibility[row.querySelector('[data-type="visibility"]').dataset.itemId]) !== false;
+                
+                let statusMatch = false;
+                switch (activeStatus) {
+                    case 'Disponíveis':
+                        statusMatch = currentIsVisible && currentIsAvailable;
+                        break;
+                    case 'Esgotados':
+                        statusMatch = currentIsVisible && !currentIsAvailable;
+                        break;
+                    case 'Ocultos':
+                        statusMatch = !currentIsVisible;
+                        break;
+                    default: // 'Todos'
+                        statusMatch = true;
+                }
+
+                if (nameMatch && categoryMatch && statusMatch) {
                     row.style.display = 'flex';
                 } else {
                     row.style.display = 'none';
