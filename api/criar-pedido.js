@@ -2,12 +2,12 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
-  authDomain: "pizzaria-pdv.firebaseapp.com",
-  projectId: "pizzaria-pdv",
-  storageBucket: "pizzaria-pdv.appspot.com",
-  messagingSenderId: "304171744691",
-  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+  apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
+  authDomain: "samia-cardapio.firebaseapp.com",
+  projectId: "samia-cardapio",
+  storageBucket: "samia-cardapio.firebasestorage.app",
+  messagingSenderId: "223260436641",
+  appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
 };
 
 let app;
@@ -64,7 +64,12 @@ export default async (req, res) => {
         } else {
             paymentText = `Pagamento: *${paymentMethod}*`;
         }
-
+		
+// NOVO: Cria a linha de desconto apenas se houver um desconto
+        let discountText = '';
+        if (total.discount && total.discount > 0) {
+            discountText = `Desconto: - R$ ${total.discount.toFixed(2).replace('.', ',')}\n`;
+        }
         const fullMessage = `
 *-- NOVO PEDIDO --*
 
@@ -77,7 +82,7 @@ ${selectedAddress.referencia ? `*Referência:* ${selectedAddress.referencia}` : 
 ${itemsText}
 ------------------------------------
 Subtotal: R$ ${total.subtotal.toFixed(2).replace('.', ',')}
-Taxa de Entrega: R$ ${total.deliveryFee.toFixed(2).replace('.', ',')}
+${discountText}Taxa de Entrega: R$ ${total.deliveryFee.toFixed(2).replace('.', ',')}
 *Total: R$ ${total.finalTotal.toFixed(2).replace('.', ',')}*
 
 ${paymentText}
