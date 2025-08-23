@@ -44,6 +44,10 @@
         input:checked + .toggle-bg {
             background-color: #22c55e; /* green-500 */
         }
+        input:disabled + .toggle-bg {
+            cursor: not-allowed;
+            background-color: #d1d5db; /* gray-400 */
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -290,18 +294,18 @@
             row.innerHTML = `
                 <span class="font-medium text-gray-800">${item.name}</span>
                 <div class="flex items-center space-x-6 mt-2 sm:mt-0">
-                    <label class="flex items-center cursor-pointer">
+                    <label class="flex items-center cursor-pointer ${!isVisible ? 'opacity-50' : ''}">
                         <span class="mr-3 text-sm font-medium text-gray-900">${isAvailable ? 'Disponível' : 'Esgotado'}</span>
                         <div class="relative">
-                            <input type="checkbox" class="sr-only peer" data-type="availability" ${isAvailable ? 'checked' : ''}>
-                            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                            <input type="checkbox" class="sr-only peer" data-type="availability" ${isAvailable ? 'checked' : ''} ${!isVisible ? 'disabled' : ''}>
+                            <div class="toggle-bg w-11 h-6 bg-gray-200 rounded-full peer"></div>
                         </div>
                     </label>
                     <label class="flex items-center cursor-pointer">
                         <span class="mr-3 text-sm font-medium text-gray-900">${isVisible ? 'Visível' : 'Oculto'}</span>
                         <div class="relative">
                             <input type="checkbox" class="sr-only peer" data-type="visibility" ${isVisible ? 'checked' : ''}>
-                            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                            <div class="toggle-bg w-11 h-6 bg-gray-200 rounded-full peer"></div>
                         </div>
                     </label>
                 </div>
@@ -311,7 +315,13 @@
                 updateStatus(item.id, type, e.target.checked, null);
             });
             row.querySelector('[data-type="visibility"]').addEventListener('change', (e) => {
-                updateStatus(item.id, type, null, e.target.checked);
+                const newVisibility = e.target.checked;
+                if (!newVisibility) {
+                    // Se está ocultando, também torna indisponível
+                    updateStatus(item.id, type, false, false);
+                } else {
+                    updateStatus(item.id, type, null, true);
+                }
             });
 
             return row;
