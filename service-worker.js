@@ -1,7 +1,7 @@
 // service-worker.js
 
 // É importante mudar a versão do cache para que o navegador saiba que precisa atualizar.
-const CACHE_NAME = 'samia-cardapio-v10'; 
+const CACHE_NAME = 'samia-cardapio-v11'; 
 
 // Lista de arquivos essenciais para o funcionamento offline do app.
 const urlsToCache = [
@@ -52,39 +52,25 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Estratégia para a API do cardápio: Tenta a rede primeiro, se falhar, usa o cache.
-  // Isso garante que o usuário sempre veja o cardápio mais recente possível, mas ainda funciona offline.
-  if (request.url.includes('/api/menu')) {
-    event.respondWith(
-      fetch(request)
-        .then(networkResponse => {
-          // Se a rede funcionou, salva a resposta no cache para uso offline.
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(request, responseClone);
-          });
-          return networkResponse;
-        })
-        .catch(() => {
-          // Se a rede falhar, tenta pegar a resposta do cache.
-          return caches.match(request);
-        })
-    );
-    return;
-  }
-
-  // Estratégia Stale-While-Revalidate para todos os outros arquivos (CSS, imagens, fontes).
+  // Estratégia Stale-While-Revalidate para TODAS as requisições (incluindo a API).
   event.respondWith(
     caches.open(CACHE_NAME).then(cache => {
       return cache.match(request).then(cachedResponse => {
-        // 1. Retorna a resposta do cache imediatamente (Stale).
+        // 1. Em paralelo, busca a versão mais recente na rede (Revalidate).
         const fetchPromise = fetch(request).then(networkResponse => {
-          // 2. Em segundo plano, busca a versão mais recente na rede (Revalidate).
-          cache.put(request, networkResponse.clone());
+          // Se a busca na rede for bem-sucedida, atualiza o cache.
+          if (networkResponse.ok) {
+            cache.put(request, networkResponse.clone());
+          }
           return networkResponse;
+        }).catch(err => {
+            console.error('Service Worker: Fetch falhou:', err);
+            // Se a busca falhar, o erro será propagado (o navegador mostrará o erro de offline se não houver cache).
+            throw err;
         });
 
-        // Retorna o que estiver no cache primeiro, e a busca na rede continua em segundo plano.
+        // 2. Retorna a resposta do cache imediatamente se existir (Stale),
+        // caso contrário, espera a resposta da rede.
         return cachedResponse || fetchPromise;
       });
     })
