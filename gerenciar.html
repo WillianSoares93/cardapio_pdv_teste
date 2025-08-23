@@ -28,6 +28,9 @@
             border-bottom-color: #ef4444; /* Red color for the active tab */
             color: #1f2937;
         }
+        .filter-btn {
+            transition: all 0.2s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -64,6 +67,7 @@
             <div id="availability-container">
                 <!-- Painel de Itens do Cardápio -->
                 <div id="item-panel" class="tab-panel">
+                    <div id="item-category-filters" class="flex flex-wrap gap-2 mb-4"></div>
                     <div id="item-availability-list" class="space-y-4">
                         <p class="text-gray-500">Carregando itens...</p>
                     </div>
@@ -71,6 +75,7 @@
 
                 <!-- Painel de Ingredientes -->
                 <div id="ingredient-panel" class="tab-panel hidden">
+                    <div id="ingredient-category-filters" class="flex flex-wrap gap-2 mb-4"></div>
                     <div id="ingredient-availability-list" class="space-y-4">
                         <p class="text-gray-500">Carregando ingredientes...</p>
                     </div>
@@ -145,7 +150,7 @@
                         panel.classList.add('hidden');
                     }
                 });
-                filterLists(); // Re-filtra a lista ao trocar de aba
+                filterLists(); 
             });
         }
 
@@ -189,9 +194,12 @@
                 return;
             }
             const itemsByCategory = groupByCategory(allItems);
+            const filterContainer = document.getElementById('item-category-filters');
+            renderCategoryFilters(allItems, filterContainer);
 
             for (const category in itemsByCategory) {
                 const categoryDiv = document.createElement('div');
+                categoryDiv.dataset.categoryGroup = category;
                 categoryDiv.innerHTML = `<h3 class="text-lg font-medium text-gray-700">${category}</h3>`;
                 const list = document.createElement('div');
                 list.className = 'mt-2 space-y-3';
@@ -211,9 +219,12 @@
                 return;
             }
             const ingredientsByCategory = groupByCategory(allIngredients);
+            const filterContainer = document.getElementById('ingredient-category-filters');
+            renderCategoryFilters(allIngredients, filterContainer);
 
             for (const category in ingredientsByCategory) {
                 const categoryDiv = document.createElement('div');
+                categoryDiv.dataset.categoryGroup = category;
                 categoryDiv.innerHTML = `<h3 class="text-lg font-medium text-gray-700">${category}</h3>`;
                 const list = document.createElement('div');
                 list.className = 'mt-2 space-y-3';
@@ -226,31 +237,57 @@
             filterLists();
         }
 
+        function renderCategoryFilters(items, container) {
+            container.innerHTML = '';
+            const categories = ['Todos', ...new Set(items.map(item => item.category || 'Outros'))];
+            
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'filter-btn px-3 py-1 text-sm rounded-full border';
+                button.textContent = category;
+                button.dataset.category = category;
+                if (category === 'Todos') {
+                    button.classList.add('bg-blue-500', 'text-white');
+                } else {
+                    button.classList.add('bg-gray-200');
+                }
+
+                button.addEventListener('click', () => {
+                    container.querySelectorAll('.filter-btn').forEach(btn => {
+                        btn.classList.remove('bg-blue-500', 'text-white');
+                        btn.classList.add('bg-gray-200');
+                    });
+                    button.classList.add('bg-blue-500', 'text-white');
+                    button.classList.remove('bg-gray-200');
+                    filterLists();
+                });
+                container.appendChild(button);
+            });
+        }
+
         function createAvailabilityRow(item, type) {
             const row = document.createElement('div');
             row.className = 'availability-row flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-md bg-gray-50';
             row.dataset.name = item.name.toLowerCase();
+            row.dataset.category = item.category || 'Outros';
 
             const isAvailable = (type === 'item' ? itemStatus[item.id] : ingredientStatus[item.id]) !== false;
-            const isVisible = (type === 'item' ? itemVisibility[item.id] : ingredientVisibility[item.id]) !== false;
-
+            
             row.innerHTML = `
                 <span class="font-medium text-gray-800">${item.name}</span>
                 <div class="status-btn-group flex items-center space-x-2 mt-2 sm:mt-0">
-                    <button data-status="available" class="${isVisible && isAvailable ? 'bg-green-500 text-white' : 'bg-gray-200'} px-3 py-1 text-sm rounded-full font-semibold">Disponível</button>
+                    <button data-status="available" class="${isAvailable ? 'bg-green-500 text-white' : 'bg-gray-200'} px-3 py-1 text-sm rounded-full font-semibold">Disponível</button>
                     <button data-status="unavailable" class="${!isAvailable ? 'bg-yellow-500 text-white' : 'bg-gray-200'} px-3 py-1 text-sm rounded-full font-semibold">Esgotado</button>
-                    <button data-status="hidden" class="${!isVisible ? 'bg-red-500 text-white' : 'bg-gray-200'} px-3 py-1 text-sm rounded-full font-semibold">Oculto</button>
                 </div>
             `;
 
-            row.querySelector('[data-status="available"]').addEventListener('click', () => updateStatus(item.id, type, true, true));
-            row.querySelector('[data-status="unavailable"]').addEventListener('click', () => updateStatus(item.id, type, false, true));
-            row.querySelector('[data-status="hidden"]').addEventListener('click', () => updateStatus(item.id, type, false, false));
+            row.querySelector('[data-status="available"]').addEventListener('click', () => updateStatus(item.id, type, true));
+            row.querySelector('[data-status="unavailable"]').addEventListener('click', () => updateStatus(item.id, type, false));
 
             return row;
         }
 
-        async function updateStatus(id, type, isAvailable, isVisible) {
+        async function updateStatus(id, type, isAvailable) {
             const statusCollection = type === 'item' ? 'item_status' : 'ingredient_status';
             const visibilityCollection = type === 'item' ? 'item_visibility' : 'ingredient_visibility';
 
@@ -259,7 +296,7 @@
                 const visibilityRef = doc(db, "config", visibilityCollection);
 
                 await setDoc(statusRef, { [id]: isAvailable }, { merge: true });
-                await setDoc(visibilityRef, { [id]: isVisible }, { merge: true });
+                await setDoc(visibilityRef, { [id]: true }, { merge: true });
             } catch (error) {
                 console.error("Erro ao atualizar status:", error);
                 alert("Não foi possível atualizar o status. Tente novamente.");
@@ -271,13 +308,28 @@
             const activePanel = document.querySelector('.tab-panel:not(.hidden)');
             if (!activePanel) return;
 
+            const filterContainer = activePanel.querySelector('[id$="-category-filters"]');
+            if (!filterContainer) return;
+
+            const activeCategoryBtn = filterContainer.querySelector('.bg-blue-500');
+            if (!activeCategoryBtn) return;
+            
+            const activeCategory = activeCategoryBtn.dataset.category;
+            
             activePanel.querySelectorAll('.availability-row').forEach(row => {
-                const name = row.dataset.name;
-                if (name.includes(searchTerm)) {
+                const nameMatch = row.dataset.name.includes(searchTerm);
+                const categoryMatch = activeCategory === 'Todos' || row.dataset.category === activeCategory;
+
+                if (nameMatch && categoryMatch) {
                     row.style.display = 'flex';
                 } else {
                     row.style.display = 'none';
                 }
+            });
+
+            activePanel.querySelectorAll('[data-category-group]').forEach(titleDiv => {
+                const hasVisibleItems = Array.from(titleDiv.querySelectorAll('.availability-row')).some(row => row.style.display !== 'none');
+                titleDiv.style.display = hasVisibleItems ? 'block' : 'none';
             });
         }
 
