@@ -1,7 +1,7 @@
 // service-worker.js
 
 // É importante mudar a versão do cache para que o navegador saiba que precisa atualizar.
-const CACHE_NAME = 'samia-cardapio-v16'; 
+const CACHE_NAME = 'samia-cardapio-v18'; 
 
 // Lista de arquivos essenciais para o funcionamento offline do app.
 const urlsToCache = [
