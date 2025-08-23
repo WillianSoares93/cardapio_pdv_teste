@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1195,8 +1196,7 @@
                                 : 'bg-red-600 hover:bg-red-700';
 
                             if (item.isPizza) {
-                                // CORREÇÃO: Lógica para criar a estrutura de preços em duas fileiras
-                                let pricesHtml = '<div class="flex flex-col items-center">';
+                                let pricesHtml = '<div class="flex flex-col items-start">';
                                 let pricesRow1 = '';
                                 let pricesRow2 = '';
                                 
@@ -1586,7 +1586,7 @@
                     }
 
                     const cleanFirstName = firstHalfPizza.name;
-                    const combinedName = `Meia ${cleanFirstName} & Meia ${item.name}`;
+                    const combinedName = `${firstHalfPizza.selected_slices} FATIAS: Meia ${cleanFirstName} & Meia ${item.name}`;
                     
                     const priceFirstHalfFullSize = firstHalfPizza.original_full_price; 
                     const priceSecondHalfFullSize = item[firstHalfPizza.priceKeyForSlices]; 
@@ -1654,9 +1654,10 @@
                         optionDiv.querySelector('.add-full-size-pizza-btn').addEventListener('click', function() {
                             const selectedSlices = parseInt(this.dataset.slices);
                             const selectedPriceKey = this.dataset.priceKey;
+                            const newName = `${selectedSlices} FATIAS: ${currentPizzaData.name}`;
                             addToOrder({
                                 type: 'full',
-                                name: currentPizzaData.name,
+                                name: newName,
                                 price: currentPizzaData[selectedPriceKey], 
                                 description: currentPizzaData.description,
                                 category: currentPizzaData.category,
@@ -1810,9 +1811,6 @@
 
                         if (item.type === 'promotion') {
                             itemName = `<i class="fas fa-tags text-red-600 mr-2"></i> ${item.name}`;
-                        } else if (item.selected_slices) {
-                            let sizeLabel = `${item.selected_slices} FATIAS`.toUpperCase();
-                            itemName = `<b>${sizeLabel}</b>: ${item.name}`;
                         } else if (item.type === 'custom_burger') {
                             itemName = `<i class="fas fa-hamburger text-red-600 mr-2"></i> ${item.name}`;
                             const ingredientsListHtml = `
