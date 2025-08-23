@@ -284,6 +284,7 @@
             row.className = 'availability-row flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-md bg-gray-50';
             row.dataset.name = item.name.toLowerCase();
             row.dataset.category = item.category || 'Outros';
+            row.dataset.itemId = item.id; // Adicionado para referência no filtro
 
             const isAvailable = (type === 'item' ? itemStatus[item.id] : ingredientStatus[item.id]) !== false;
             const isVisible = (type === 'item' ? itemVisibility[item.id] : ingredientVisibility[item.id]) !== false;
@@ -313,7 +314,7 @@
             });
             row.querySelector('[data-type="visibility"]').addEventListener('change', (e) => {
                 const newVisibility = e.target.checked;
-                updateStatus(item.id, type, newVisibility ? true : false, newVisibility);
+                updateStatus(item.id, type, newVisibility, newVisibility);
             });
 
             return row;
@@ -351,9 +352,10 @@
             activePanel.querySelectorAll('.availability-row').forEach(row => {
                 const nameMatch = row.dataset.name.includes(searchTerm);
                 const categoryMatch = selectedCategory === 'Todos' || row.dataset.category === selectedCategory;
+                const itemId = row.dataset.itemId;
 
-                const currentIsAvailable = (type === 'item' ? itemStatus[row.querySelector('[data-type="availability"]').dataset.itemId] : ingredientStatus[row.querySelector('[data-type="availability"]').dataset.itemId]) !== false;
-                const currentIsVisible = (type === 'item' ? itemVisibility[row.querySelector('[data-type="visibility"]').dataset.itemId] : ingredientVisibility[row.querySelector('[data-type="visibility"]').dataset.itemId]) !== false;
+                const currentIsAvailable = (type === 'item' ? itemStatus[itemId] : ingredientStatus[itemId]) !== false;
+                const currentIsVisible = (type === 'item' ? itemVisibility[itemId] : ingredientVisibility[itemId]) !== false;
                 
                 let statusMatch = false;
                 switch (activeStatus) {
