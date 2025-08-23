@@ -634,8 +634,8 @@
             <span class="close-button" id="close-pizza-option-modal">&times;</span>
             <h3 class="text-xl font-bold text-gray-800 mb-4" id="modal-pizza-name"></h3>
             <p class="text-gray-600 mb-6" id="modal-pizza-description"></p>
-            <div id="pizza-size-options" class="grid grid-cols-1 sm:grid-cols-3 gap-2 justify-items-center">
-                </div>
+            <div id="pizza-size-options" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 justify-items-center">
+            </div>
         </div>
     </div>
     
@@ -1002,12 +1002,13 @@
             // Variáveis para controle do observador de rolagem
             let isScrollingFromClick = false;
             let categoryObserver;
-            let firstPizzaSectionId = null; 
+            let firstPizzaSectionId = null;
 
             const sizes = [
                 { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
                 { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
-                { slices: 8, label: '8 Fatias', priceKey: 'basePrice' } 
+                { slices: 8, label: '8 Fatias', priceKey: 'basePrice' },
+                { slices: 10, label: '10 Fatias', priceKey: 'price10Slices' } // <-- NOVA OPÇÃO ADICIONADA
             ];
             
             function isPwaInstalled() {
@@ -1134,7 +1135,7 @@
             function populateMenu(menuItems, orderedCategories) {
                 const dynamicSectionsContainer = document.getElementById('dynamic-pizza-sections');
                 dynamicSectionsContainer.innerHTML = ''; 
-                firstPizzaSectionId = null; 
+                firstPizzaSectionId = null;
 
                 const itemsByCategory = {};
                 menuItems.forEach(item => {
@@ -1198,6 +1199,8 @@
                                 if (item.price4Slices > 0) pricesHtml += `<div class="text-center px-1"><span class="text-xs text-gray-500">4 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price4Slices.toFixed(2).replace('.', ',')}</p></div>`;
                                 if (item.price6Slices > 0) pricesHtml += `<div class="text-center px-2 border-l border-r border-gray-200"><span class="text-xs text-gray-500">6 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price6Slices.toFixed(2).replace('.', ',')}</p></div>`;
                                 if (item.basePrice > 0) pricesHtml += `<div class="text-center px-1"><span class="text-xs text-gray-500">8 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</p></div>`;
+                                if (item.price10Slices > 0) pricesHtml += `<div class="text-center px-1 border-l border-gray-200"><span class="text-xs text-gray-500">10 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price10Slices.toFixed(2).replace('.', ',')}</p></div>`;
+
 
                                 itemHtml = `
                                     <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg flex flex-col ${cardOpacityClass}">
@@ -1613,12 +1616,12 @@
                     
                     const availableSizes = sizes.filter(size => currentPizzaData[size.priceKey] > 0);
 
-                    if (availableSizes.length === 1) {
-                        pizzaSizeOptions.classList.remove('sm:grid-cols-3');
-                        pizzaSizeOptions.classList.add('sm:grid-cols-1', 'max-w-xs', 'mx-auto'); 
+                    if (availableSizes.length <= 2) {
+                        pizzaSizeOptions.classList.remove('sm:grid-cols-2', 'lg:grid-cols-4');
+                        pizzaSizeOptions.classList.add('sm:grid-cols-2');
                     } else {
-                        pizzaSizeOptions.classList.add('sm:grid-cols-3');
-                        pizzaSizeOptions.classList.remove('sm:grid-cols-1', 'max-w-xs', 'mx-auto');
+                        pizzaSizeOptions.classList.remove('sm:grid-cols-2');
+                        pizzaSizeOptions.classList.add('sm:grid-cols-2', 'lg:grid-cols-4');
                     }
 
                     availableSizes.forEach(size => {
