@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -803,7 +804,7 @@
                         </select>
                 </div>
                 <div class="mb-4">
-                    <label for="streetInput" class="block text-sm font-bold mb-2">
+                    <label for="streetInput" class="block text-gray-700 text-sm font-bold mb-2">
                         Rua:
                     </label>
                     <input type="text" id="streetInput" placeholder="Nome da Rua" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
@@ -1008,7 +1009,7 @@
                 { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
                 { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
                 { slices: 8, label: '8 Fatias', priceKey: 'basePrice' },
-                { slices: 10, label: '10 Fatias', priceKey: 'price10Slices' } // <-- NOVA OPÇÃO ADICIONADA
+                { slices: 10, label: '10 Fatias', priceKey: 'price10Slices' }
             ];
             
             function isPwaInstalled() {
@@ -1195,11 +1196,19 @@
                                 : 'bg-red-600 hover:bg-red-700';
 
                             if (item.isPizza) {
-                                let pricesHtml = '';
-                                if (item.price4Slices > 0) pricesHtml += `<div class="text-center px-1"><span class="text-xs text-gray-500">4 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price4Slices.toFixed(2).replace('.', ',')}</p></div>`;
-                                if (item.price6Slices > 0) pricesHtml += `<div class="text-center px-2 border-l border-gray-200"><span class="text-xs text-gray-500">6 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price6Slices.toFixed(2).replace('.', ',')}</p></div>`;
-                                if (item.basePrice > 0) pricesHtml += `<div class="text-center px-1"><span class="text-xs text-gray-500">8 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</p></div>`;
-                                if (item.price10Slices > 0) pricesHtml += `<div class="text-center px-2 border-l border-gray-200"><span class="text-xs text-gray-500">10 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price10Slices.toFixed(2).replace('.', ',')}</p></div>`;
+                                // CORREÇÃO: Lógica para criar a estrutura de preços em duas fileiras
+                                let pricesHtml = '<div class="flex flex-col items-center">';
+                                let pricesRow1 = '';
+                                let pricesRow2 = '';
+                                
+                                if (item.price4Slices > 0) pricesRow1 += `<div class="text-center px-1"><span class="text-xs text-gray-500">4 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price4Slices.toFixed(2).replace('.', ',')}</p></div>`;
+                                if (item.price6Slices > 0) pricesRow1 += `<div class="text-center ml-2 border-l border-gray-200 pl-2"><span class="text-xs text-gray-500">6 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price6Slices.toFixed(2).replace('.', ',')}</p></div>`;
+                                if (item.basePrice > 0) pricesRow2 += `<div class="text-center px-1"><span class="text-xs text-gray-500">8 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</p></div>`;
+                                if (item.price10Slices > 0) pricesRow2 += `<div class="text-center ml-2 border-l border-gray-200 pl-2"><span class="text-xs text-gray-500">10 Fatias</span><p class="font-bold text-red-600 whitespace-nowrap">R$ ${item.price10Slices.toFixed(2).replace('.', ',')}</p></div>`;
+
+                                if (pricesRow1) pricesHtml += `<div class="flex justify-center items-center">${pricesRow1}</div>`;
+                                if (pricesRow2) pricesHtml += `<div class="flex justify-center items-center mt-2">${pricesRow2}</div>`;
+                                pricesHtml += '</div>';
 
                                 itemHtml = `
                                     <div class="flavor-card bg-white rounded-xl overflow-hidden shadow-lg flex flex-col ${cardOpacityClass}">
@@ -1209,10 +1218,8 @@
                                             <p class="text-gray-600 text-sm mb-4 flex-grow">${item.description}</p>
                                             <div class="mt-auto pt-4 border-t border-gray-100">
                                                 <div class="flex justify-between items-center">
-                                                    <div class="flex-shrink-0">
-                                                        <div class="flex space-x-1 items-baseline mb-1">${pricesHtml}</div>
-                                                    </div>
-                                                    <button class="add-item-btn ${buttonClasses} text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300 flex-shrink-0 ml-2"
+                                                    ${pricesHtml}
+                                                    <button class="add-item-btn ${buttonClasses} text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300 flex-shrink-0 ml-4"
                                                             data-item-id="${item.id}" data-image-url="${trimmedImageUrl}" ${buttonDisabledAttr}>
                                                         ${buttonText}
                                                     </button>
