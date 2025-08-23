@@ -113,7 +113,7 @@ function parseCsvData(csvText) {
 }
 
 export default async (req, res) => {
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate'); 
+    res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate'); 
 
     try {
         const fetchData = async (url) => {
