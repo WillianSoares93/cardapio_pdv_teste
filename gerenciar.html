@@ -14,12 +14,6 @@
             background-color: #f3f4f6;
             visibility: hidden; /* Esconde o corpo até a autenticação ser verificada */
         }
-        .status-btn-group button {
-            transition: all 0.2s ease-in-out;
-        }
-        .status-btn-group button:hover {
-            transform: translateY(-2px);
-        }
         .tab-btn {
             transition: all 0.2s ease-in-out;
             border-bottom: 4px solid transparent;
@@ -30,6 +24,25 @@
         }
         .filter-btn {
             transition: all 0.2s ease-in-out;
+        }
+        /* Estilos para o Toggle Switch */
+        .toggle-bg:after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            background: white;
+            width: 1.25rem; /* h-5 */
+            height: 1.25rem; /* w-5 */
+            border-radius: 9999px;
+            transition: transform 0.2s ease-in-out;
+        }
+        input:checked + .toggle-bg:after {
+            transform: translateX(100%);
+            border-color: white;
+        }
+        input:checked + .toggle-bg {
+            background-color: #22c55e; /* green-500 */
         }
     </style>
 </head>
@@ -272,31 +285,51 @@
             row.dataset.category = item.category || 'Outros';
 
             const isAvailable = (type === 'item' ? itemStatus[item.id] : ingredientStatus[item.id]) !== false;
+            const isVisible = (type === 'item' ? itemVisibility[item.id] : ingredientVisibility[item.id]) !== false;
             
             row.innerHTML = `
                 <span class="font-medium text-gray-800">${item.name}</span>
-                <div class="status-btn-group flex items-center space-x-2 mt-2 sm:mt-0">
-                    <button data-status="available" class="${isAvailable ? 'bg-green-500 text-white' : 'bg-gray-200'} px-3 py-1 text-sm rounded-full font-semibold">Disponível</button>
-                    <button data-status="unavailable" class="${!isAvailable ? 'bg-yellow-500 text-white' : 'bg-gray-200'} px-3 py-1 text-sm rounded-full font-semibold">Esgotado</button>
+                <div class="flex items-center space-x-6 mt-2 sm:mt-0">
+                    <label class="flex items-center cursor-pointer">
+                        <span class="mr-3 text-sm font-medium text-gray-900">${isAvailable ? 'Disponível' : 'Esgotado'}</span>
+                        <div class="relative">
+                            <input type="checkbox" class="sr-only peer" data-type="availability" ${isAvailable ? 'checked' : ''}>
+                            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                        </div>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <span class="mr-3 text-sm font-medium text-gray-900">${isVisible ? 'Visível' : 'Oculto'}</span>
+                        <div class="relative">
+                            <input type="checkbox" class="sr-only peer" data-type="visibility" ${isVisible ? 'checked' : ''}>
+                            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                        </div>
+                    </label>
                 </div>
             `;
 
-            row.querySelector('[data-status="available"]').addEventListener('click', () => updateStatus(item.id, type, true));
-            row.querySelector('[data-status="unavailable"]').addEventListener('click', () => updateStatus(item.id, type, false));
+            row.querySelector('[data-type="availability"]').addEventListener('change', (e) => {
+                updateStatus(item.id, type, e.target.checked, null);
+            });
+            row.querySelector('[data-type="visibility"]').addEventListener('change', (e) => {
+                updateStatus(item.id, type, null, e.target.checked);
+            });
 
             return row;
         }
 
-        async function updateStatus(id, type, isAvailable) {
+        async function updateStatus(id, type, isAvailable, isVisible) {
             const statusCollection = type === 'item' ? 'item_status' : 'ingredient_status';
             const visibilityCollection = type === 'item' ? 'item_visibility' : 'ingredient_visibility';
 
             try {
-                const statusRef = doc(db, "config", statusCollection);
-                const visibilityRef = doc(db, "config", visibilityCollection);
-
-                await setDoc(statusRef, { [id]: isAvailable }, { merge: true });
-                await setDoc(visibilityRef, { [id]: true }, { merge: true });
+                if (isAvailable !== null) {
+                    const statusRef = doc(db, "config", statusCollection);
+                    await setDoc(statusRef, { [id]: isAvailable }, { merge: true });
+                }
+                if (isVisible !== null) {
+                    const visibilityRef = doc(db, "config", visibilityCollection);
+                    await setDoc(visibilityRef, { [id]: isVisible }, { merge: true });
+                }
             } catch (error) {
                 console.error("Erro ao atualizar status:", error);
                 alert("Não foi possível atualizar o status. Tente novamente.");
