@@ -1,5 +1,5 @@
 // Este arquivo é uma função Serverless para o Vercel.
-// Ele foi atualizado para ler a nova coluna "Limite Ingrediente" da planilha.
+// Ele foi atualizado para ler a nova coluna "preço 10 fatias" da planilha.
 
 import fetch from 'node-fetch';
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -69,13 +69,14 @@ function parseCsvData(csvText) {
     const mappedHeaders = headersRaw.map(header => {
         const headerMapping = {
             'id item (único)': 'id', 'nome do item': 'name', 'descrição': 'description',
-            'preço 8 fatias': 'basePrice', 'preço 6 fatias': 'price6Slices', 'preço 4 fatias': 'price4Slices',
+            'preço 4 fatias': 'price4Slices', 'preço 6 fatias': 'price6Slices',
+            'preço 8 fatias': 'basePrice', 'preço 10 fatias': 'price10Slices', // <-- NOVA COLUNA ADICIONADA
             'categoria': 'category', 'é pizza? (sim/não)': 'isPizza', 'é montável? (sim/não)': 'isCustomizable',
             'disponível (sim/não)': 'available', 'imagem': 'imageUrl', 'id promocao': 'id',
             'nome da promocao': 'name', 'preco promocional': 'promoPrice', 'id item aplicavel': 'itemId',
             'ativo (sim/nao)': 'active', 'bairros': 'neighborhood', 'valor frete': 'deliveryFee',
             'id intem': 'id', 'ingredientes': 'name', 'preço': 'price', 'seleção única': 'isSingleChoice',
-            'limite': 'limit', 'limite ingrediente': 'ingredientLimit', // <-- NOVA COLUNA ADICIONADA
+            'limite': 'limit', 'limite ingrediente': 'ingredientLimit',
             'é obrigatório?(sim/não)': 'isRequired', 'disponível': 'available',
             'dados': 'data', 'valor': 'value'
         };
@@ -90,14 +91,15 @@ function parseCsvData(csvText) {
             let item = {};
             mappedHeaders.forEach((headerKey, j) => {
                 let value = values[j];
-                if (['basePrice', 'price6Slices', 'price4Slices', 'promoPrice', 'deliveryFee', 'price'].includes(headerKey)) {
+                // <-- NOVA COLUNA ADICIONADA À LISTA DE PREÇOS
+                if (['basePrice', 'price6Slices', 'price4Slices', 'price10Slices', 'promoPrice', 'deliveryFee', 'price'].includes(headerKey)) {
                     item[headerKey] = parseFloat(String(value).replace(',', '.')) || 0;
                 } else if (headerKey === 'limit') {
                     const parsedValue = parseInt(value, 10);
                     item[headerKey] = isNaN(parsedValue) ? Infinity : parsedValue;
-                } else if (headerKey === 'ingredientLimit') { // <-- NOVA LÓGICA DE PARSE
+                } else if (headerKey === 'ingredientLimit') {
                     const parsedValue = parseInt(value, 10);
-                    item[headerKey] = isNaN(parsedValue) ? 1 : parsedValue; // Padrão é 1 se não for um número
+                    item[headerKey] = isNaN(parsedValue) ? 1 : parsedValue;
                 } else if (['isPizza', 'available', 'active', 'isCustomizable', 'isSingleChoice', 'isRequired'].includes(headerKey)) {
                     item[headerKey] = value.toUpperCase() === 'SIM';
                 } else {
