@@ -2,12 +2,12 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
-  authDomain: "samia-cardapio.firebaseapp.com",
-  projectId: "samia-cardapio",
-  storageBucket: "samia-cardapio.firebasestorage.app",
-  messagingSenderId: "223260436641",
-  appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
+  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+  authDomain: "pizzaria-pdv.firebaseapp.com",
+  projectId: "pizzaria-pdv",
+  storageBucket: "pizzaria-pdv.firebasestorage.app",
+  messagingSenderId: "304171744691",
+  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
 };
 
 let app;
