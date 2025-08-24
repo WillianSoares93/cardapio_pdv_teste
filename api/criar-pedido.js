@@ -35,6 +35,7 @@ export default async (req, res) => {
             return res.status(400).json({ error: 'O número de WhatsApp para receber o pedido não foi configurado.' });
         }
 
+throw new Error("Erro de simulação: Falha ao conectar com o banco de dados.");
         // Salva o pedido no Firestore
         await addDoc(collection(db, "pedidos"), {
             itens: order,
