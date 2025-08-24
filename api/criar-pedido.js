@@ -1,7 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import fetch from 'node-fetch';
-
 
 			const firebaseConfig = {
 				apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -11,6 +9,7 @@ import fetch from 'node-fetch';
 				messagingSenderId: "304171744691",
 				appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
 			};
+
 let app;
 if (!getApps().length) {
     app = initializeApp(firebaseConfig);
@@ -18,56 +17,6 @@ if (!getApps().length) {
     app = getApp();
 }
 const db = getFirestore(app);
-
-async function notifyDeveloperOnPdvFailure({ error, order, selectedAddress, total, paymentMethod }) {
-    try {
-        const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL || process.env.NOTIFY_WEBHOOK_URL;
-        if (!slackWebhookUrl) {
-            console.warn('[Notify] SLACK_WEBHOOK_URL/NOTIFY_WEBHOOK_URL não configurada; notificação não enviada.');
-            return;
-        }
-
-        const errMsg = String(error && error.message ? error.message : error);
-        const itemsCount = Array.isArray(order) ? order.length : 0;
-        const totalFinal = total && typeof total.finalTotal === 'number' ? total.finalTotal : null;
-        const payment = typeof paymentMethod === 'object' ? paymentMethod.method : paymentMethod || null;
-        const bairro = selectedAddress && selectedAddress.bairro ? selectedAddress.bairro : null;
-
-        const slackPayload = {
-            text: `PDV_SAVE_FAILURE: erro ao salvar pedido no Firestore` ,
-            blocks: [
-                {
-                    type: 'header',
-                    text: { type: 'plain_text', text: '🚨 Falha ao salvar no PDV (Firestore)', emoji: true }
-                },
-                {
-                    type: 'section',
-                    fields: [
-                        { type: 'mrkdwn', text: `*Erro:*\n${errMsg}` },
-                        { type: 'mrkdwn', text: `*Quando:*\n${new Date().toISOString()}` }
-                    ]
-                },
-                {
-                    type: 'section',
-                    fields: [
-                        { type: 'mrkdwn', text: `*Itens:*\n${itemsCount}` },
-                        { type: 'mrkdwn', text: `*Total:*\n${totalFinal !== null ? 'R$ ' + totalFinal.toFixed(2).replace('.', ',') : '—'}` },
-                        { type: 'mrkdwn', text: `*Pagamento:*\n${payment || '—'}` },
-                        { type: 'mrkdwn', text: `*Bairro:*\n${bairro || '—'}` }
-                    ]
-                }
-            ]
-        };
-
-        await fetch(slackWebhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(slackPayload)
-        });
-    } catch (notifyErr) {
-        console.error('[Notify] Falha ao notificar desenvolvedor:', notifyErr);
-    }
-}
 
 export default async (req, res) => {
     if (req.method !== 'POST') {
@@ -90,12 +39,9 @@ export default async (req, res) => {
         let pdvSaved = false;
         let pdvError = null;
         try {
-            // Simulação de erro controlada por variável de ambiente
-            const simulateError = String(process.env.SIMULATE_FIRESTORE_ERROR || '').toLowerCase() === 'true';
-            if (simulateError) {
-                console.error('[TEST] Simulando erro no Firestore: SIMULATED_FIRESTORE_ERROR');
-                throw new Error('SIMULATED_FIRESTORE_ERROR');
-            }
+            // Simulação de erro ao salvar no Firestore (para testes)
+            //console.error('[TEST] Simulando erro no Firestore: SIMULATED_FIRESTORE_ERROR');
+           //throw new Error('SIMULATED_FIRESTORE_ERROR');
             await addDoc(collection(db, "pedidos"), {
                 itens: order,
                 endereco: selectedAddress,
@@ -108,7 +54,6 @@ export default async (req, res) => {
         } catch (firestoreError) {
             console.error('Falha ao salvar pedido no Firestore (PDV):', firestoreError);
             pdvError = String(firestoreError && firestoreError.message ? firestoreError.message : firestoreError);
-            notifyDeveloperOnPdvFailure({ error: firestoreError, order, selectedAddress, total, paymentMethod });
             // Continua o fluxo para enviar ao WhatsApp mesmo assim
         }
 
