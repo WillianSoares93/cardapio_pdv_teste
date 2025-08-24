@@ -36,14 +36,21 @@ export default async (req, res) => {
         }
 
         // Salva o pedido no Firestore
-        await addDoc(collection(db, "pedidos"), {
-            itens: order,
-            endereco: selectedAddress,
-            total: total,
-            pagamento: paymentMethod,
-            status: 'Novo',
-            criadoEm: serverTimestamp()
-        });
+        let pdvSaved = false;
+        try {
+            await addDoc(collection(db, "pedidos"), {
+                itens: order,
+                endereco: selectedAddress,
+                total: total,
+                pagamento: paymentMethod,
+                status: 'Novo',
+                criadoEm: serverTimestamp()
+            });
+            pdvSaved = true;
+        } catch (firestoreError) {
+            console.error('Falha ao salvar pedido no Firestore (PDV):', firestoreError);
+            // Continua o fluxo para enviar ao WhatsApp mesmo assim
+        }
 
 
 // Monta a mensagem para o WhatsApp agrupando por categoria
@@ -104,7 +111,7 @@ ${paymentText}
         const targetNumber = `55${whatsappNumber.replace(/\D/g, '')}`;
         const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(fullMessage.trim())}`;
 
-        res.status(200).json({ success: true, whatsappUrl });
+        res.status(200).json({ success: true, whatsappUrl, pdvSaved });
 
     } catch (error) {
         console.error('Erro ao processar pedido:', error);

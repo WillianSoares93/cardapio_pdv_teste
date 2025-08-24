@@ -2004,9 +2004,13 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success && data.whatsappUrl) {
+                    if (data && data.whatsappUrl) {
                         window.open(data.whatsappUrl, '_blank');
-                        clearOrder();
+                        if (data.pdvSaved === false) {
+                            showMessageModal('Aviso: O pedido foi enviado ao WhatsApp, mas não conseguimos registrar no PDV. A equipe será notificada.');
+                        } else {
+                            clearOrder();
+                        }
                     } else {
                         showMessageModal('Erro ao enviar o pedido. Por favor, tente novamente.');
                     }
