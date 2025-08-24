@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import fetch from 'node-fetch';
 
 const firebaseConfig = {
   apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
@@ -17,6 +18,34 @@ if (!getApps().length) {
     app = getApp();
 }
 const db = getFirestore(app);
+
+async function notifyDeveloperOnPdvFailure({ error, order, selectedAddress, total, paymentMethod }) {
+    try {
+        const webhookUrl = process.env.NOTIFY_WEBHOOK_URL;
+        if (!webhookUrl) {
+            console.warn('[Notify] NOTIFY_WEBHOOK_URL não configurada; notificação não enviada.');
+            return;
+        }
+        const payload = {
+            type: 'PDV_SAVE_FAILURE',
+            timestamp: new Date().toISOString(),
+            error: String(error && error.message ? error.message : error),
+            summary: {
+                itemsCount: Array.isArray(order) ? order.length : 0,
+                totalFinal: total && typeof total.finalTotal === 'number' ? total.finalTotal : null,
+                payment: typeof paymentMethod === 'object' ? paymentMethod.method : paymentMethod || null,
+                bairro: selectedAddress && selectedAddress.bairro ? selectedAddress.bairro : null
+            }
+        };
+        await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    } catch (notifyErr) {
+        console.error('[Notify] Falha ao notificar desenvolvedor:', notifyErr);
+    }
+}
 
 export default async (req, res) => {
     if (req.method !== 'POST') {
@@ -54,6 +83,7 @@ export default async (req, res) => {
         } catch (firestoreError) {
             console.error('Falha ao salvar pedido no Firestore (PDV):', firestoreError);
             pdvError = String(firestoreError && firestoreError.message ? firestoreError.message : firestoreError);
+            notifyDeveloperOnPdvFailure({ error: firestoreError, order, selectedAddress, total, paymentMethod });
             // Continua o fluxo para enviar ao WhatsApp mesmo assim
         }
 
