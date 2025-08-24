@@ -38,8 +38,9 @@ export default async (req, res) => {
         // Salva o pedido no Firestore
         let pdvSaved = false;
         try {
-/*             // Simulação de erro ao salvar no Firestore (para testes)
-            throw new Error('SIMULATED_FIRESTORE_ERROR'); */
+            // Simulação de erro ao salvar no Firestore (para testes)
+            console.error('[TEST] Simulando erro no Firestore: SIMULATED_FIRESTORE_ERROR');
+            throw new Error('SIMULATED_FIRESTORE_ERROR');
             await addDoc(collection(db, "pedidos"), {
                 itens: order,
                 endereco: selectedAddress,
@@ -82,9 +83,7 @@ for (const category in itemsByCategory) {
 
         let paymentText = '';
         if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
-            paymentText = `Pagamento: *Dinheiro*
-Troco para: *R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')}*
-Troco: *R$ ${paymentMethod.trocoTotal.toFixed(2).replace('.', ',')}*`;
+            paymentText = `Pagamento: *Dinheiro*\nTroco para: *R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')}*\nTroco: *R$ ${paymentMethod.trocoTotal.toFixed(2).replace('.', ',')}*`;
         } else {
             paymentText = `Pagamento: *${paymentMethod}*`;
         }
@@ -112,7 +111,7 @@ ${discountText}Taxa de Entrega: R$ ${total.deliveryFee.toFixed(2).replace('.', '
 ${paymentText}
         `;
         
-        const targetNumber = `55${whatsappNumber.replace(/\\D/g, '')}`;
+        const targetNumber = `55${whatsappNumber.replace(/\D/g, '')}`;
         const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(fullMessage.trim())}`;
 
         res.status(200).json({ success: true, whatsappUrl, pdvSaved });
