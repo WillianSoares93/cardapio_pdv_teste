@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Disponibilidade - Sâmia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia/refs/heads/main/logo.png" type="image/png">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f3f4f6;
+            visibility: hidden; /* Esconde o corpo até a autenticação ser verificada */
+        }
+        .tab-btn {
+            transition: all 0.2s ease-in-out;
+            border-bottom: 4px solid transparent;
+        }
+        .tab-btn.active {
+            border-bottom-color: #ef4444; /* Red color for the active tab */
+            color: #1f2937;
+        }
+        .filter-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        /* Estilos para o Toggle Switch */
+        .toggle-bg:after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            background: white;
+            width: 1.25rem; /* h-5 */
+            height: 1.25rem; /* w-5 */
+            border-radius: 9999px;
+            transition: transform 0.2s ease-in-out;
+        }
+        input:checked + .toggle-bg:after {
+            transform: translateX(100%);
+            border-color: white;
+        }
+        input:checked + .toggle-bg {
+            background-color: #22c55e; /* green-500 */
+        }
+        input:disabled + .toggle-bg {
+            cursor: not-allowed;
+            background-color: #d1d5db; /* gray-400 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <header class="bg-white shadow-md">
+        <div class="max-w-5xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800">Gerenciar Disponibilidade</h1>
+            <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">
+                <i class="fas fa-sign-out-alt mr-2"></i>Sair
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            
+            <div class="border-b border-gray-200 mb-4">
+                <nav id="availability-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
+                    <button class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="item-panel">
+                        Itens do Cardápio
+                    </button>
+                    <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="ingredient-panel">
+                        Ingredientes
+                    </button>
+                </nav>
+            </div>
+
+            <div id="availability-container">
+                <div id="item-panel" class="tab-panel">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <input type="text" id="search-item" placeholder="Buscar item..." class="md:col-span-1 p-2 border rounded-md">
+                        <select id="item-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
+                        <div id="item-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
+                    </div>
+                    <div id="item-availability-list" class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
+                        <p class="text-gray-500">Carregando itens...</p>
+                    </div>
+                </div>
+
+                <div id="ingredient-panel" class="tab-panel hidden">
+                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <input type="text" id="search-ingredient" placeholder="Buscar ingrediente..." class="md:col-span-1 p-2 border rounded-md">
+                        <select id="ingredient-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
+                        <div id="ingredient-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
+                    </div>
+                    <div id="ingredient-availability-list" class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
+                        <p class="text-gray-500">Carregando ingredientes...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
+            authDomain: "samia-cardapio.firebaseapp.com",
+            projectId: "samia-cardapio",
+            storageBucket: "samia-cardapio.firebasestorage.app",
+            messagingSenderId: "223260436641",
+            appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.body.style.visibility = 'visible';
+                initializeManager();
+            } else {
+                window.location.href = `login.html?redirect=gerenciar.html`;
+            }
+        });
+
+        const logoutBtn = document.getElementById('logout-btn');
+        logoutBtn.addEventListener('click', () => signOut(auth));
+
+        const itemAvailabilityList = document.getElementById('item-availability-list');
+        const ingredientAvailabilityList = document.getElementById('ingredient-availability-list');
+        const tabsContainer = document.getElementById('availability-tabs');
+        const tabPanels = document.querySelectorAll('.tab-panel');
+
+        let allItems = [];
+        let allIngredients = [];
+        let itemStatus = {};
+        let itemVisibility = {};
+        let ingredientStatus = {};
+        let ingredientVisibility = {};
+
+        async function initializeManager() {
+            await fetchMenuData();
+            // Renderiza as listas iniciais
+            renderItemAvailabilityList();
+            renderIngredientAvailabilityList();
+            // Configura os listeners e filtros
+            listenToStatusChanges();
+            setupTabs();
+            setupFilters();
+        }
+
+        function setupTabs() {
+            tabsContainer.addEventListener('click', (e) => {
+                const clickedTab = e.target.closest('.tab-btn');
+                if (!clickedTab) return;
+
+                tabsContainer.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                clickedTab.classList.add('active');
+
+                const targetPanelId = clickedTab.dataset.target;
+                tabPanels.forEach(panel => {
+                    panel.id === targetPanelId ? panel.classList.remove('hidden') : panel.classList.add('hidden');
+                });
+                filterLists(); 
+            });
+        }
+
+        function setupFilters() {
+            ['item', 'ingredient'].forEach(type => {
+                document.getElementById(`search-${type}`).addEventListener('input', filterLists);
+                document.getElementById(`${type}-category-select`).addEventListener('change', filterLists);
+                document.getElementById(`${type}-status-filters`).addEventListener('click', (e) => {
+                    if (e.target.tagName === 'BUTTON') {
+                        document.querySelectorAll(`#${type}-status-filters button`).forEach(btn => {
+                            btn.classList.remove('bg-white', 'shadow');
+                            btn.classList.add('text-gray-500');
+                        });
+                        e.target.classList.add('bg-white', 'shadow');
+                        e.target.classList.remove('text-gray-500');
+                        filterLists();
+                    }
+                });
+            });
+        }
+
+        async function fetchMenuData() {
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Falha ao buscar o cardápio');
+                const data = await response.json();
+                allItems = data.cardapio || [];
+                allIngredients = data.ingredientesHamburguer || [];
+            } catch (error) {
+                console.error("Erro ao carregar dados do menu:", error);
+                itemAvailabilityList.innerHTML = '<p class="text-red-500">Erro ao carregar itens.</p>';
+                ingredientAvailabilityList.innerHTML = '<p class="text-red-500">Erro ao carregar ingredientes.</p>';
+            }
+        }
+
+        function listenToStatusChanges() {
+            // Apenas atualiza os dados e reaplica os filtros, não renderiza tudo de novo
+            onSnapshot(doc(db, "config", "item_status"), (doc) => {
+                itemStatus = doc.exists() ? doc.data() : {};
+                updateAllRows();
+                filterLists();
+            });
+            onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
+                itemVisibility = doc.exists() ? doc.data() : {};
+                updateAllRows();
+                filterLists();
+            });
+            onSnapshot(doc(db, "config", "ingredient_status"), (doc) => {
+                ingredientStatus = doc.exists() ? doc.data() : {};
+                updateAllRows();
+                filterLists();
+            });
+            onSnapshot(doc(db, "config", "ingredient_visibility"), (doc) => {
+                ingredientVisibility = doc.exists() ? doc.data() : {};
+                updateAllRows();
+                filterLists();
+            });
+        }
+        
+        // Função para atualizar o estado visual de todas as linhas sem recriá-las
+        function updateAllRows() {
+            document.querySelectorAll('.availability-row').forEach(row => {
+                const type = row.closest('.tab-panel').id.includes('item') ? 'item' : 'ingredient';
+                const itemId = row.dataset.itemId;
+
+                const isAvailable = (type === 'item' ? itemStatus[itemId] : ingredientStatus[itemId]) !== false;
+                const isVisible = (type === 'item' ? itemVisibility[itemId] : ingredientVisibility[itemId]) !== false;
+                
+                const availabilityToggle = row.querySelector('.availability-toggle');
+                const visibilityToggle = row.querySelector('.visibility-toggle');
+                
+                availabilityToggle.checked = isAvailable;
+                visibilityToggle.checked = isVisible;
+                
+                availabilityToggle.disabled = !isVisible;
+                if (!isVisible) {
+                    availabilityToggle.closest('label').classList.add('opacity-50');
+                } else {
+                     availabilityToggle.closest('label').classList.remove('opacity-50');
+                }
+                
+                row.querySelector('span:first-of-type + div span:first-of-type').textContent = isAvailable ? 'Disponível' : 'Esgotado';
+                row.querySelector('div label:last-of-type span').textContent = isVisible ? 'Visível' : 'Oculto';
+            });
+        }
+
+
+        function renderItemAvailabilityList() {
+            renderList(allItems, itemAvailabilityList, 'item');
+            populateCategorySelect(allItems, document.getElementById('item-category-select'));
+            renderStatusFilters(document.getElementById('item-status-filters'));
+        }
+
+        function renderIngredientAvailabilityList() {
+            renderList(allIngredients, ingredientAvailabilityList, 'ingredient');
+            populateCategorySelect(allIngredients, document.getElementById('ingredient-category-select'));
+            renderStatusFilters(document.getElementById('ingredient-status-filters'));
+        }
+
+        // renderList agora só cria o HTML inicial
+        function renderList(items, container, type) {
+            container.innerHTML = '';
+            if (!Array.isArray(items) || items.length === 0) {
+                container.innerHTML = `<p class="text-gray-500">Nenhum ${type === 'item' ? 'item' : 'ingrediente'} encontrado.</p>`;
+                return;
+            }
+            const itemsByCategory = groupByCategory(items);
+            for (const category in itemsByCategory) {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.dataset.categoryGroup = category;
+                categoryDiv.innerHTML = `<h3 class="text-lg font-medium text-gray-700">${category}</h3>`;
+                const list = document.createElement('div');
+                list.className = 'mt-2 space-y-3';
+                itemsByCategory[category].forEach(item => {
+                    list.appendChild(createAvailabilityRow(item, type));
+                });
+                categoryDiv.appendChild(list);
+                container.appendChild(categoryDiv);
+            }
+            // A chamada para filterLists() foi removida daqui para quebrar o loop
+        }
+
+        function populateCategorySelect(items, selectElement) {
+            const categories = ['Todos', ...new Set(items.map(item => item.category || 'Outros'))];
+            const currentVal = selectElement.value;
+            selectElement.innerHTML = '';
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                selectElement.appendChild(option);
+            });
+            if (currentVal) selectElement.value = currentVal;
+        }
+
+        function renderStatusFilters(container) {
+            if (container.children.length > 0) return;
+            const statuses = ['Todos', 'Disponíveis', 'Esgotados', 'Ocultos'];
+            statuses.forEach((status, index) => {
+                const button = document.createElement('button');
+                button.className = `filter-btn flex-1 p-1 rounded-md text-sm font-semibold ${index === 0 ? 'bg-white shadow' : 'text-gray-500'}`;
+                button.textContent = status;
+                button.dataset.status = status;
+                container.appendChild(button);
+            });
+        }
+
+        function createAvailabilityRow(item, type) {
+            const row = document.createElement('div');
+            row.className = 'availability-row flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-md bg-gray-50';
+            row.dataset.name = item.name.toLowerCase();
+            row.dataset.category = item.category || 'Outros';
+            row.dataset.itemId = item.id;
+
+            const isAvailable = (type === 'item' ? itemStatus[item.id] : ingredientStatus[item.id]) !== false;
+            const isVisible = (type === 'item' ? itemVisibility[item.id] : ingredientVisibility[item.id]) !== false;
+            
+            row.innerHTML = `
+                <span class="font-medium text-gray-800">${item.name}</span>
+                <div class="flex items-center space-x-6 mt-2 sm:mt-0">
+                    <label class="flex items-center cursor-pointer ${!isVisible ? 'opacity-50' : ''}">
+                        <span class="mr-3 text-sm font-medium text-gray-900">${isAvailable ? 'Disponível' : 'Esgotado'}</span>
+                        <div class="relative">
+                            <input type="checkbox" class="sr-only peer availability-toggle" data-type="availability" ${isAvailable ? 'checked' : ''} ${!isVisible ? 'disabled' : ''}>
+                            <div class="toggle-bg w-11 h-6 bg-gray-200 rounded-full peer"></div>
+                        </div>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <span class="mr-3 text-sm font-medium text-gray-900">${isVisible ? 'Visível' : 'Oculto'}</span>
+                        <div class="relative">
+                            <input type="checkbox" class="sr-only peer visibility-toggle" data-type="visibility" ${isVisible ? 'checked' : ''}>
+                            <div class="toggle-bg w-11 h-6 bg-gray-200 rounded-full peer"></div>
+                        </div>
+                    </label>
+                </div>
+            `;
+
+            row.querySelector('.availability-toggle').addEventListener('change', (e) => {
+                updateStatus(item.id, type, e.target.checked, null);
+            });
+            row.querySelector('.visibility-toggle').addEventListener('change', (e) => {
+                const newVisibility = e.target.checked;
+                updateStatus(item.id, type, newVisibility, newVisibility);
+            });
+
+            return row;
+        }
+
+        async function updateStatus(id, type, isAvailable, isVisible) {
+            const statusCollection = type === 'item' ? 'item_status' : 'ingredient_status';
+            const visibilityCollection = type === 'item' ? 'item_visibility' : 'ingredient_visibility';
+
+            try {
+                if (isVisible !== null) {
+                    const visibilityRef = doc(db, "config", visibilityCollection);
+                    await setDoc(visibilityRef, { [id]: isVisible }, { merge: true });
+                }
+                
+                const finalAvailability = (isVisible === false) ? false : isAvailable;
+
+                if (finalAvailability !== null) {
+                    const statusRef = doc(db, "config", statusCollection);
+                    await setDoc(statusRef, { [id]: finalAvailability }, { merge: true });
+                }
+            } catch (error) {
+                console.error("Erro ao atualizar status:", error);
+                alert("Não foi possível atualizar o status. Tente novamente.");
+            }
+        }
+
+        // filterLists agora apenas mostra ou esconde as linhas
+        function filterLists() {
+            const activePanel = document.querySelector('.tab-panel:not(.hidden)');
+            if (!activePanel) return;
+
+            const type = activePanel.id.includes('item') ? 'item' : 'ingredient';
+            const searchTerm = document.getElementById(`search-${type}`).value.toLowerCase();
+            const selectedCategory = document.getElementById(`${type}-category-select`).value;
+            const activeStatusBtn = document.querySelector(`#${type}-status-filters .bg-white`);
+            const activeStatus = activeStatusBtn ? activeStatusBtn.dataset.status : 'Todos';
+
+            activePanel.querySelectorAll('.availability-row').forEach(row => {
+                const itemId = row.dataset.itemId;
+                const nameMatch = row.dataset.name.includes(searchTerm);
+                const categoryMatch = selectedCategory === 'Todos' || row.dataset.category === selectedCategory;
+
+                const currentIsAvailable = (type === 'item' ? itemStatus[itemId] : ingredientStatus[itemId]) !== false;
+                const currentIsVisible = (type === 'item' ? itemVisibility[itemId] : ingredientVisibility[itemId]) !== false;
+                
+                let statusMatch = false;
+                switch (activeStatus) {
+                    case 'Disponíveis':
+                        statusMatch = currentIsVisible && currentIsAvailable;
+                        break;
+                    case 'Esgotados':
+                        statusMatch = currentIsVisible && !currentIsAvailable;
+                        break;
+                    case 'Ocultos':
+                        statusMatch = !currentIsVisible;
+                        break;
+                    default: // 'Todos'
+                        statusMatch = true;
+                }
+
+                if (nameMatch && categoryMatch && statusMatch) {
+                    row.style.display = 'flex';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            activePanel.querySelectorAll('[data-category-group]').forEach(titleDiv => {
+                const hasVisibleItems = Array.from(titleDiv.querySelectorAll('.availability-row')).some(row => row.style.display !== 'none');
+                titleDiv.style.display = hasVisibleItems ? 'block' : 'none';
+            });
+        }
+
+        function groupByCategory(items) {
+            if (!Array.isArray(items)) return {};
+            return items.reduce((acc, item) => {
+                const category = item.category || 'Outros';
+                if (!acc[category]) {
+                    acc[category] = [];
+                }
+                acc[category].push(item);
+                return acc;
+            }, {});
+        }
+
+    </script>
+
+</body>
+</html>

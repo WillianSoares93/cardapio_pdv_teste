@@ -1,0 +1,26 @@
+{
+  "name": "Sâmia - Pizzaria & Hamburgueria",
+  "short_name": "Sâmia",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "Cardápio online da Sâmia - Pizzaria e Hamburgueria, com opção de PWA para instalação.",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}
