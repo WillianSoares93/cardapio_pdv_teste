@@ -2007,7 +2007,7 @@
                     if (data && data.whatsappUrl) {
                         window.open(data.whatsappUrl, '_blank');
                         if (data.pdvSaved === false) {
-                            console.warn('[PDV] Pedido não foi salvo no Firestore (simulado). prosseguindo com WhatsApp.');
+                            console.warn('[PDV] Pedido não foi salvo no Firestore (simulado). prosseguindo com WhatsApp.', data.pdvError ? { error: data.pdvError } : {});
                             showMessageModal('Aviso: O pedido foi enviado ao WhatsApp, mas não conseguimos registrar no PDV. A equipe será notificada.');
                         } else {
                             clearOrder();
