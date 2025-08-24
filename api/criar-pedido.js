@@ -21,26 +21,48 @@ const db = getFirestore(app);
 
 async function notifyDeveloperOnPdvFailure({ error, order, selectedAddress, total, paymentMethod }) {
     try {
-        const webhookUrl = process.env.NOTIFY_WEBHOOK_URL;
-        if (!webhookUrl) {
-            console.warn('[Notify] NOTIFY_WEBHOOK_URL não configurada; notificação não enviada.');
+        const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL || process.env.NOTIFY_WEBHOOK_URL;
+        if (!slackWebhookUrl) {
+            console.warn('[Notify] SLACK_WEBHOOK_URL/NOTIFY_WEBHOOK_URL não configurada; notificação não enviada.');
             return;
         }
-        const payload = {
-            type: 'PDV_SAVE_FAILURE',
-            timestamp: new Date().toISOString(),
-            error: String(error && error.message ? error.message : error),
-            summary: {
-                itemsCount: Array.isArray(order) ? order.length : 0,
-                totalFinal: total && typeof total.finalTotal === 'number' ? total.finalTotal : null,
-                payment: typeof paymentMethod === 'object' ? paymentMethod.method : paymentMethod || null,
-                bairro: selectedAddress && selectedAddress.bairro ? selectedAddress.bairro : null
-            }
+
+        const errMsg = String(error && error.message ? error.message : error);
+        const itemsCount = Array.isArray(order) ? order.length : 0;
+        const totalFinal = total && typeof total.finalTotal === 'number' ? total.finalTotal : null;
+        const payment = typeof paymentMethod === 'object' ? paymentMethod.method : paymentMethod || null;
+        const bairro = selectedAddress && selectedAddress.bairro ? selectedAddress.bairro : null;
+
+        const slackPayload = {
+            text: `PDV_SAVE_FAILURE: erro ao salvar pedido no Firestore` ,
+            blocks: [
+                {
+                    type: 'header',
+                    text: { type: 'plain_text', text: '🚨 Falha ao salvar no PDV (Firestore)', emoji: true }
+                },
+                {
+                    type: 'section',
+                    fields: [
+                        { type: 'mrkdwn', text: `*Erro:*\n${errMsg}` },
+                        { type: 'mrkdwn', text: `*Quando:*\n${new Date().toISOString()}` }
+                    ]
+                },
+                {
+                    type: 'section',
+                    fields: [
+                        { type: 'mrkdwn', text: `*Itens:*\n${itemsCount}` },
+                        { type: 'mrkdwn', text: `*Total:*\n${totalFinal !== null ? 'R$ ' + totalFinal.toFixed(2).replace('.', ',') : '—'}` },
+                        { type: 'mrkdwn', text: `*Pagamento:*\n${payment || '—'}` },
+                        { type: 'mrkdwn', text: `*Bairro:*\n${bairro || '—'}` }
+                    ]
+                }
+            ]
         };
-        await fetch(webhookUrl, {
+
+        await fetch(slackWebhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(slackPayload)
         });
     } catch (notifyErr) {
         console.error('[Notify] Falha ao notificar desenvolvedor:', notifyErr);
