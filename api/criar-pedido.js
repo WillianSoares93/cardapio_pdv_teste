@@ -1,13 +1,14 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 
+// Configuração do Firebase corrigida para apontar para o projeto "samia-cardapio"
 const firebaseConfig = {
-  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
-  authDomain: "pizzaria-pdv.firebaseapp.com",
-  projectId: "pizzaria-pdv",
-  storageBucket: "pizzaria-pdv.firebasestorage.app",
-  messagingSenderId: "304171744691",
-  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+  apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
+  authDomain: "samia-cardapio.firebaseapp.com",
+  projectId: "samia-cardapio",
+  storageBucket: "samia-cardapio.firebasestorage.app",
+  messagingSenderId: "223260436641",
+  appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
 };
 
 let app;
@@ -35,9 +36,7 @@ export default async (req, res) => {
             return res.status(400).json({ error: 'O número de WhatsApp para receber o pedido não foi configurado.' });
         }
 
-        // --- INÍCIO DA CORREÇÃO ---
-
-        // PASSO 1: Toda a lógica de criação da mensagem é movida para o início.
+        // PASSO 1: A mensagem e o link do WhatsApp são gerados primeiro.
         const itemsByCategory = order.reduce((acc, item) => {
             const category = item.category || 'Outros';
             if (!acc[category]) {
@@ -94,9 +93,14 @@ ${paymentText}
         
         const targetNumber = `55${whatsappNumber.replace(/\D/g, '')}`;
         const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(fullMessage.trim())}`;
-
-        // PASSO 2: A tentativa de salvar no banco de dados é isolada.
+        
+        // PASSO 2: Tentamos salvar no banco de dados de forma isolada.
         try {
+            // --- INÍCIO DA ALTERAÇÃO ---
+            // Linha adicionada para simular um erro e testar a lógica de segurança.
+            throw new Error("Simulando falha ao salvar no Firestore");
+            // --- FIM DA ALTERAÇÃO ---
+
             await addDoc(collection(db, "pedidos"), {
                 itens: order,
                 endereco: selectedAddress,
@@ -109,10 +113,8 @@ ${paymentText}
             console.error("ALERTA: O pedido foi enviado para o WhatsApp, mas FALHOU ao salvar no Firestore (PDV).", dbError);
         }
         
-        // PASSO 3: A resposta de sucesso é enviada por último, garantindo que whatsappUrl já existe.
+        // PASSO 3: O link do WhatsApp é sempre retornado com sucesso.
         res.status(200).json({ success: true, whatsappUrl });
-
-        // --- FIM DA CORREÇÃO ---
 
     } catch (error) {
         console.error('Erro ao processar pedido:', error);
