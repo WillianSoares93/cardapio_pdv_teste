@@ -38,6 +38,8 @@ export default async (req, res) => {
         // Salva o pedido no Firestore
         let pdvSaved = false;
         try {
+            // Simulação de erro ao salvar no Firestore (para testes)
+            throw new Error('SIMULATED_FIRESTORE_ERROR');
             await addDoc(collection(db, "pedidos"), {
                 itens: order,
                 endereco: selectedAddress,
