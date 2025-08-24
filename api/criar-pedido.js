@@ -90,9 +90,12 @@ export default async (req, res) => {
         let pdvSaved = false;
         let pdvError = null;
         try {
-            // Simulação de erro ao salvar no Firestore (para testes)
-            console.error('[TEST] Simulando erro no Firestore: SIMULATED_FIRESTORE_ERROR');
-            throw new Error('SIMULATED_FIRESTORE_ERROR');
+            // Simulação de erro controlada por variável de ambiente
+            const simulateError = String(process.env.SIMULATE_FIRESTORE_ERROR || '').toLowerCase() === 'true';
+            if (simulateError) {
+                console.error('[TEST] Simulando erro no Firestore: SIMULATED_FIRESTORE_ERROR');
+                throw new Error('SIMULATED_FIRESTORE_ERROR');
+            }
             await addDoc(collection(db, "pedidos"), {
                 itens: order,
                 endereco: selectedAddress,
