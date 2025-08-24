@@ -35,49 +35,32 @@ export default async (req, res) => {
             return res.status(400).json({ error: 'O número de WhatsApp para receber o pedido não foi configurado.' });
         }
 
-// Monta a mensagem para o WhatsApp agrupando por categoria
-const itemsByCategory = order.reduce((acc, item) => {
-    const category = item.category || 'Outros';
-    if (!acc[category]) {
-        acc[category] = [];
-    }
-    acc[category].push(item);
-    return acc;
-}, {});
+        // --- INÍCIO DA CORREÇÃO ---
 
+        // PASSO 1: Toda a lógica de criação da mensagem é movida para o início.
+        const itemsByCategory = order.reduce((acc, item) => {
+            const category = item.category || 'Outros';
+            if (!acc[category]) {
+                acc[category] = [];
+            }
+            acc[category].push(item);
+            return acc;
+        }, {});
 
-
- // Salva o pedido no Firestore
-// Tenta salvar no PDV, mas não para a execução se falhar
-try {
-    await addDoc(collection(db, "pedidos"), {
-        itens: order,
-        endereco: selectedAddress,
-        total: total,
-        pagamento: paymentMethod,
-        status: 'Novo',
-        criadoEm: serverTimestamp()
-    });
-} catch (dbError) {
-    console.error("ALERTA: O pedido foi enviado para o WhatsApp, mas FALHOU ao salvar no Firestore (PDV).", dbError);
-}
-        res.status(200).json({ success: true, whatsappUrl });
-
-
-let itemsText = '';
-for (const category in itemsByCategory) {
-    itemsText += `\n*-- ${category.toUpperCase()} --*\n`;
-    itemsText += itemsByCategory[category].map(item => {
-        let itemDescription = `- *${item.name}* - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
-        if (item.type === 'custom_burger' && item.ingredients) {
-            itemDescription += item.ingredients.map(ing => {
-                const formattedName = ing.name.replace(/\(x\d+\)/g, match => `*${match}*`);
-                return `        - ${formattedName}\n`;
+        let itemsText = '';
+        for (const category in itemsByCategory) {
+            itemsText += `\n*-- ${category.toUpperCase()} --*\n`;
+            itemsText += itemsByCategory[category].map(item => {
+                let itemDescription = `- *${item.name}* - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
+                if (item.type === 'custom_burger' && item.ingredients) {
+                    itemDescription += item.ingredients.map(ing => {
+                        const formattedName = ing.name.replace(/\(x\d+\)/g, match => `*${match}*`);
+                        return `        - ${formattedName}\n`;
+                    }).join('');
+                }
+                return itemDescription;
             }).join('');
         }
-        return itemDescription;
-    }).join('');
-}
 
         let paymentText = '';
         if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
@@ -85,12 +68,12 @@ for (const category in itemsByCategory) {
         } else {
             paymentText = `Pagamento: *${paymentMethod}*`;
         }
-		
-// NOVO: Cria a linha de desconto apenas se houver um desconto
+
         let discountText = '';
         if (total.discount && total.discount > 0) {
             discountText = `Desconto: - R$ ${total.discount.toFixed(2).replace('.', ',')}\n`;
         }
+
         const fullMessage = `
 *-- NOVO PEDIDO --*
 
@@ -112,7 +95,24 @@ ${paymentText}
         const targetNumber = `55${whatsappNumber.replace(/\D/g, '')}`;
         const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(fullMessage.trim())}`;
 
+        // PASSO 2: A tentativa de salvar no banco de dados é isolada.
+        try {
+            await addDoc(collection(db, "pedidos"), {
+                itens: order,
+                endereco: selectedAddress,
+                total: total,
+                pagamento: paymentMethod,
+                status: 'Novo',
+                criadoEm: serverTimestamp()
+            });
+        } catch (dbError) {
+            console.error("ALERTA: O pedido foi enviado para o WhatsApp, mas FALHOU ao salvar no Firestore (PDV).", dbError);
+        }
+        
+        // PASSO 3: A resposta de sucesso é enviada por último, garantindo que whatsappUrl já existe.
+        res.status(200).json({ success: true, whatsappUrl });
 
+        // --- FIM DA CORREÇÃO ---
 
     } catch (error) {
         console.error('Erro ao processar pedido:', error);
