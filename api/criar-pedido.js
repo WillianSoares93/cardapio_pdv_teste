@@ -2,12 +2,12 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
-  authDomain: "samia-cardapio.firebaseapp.com",
-  projectId: "samia-cardapio",
-  storageBucket: "samia-cardapio.firebasestorage.app",
-  messagingSenderId: "223260436641",
-  appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
+  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+  authDomain: "pizzaria-pdv.firebaseapp.com",
+  projectId: "pizzaria-pdv",
+  storageBucket: "pizzaria-pdv.firebasestorage.app",
+  messagingSenderId: "304171744691",
+  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
 };
 
 let app;
@@ -35,18 +35,6 @@ export default async (req, res) => {
             return res.status(400).json({ error: 'O número de WhatsApp para receber o pedido não foi configurado.' });
         }
 
-throw new Error("Erro de simulação: Falha ao conectar com o banco de dados.");
-        // Salva o pedido no Firestore
-        await addDoc(collection(db, "pedidos"), {
-            itens: order,
-            endereco: selectedAddress,
-            total: total,
-            pagamento: paymentMethod,
-            status: 'Novo',
-            criadoEm: serverTimestamp()
-        });
-
-
 // Monta a mensagem para o WhatsApp agrupando por categoria
 const itemsByCategory = order.reduce((acc, item) => {
     const category = item.category || 'Outros';
@@ -56,6 +44,25 @@ const itemsByCategory = order.reduce((acc, item) => {
     acc[category].push(item);
     return acc;
 }, {});
+
+
+
+ // Salva o pedido no Firestore
+// Tenta salvar no PDV, mas não para a execução se falhar
+try {
+    await addDoc(collection(db, "pedidos"), {
+        itens: order,
+        endereco: selectedAddress,
+        total: total,
+        pagamento: paymentMethod,
+        status: 'Novo',
+        criadoEm: serverTimestamp()
+    });
+} catch (dbError) {
+    console.error("ALERTA: O pedido foi enviado para o WhatsApp, mas FALHOU ao salvar no Firestore (PDV).", dbError);
+}
+        res.status(200).json({ success: true, whatsappUrl });
+
 
 let itemsText = '';
 for (const category in itemsByCategory) {
@@ -105,7 +112,7 @@ ${paymentText}
         const targetNumber = `55${whatsappNumber.replace(/\D/g, '')}`;
         const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(fullMessage.trim())}`;
 
-        res.status(200).json({ success: true, whatsappUrl });
+
 
     } catch (error) {
         console.error('Erro ao processar pedido:', error);
