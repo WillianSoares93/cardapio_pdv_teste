@@ -26,7 +26,7 @@ const db = getFirestore(app);
 
 
 // URLs das suas planhas Google Sheets publicadas como CSV.
-// CORREÇÃO: As URLs foram alteradas de /pubhtml para /export?format=csv
+// CORREÇÃO: As URLs de Taxas de Entrega e Ingredientes foram corrigidas.
 const CARDAPIO_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=664943668';          
 const PROMOCOES_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=600393470'; 
 const DELIVERY_FEES_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=1695668250';
