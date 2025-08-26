@@ -25,8 +25,65 @@ if (!getApps().length) {
 const db = getFirestore(app);
 
 
+
+/*Mini Tutorial: Convertendo Links do Google Sheets para Download Direto em CSV
+O objetivo é transformar um link normal do Google Sheets em um link especial que, ao ser acessado, baixa diretamente o arquivo .csv de uma aba específica.
+
+Passo 0: Ajustar o Compartilhamento (Obrigatório)
+Antes de tudo, para que o link de download funcione para qualquer pessoa ou sistema, você precisa configurar a permissão de acesso corretamente.
+
+Com a planilha aberta, clique no botão "Compartilhar" no canto superior direito.
+
+Na seção "Acesso geral", mude a opção de "Restrito" para "Qualquer pessoa com o link".
+
+Garanta que o papel ao lado esteja definido como "Leitor".
+
+Clique em "Concluído".
+
+Com a permissão ajustada, agora podemos montar o link. Vamos usar este formato como nosso modelo final:
+
+https://docs.google.com/spreadsheets/d/ID_DA_PLANILHA/export?format=csv&gid=ID_DA_ABA
+
+Passo 1: Encontrar o ID da Planilha
+Este é o identificador único de todo o seu arquivo.
+
+Olhe para a URL na barra de endereço do seu navegador.
+
+O ID é a longa sequência de letras e números que fica entre /d/ e /edit.
+
+Exemplo:
+Se a sua URL for: https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/edit#gid=664943668
+O ID_DA_PLANILHA é: 144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc
+
+Passo 2: Encontrar o GID (ID da Aba)
+Cada aba (ou página) dentro da sua planilha tem seu próprio ID, chamado de gid.
+
+Clique na aba específica que você quer compartilhar (Ex: "Cardapio", "Promoções", etc.).
+
+Olhe novamente para a URL. O gid é o número que aparece no final, depois de gid=.
+
+Exemplo:
+Se a sua URL for: https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/edit#gid=664943668
+O ID_DA_ABA é: 664943668
+
+Passo 3: Montar o Link Final
+Agora, junte as duas partes que você encontrou no nosso modelo:
+
+Comece com o modelo:
+https://docs.google.com/spreadsheets/d/ID_DA_PLANILHA/export?format=csv&gid=ID_DA_ABA
+
+Substitua ID_DA_PLANILHA pelo ID que você pegou no Passo 1.
+
+Substitua ID_DA_ABA pelo gid que você pegou no Passo 2.
+
+Resultado Final (usando nosso exemplo):
+https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=664943668
+
+*/
+
+
+//OBS: CASO NÃO TENHA EXTENSÃO DE CONVERTER O LINK, SIGA O TUTORIAL ACIMA.
 // URLs das suas planhas Google Sheets publicadas como CSV.
-// CORREÇÃO: As URLs de Taxas de Entrega e Ingredientes foram corrigidas.
 const CARDAPIO_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=664943668';          
 const PROMOCOES_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=600393470'; 
 const DELIVERY_FEES_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=1695668250';
