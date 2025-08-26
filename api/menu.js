@@ -113,32 +113,90 @@ function parseCsvData(csvText) {
     return parsedData;
 }
 
+// Função melhorada para fetch com retry e headers adequados
+async function fetchDataWithRetry(url, maxRetries = 3, delay = 1000) {
+    const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/csv, text/plain, */*',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+    };
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`Tentativa ${attempt}/${maxRetries} para ${url}`);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers,
+                timeout: 15000, // 15 segundos de timeout
+                follow: 10 // Seguir até 10 redirects
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const text = await response.text();
+            
+            // Verificar se o conteúdo é válido (não é uma página de erro do Google)
+            if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                throw new Error('Recebido HTML em vez de CSV - possível erro de autenticação');
+            }
+
+            console.log(`Sucesso na tentativa ${attempt} para ${url}`);
+            return text;
+
+        } catch (error) {
+            console.error(`Erro na tentativa ${attempt}/${maxRetries} para ${url}:`, error.message);
+            
+            if (attempt === maxRetries) {
+                throw new Error(`Falha após ${maxRetries} tentativas: ${error.message}`);
+            }
+            
+            // Delay exponencial entre tentativas
+            await new Promise(resolve => setTimeout(resolve, delay * attempt));
+        }
+    }
+}
+
 export default async (req, res) => {
     res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate'); 
 
     try {
-        const fetchData = async (url) => {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Falha ao buscar dados de ${url}`);
-            return response.text();
-        };
+        console.log('Iniciando busca de dados das planilhas...');
 
-        const [
-            cardapioCsv,
-            promocoesCsv,
-            deliveryFeesCsv,
-            ingredientesHamburguerCsv,
-            contactCsv
-        ] = await Promise.all([
-            fetchData(CARDAPIO_CSV_URL),
-            fetchData(PROMOCOES_CSV_URL),
-            fetchData(DELIVERY_FEES_CSV_URL),
-            fetchData(INGREDIENTES_HAMBURGUER_CSV_URL),
-            fetchData(CONTACT_CSV_URL)
-        ]);
+        // Buscar dados com tentativas sequenciais para evitar rate limiting
+        const results = {};
+        const urls = [
+            { key: 'cardapio', url: CARDAPIO_CSV_URL, name: 'Cardápio' },
+            { key: 'promocoes', url: PROMOCOES_CSV_URL, name: 'Promoções' },
+            { key: 'deliveryFees', url: DELIVERY_FEES_CSV_URL, name: 'Taxa de Entrega' },
+            { key: 'ingredientesHamburguer', url: INGREDIENTES_HAMBURGUER_CSV_URL, name: 'Ingredientes' },
+            { key: 'contact', url: CONTACT_CSV_URL, name: 'Contatos' }
+        ];
 
-        let cardapioJson = parseCsvData(cardapioCsv);
+        // Buscar sequencialmente para evitar rate limiting
+        for (const { key, url, name } of urls) {
+            try {
+                console.log(`Buscando ${name}...`);
+                results[key] = await fetchDataWithRetry(url);
+                console.log(`✓ ${name} carregado com sucesso`);
+                
+                // Pequeno delay entre requisições
+                await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (error) {
+                console.error(`✗ Erro ao carregar ${name}:`, error.message);
+                // Usar dados vazios como fallback
+                results[key] = '';
+            }
+        }
 
+        let cardapioJson = parseCsvData(results.cardapio);
+
+        // Verificar status dos itens no Firebase
         const itemStatusRef = doc(db, "config", "item_status");
         const itemStatusSnap = await getDoc(itemStatusRef);
         const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
@@ -150,16 +208,27 @@ export default async (req, res) => {
             return item;
         });
 
-        res.status(200).json({
+        const response = {
             cardapio: cardapioJson,
-            promocoes: parseCsvData(promocoesCsv),
-            deliveryFees: parseCsvData(deliveryFeesCsv),
-            ingredientesHamburguer: parseCsvData(ingredientesHamburguerCsv),
-            contact: parseCsvData(contactCsv)
-        });
+            promocoes: parseCsvData(results.promocoes),
+            deliveryFees: parseCsvData(results.deliveryFees),
+            ingredientesHamburguer: parseCsvData(results.ingredientesHamburguer),
+            contact: parseCsvData(results.contact),
+            timestamp: new Date().toISOString(),
+            success: true
+        };
+
+        console.log('Dados processados com sucesso');
+        res.status(200).json(response);
 
     } catch (error) {
         console.error('Vercel Function: Erro fatal:', error.message);
-        res.status(500).json({ error: `Erro interno no servidor: ${error.message}` });
+        console.error('Stack trace:', error.stack);
+        
+        res.status(500).json({ 
+            error: `Erro interno no servidor: ${error.message}`,
+            timestamp: new Date().toISOString(),
+            success: false
+        });
     }
 };
