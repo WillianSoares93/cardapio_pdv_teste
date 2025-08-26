@@ -870,14 +870,14 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             // --- INÍCIO DA CONFIGURAÇÃO DO FIREBASE ---
-			const firebaseConfig = {
-				apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
-				authDomain: "pizzaria-pdv.firebaseapp.com",
-				projectId: "pizzaria-pdv",
-				storageBucket: "pizzaria-pdv.firebasestorage.app",
-				messagingSenderId: "304171744691",
-				appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
-			};
+const firebaseConfig = {
+  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+  authDomain: "pizzaria-pdv.firebaseapp.com",
+  projectId: "pizzaria-pdv",
+  storageBucket: "pizzaria-pdv.firebasestorage.app",
+  messagingSenderId: "304171744691",
+  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+};
 
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
@@ -2484,13 +2484,17 @@
                 }
             }
 
-            function populateContactInfo(contacts) {
+		function populateContactInfo(contacts) {
                 const socialLinksEl = document.getElementById('social-links-container');
                 socialLinksEl.innerHTML = '';
                 
                 const contactData = contacts.reduce((acc, current) => {
-                    const key = current.data.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    acc[key] = current.value;
+                    // A linha abaixo é a principal alteração.
+                    // Verificamos se 'current' e 'current.data' existem antes de prosseguir.
+                    if (current && current.data && current.value) {
+                        const key = current.data.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        acc[key] = current.value;
+                    }
                     return acc;
                 }, {});
 
