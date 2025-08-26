@@ -2484,17 +2484,13 @@ const firebaseConfig = {
                 }
             }
 
-		function populateContactInfo(contacts) {
+            function populateContactInfo(contacts) {
                 const socialLinksEl = document.getElementById('social-links-container');
                 socialLinksEl.innerHTML = '';
                 
                 const contactData = contacts.reduce((acc, current) => {
-                    // A linha abaixo é a principal alteração.
-                    // Verificamos se 'current' e 'current.data' existem antes de prosseguir.
-                    if (current && current.data && current.value) {
-                        const key = current.data.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        acc[key] = current.value;
-                    }
+                    const key = current.data.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    acc[key] = current.value;
                     return acc;
                 }, {});
 
