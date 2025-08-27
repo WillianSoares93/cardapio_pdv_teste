@@ -1,3 +1,4 @@
+teste
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2006,10 +2007,13 @@ const firebaseConfig = {
                 .then(data => {
                     if (data && data.whatsappUrl) {
                         window.open(data.whatsappUrl, '_blank');
+                
+                        // Agora, limpamos o pedido independentemente do que aconteceu com o PDV.
+                        clearOrder(); 
+
                         if (data.pdvSaved === false) {
-                            console.warn('[PDV] Pedido não foi salvo no Firestore (simulado). prosseguindo com WhatsApp.', data.pdvError ? { error: data.pdvError } : {});
-                        } else {
-                            clearOrder();
+                            // Apenas deixamos um aviso no console para fins de depuração.
+                            console.warn('[PDV] O pedido foi enviado ao WhatsApp, mas falhou ao salvar no PDV. Atendente deve lançar manualmente.', data.pdvError ? { error: data.pdvError } : {});
                         }
                     } else {
                         showMessageModal('Erro ao enviar o pedido. Por favor, tente novamente.');
