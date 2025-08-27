@@ -460,7 +460,7 @@ const firebaseConfig = {
             const occupiedTables = new Set();
             const groupedTables = new Map();
 
-            activeOrders.filter(order => order.status !== 'Finalizado' && order.endereco.rua === 'Mesa')
+           activeOrders.filter(order => order.status !== 'Finalizado' && order.endereco && order.endereco.rua === 'Mesa')
                 .forEach(order => {
                     if (order.grupoMesas && order.grupoMesas.length > 0) {
                         const sortedGroup = [...order.grupoMesas].sort((a,b) => a-b);
