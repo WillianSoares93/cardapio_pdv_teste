@@ -72,26 +72,22 @@ export default async function handler(req, res) {
             const pendingOrderSnap = await getDoc(pendingOrderRef);
             let conversationState = pendingOrderSnap.exists() ? pendingOrderSnap.data() : { history: [] };
 
-            const intent = await determineUserIntent(userMessage, conversationState);
-
-            switch (intent) {
-                case 'ADD_ITEMS':
-                    await processNewOrder(userPhoneNumber, userMessage, conversationState);
+            // Usando a máquina de estados V4 que é estável
+            switch (conversationState.state) {
+                case 'confirming_items':
+                    await handleItemsConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
                     break;
-                case 'PROVIDE_ADDRESS':
+                case 'awaiting_address':
                     await handleAddressCapture(userPhoneNumber, userMessage, conversationState);
                     break;
-                case 'PROVIDE_PAYMENT':
+                case 'awaiting_payment':
                     await handlePaymentCapture(userPhoneNumber, userMessage, conversationState);
                     break;
-                case 'CONFIRMATION_YES':
-                    await handleConfirmation(userPhoneNumber, conversationState);
-                    break;
-                case 'CONFIRMATION_NO':
-                    await handleCancellation(userPhoneNumber, conversationState);
+                case 'confirming_order':
+                    await handleFinalConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
                     break;
                 default:
-                    await sendWhatsAppMessage(userPhoneNumber, "Desculpe, não entendi. Você pode reformular seu pedido ou dúvida?");
+                    await processNewOrder(userPhoneNumber, userMessage, conversationState);
             }
         } catch (error) {
             console.error('Erro ao processar mensagem:', error);
@@ -105,36 +101,13 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
 }
 
-// --- V5: ROTEADOR DE INTENÇÕES ---
-async function determineUserIntent(userMessage, conversationState) {
-    // CORREÇÃO: Prompt reescrito como um array de strings para máxima compatibilidade.
-    const promptLines = [
-        'Analise a mensagem do cliente e o estado atual da conversa para determinar a intenção principal.',
-        'Responda APENAS com uma das seguintes categorias:',
-        '- ADD_ITEMS: O cliente está a pedir, adicionar ou alterar itens do pedido.',
-        '- PROVIDE_ADDRESS: O cliente está a fornecer um endereço.',
-        '- PROVIDE_PAYMENT: O cliente está a informar uma forma de pagamento.',
-        '- CONFIRMATION_YES: O cliente está a confirmar ("sim", "correto", "pode mandar").',
-        '- CONFIRMATION_NO: O cliente está a negar ou cancelar ("não", "errado", "cancelar").',
-        '- GENERAL_QUERY: O cliente está a fazer uma pergunta geral.',
-        '',
-        `Estado da Conversa: ${conversationState.state || 'novo_pedido'}`,
-        `Histórico: ${JSON.stringify(conversationState.history.slice(-4))}`,
-        `Mensagem do Cliente: "${userMessage}"`,
-        '',
-        'Intenção:'
-    ];
-    const prompt = promptLines.join('\n');
-    const intent = await callGeminiForText(prompt);
-    return intent.trim();
-}
-
-// --- MÁQUINA DE ESTADOS DA CONVERSA (V5) ---
+// --- MÁQUINA DE ESTADOS DA CONVERSA (V5.1) ---
 
 async function processNewOrder(userPhoneNumber, userMessage, conversationState) {
     const menu = await fetchMenu();
     if (!menu) throw new Error('Não foi possível carregar o cardápio.');
 
+    // Usando o prompt V5 aprimorado
     const structuredOrder = await callGeminiForOrder(userMessage, menu, conversationState.history);
     if (!structuredOrder || !structuredOrder.itens || structuredOrder.itens.length === 0) {
         const reply = structuredOrder.clarification_question || 'Desculpe, não consegui entender seu pedido. Poderia ser mais específico?';
@@ -152,37 +125,26 @@ async function processNewOrder(userPhoneNumber, userMessage, conversationState) 
     confirmationMessage += `\n*Subtotal: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}*\n\nEstá correto? (Responda "sim" ou "não")`;
 
     const newConversationState = {
-        ...conversationState,
         state: 'confirming_items',
         itens: structuredOrder.itens,
         subtotal: total,
-        history: [...conversationState.history, { role: 'user', text: userMessage }, { role: 'bot', text: confirmationMessage }]
+        history: [...(conversationState.history || []), { role: 'user', text: userMessage }, { role: 'bot', text: confirmationMessage }]
     };
 
     await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), newConversationState);
     await sendWhatsAppMessage(userPhoneNumber, confirmationMessage);
 }
 
-async function handleConfirmation(userPhoneNumber, conversationState) {
-    switch (conversationState.state) {
-        case 'confirming_items':
-            conversationState.state = 'awaiting_address';
-            await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
-            await sendWhatsAppMessage(userPhoneNumber, 'Ótimo! Qual o seu endereço completo para entrega?');
-            break;
-        case 'confirming_order':
-            await handleFinalConfirmation(userPhoneNumber, conversationState);
-            break;
-        default:
-            await sendWhatsAppMessage(userPhoneNumber, "Obrigado por confirmar! Qual o próximo passo?");
+async function handleItemsConfirmation(userPhoneNumber, userMessage, conversationState) {
+    if (['sim', 's', 'correto', 'isso', 'pode mandar'].includes(userMessage)) {
+        conversationState.state = 'awaiting_address';
+        await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
+        await sendWhatsAppMessage(userPhoneNumber, 'Ótimo! Qual o seu endereço completo para entrega?');
+    } else {
+        // Permite que o cliente adicione mais itens ou corrija o pedido
+        await processNewOrder(userPhoneNumber, userMessage, conversationState);
     }
 }
-
-async function handleCancellation(userPhoneNumber, conversationState) {
-     await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-     await sendWhatsAppMessage(userPhoneNumber, 'Pedido cancelado. Quando quiser, é só começar de novo.');
-}
-
 
 async function handleAddressCapture(userPhoneNumber, userMessage, conversationState) {
     conversationState.state = 'awaiting_payment';
@@ -210,28 +172,33 @@ async function handlePaymentCapture(userPhoneNumber, userMessage, conversationSt
     await sendWhatsAppMessage(userPhoneNumber, finalMessage);
 }
 
-async function handleFinalConfirmation(userPhoneNumber, conversationState) {
-    const finalOrder = {
-        itens: conversationState.itens,
-        endereco: {
-            clientName: `Cliente WhatsApp ${userPhoneNumber.slice(-4)}`,
-            telefone: userPhoneNumber,
-            ...conversationState.endereco
-        },
-        total: {
-            subtotal: conversationState.subtotal,
-            deliveryFee: 0,
-            discount: 0,
-            finalTotal: conversationState.subtotal
-        },
-        pagamento: conversationState.pagamento,
-        status: 'Novo',
-        criadoEm: serverTimestamp()
-    };
+async function handleFinalConfirmation(userPhoneNumber, userMessage, conversationState) {
+    if (['sim', 's', 'correto', 'isso', 'pode mandar'].includes(userMessage)) {
+        const finalOrder = {
+            itens: conversationState.itens,
+            endereco: {
+                clientName: `Cliente WhatsApp ${userPhoneNumber.slice(-4)}`,
+                telefone: userPhoneNumber,
+                ...conversationState.endereco
+            },
+            total: {
+                subtotal: conversationState.subtotal,
+                deliveryFee: 0,
+                discount: 0,
+                finalTotal: conversationState.subtotal
+            },
+            pagamento: conversationState.pagamento,
+            status: 'Novo',
+            criadoEm: serverTimestamp()
+        };
 
-    await addDoc(collection(db, "pedidos"), finalOrder);
-    await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-    await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
+        await addDoc(collection(db, "pedidos"), finalOrder);
+        await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
+        await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
+    } else {
+        await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
+        await sendWhatsAppMessage(userPhoneNumber, 'Entendido. Pedido cancelado. Quando quiser, é só começar de novo.');
+    }
 }
 
 
@@ -321,7 +288,6 @@ async function callGeminiForOrder(userMessage, menu, history) {
         return { name: item.name, category: item.category, isCustomizable: item.isCustomizable, prices: prices };
     });
 
-    // CORREÇÃO: Prompt reescrito como um array de strings para máxima compatibilidade.
     const promptLines = [
         'Você é um atendente de pizzaria. Sua tarefa é analisar a MENSAGEM ATUAL DO CLIENTE e extrair o pedido, usando o CARDÁPIO e o HISTÓRICO da conversa como contexto.',
         '',
