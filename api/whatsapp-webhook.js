@@ -112,6 +112,7 @@ async function transcribeAudio(mediaId) {
         return null;
     }
     try {
+        // 1. Obter a URL do ficheiro de áudio da Meta
         const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
             headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
         });
@@ -119,17 +120,19 @@ async function transcribeAudio(mediaId) {
         const mediaData = await mediaUrlResponse.json();
         const audioUrl = mediaData.url;
 
+        // 2. Fazer o download do ficheiro de áudio
         const audioResponse = await fetch(audioUrl, {
             headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
         });
         if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio');
         const audioBuffer = await audioResponse.buffer();
 
+        // 3. Enviar para a API da Google para transcrição
         const audio = {
             content: audioBuffer.toString('base64'),
         };
         const config = {
-            encoding: 'OGG_OPUS',
+            encoding: 'OGG_OPUS', // WhatsApp usa este formato
             sampleRateHertz: 16000,
             languageCode: 'pt-BR',
         };
