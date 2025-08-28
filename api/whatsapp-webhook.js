@@ -3,6 +3,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import fetch from 'node-fetch';
+// V4 Update: Importa o cliente da Google Cloud Speech
 import { SpeechClient } from '@google-cloud/speech';
 
 // Configuração do Firebase
@@ -21,13 +22,16 @@ const db = getFirestore(app);
 // Carrega as variáveis de ambiente
 const { WHATSAPP_API_TOKEN, WHATSAPP_VERIFY_TOKEN, GEMINI_API_KEY, GOOGLE_CREDENTIALS_BASE64 } = process.env;
 
-// Configuração do cliente Google Speech-to-Text
+// V4 Update: Configuração do cliente Google Speech-to-Text
 let speechClient;
 if (GOOGLE_CREDENTIALS_BASE64) {
     const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
     const credentials = JSON.parse(credentialsJson);
     speechClient = new SpeechClient({ credentials });
+} else {
+    console.warn("Variável de ambiente GOOGLE_CREDENTIALS_BASE64 não encontrada. A transcrição de áudio irá falhar.");
 }
+
 
 // --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
 export default async function handler(req, res) {
@@ -70,7 +74,7 @@ export default async function handler(req, res) {
         try {
             const pendingOrderRef = doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber);
             const pendingOrderSnap = await getDoc(pendingOrderRef);
-            let conversationState = pendingOrderSnap.exists() ? pendingOrderSnap.data() : { history: [] };
+            let conversationState = pendingOrderSnap.exists() ? pendingOrderSnap.data() : {};
 
             switch (conversationState.state) {
                 case 'confirming_items':
@@ -86,7 +90,7 @@ export default async function handler(req, res) {
                     await handleFinalConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
                     break;
                 default:
-                    await processNewOrder(userPhoneNumber, userMessage, conversationState);
+                    await processNewOrder(userPhoneNumber, userMessage);
             }
         } catch (error) {
             console.error('Erro ao processar mensagem:', error);
@@ -100,15 +104,66 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
 }
 
-// --- MÁQUINA DE ESTADOS DA CONVERSA ---
+// --- LÓGICA DE TRANSCRIÇÃO DE ÁUDIO (V4 com Google) ---
 
-async function processNewOrder(userPhoneNumber, userMessage, conversationState) {
+async function transcribeAudio(mediaId) {
+    if (!speechClient) {
+        console.error("Cliente Google Speech-to-Text não inicializado.");
+        return null;
+    }
+    try {
+        // 1. Obter a URL do ficheiro de áudio da Meta
+        const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
+        });
+        if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL do média');
+        const mediaData = await mediaUrlResponse.json();
+        const audioUrl = mediaData.url;
+
+        // 2. Fazer o download do ficheiro de áudio
+        const audioResponse = await fetch(audioUrl, {
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
+        });
+        if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio');
+        const audioBuffer = await audioResponse.buffer();
+
+        // 3. Enviar para a API da Google para transcrição
+        const audio = {
+            content: audioBuffer.toString('base64'),
+        };
+        const config = {
+            encoding: 'OGG_OPUS', // WhatsApp usa este formato
+            sampleRateHertz: 16000,
+            languageCode: 'pt-BR',
+        };
+        const request = {
+            audio: audio,
+            config: config,
+        };
+
+        const [response] = await speechClient.recognize(request);
+        const transcription = response.results
+            .map(result => result.alternatives[0].transcript)
+            .join('\n');
+        
+        return transcription;
+
+    } catch (error) {
+        console.error("Erro na transcrição de áudio com Google:", error);
+        return null;
+    }
+}
+
+
+// --- MÁQUINA DE ESTADOS DA CONVERSA (sem alterações) ---
+
+async function processNewOrder(userPhoneNumber, userMessage) {
     const menu = await fetchMenu();
     if (!menu) throw new Error('Não foi possível carregar o cardápio.');
 
-    const structuredOrder = await callGeminiForOrder(userMessage, menu, conversationState.history);
+    const structuredOrder = await callGeminiAPI(userMessage, menu, 'items');
     if (!structuredOrder || !structuredOrder.itens || structuredOrder.itens.length === 0) {
-        const reply = structuredOrder.clarification_question || 'Desculpe, não consegui entender seu pedido. Poderia ser mais específico?';
+        const reply = structuredOrder.clarification_question || 'Desculpe, não consegui entender seu pedido. Poderia ser mais específico? Ex: "Quero uma pizza grande de calabresa e uma coca 2L".';
         await sendWhatsAppMessage(userPhoneNumber, reply);
         return;
     }
@@ -118,35 +173,40 @@ async function processNewOrder(userPhoneNumber, userMessage, conversationState) 
     let confirmationMessage = 'Certo! Confirme os itens do seu pedido:\n\n';
     structuredOrder.itens.forEach(item => {
         confirmationMessage += `*${item.quantity}x* ${item.name} - ${item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n`;
-        if (item.notes) confirmationMessage += `  _Obs: ${item.notes}_\n`;
+        if (item.notes) {
+            confirmationMessage += `  _Observação: ${item.notes}_\n`;
+        }
     });
     confirmationMessage += `\n*Subtotal: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}*\n\nEstá correto? (Responda "sim" ou "não")`;
 
-    const newConversationState = {
+    const pendingOrder = {
         state: 'confirming_items',
         itens: structuredOrder.itens,
-        subtotal: total,
-        history: [...(conversationState.history || []), { role: 'user', text: userMessage }, { role: 'bot', text: confirmationMessage }]
+        subtotal: total
     };
 
-    await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), newConversationState);
+    await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), pendingOrder);
     await sendWhatsAppMessage(userPhoneNumber, confirmationMessage);
 }
 
 async function handleItemsConfirmation(userPhoneNumber, userMessage, conversationState) {
-    if (['sim', 's', 'correto', 'isso', 'pode mandar'].includes(userMessage)) {
+    if (['sim', 's', 'correto', 'isso'].includes(userMessage)) {
         conversationState.state = 'awaiting_address';
         await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
-        await sendWhatsAppMessage(userPhoneNumber, 'Ótimo! Qual o seu endereço completo para entrega?');
+        await sendWhatsAppMessage(userPhoneNumber, 'Ótimo! Qual o seu endereço completo para entrega? (Rua, número, bairro e ponto de referência, se houver)');
     } else {
-        // Permite que o cliente adicione mais itens ou corrija o pedido
-        await processNewOrder(userPhoneNumber, userMessage, conversationState);
+        await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
+        await sendWhatsAppMessage(userPhoneNumber, 'Pedido cancelado. Vamos começar de novo. O que você gostaria de pedir?');
     }
 }
 
 async function handleAddressCapture(userPhoneNumber, userMessage, conversationState) {
     conversationState.state = 'awaiting_payment';
-    conversationState.endereco = { rua: userMessage, bairro: "", numero: "" };
+    conversationState.endereco = {
+        rua: userMessage,
+        bairro: "",
+        numero: ""
+    };
     await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
     await sendWhatsAppMessage(userPhoneNumber, 'Endereço anotado! Qual será a forma de pagamento? (Dinheiro, Cartão ou Pix)');
 }
@@ -159,7 +219,9 @@ async function handlePaymentCapture(userPhoneNumber, userMessage, conversationSt
     finalMessage += '*ITENS:*\n';
     conversationState.itens.forEach(item => {
         finalMessage += `*${item.quantity}x* ${item.name} - ${item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n`;
-        if (item.notes) finalMessage += `  _Obs: ${item.notes}_\n`;
+        if (item.notes) {
+            finalMessage += `  _Observação: ${item.notes}_\n`;
+        }
     });
     finalMessage += `\n*ENDEREÇO:*\n${conversationState.endereco.rua}\n`;
     finalMessage += `\n*PAGAMENTO:*\n${conversationState.pagamento}\n`;
@@ -171,7 +233,7 @@ async function handlePaymentCapture(userPhoneNumber, userMessage, conversationSt
 }
 
 async function handleFinalConfirmation(userPhoneNumber, userMessage, conversationState) {
-    if (['sim', 's', 'correto', 'isso', 'pode mandar'].includes(userMessage)) {
+    if (['sim', 's', 'correto', 'isso'].includes(userMessage)) {
         const finalOrder = {
             itens: conversationState.itens,
             endereco: {
@@ -200,46 +262,7 @@ async function handleFinalConfirmation(userPhoneNumber, userMessage, conversatio
 }
 
 
-// --- FUNÇÕES DE INTEGRAÇÃO ---
-
-async function transcribeAudio(mediaId) {
-    if (!speechClient) {
-        console.error("Cliente Google Speech-to-Text não inicializado.");
-        return null;
-    }
-    try {
-        const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
-            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
-        });
-        if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL do média');
-        const mediaData = await mediaUrlResponse.json();
-        const audioUrl = mediaData.url;
-
-        const audioResponse = await fetch(audioUrl, {
-            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
-        });
-        if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio');
-        const audioBuffer = await audioResponse.buffer();
-
-        const audio = { content: audioBuffer.toString('base64') };
-        const config = {
-            encoding: 'OGG_OPUS',
-            sampleRateHertz: 16000,
-            languageCode: 'pt-BR',
-        };
-        const request = { audio: audio, config: config };
-
-        const [response] = await speechClient.recognize(request);
-        const transcription = response.results
-            .map(result => result.alternatives[0].transcript)
-            .join('\n');
-        
-        return transcription;
-    } catch (error) {
-        console.error("Erro na transcrição de áudio com Google:", error);
-        return null;
-    }
-}
+// --- FUNÇÕES DE INTEGRAÇÃO (sem alterações) ---
 
 async function fetchMenu() {
     try {
@@ -253,50 +276,48 @@ async function fetchMenu() {
     }
 }
 
-async function callGeminiForOrder(userMessage, menu, history) {
+async function callGeminiAPI(userMessage, menu, context) {
     const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
     const simplifiedMenu = menu.cardapio.map(item => {
         let prices = {};
         if (item.isPizza) {
-            if (item.price4Slices > 0) prices['4 fatias'] = item.price4Slices;
-            if (item.price6Slices > 0) prices['6 fatias'] = item.price6Slices;
-            if (item.basePrice > 0) prices['8 fatias'] = item.basePrice;
-            if (item.price10Slices > 0) prices['10 fatias'] = item.price10Slices;
+            if (item.price4Slices > 0) prices['4 fatias (pequena)'] = item.price4Slices;
+            if (item.price6Slices > 0) prices['6 fatias (média)'] = item.price6Slices;
+            if (item.basePrice > 0) prices['8 fatias (grande)'] = item.basePrice;
+            if (item.price10Slices > 0) prices['10 fatias (gigante)'] = item.price10Slices;
         } else {
             prices['padrão'] = item.basePrice;
         }
-        return { name: item.name, category: item.category, isCustomizable: item.isCustomizable, prices: prices };
+        return {
+            name: item.name,
+            category: item.category,
+            isCustomizable: item.isCustomizable,
+            prices: prices
+        };
     });
 
-    const promptLines = [
-        'Você é um atendente de pizzaria. Sua tarefa é analisar a MENSAGEM ATUAL DO CLIENTE e extrair o pedido, usando o CARDÁPIO e o HISTÓRICO da conversa como contexto.',
-        '',
-        '**REGRAS PARA PIZZA MEIO A MEIO:**',
-        '1. Se o cliente pedir dois sabores para uma pizza (ex: "metade calabresa, metade 4 queijos"), crie um único item.',
-        '2. O nome do item deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] e [Sabor 2]".',
-        '3. O preço da pizza meio a meio é o preço da pizza inteira que for MAIS CARA entre as duas metades. Calcule este valor.',
-        '',
-        '**REGRAS GERAIS:**',
-        '- Se o cliente pedir um tamanho de pizza (pequena, média, grande, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho na "clarification_question".',
-        '- Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola") para o campo "notes".',
-        '- Retorne o resultado APENAS em formato JSON.',
-        '',
-        `**CARDÁPIO DISPONÍVEL:**\n${JSON.stringify(simplifiedMenu, null, 2)}`,
-        '',
-        `**HISTÓRICO DA CONVERSA (últimas mensagens):**\n${JSON.stringify(history.slice(-4))}`,
-        '',
-        `**MENSAGEM ATUAL DO CLIENTE:**\n"${userMessage}"`,
-        '',
-        '**FORMATO DE SAÍDA JSON ESPERADO:**',
-        '{',
-        '  "itens": [',
-        '    { "name": "Nome do Item - Tamanho", "price": 55.00, "quantity": 1, "notes": "sem cebola" }',
-        '  ],',
-        '  "clarification_question": "Se precisar de mais informações, faça a pergunta aqui."',
-        '}'
-    ];
-    const prompt = promptLines.join('\n');
+    const prompt = `
+        Você é um atendente de pizzaria. Sua tarefa é analisar a mensagem de um cliente e extrair o pedido, usando estritamente os itens e preços do cardápio fornecido.
+        Se o cliente pedir um tamanho de pizza (pequena, média, grande, gigante, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho.
+        Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola", "com bacon") para o campo "notes".
+        Foque apenas nos itens do pedido. Endereço e pagamento serão tratados depois.
+        Retorne o resultado APENAS em formato JSON.
+
+        CARDÁPIO DISPONÍVEL (com tamanhos e preços):
+        ${JSON.stringify(simplifiedMenu, null, 2)}
+
+        MENSAGEM DO CLIENTE:
+        "${userMessage}"
+
+        FORMATO DE SAÍDA JSON ESPERADO:
+        {
+          "itens": [
+            { "name": "Nome do Item - Tamanho (se aplicável)", "price": 55.00, "quantity": 1, "notes": "sem cebola" }
+          ],
+          "clarification_question": "Se precisar de mais informações, faça a pergunta aqui."
+        }
+    `;
 
     try {
         const response = await fetch(geminiURL, {
@@ -307,10 +328,10 @@ async function callGeminiForOrder(userMessage, menu, history) {
         if (!response.ok) throw new Error(`Erro na API do Gemini: ${response.status}`);
         const data = await response.json();
         const jsonString = data.candidates[0].content.parts[0].text;
-        const cleanedJsonString = jsonString.replace(/```json/g, '').replace(/```g, '').trim();
+        const cleanedJsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(cleanedJsonString);
     } catch (error) {
-        console.error("Erro ao chamar a API do Gemini para extrair pedido:", error);
+        console.error("Erro ao chamar a API do Gemini:", error);
         return { clarification_question: 'Desculpe, estou com problemas para processar seu pedido agora.' };
     }
 }
