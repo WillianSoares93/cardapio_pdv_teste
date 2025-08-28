@@ -155,7 +155,8 @@ async function fetchMenu() {
 }
 
 async function callGeminiAPI(userMessage, menu) {
-    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+    // CORREÇÃO: Atualizado o nome do modelo para uma versão mais recente e estável.
+    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
     const simplifiedMenu = menu.cardapio.map(item => ({
         name: item.name,
