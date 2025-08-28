@@ -32,7 +32,6 @@ if (GOOGLE_CREDENTIALS_BASE64) {
 // --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
 export default async function handler(req, res) {
     if (req.method === 'GET') {
-        // Lógica de verificação do Webhook...
         const mode = req.query['hub.mode'];
         const token = req.query['hub.verify_token'];
         const challenge = req.query['hub.challenge'];
@@ -240,11 +239,54 @@ async function handleFinalConfirmation(userPhoneNumber, conversationState) {
 // --- FUNÇÕES DE INTEGRAÇÃO ---
 
 async function transcribeAudio(mediaId) {
-    // ... (código de transcrição com Google Speech-to-Text permanece o mesmo)
+    if (!speechClient) {
+        console.error("Cliente Google Speech-to-Text não inicializado.");
+        return null;
+    }
+    try {
+        const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
+        });
+        if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL do média');
+        const mediaData = await mediaUrlResponse.json();
+        const audioUrl = mediaData.url;
+
+        const audioResponse = await fetch(audioUrl, {
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
+        });
+        if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio');
+        const audioBuffer = await audioResponse.buffer();
+
+        const audio = { content: audioBuffer.toString('base64') };
+        const config = {
+            encoding: 'OGG_OPUS',
+            sampleRateHertz: 16000,
+            languageCode: 'pt-BR',
+        };
+        const request = { audio: audio, config: config };
+
+        const [response] = await speechClient.recognize(request);
+        const transcription = response.results
+            .map(result => result.alternatives[0].transcript)
+            .join('\n');
+        
+        return transcription;
+    } catch (error) {
+        console.error("Erro na transcrição de áudio com Google:", error);
+        return null;
+    }
 }
 
 async function fetchMenu() {
-    // ... (código para buscar o menu permanece o mesmo)
+    try {
+        const productionUrl = 'https://cardapiopdv.vercel.app';
+        const response = await fetch(`${productionUrl}/api/menu`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (error) {
+        console.error('Erro ao buscar o cardápio:', error);
+        return null;
+    }
 }
 
 // V5: Função Gemini genérica para texto
@@ -331,5 +373,25 @@ async function callGeminiForOrder(userMessage, menu, history) {
 }
 
 async function sendWhatsAppMessage(to, text) {
-    // ... (código para enviar mensagem permanece o mesmo)
+    const whatsappURL = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    try {
+        const response = await fetch(whatsappURL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.WHATSAPP_API_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: to,
+                text: { body: text }
+            })
+        });
+        if (!response.ok) {
+            const errorBody = await response.json();
+            console.error('Erro da API do WhatsApp:', JSON.stringify(errorBody, null, 2));
+        }
+    } catch (error) {
+        console.error('Erro detalhado ao enviar mensagem pelo WhatsApp:', error);
+    }
 }
