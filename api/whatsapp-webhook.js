@@ -72,7 +72,6 @@ export default async function handler(req, res) {
             const pendingOrderSnap = await getDoc(pendingOrderRef);
             let conversationState = pendingOrderSnap.exists() ? pendingOrderSnap.data() : { history: [] };
 
-            // Usando a máquina de estados V4 que é estável
             switch (conversationState.state) {
                 case 'confirming_items':
                     await handleItemsConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
@@ -101,13 +100,12 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
 }
 
-// --- MÁQUINA DE ESTADOS DA CONVERSA (V5.1) ---
+// --- MÁQUINA DE ESTADOS DA CONVERSA ---
 
 async function processNewOrder(userPhoneNumber, userMessage, conversationState) {
     const menu = await fetchMenu();
     if (!menu) throw new Error('Não foi possível carregar o cardápio.');
 
-    // Usando o prompt V5 aprimorado
     const structuredOrder = await callGeminiForOrder(userMessage, menu, conversationState.history);
     if (!structuredOrder || !structuredOrder.itens || structuredOrder.itens.length === 0) {
         const reply = structuredOrder.clarification_question || 'Desculpe, não consegui entender seu pedido. Poderia ser mais específico?';
@@ -252,23 +250,6 @@ async function fetchMenu() {
     } catch (error) {
         console.error('Erro ao buscar o cardápio:', error);
         return null;
-    }
-}
-
-async function callGeminiForText(prompt) {
-    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-    try {
-        const response = await fetch(geminiURL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        if (!response.ok) throw new Error(`Erro na API do Gemini: ${response.status}`);
-        const data = await response.json();
-        return data.candidates[0].content.parts[0].text;
-    } catch (error) {
-        console.error("Erro ao chamar a API do Gemini para texto:", error);
-        return 'UNKNOWN';
     }
 }
 
