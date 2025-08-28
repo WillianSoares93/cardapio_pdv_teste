@@ -214,7 +214,7 @@ async function sendWhatsAppMessage(to, text) {
     const whatsappURL = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
     try {
-        await fetch(whatsappURL, {
+        const response = await fetch(whatsappURL, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${process.env.WHATSAPP_API_TOKEN}`,
@@ -226,7 +226,16 @@ async function sendWhatsAppMessage(to, text) {
                 text: { body: text }
             })
         });
+
+        // MELHORIA: Adicionado tratamento de erro para a resposta da API da Meta
+        if (!response.ok) {
+            const errorBody = await response.json();
+            console.error('Erro da API do WhatsApp:', JSON.stringify(errorBody, null, 2));
+            throw new Error(`Falha ao enviar mensagem: ${response.status}`);
+        }
+
     } catch (error) {
-        console.error('Erro ao enviar mensagem pelo WhatsApp:', error);
+        // Agora, o erro será capturado e logado de forma mais detalhada
+        console.error('Erro detalhado ao enviar mensagem pelo WhatsApp:', error);
     }
 }
