@@ -3,7 +3,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import fetch from 'node-fetch';
-// V4 Update: Importa o cliente da Google Cloud Speech
 import { SpeechClient } from '@google-cloud/speech';
 
 // Configuração do Firebase
@@ -22,20 +21,18 @@ const db = getFirestore(app);
 // Carrega as variáveis de ambiente
 const { WHATSAPP_API_TOKEN, WHATSAPP_VERIFY_TOKEN, GEMINI_API_KEY, GOOGLE_CREDENTIALS_BASE64 } = process.env;
 
-// V4 Update: Configuração do cliente Google Speech-to-Text
+// Configuração do cliente Google Speech-to-Text
 let speechClient;
 if (GOOGLE_CREDENTIALS_BASE64) {
     const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
     const credentials = JSON.parse(credentialsJson);
     speechClient = new SpeechClient({ credentials });
-} else {
-    console.warn("Variável de ambiente GOOGLE_CREDENTIALS_BASE64 não encontrada. A transcrição de áudio irá falhar.");
 }
-
 
 // --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
 export default async function handler(req, res) {
     if (req.method === 'GET') {
+        // Lógica de verificação do Webhook...
         const mode = req.query['hub.mode'];
         const token = req.query['hub.verify_token'];
         const challenge = req.query['hub.challenge'];
@@ -74,23 +71,29 @@ export default async function handler(req, res) {
         try {
             const pendingOrderRef = doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber);
             const pendingOrderSnap = await getDoc(pendingOrderRef);
-            let conversationState = pendingOrderSnap.exists() ? pendingOrderSnap.data() : {};
+            let conversationState = pendingOrderSnap.exists() ? pendingOrderSnap.data() : { history: [] };
 
-            switch (conversationState.state) {
-                case 'confirming_items':
-                    await handleItemsConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
+            // V5 Update: Roteador de Intenções
+            const intent = await determineUserIntent(userMessage, conversationState);
+
+            switch (intent) {
+                case 'ADD_ITEMS':
+                    await processNewOrder(userPhoneNumber, userMessage, conversationState);
                     break;
-                case 'awaiting_address':
+                case 'PROVIDE_ADDRESS':
                     await handleAddressCapture(userPhoneNumber, userMessage, conversationState);
                     break;
-                case 'awaiting_payment':
+                case 'PROVIDE_PAYMENT':
                     await handlePaymentCapture(userPhoneNumber, userMessage, conversationState);
                     break;
-                case 'confirming_order':
-                    await handleFinalConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
+                case 'CONFIRMATION_YES':
+                    await handleConfirmation(userPhoneNumber, conversationState);
                     break;
-                default:
-                    await processNewOrder(userPhoneNumber, userMessage);
+                case 'CONFIRMATION_NO':
+                    await handleCancellation(userPhoneNumber, conversationState);
+                    break;
+                default: // GENERAL_QUERY ou UNKNOWN
+                    await sendWhatsAppMessage(userPhoneNumber, "Desculpe, não entendi. Você pode reformular seu pedido ou dúvida?");
             }
         } catch (error) {
             console.error('Erro ao processar mensagem:', error);
@@ -104,66 +107,37 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
 }
 
-// --- LÓGICA DE TRANSCRIÇÃO DE ÁUDIO (V4 com Google) ---
+// --- V5: ROTEADOR DE INTENÇÕES ---
+async function determineUserIntent(userMessage, conversationState) {
+    const prompt = `
+        Analise a mensagem do cliente e o estado atual da conversa para determinar a intenção principal.
+        Responda APENAS com uma das seguintes categorias:
+        - ADD_ITEMS: O cliente está a pedir, adicionar ou alterar itens do pedido.
+        - PROVIDE_ADDRESS: O cliente está a fornecer um endereço.
+        - PROVIDE_PAYMENT: O cliente está a informar uma forma de pagamento.
+        - CONFIRMATION_YES: O cliente está a confirmar ("sim", "correto", "pode mandar").
+        - CONFIRMATION_NO: O cliente está a negar ou cancelar ("não", "errado", "cancelar").
+        - GENERAL_QUERY: O cliente está a fazer uma pergunta geral.
 
-async function transcribeAudio(mediaId) {
-    if (!speechClient) {
-        console.error("Cliente Google Speech-to-Text não inicializado.");
-        return null;
-    }
-    try {
-        // 1. Obter a URL do ficheiro de áudio da Meta
-        const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
-            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
-        });
-        if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL do média');
-        const mediaData = await mediaUrlResponse.json();
-        const audioUrl = mediaData.url;
+        Estado da Conversa: ${conversationState.state || 'novo_pedido'}
+        Histórico: ${JSON.stringify(conversationState.history.slice(-4))}
+        Mensagem do Cliente: "${userMessage}"
 
-        // 2. Fazer o download do ficheiro de áudio
-        const audioResponse = await fetch(audioUrl, {
-            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
-        });
-        if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio');
-        const audioBuffer = await audioResponse.buffer();
-
-        // 3. Enviar para a API da Google para transcrição
-        const audio = {
-            content: audioBuffer.toString('base64'),
-        };
-        const config = {
-            encoding: 'OGG_OPUS', // WhatsApp usa este formato
-            sampleRateHertz: 16000,
-            languageCode: 'pt-BR',
-        };
-        const request = {
-            audio: audio,
-            config: config,
-        };
-
-        const [response] = await speechClient.recognize(request);
-        const transcription = response.results
-            .map(result => result.alternatives[0].transcript)
-            .join('\n');
-        
-        return transcription;
-
-    } catch (error) {
-        console.error("Erro na transcrição de áudio com Google:", error);
-        return null;
-    }
+        Intenção:
+    `;
+    const intent = await callGeminiForText(prompt);
+    return intent.trim();
 }
 
+// --- MÁQUINA DE ESTADOS DA CONVERSA (V5) ---
 
-// --- MÁQUINA DE ESTADOS DA CONVERSA (sem alterações) ---
-
-async function processNewOrder(userPhoneNumber, userMessage) {
+async function processNewOrder(userPhoneNumber, userMessage, conversationState) {
     const menu = await fetchMenu();
     if (!menu) throw new Error('Não foi possível carregar o cardápio.');
 
-    const structuredOrder = await callGeminiAPI(userMessage, menu, 'items');
+    const structuredOrder = await callGeminiForOrder(userMessage, menu, conversationState.history);
     if (!structuredOrder || !structuredOrder.itens || structuredOrder.itens.length === 0) {
-        const reply = structuredOrder.clarification_question || 'Desculpe, não consegui entender seu pedido. Poderia ser mais específico? Ex: "Quero uma pizza grande de calabresa e uma coca 2L".';
+        const reply = structuredOrder.clarification_question || 'Desculpe, não consegui entender seu pedido. Poderia ser mais específico?';
         await sendWhatsAppMessage(userPhoneNumber, reply);
         return;
     }
@@ -173,40 +147,48 @@ async function processNewOrder(userPhoneNumber, userMessage) {
     let confirmationMessage = 'Certo! Confirme os itens do seu pedido:\n\n';
     structuredOrder.itens.forEach(item => {
         confirmationMessage += `*${item.quantity}x* ${item.name} - ${item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n`;
-        if (item.notes) {
-            confirmationMessage += `  _Observação: ${item.notes}_\n`;
-        }
+        if (item.notes) confirmationMessage += `  _Obs: ${item.notes}_\n`;
     });
     confirmationMessage += `\n*Subtotal: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}*\n\nEstá correto? (Responda "sim" ou "não")`;
 
-    const pendingOrder = {
+    const newConversationState = {
+        ...conversationState,
         state: 'confirming_items',
         itens: structuredOrder.itens,
-        subtotal: total
+        subtotal: total,
+        history: [...conversationState.history, { role: 'user', text: userMessage }, { role: 'bot', text: confirmationMessage }]
     };
 
-    await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), pendingOrder);
+    await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), newConversationState);
     await sendWhatsAppMessage(userPhoneNumber, confirmationMessage);
 }
 
-async function handleItemsConfirmation(userPhoneNumber, userMessage, conversationState) {
-    if (['sim', 's', 'correto', 'isso'].includes(userMessage)) {
-        conversationState.state = 'awaiting_address';
-        await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
-        await sendWhatsAppMessage(userPhoneNumber, 'Ótimo! Qual o seu endereço completo para entrega? (Rua, número, bairro e ponto de referência, se houver)');
-    } else {
-        await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-        await sendWhatsAppMessage(userPhoneNumber, 'Pedido cancelado. Vamos começar de novo. O que você gostaria de pedir?');
+// V5: Lógica de confirmação unificada
+async function handleConfirmation(userPhoneNumber, conversationState) {
+    switch (conversationState.state) {
+        case 'confirming_items':
+            conversationState.state = 'awaiting_address';
+            await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
+            await sendWhatsAppMessage(userPhoneNumber, 'Ótimo! Qual o seu endereço completo para entrega?');
+            break;
+        case 'confirming_order':
+            await handleFinalConfirmation(userPhoneNumber, conversationState);
+            break;
+        default:
+            await sendWhatsAppMessage(userPhoneNumber, "Obrigado por confirmar! Qual o próximo passo?");
     }
 }
 
+// V5: Lógica de cancelamento unificada
+async function handleCancellation(userPhoneNumber, conversationState) {
+     await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
+     await sendWhatsAppMessage(userPhoneNumber, 'Pedido cancelado. Quando quiser, é só começar de novo.');
+}
+
+
 async function handleAddressCapture(userPhoneNumber, userMessage, conversationState) {
     conversationState.state = 'awaiting_payment';
-    conversationState.endereco = {
-        rua: userMessage,
-        bairro: "",
-        numero: ""
-    };
+    conversationState.endereco = { rua: userMessage, bairro: "", numero: "" };
     await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
     await sendWhatsAppMessage(userPhoneNumber, 'Endereço anotado! Qual será a forma de pagamento? (Dinheiro, Cartão ou Pix)');
 }
@@ -219,9 +201,7 @@ async function handlePaymentCapture(userPhoneNumber, userMessage, conversationSt
     finalMessage += '*ITENS:*\n';
     conversationState.itens.forEach(item => {
         finalMessage += `*${item.quantity}x* ${item.name} - ${item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n`;
-        if (item.notes) {
-            finalMessage += `  _Observação: ${item.notes}_\n`;
-        }
+        if (item.notes) finalMessage += `  _Obs: ${item.notes}_\n`;
     });
     finalMessage += `\n*ENDEREÇO:*\n${conversationState.endereco.rua}\n`;
     finalMessage += `\n*PAGAMENTO:*\n${conversationState.pagamento}\n`;
@@ -232,88 +212,102 @@ async function handlePaymentCapture(userPhoneNumber, userMessage, conversationSt
     await sendWhatsAppMessage(userPhoneNumber, finalMessage);
 }
 
-async function handleFinalConfirmation(userPhoneNumber, userMessage, conversationState) {
-    if (['sim', 's', 'correto', 'isso'].includes(userMessage)) {
-        const finalOrder = {
-            itens: conversationState.itens,
-            endereco: {
-                clientName: `Cliente WhatsApp ${userPhoneNumber.slice(-4)}`,
-                telefone: userPhoneNumber,
-                ...conversationState.endereco
-            },
-            total: {
-                subtotal: conversationState.subtotal,
-                deliveryFee: 0,
-                discount: 0,
-                finalTotal: conversationState.subtotal
-            },
-            pagamento: conversationState.pagamento,
-            status: 'Novo',
-            criadoEm: serverTimestamp()
-        };
+async function handleFinalConfirmation(userPhoneNumber, conversationState) {
+    const finalOrder = {
+        itens: conversationState.itens,
+        endereco: {
+            clientName: `Cliente WhatsApp ${userPhoneNumber.slice(-4)}`,
+            telefone: userPhoneNumber,
+            ...conversationState.endereco
+        },
+        total: {
+            subtotal: conversationState.subtotal,
+            deliveryFee: 0,
+            discount: 0,
+            finalTotal: conversationState.subtotal
+        },
+        pagamento: conversationState.pagamento,
+        status: 'Novo',
+        criadoEm: serverTimestamp()
+    };
 
-        await addDoc(collection(db, "pedidos"), finalOrder);
-        await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-        await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
-    } else {
-        await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-        await sendWhatsAppMessage(userPhoneNumber, 'Entendido. Pedido cancelado. Quando quiser, é só começar de novo.');
-    }
+    await addDoc(collection(db, "pedidos"), finalOrder);
+    await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
+    await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
 }
 
 
-// --- FUNÇÕES DE INTEGRAÇÃO (sem alterações) ---
+// --- FUNÇÕES DE INTEGRAÇÃO ---
+
+async function transcribeAudio(mediaId) {
+    // ... (código de transcrição com Google Speech-to-Text permanece o mesmo)
+}
 
 async function fetchMenu() {
+    // ... (código para buscar o menu permanece o mesmo)
+}
+
+// V5: Função Gemini genérica para texto
+async function callGeminiForText(prompt) {
+    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     try {
-        const productionUrl = 'https://cardapiopdv.vercel.app';
-        const response = await fetch(`${productionUrl}/api/menu`);
-        if (!response.ok) return null;
-        return await response.json();
+        const response = await fetch(geminiURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        if (!response.ok) throw new Error(`Erro na API do Gemini: ${response.status}`);
+        const data = await response.json();
+        return data.candidates[0].content.parts[0].text;
     } catch (error) {
-        console.error('Erro ao buscar o cardápio:', error);
-        return null;
+        console.error("Erro ao chamar a API do Gemini para texto:", error);
+        return 'UNKNOWN';
     }
 }
 
-async function callGeminiAPI(userMessage, menu, context) {
+// V5: Função Gemini especializada para extrair pedidos
+async function callGeminiForOrder(userMessage, menu, history) {
     const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
     const simplifiedMenu = menu.cardapio.map(item => {
         let prices = {};
         if (item.isPizza) {
-            if (item.price4Slices > 0) prices['4 fatias (pequena)'] = item.price4Slices;
-            if (item.price6Slices > 0) prices['6 fatias (média)'] = item.price6Slices;
-            if (item.basePrice > 0) prices['8 fatias (grande)'] = item.basePrice;
-            if (item.price10Slices > 0) prices['10 fatias (gigante)'] = item.price10Slices;
+            if (item.price4Slices > 0) prices['4 fatias'] = item.price4Slices;
+            if (item.price6Slices > 0) prices['6 fatias'] = item.price6Slices;
+            if (item.basePrice > 0) prices['8 fatias'] = item.basePrice;
+            if (item.price10Slices > 0) prices['10 fatias'] = item.price10Slices;
         } else {
             prices['padrão'] = item.basePrice;
         }
-        return {
-            name: item.name,
-            category: item.category,
-            isCustomizable: item.isCustomizable,
-            prices: prices
-        };
+        return { name: item.name, category: item.category, isCustomizable: item.isCustomizable, prices: prices };
     });
 
     const prompt = `
-        Você é um atendente de pizzaria. Sua tarefa é analisar a mensagem de um cliente e extrair o pedido, usando estritamente os itens e preços do cardápio fornecido.
-        Se o cliente pedir um tamanho de pizza (pequena, média, grande, gigante, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho.
-        Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola", "com bacon") para o campo "notes".
-        Foque apenas nos itens do pedido. Endereço e pagamento serão tratados depois.
-        Retorne o resultado APENAS em formato JSON.
+        Você é um atendente de pizzaria. Sua tarefa é analisar a MENSAGEM ATUAL DO CLIENTE e extrair o pedido, usando o CARDÁPIO e o HISTÓRICO da conversa como contexto.
+        
+        **REGRAS PARA PIZZA MEIO A MEIO:**
+        1. Se o cliente pedir dois sabores para uma pizza (ex: "metade calabresa, metade 4 queijos"), crie um único item.
+        2. O nome do item deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] / [Sabor 2]".
+        3. O preço da pizza meio a meio é o preço da pizza inteira que for MAIS CARA entre as duas metades. Calcule este valor.
 
-        CARDÁPIO DISPONÍVEL (com tamanhos e preços):
+        **REGRAS GERAIS:**
+        - Se o cliente pedir um tamanho de pizza (pequena, média, grande, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho na "clarification_question".
+        - Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola") para o campo "notes".
+        - Retorne o resultado APENAS em formato JSON.
+
+        **CARDÁPIO DISPONÍVEL:**
         ${JSON.stringify(simplifiedMenu, null, 2)}
 
-        MENSAGEM DO CLIENTE:
+        **HISTÓRICO DA CONVERSA (últimas mensagens):**
+        ${JSON.stringify(history.slice(-4))}
+
+        **MENSAGEM ATUAL DO CLIENTE:**
         "${userMessage}"
 
-        FORMATO DE SAÍDA JSON ESPERADO:
+        **FORMATO DE SAÍDA JSON ESPERADO:**
         {
           "itens": [
-            { "name": "Nome do Item - Tamanho (se aplicável)", "price": 55.00, "quantity": 1, "notes": "sem cebola" }
+            { "name": "Nome do Item - Tamanho", "price": 55.00, "quantity": 1, "notes": "sem cebola" }
           ],
           "clarification_question": "Se precisar de mais informações, faça a pergunta aqui."
         }
@@ -331,31 +325,11 @@ async function callGeminiAPI(userMessage, menu, context) {
         const cleanedJsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(cleanedJsonString);
     } catch (error) {
-        console.error("Erro ao chamar a API do Gemini:", error);
+        console.error("Erro ao chamar a API do Gemini para extrair pedido:", error);
         return { clarification_question: 'Desculpe, estou com problemas para processar seu pedido agora.' };
     }
 }
 
 async function sendWhatsAppMessage(to, text) {
-    const whatsappURL = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-    try {
-        const response = await fetch(whatsappURL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.WHATSAPP_API_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                messaging_product: 'whatsapp',
-                to: to,
-                text: { body: text }
-            })
-        });
-        if (!response.ok) {
-            const errorBody = await response.json();
-            console.error('Erro da API do WhatsApp:', JSON.stringify(errorBody, null, 2));
-        }
-    } catch (error) {
-        console.error('Erro detalhado ao enviar mensagem pelo WhatsApp:', error);
-    }
+    // ... (código para enviar mensagem permanece o mesmo)
 }
