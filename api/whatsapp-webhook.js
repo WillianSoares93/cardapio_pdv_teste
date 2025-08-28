@@ -75,7 +75,9 @@ export default async function handler(req, res) {
 
 async function processNewOrder(userPhoneNumber, userMessage) {
     const menu = await fetchMenu();
-    if (!menu) throw new Error('Não foi possível carregar o cardápio.');
+    if (!menu) {
+        throw new Error('Não foi possível carregar o cardápio.');
+    }
 
     const structuredOrder = await callGeminiAPI(userMessage, menu);
     if (!structuredOrder || !structuredOrder.itens || structuredOrder.itens.length === 0) {
@@ -132,12 +134,19 @@ async function handleOrderConfirmation(userPhoneNumber) {
     await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
 }
 
+/**
+ * Busca o cardápio da nossa API interna.
+ * @returns {Promise<object|null>} O objeto do cardápio ou null em caso de erro.
+ */
 async function fetchMenu() {
     try {
-        // A Vercel fornece esta variável de ambiente automaticamente.
-        const vercelUrl = `https://${process.env.VERCEL_URL}`;
-        const response = await fetch(`${vercelUrl}/api/menu`);
-        if (!response.ok) return null;
+        // CORREÇÃO: Usando a URL de produção diretamente para garantir a estabilidade.
+        const productionUrl = 'https://cardapiopdv.vercel.app';
+        const response = await fetch(`${productionUrl}/api/menu`);
+        if (!response.ok) {
+            console.error(`Erro ao buscar menu: Status ${response.status}`);
+            return null;
+        }
         return await response.json();
     } catch (error) {
         console.error('Erro ao buscar o cardápio:', error);
