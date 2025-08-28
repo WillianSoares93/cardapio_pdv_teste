@@ -48,14 +48,14 @@ export default async function handler(req, res) {
 
         const messageData = body.entry[0].changes[0].value.messages[0];
         const userMessage = messageData.text.body.toLowerCase().trim();
-        // CORREÇÃO: Garantimos que o número de telefone está limpo e contém apenas dígitos.
-        const userPhoneNumber = messageData.from.replace(/\D/g, '');
+        const userPhoneNumber = messageData.from; // Mantém o formato original por enquanto
 
 
         try {
             if (['sim', 's', 'correto', 'isso', 'pode confirmar'].includes(userMessage)) {
                 await handleOrderConfirmation(userPhoneNumber);
             } else if (['não', 'n', 'cancelar', 'errado'].includes(userMessage)) {
+                // Usamos o número de telefone original como ID do documento
                 await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
                 await sendWhatsAppMessage(userPhoneNumber, 'Pedido cancelado. Por favor, diga o que você gostaria de pedir.');
             } else {
@@ -216,6 +216,9 @@ async function sendWhatsAppMessage(to, text) {
     const whatsappURL = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
     try {
+        // CORREÇÃO FINAL: Garantimos que o número enviado para a API é apenas numérico.
+        const recipientNumber = to.replace(/\D/g, '');
+
         const response = await fetch(whatsappURL, {
             method: 'POST',
             headers: {
@@ -224,7 +227,7 @@ async function sendWhatsAppMessage(to, text) {
             },
             body: JSON.stringify({
                 messaging_product: 'whatsapp',
-                to: to,
+                to: recipientNumber,
                 text: { body: text }
             })
         });
