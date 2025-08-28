@@ -72,7 +72,6 @@ export default async function handler(req, res) {
             const pendingOrderSnap = await getDoc(pendingOrderRef);
             let conversationState = pendingOrderSnap.exists() ? pendingOrderSnap.data() : { history: [] };
 
-            // V5 Update: Roteador de Intenções
             const intent = await determineUserIntent(userMessage, conversationState);
 
             switch (intent) {
@@ -91,7 +90,7 @@ export default async function handler(req, res) {
                 case 'CONFIRMATION_NO':
                     await handleCancellation(userPhoneNumber, conversationState);
                     break;
-                default: // GENERAL_QUERY ou UNKNOWN
+                default:
                     await sendWhatsAppMessage(userPhoneNumber, "Desculpe, não entendi. Você pode reformular seu pedido ou dúvida?");
             }
         } catch (error) {
@@ -108,20 +107,8 @@ export default async function handler(req, res) {
 
 // --- V5: ROTEADOR DE INTENÇÕES ---
 async function determineUserIntent(userMessage, conversationState) {
-    // CORREÇÃO: Prompt reescrito como strings concatenadas para evitar erros de parsing.
-    const prompt = 'Analise a mensagem do cliente e o estado atual da conversa para determinar a intenção principal.'
-        + '\nResponda APENAS com uma das seguintes categorias:'
-        + '\n- ADD_ITEMS: O cliente está a pedir, adicionar ou alterar itens do pedido.'
-        + '\n- PROVIDE_ADDRESS: O cliente está a fornecer um endereço.'
-        + '\n- PROVIDE_PAYMENT: O cliente está a informar uma forma de pagamento.'
-        + '\n- CONFIRMATION_YES: O cliente está a confirmar ("sim", "correto", "pode mandar").'
-        + '\n- CONFIRMATION_NO: O cliente está a negar ou cancelar ("não", "errado", "cancelar").'
-        + '\n- GENERAL_QUERY: O cliente está a fazer uma pergunta geral.'
-        + `\n\nEstado da Conversa: ${conversationState.state || 'novo_pedido'}`
-        + `\nHistórico: ${JSON.stringify(conversationState.history.slice(-4))}`
-        + `\nMensagem do Cliente: "${userMessage}"`
-        + '\n\nIntenção:';
-
+    // VERSÃO DE DEPURAÇÃO: Prompt simplificado para evitar erros de parsing.
+    const prompt = `Determine the intent from this message: "${userMessage}". Categories are: ADD_ITEMS, PROVIDE_ADDRESS, PROVIDE_PAYMENT, CONFIRMATION_YES, CONFIRMATION_NO, GENERAL_QUERY. Conversation state is ${conversationState.state || 'novo_pedido'}. Respond with only the category name.`;
     const intent = await callGeminiForText(prompt);
     return intent.trim();
 }
@@ -160,7 +147,6 @@ async function processNewOrder(userPhoneNumber, userMessage, conversationState) 
     await sendWhatsAppMessage(userPhoneNumber, confirmationMessage);
 }
 
-// V5: Lógica de confirmação unificada
 async function handleConfirmation(userPhoneNumber, conversationState) {
     switch (conversationState.state) {
         case 'confirming_items':
@@ -176,7 +162,6 @@ async function handleConfirmation(userPhoneNumber, conversationState) {
     }
 }
 
-// V5: Lógica de cancelamento unificada
 async function handleCancellation(userPhoneNumber, conversationState) {
      await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
      await sendWhatsAppMessage(userPhoneNumber, 'Pedido cancelado. Quando quiser, é só começar de novo.');
@@ -287,7 +272,6 @@ async function fetchMenu() {
     }
 }
 
-// V5: Função Gemini genérica para texto
 async function callGeminiForText(prompt) {
     const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     try {
@@ -305,7 +289,6 @@ async function callGeminiForText(prompt) {
     }
 }
 
-// V5: Função Gemini especializada para extrair pedidos
 async function callGeminiForOrder(userMessage, menu, history) {
     const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
@@ -322,26 +305,8 @@ async function callGeminiForOrder(userMessage, menu, history) {
         return { name: item.name, category: item.category, isCustomizable: item.isCustomizable, prices: prices };
     });
 
-    // CORREÇÃO: Prompt reescrito como strings concatenadas para evitar erros de parsing.
-    const prompt = 'Você é um atendente de pizzaria. Sua tarefa é analisar a MENSAGEM ATUAL DO CLIENTE e extrair o pedido, usando o CARDÁPIO e o HISTÓRICO da conversa como contexto.'
-        + '\n\n**REGRAS PARA PIZZA MEIO A MEIO:**'
-        + '\n1. Se o cliente pedir dois sabores para uma pizza (ex: "metade calabresa, metade 4 queijos"), crie um único item.'
-        + '\n2. O nome do item deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] e [Sabor 2]".'
-        + '\n3. O preço da pizza meio a meio é o preço da pizza inteira que for MAIS CARA entre as duas metades. Calcule este valor.'
-        + '\n\n**REGRAS GERAIS:**'
-        + '\n- Se o cliente pedir um tamanho de pizza (pequena, média, grande, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho na "clarification_question".'
-        + '\n- Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola") para o campo "notes".'
-        + '\n- Retorne o resultado APENAS em formato JSON.'
-        + `\n\n**CARDÁPIO DISPONÍVEL:**\n${JSON.stringify(simplifiedMenu, null, 2)}`
-        + `\n\n**HISTÓRICO DA CONVERSA (últimas mensagens):**\n${JSON.stringify(history.slice(-4))}`
-        + `\n\n**MENSAGEM ATUAL DO CLIENTE:**\n"${userMessage}"`
-        + '\n\n**FORMATO DE SAÍDA JSON ESPERADO:**'
-        + '\n{'
-        + '\n  "itens": ['
-        + '\n    { "name": "Nome do Item - Tamanho", "price": 55.00, "quantity": 1, "notes": "sem cebola" }'
-        + '\n  ],'
-        + '\n  "clarification_question": "Se precisar de mais informações, faça a pergunta aqui."'
-        + '\n}';
+    // VERSÃO DE DEPURAÇÃO: Prompt simplificado para evitar erros de parsing.
+    const prompt = `From the customer message "${userMessage}", extract order items based on the menu. Handle half-and-half pizzas by charging the price of the more expensive half. Return only JSON in the format { "itens": [{"name": "Item Name - Size", "price": 50.00, "quantity": 1, "notes": ""}], "clarification_question": "" }. Menu: ${JSON.stringify(simplifiedMenu)}`;
 
     try {
         const response = await fetch(geminiURL, {
