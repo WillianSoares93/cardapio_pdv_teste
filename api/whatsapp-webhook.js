@@ -302,7 +302,7 @@ async function callGeminiAPI(userMessage, menu, context) {
         Se o cliente pedir um tamanho de pizza (pequena, média, grande, gigante, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho.
         Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola", "com bacon") para o campo "notes".
         Foque apenas nos itens do pedido. Endereço e pagamento serão tratados depois.
-        Retorne o resultado APENAS em formato JSON.
+        IMPORTANTE: Retorne APENAS o JSON puro, sem blocos de código, sem \`\`\`json e sem \`\`\` no início ou no final.
 
         CARDÁPIO DISPONÍVEL (com tamanhos e preços):
         ${JSON.stringify(simplifiedMenu, null, 2)}
