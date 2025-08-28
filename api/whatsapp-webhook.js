@@ -328,7 +328,7 @@ async function callGeminiAPI(userMessage, menu, context) {
         if (!response.ok) throw new Error(`Erro na API do Gemini: ${response.status}`);
         const data = await response.json();
         const jsonString = data.candidates[0].content.parts[0].text;
-        const cleanedJsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleanedJsonString = jsonString.replace(/```json/g, '').replace(/```g, '').trim();
         return JSON.parse(cleanedJsonString);
     } catch (error) {
         console.error("Erro ao chamar a API do Gemini:", error);
