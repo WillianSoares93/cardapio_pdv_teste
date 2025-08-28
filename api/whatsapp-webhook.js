@@ -48,9 +48,7 @@ export default async function handler(req, res) {
 
         const messageData = body.entry[0].changes[0].value.messages[0];
         const userMessage = messageData.text.body.toLowerCase().trim();
-        // CORREÇÃO: Garantimos que o número de telefone está limpo e contém apenas dígitos.
-        const userPhoneNumber = messageData.from.replace(/\D/g, '');
-
+        const userPhoneNumber = messageData.from; // Usamos o formato original para consistência de ID
 
         try {
             if (['sim', 's', 'correto', 'isso', 'pode confirmar'].includes(userMessage)) {
@@ -97,11 +95,13 @@ async function processNewOrder(userPhoneNumber, userMessage) {
     });
     confirmationMessage += `\n*Total: R$ ${total.toFixed(2).replace('.', ',')}*\n\nEstá correto? (Responda "sim" para confirmar)`;
 
+    // Usamos o número de telefone original como ID do documento
     await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), structuredOrder);
     await sendWhatsAppMessage(userPhoneNumber, confirmationMessage);
 }
 
 async function handleOrderConfirmation(userPhoneNumber) {
+    // Usamos o número de telefone original para procurar o documento
     const pendingOrderRef = doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber);
     const pendingOrderSnap = await getDoc(pendingOrderRef);
 
