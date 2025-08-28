@@ -108,22 +108,20 @@ export default async function handler(req, res) {
 
 // --- V5: ROTEADOR DE INTENÇÕES ---
 async function determineUserIntent(userMessage, conversationState) {
-    const prompt = `
-        Analise a mensagem do cliente e o estado atual da conversa para determinar a intenção principal.
-        Responda APENAS com uma das seguintes categorias:
-        - ADD_ITEMS: O cliente está a pedir, adicionar ou alterar itens do pedido.
-        - PROVIDE_ADDRESS: O cliente está a fornecer um endereço.
-        - PROVIDE_PAYMENT: O cliente está a informar uma forma de pagamento.
-        - CONFIRMATION_YES: O cliente está a confirmar ("sim", "correto", "pode mandar").
-        - CONFIRMATION_NO: O cliente está a negar ou cancelar ("não", "errado", "cancelar").
-        - GENERAL_QUERY: O cliente está a fazer uma pergunta geral.
+    // CORREÇÃO: Prompt reescrito como strings concatenadas para evitar erros de parsing.
+    const prompt = 'Analise a mensagem do cliente e o estado atual da conversa para determinar a intenção principal.'
+        + '\nResponda APENAS com uma das seguintes categorias:'
+        + '\n- ADD_ITEMS: O cliente está a pedir, adicionar ou alterar itens do pedido.'
+        + '\n- PROVIDE_ADDRESS: O cliente está a fornecer um endereço.'
+        + '\n- PROVIDE_PAYMENT: O cliente está a informar uma forma de pagamento.'
+        + '\n- CONFIRMATION_YES: O cliente está a confirmar ("sim", "correto", "pode mandar").'
+        + '\n- CONFIRMATION_NO: O cliente está a negar ou cancelar ("não", "errado", "cancelar").'
+        + '\n- GENERAL_QUERY: O cliente está a fazer uma pergunta geral.'
+        + `\n\nEstado da Conversa: ${conversationState.state || 'novo_pedido'}`
+        + `\nHistórico: ${JSON.stringify(conversationState.history.slice(-4))}`
+        + `\nMensagem do Cliente: "${userMessage}"`
+        + '\n\nIntenção:';
 
-        Estado da Conversa: ${conversationState.state || 'novo_pedido'}
-        Histórico: ${JSON.stringify(conversationState.history.slice(-4))}
-        Mensagem do Cliente: "${userMessage}"
-
-        Intenção:
-    `;
     const intent = await callGeminiForText(prompt);
     return intent.trim();
 }
@@ -324,36 +322,26 @@ async function callGeminiForOrder(userMessage, menu, history) {
         return { name: item.name, category: item.category, isCustomizable: item.isCustomizable, prices: prices };
     });
 
-    const prompt = `
-        Você é um atendente de pizzaria. Sua tarefa é analisar a MENSAGEM ATUAL DO CLIENTE e extrair o pedido, usando o CARDÁPIO e o HISTÓRICO da conversa como contexto.
-        
-        **REGRAS PARA PIZZA MEIO A MEIO:**
-        1. Se o cliente pedir dois sabores para uma pizza (ex: "metade calabresa, metade 4 queijos"), crie um único item.
-        2. O nome do item deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] e [Sabor 2]".
-        3. O preço da pizza meio a meio é o preço da pizza inteira que for MAIS CARA entre as duas metades. Calcule este valor.
-
-        **REGRAS GERAIS:**
-        - Se o cliente pedir um tamanho de pizza (pequena, média, grande, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho na "clarification_question".
-        - Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola") para o campo "notes".
-        - Retorne o resultado APENAS em formato JSON.
-
-        **CARDÁPIO DISPONÍVEL:**
-        ${JSON.stringify(simplifiedMenu, null, 2)}
-
-        **HISTÓRICO DA CONVERSA (últimas mensagens):**
-        ${JSON.stringify(history.slice(-4))}
-
-        **MENSAGEM ATUAL DO CLIENTE:**
-        "${userMessage}"
-
-        **FORMATO DE SAÍDA JSON ESPERADO:**
-        {
-          "itens": [
-            { "name": "Nome do Item - Tamanho", "price": 55.00, "quantity": 1, "notes": "sem cebola" }
-          ],
-          "clarification_question": "Se precisar de mais informações, faça a pergunta aqui."
-        }
-    `;
+    // CORREÇÃO: Prompt reescrito como strings concatenadas para evitar erros de parsing.
+    const prompt = 'Você é um atendente de pizzaria. Sua tarefa é analisar a MENSAGEM ATUAL DO CLIENTE e extrair o pedido, usando o CARDÁPIO e o HISTÓRICO da conversa como contexto.'
+        + '\n\n**REGRAS PARA PIZZA MEIO A MEIO:**'
+        + '\n1. Se o cliente pedir dois sabores para uma pizza (ex: "metade calabresa, metade 4 queijos"), crie um único item.'
+        + '\n2. O nome do item deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] e [Sabor 2]".'
+        + '\n3. O preço da pizza meio a meio é o preço da pizza inteira que for MAIS CARA entre as duas metades. Calcule este valor.'
+        + '\n\n**REGRAS GERAIS:**'
+        + '\n- Se o cliente pedir um tamanho de pizza (pequena, média, grande, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho na "clarification_question".'
+        + '\n- Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola") para o campo "notes".'
+        + '\n- Retorne o resultado APENAS em formato JSON.'
+        + `\n\n**CARDÁPIO DISPONÍVEL:**\n${JSON.stringify(simplifiedMenu, null, 2)}`
+        + `\n\n**HISTÓRICO DA CONVERSA (últimas mensagens):**\n${JSON.stringify(history.slice(-4))}`
+        + `\n\n**MENSAGEM ATUAL DO CLIENTE:**\n"${userMessage}"`
+        + '\n\n**FORMATO DE SAÍDA JSON ESPERADO:**'
+        + '\n{'
+        + '\n  "itens": ['
+        + '\n    { "name": "Nome do Item - Tamanho", "price": 55.00, "quantity": 1, "notes": "sem cebola" }'
+        + '\n  ],'
+        + '\n  "clarification_question": "Se precisar de mais informações, faça a pergunta aqui."'
+        + '\n}';
 
     try {
         const response = await fetch(geminiURL, {
