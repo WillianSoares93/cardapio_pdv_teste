@@ -90,7 +90,7 @@ export default async function handler(req, res) {
                     await handleFinalConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
                     break;
                 default:
-                    await processNewOrder(userPhoneNumber, userMessage);
+                    await processNewOrder(userPhoneNumber, userMessage, conversationState);
             }
         } catch (error) {
             console.error('Erro ao processar mensagem:', error);
@@ -112,7 +112,6 @@ async function transcribeAudio(mediaId) {
         return null;
     }
     try {
-        // 1. Obter a URL do ficheiro de áudio da Meta
         const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
             headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
         });
@@ -120,19 +119,17 @@ async function transcribeAudio(mediaId) {
         const mediaData = await mediaUrlResponse.json();
         const audioUrl = mediaData.url;
 
-        // 2. Fazer o download do ficheiro de áudio
         const audioResponse = await fetch(audioUrl, {
             headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
         });
         if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio');
         const audioBuffer = await audioResponse.buffer();
 
-        // 3. Enviar para a API da Google para transcrição
         const audio = {
             content: audioBuffer.toString('base64'),
         };
         const config = {
-            encoding: 'OGG_OPUS', // WhatsApp usa este formato
+            encoding: 'OGG_OPUS',
             sampleRateHertz: 16000,
             languageCode: 'pt-BR',
         };
@@ -155,15 +152,15 @@ async function transcribeAudio(mediaId) {
 }
 
 
-// --- MÁQUINA DE ESTADOS DA CONVERSA (sem alterações) ---
+// --- MÁQUINA DE ESTADOS DA CONVERSA ---
 
-async function processNewOrder(userPhoneNumber, userMessage) {
+async function processNewOrder(userPhoneNumber, userMessage, conversationState) {
     const menu = await fetchMenu();
     if (!menu) throw new Error('Não foi possível carregar o cardápio.');
 
-    const structuredOrder = await callGeminiAPI(userMessage, menu, 'items');
+    const structuredOrder = await callGeminiAPI(userMessage, menu, conversationState.history);
     if (!structuredOrder || !structuredOrder.itens || structuredOrder.itens.length === 0) {
-        const reply = structuredOrder.clarification_question || 'Desculpe, não consegui entender seu pedido. Poderia ser mais específico? Ex: "Quero uma pizza grande de calabresa e uma coca 2L".';
+        const reply = structuredOrder.clarification_question || 'Desculpe, não consegui entender seu pedido. Poderia ser mais específico?';
         await sendWhatsAppMessage(userPhoneNumber, reply);
         return;
     }
@@ -182,7 +179,8 @@ async function processNewOrder(userPhoneNumber, userMessage) {
     const pendingOrder = {
         state: 'confirming_items',
         itens: structuredOrder.itens,
-        subtotal: total
+        subtotal: total,
+        history: [...(conversationState.history || []), { role: 'user', text: userMessage }, { role: 'bot', text: confirmationMessage }]
     };
 
     await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), pendingOrder);
@@ -190,13 +188,13 @@ async function processNewOrder(userPhoneNumber, userMessage) {
 }
 
 async function handleItemsConfirmation(userPhoneNumber, userMessage, conversationState) {
-    if (['sim', 's', 'correto', 'isso'].includes(userMessage)) {
+    if (['sim', 's', 'correto', 'isso', 'pode mandar'].includes(userMessage)) {
         conversationState.state = 'awaiting_address';
         await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
         await sendWhatsAppMessage(userPhoneNumber, 'Ótimo! Qual o seu endereço completo para entrega? (Rua, número, bairro e ponto de referência, se houver)');
     } else {
-        await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-        await sendWhatsAppMessage(userPhoneNumber, 'Pedido cancelado. Vamos começar de novo. O que você gostaria de pedir?');
+        // V5.1 Update: Permite que o cliente adicione mais itens ou corrija o pedido
+        await processNewOrder(userPhoneNumber, userMessage, conversationState);
     }
 }
 
@@ -233,7 +231,7 @@ async function handlePaymentCapture(userPhoneNumber, userMessage, conversationSt
 }
 
 async function handleFinalConfirmation(userPhoneNumber, userMessage, conversationState) {
-    if (['sim', 's', 'correto', 'isso'].includes(userMessage)) {
+    if (['sim', 's', 'correto', 'isso', 'pode mandar'].includes(userMessage)) {
         const finalOrder = {
             itens: conversationState.itens,
             endereco: {
@@ -262,7 +260,7 @@ async function handleFinalConfirmation(userPhoneNumber, userMessage, conversatio
 }
 
 
-// --- FUNÇÕES DE INTEGRAÇÃO (sem alterações) ---
+// --- FUNÇÕES DE INTEGRAÇÃO ---
 
 async function fetchMenu() {
     try {
@@ -276,7 +274,7 @@ async function fetchMenu() {
     }
 }
 
-async function callGeminiAPI(userMessage, menu, context) {
+async function callGeminiAPI(userMessage, menu, history) {
     const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
     const simplifiedMenu = menu.cardapio.map(item => {
@@ -299,18 +297,29 @@ async function callGeminiAPI(userMessage, menu, context) {
 
     const prompt = `
         Você é um atendente de pizzaria. Sua tarefa é analisar a mensagem de um cliente e extrair o pedido, usando estritamente os itens e preços do cardápio fornecido.
-        Se o cliente pedir um tamanho de pizza (pequena, média, grande, gigante, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho.
-        Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola", "com bacon") para o campo "notes".
-        Foque apenas nos itens do pedido. Endereço e pagamento serão tratados depois.
-        IMPORTANTE: Retorne APENAS o JSON puro, sem blocos de código, sem \`\`\`json e sem \`\`\` no início ou no final.
+        
+        **REGRAS PARA PIZZA MEIO A MEIO:**
+        1. Se o cliente pedir dois sabores para uma pizza (ex: "metade calabresa, metade 4 queijos"), crie um único item.
+        2. O nome do item deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] e [Sabor 2]".
+        3. O preço da pizza meio a meio é o preço da pizza inteira que for MAIS CARA entre as duas metades. Calcule este valor.
+        4. Uma pizza promocional só pode ser combinada com outra pizza da categoria "promocionais".
 
-        CARDÁPIO DISPONÍVEL (com tamanhos e preços):
+        **REGRAS GERAIS:**
+        - Se o cliente pedir um tamanho de pizza (pequena, média, grande, 4 fatias, etc.), use o preço correspondente. Se não especificar, pergunte o tamanho na "clarification_question".
+        - Se o item for customizável (isCustomizable: true), extraia as observações (ex: "sem cebola", "com bacon") para o campo "notes".
+        - Se o cliente fornecer o endereço ou a forma de pagamento, ignore-os nesta etapa. Foque apenas nos itens.
+        - IMPORTANTE: Retorne APENAS o JSON puro, sem blocos de código, sem \`\`\`json e sem \`\`\` no início ou no final.
+
+        **CARDÁPIO DISPONÍVEL (com tamanhos e preços):**
         ${JSON.stringify(simplifiedMenu, null, 2)}
 
-        MENSAGEM DO CLIENTE:
+        **HISTÓRICO DA CONVERSA (se houver):**
+        ${JSON.stringify(history || [])}
+
+        **MENSAGEM DO CLIENTE:**
         "${userMessage}"
 
-        FORMATO DE SAÍDA JSON ESPERADO:
+        **FORMATO DE SAÍDA JSON ESPERADO:**
         {
           "itens": [
             { "name": "Nome do Item - Tamanho (se aplicável)", "price": 55.00, "quantity": 1, "notes": "sem cebola" }
