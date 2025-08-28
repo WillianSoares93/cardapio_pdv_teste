@@ -48,14 +48,14 @@ export default async function handler(req, res) {
 
         const messageData = body.entry[0].changes[0].value.messages[0];
         const userMessage = messageData.text.body.toLowerCase().trim();
-        const userPhoneNumber = messageData.from; // Mantém o formato original por enquanto
+        // CORREÇÃO: Garantimos que o número de telefone está limpo e contém apenas dígitos.
+        const userPhoneNumber = messageData.from.replace(/\D/g, '');
 
 
         try {
             if (['sim', 's', 'correto', 'isso', 'pode confirmar'].includes(userMessage)) {
                 await handleOrderConfirmation(userPhoneNumber);
             } else if (['não', 'n', 'cancelar', 'errado'].includes(userMessage)) {
-                // Usamos o número de telefone original como ID do documento
                 await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
                 await sendWhatsAppMessage(userPhoneNumber, 'Pedido cancelado. Por favor, diga o que você gostaria de pedir.');
             } else {
