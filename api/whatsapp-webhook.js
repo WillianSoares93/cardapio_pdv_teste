@@ -329,7 +329,7 @@ async function callGeminiForOrder(userMessage, menu, history) {
         
         **REGRAS PARA PIZZA MEIO A MEIO:**
         1. Se o cliente pedir dois sabores para uma pizza (ex: "metade calabresa, metade 4 queijos"), crie um único item.
-        2. O nome do item deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] / [Sabor 2]".
+        2. O nome do item deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] e [Sabor 2]".
         3. O preço da pizza meio a meio é o preço da pizza inteira que for MAIS CARA entre as duas metades. Calcule este valor.
 
         **REGRAS GERAIS:**
