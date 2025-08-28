@@ -48,7 +48,9 @@ export default async function handler(req, res) {
 
         const messageData = body.entry[0].changes[0].value.messages[0];
         const userMessage = messageData.text.body.toLowerCase().trim();
-        const userPhoneNumber = messageData.from;
+        // CORREÇÃO: Garantimos que o número de telefone está limpo e contém apenas dígitos.
+        const userPhoneNumber = messageData.from.replace(/\D/g, '');
+
 
         try {
             if (['sim', 's', 'correto', 'isso', 'pode confirmar'].includes(userMessage)) {
@@ -140,7 +142,7 @@ async function handleOrderConfirmation(userPhoneNumber) {
  */
 async function fetchMenu() {
     try {
-        // CORREÇÃO: Usando a URL de produção diretamente para garantir a estabilidade.
+        // Usando a URL de produção diretamente para garantir a estabilidade.
         const productionUrl = 'https://cardapiopdv.vercel.app';
         const response = await fetch(`${productionUrl}/api/menu`);
         if (!response.ok) {
@@ -155,7 +157,7 @@ async function fetchMenu() {
 }
 
 async function callGeminiAPI(userMessage, menu) {
-    // CORREÇÃO: Atualizado o nome do modelo para uma versão mais recente e estável.
+    // Atualizado o nome do modelo para uma versão mais recente e estável.
     const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
     const simplifiedMenu = menu.cardapio.map(item => ({
@@ -227,7 +229,7 @@ async function sendWhatsAppMessage(to, text) {
             })
         });
 
-        // MELHORIA: Adicionado tratamento de erro para a resposta da API da Meta
+        // Adicionado tratamento de erro para a resposta da API da Meta
         if (!response.ok) {
             const errorBody = await response.json();
             console.error('Erro da API do WhatsApp:', JSON.stringify(errorBody, null, 2));
