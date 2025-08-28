@@ -3,8 +3,8 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import fetch from 'node-fetch';
-import FormData from 'form-data';
-import { Readable } from 'stream';
+// V4 Update: Importa o cliente da Google Cloud Speech
+import { SpeechClient } from '@google-cloud/speech';
 
 // Configuração do Firebase
 const firebaseConfig = {
@@ -20,8 +20,18 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Carrega as variáveis de ambiente
-// IMPORTANTE: Adicione a sua chave da OpenAI nas variáveis de ambiente da Vercel
-const { WHATSAPP_API_TOKEN, WHATSAPP_VERIFY_TOKEN, GEMINI_API_KEY, OPENAI_API_KEY } = process.env;
+const { WHATSAPP_API_TOKEN, WHATSAPP_VERIFY_TOKEN, GEMINI_API_KEY, GOOGLE_CREDENTIALS_BASE64 } = process.env;
+
+// V4 Update: Configuração do cliente Google Speech-to-Text
+let speechClient;
+if (GOOGLE_CREDENTIALS_BASE64) {
+    const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
+    const credentials = JSON.parse(credentialsJson);
+    speechClient = new SpeechClient({ credentials });
+} else {
+    console.warn("Variável de ambiente GOOGLE_CREDENTIALS_BASE64 não encontrada. A transcrição de áudio irá falhar.");
+}
+
 
 // --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
 export default async function handler(req, res) {
@@ -46,7 +56,6 @@ export default async function handler(req, res) {
         const userPhoneNumber = messageData.from;
         let userMessage = '';
 
-        // V3 Update: Lida com diferentes tipos de mensagem
         if (messageData.type === 'text') {
             userMessage = messageData.text.body.trim();
         } else if (messageData.type === 'audio') {
@@ -95,9 +104,13 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
 }
 
-// --- LÓGICA DE TRANSCRIÇÃO DE ÁUDIO ---
+// --- LÓGICA DE TRANSCRIÇÃO DE ÁUDIO (V4 com Google) ---
 
 async function transcribeAudio(mediaId) {
+    if (!speechClient) {
+        console.error("Cliente Google Speech-to-Text não inicializado.");
+        return null;
+    }
     try {
         // 1. Obter a URL do ficheiro de áudio da Meta
         const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
@@ -114,31 +127,29 @@ async function transcribeAudio(mediaId) {
         if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio');
         const audioBuffer = await audioResponse.buffer();
 
-        // 3. Enviar para a API da OpenAI (Whisper) para transcrição
-        const formData = new FormData();
-        formData.append('file', audioBuffer, { filename: 'audio.ogg', contentType: 'audio/ogg' });
-        formData.append('model', 'whisper-1');
-        formData.append('language', 'pt'); // Especifica o idioma para maior precisão
+        // 3. Enviar para a API da Google para transcrição
+        const audio = {
+            content: audioBuffer.toString('base64'),
+        };
+        const config = {
+            encoding: 'OGG_OPUS', // WhatsApp usa este formato
+            sampleRateHertz: 16000,
+            languageCode: 'pt-BR',
+        };
+        const request = {
+            audio: audio,
+            config: config,
+        };
 
-        const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: {
-                ...formData.getHeaders(),
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
-            },
-            body: formData
-        });
-
-        if (!transcriptionResponse.ok) {
-            const errorBody = await transcriptionResponse.text();
-            throw new Error(`Falha na transcrição: ${errorBody}`);
-        }
-
-        const transcriptionData = await transcriptionResponse.json();
-        return transcriptionData.text;
+        const [response] = await speechClient.recognize(request);
+        const transcription = response.results
+            .map(result => result.alternatives[0].transcript)
+            .join('\n');
+        
+        return transcription;
 
     } catch (error) {
-        console.error("Erro na transcrição de áudio:", error);
+        console.error("Erro na transcrição de áudio com Google:", error);
         return null;
     }
 }
@@ -161,12 +172,12 @@ async function processNewOrder(userPhoneNumber, userMessage) {
     
     let confirmationMessage = 'Certo! Confirme os itens do seu pedido:\n\n';
     structuredOrder.itens.forEach(item => {
-        confirmationMessage += `*${item.quantity}x* ${item.name} - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
+        confirmationMessage += `*${item.quantity}x* ${item.name} - ${item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n`;
         if (item.notes) {
             confirmationMessage += `  _Observação: ${item.notes}_\n`;
         }
     });
-    confirmationMessage += `\n*Subtotal: R$ ${total.toFixed(2).replace('.', ',')}*\n\nEstá correto? (Responda "sim" ou "não")`;
+    confirmationMessage += `\n*Subtotal: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}*\n\nEstá correto? (Responda "sim" ou "não")`;
 
     const pendingOrder = {
         state: 'confirming_items',
@@ -207,14 +218,14 @@ async function handlePaymentCapture(userPhoneNumber, userMessage, conversationSt
     let finalMessage = 'Perfeito! Por favor, confirme seu pedido final:\n\n';
     finalMessage += '*ITENS:*\n';
     conversationState.itens.forEach(item => {
-        finalMessage += `*${item.quantity}x* ${item.name} - R$ ${item.price.toFixed(2).replace('.', ',')}\n`;
+        finalMessage += `*${item.quantity}x* ${item.name} - ${item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n`;
         if (item.notes) {
             finalMessage += `  _Observação: ${item.notes}_\n`;
         }
     });
     finalMessage += `\n*ENDEREÇO:*\n${conversationState.endereco.rua}\n`;
     finalMessage += `\n*PAGAMENTO:*\n${conversationState.pagamento}\n`;
-    finalMessage += `\n*TOTAL: R$ ${conversationState.subtotal.toFixed(2).replace('.', ',')}* (taxa de entrega a ser calculada)\n\n`;
+    finalMessage += `\n*TOTAL: ${conversationState.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}* (taxa de entrega a ser calculada)\n\n`;
     finalMessage += 'Tudo certo para enviar para a cozinha? (Responda "sim" para finalizar)';
 
     await setDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber), conversationState);
