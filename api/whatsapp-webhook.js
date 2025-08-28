@@ -3,8 +3,10 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import fetch from 'node-fetch';
+import FormData from 'form-data';
+import { Readable } from 'stream';
 
-// Configuração do Firebase (consistente com o resto do projeto)
+// Configuração do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
   authDomain: "pizzaria-pdv.firebaseapp.com",
@@ -14,12 +16,12 @@ const firebaseConfig = {
   appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
 };
 
-// Inicialização segura do Firebase
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Carrega as variáveis de ambiente (injetadas pela Vercel)
-const { WHATSAPP_API_TOKEN, WHATSAPP_VERIFY_TOKEN, GEMINI_API_KEY } = process.env;
+// Carrega as variáveis de ambiente
+// IMPORTANTE: Adicione a sua chave da OpenAI nas variáveis de ambiente da Vercel
+const { WHATSAPP_API_TOKEN, WHATSAPP_VERIFY_TOKEN, GEMINI_API_KEY, OPENAI_API_KEY } = process.env;
 
 // --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
 export default async function handler(req, res) {
@@ -41,20 +43,30 @@ export default async function handler(req, res) {
         }
 
         const messageData = body.entry[0].changes[0].value.messages[0];
-        const userMessage = messageData.text.body.trim();
         const userPhoneNumber = messageData.from;
+        let userMessage = '';
+
+        // V3 Update: Lida com diferentes tipos de mensagem
+        if (messageData.type === 'text') {
+            userMessage = messageData.text.body.trim();
+        } else if (messageData.type === 'audio') {
+            await sendWhatsAppMessage(userPhoneNumber, 'Ok, a processar o seu áudio...');
+            const mediaId = messageData.audio.id;
+            userMessage = await transcribeAudio(mediaId);
+            if (!userMessage) {
+                await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, não consegui entender o áudio. Pode tentar novamente ou enviar por texto?');
+                return res.status(200).send('EVENT_RECEIVED');
+            }
+        } else {
+            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, no momento só consigo processar pedidos por texto ou áudio.');
+            return res.status(200).send('EVENT_RECEIVED');
+        }
 
         try {
-            // Verifica se já existe uma conversa pendente
             const pendingOrderRef = doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber);
             const pendingOrderSnap = await getDoc(pendingOrderRef);
-            let conversationState = {};
+            let conversationState = pendingOrderSnap.exists() ? pendingOrderSnap.data() : {};
 
-            if (pendingOrderSnap.exists()) {
-                conversationState = pendingOrderSnap.data();
-            }
-
-            // Roteador de estado da conversa
             switch (conversationState.state) {
                 case 'confirming_items':
                     await handleItemsConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
@@ -68,13 +80,12 @@ export default async function handler(req, res) {
                 case 'confirming_order':
                     await handleFinalConfirmation(userPhoneNumber, userMessage.toLowerCase(), conversationState);
                     break;
-                default: // awaiting_items ou nova conversa
+                default:
                     await processNewOrder(userPhoneNumber, userMessage);
             }
         } catch (error) {
             console.error('Erro ao processar mensagem:', error);
-            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, ocorreu um erro. Vamos tentar novamente. Por favor, diga o que você gostaria de pedir.');
-            // Limpa o estado em caso de erro grave
+            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, ocorreu um erro. Vamos tentar novamente. Por favor, diga o que gostaria de pedir.');
             await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
         }
 
@@ -84,8 +95,56 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
 }
 
+// --- LÓGICA DE TRANSCRIÇÃO DE ÁUDIO ---
 
-// --- MÁQUINA DE ESTADOS DA CONVERSA ---
+async function transcribeAudio(mediaId) {
+    try {
+        // 1. Obter a URL do ficheiro de áudio da Meta
+        const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
+        });
+        if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL do média');
+        const mediaData = await mediaUrlResponse.json();
+        const audioUrl = mediaData.url;
+
+        // 2. Fazer o download do ficheiro de áudio
+        const audioResponse = await fetch(audioUrl, {
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
+        });
+        if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio');
+        const audioBuffer = await audioResponse.buffer();
+
+        // 3. Enviar para a API da OpenAI (Whisper) para transcrição
+        const formData = new FormData();
+        formData.append('file', audioBuffer, { filename: 'audio.ogg', contentType: 'audio/ogg' });
+        formData.append('model', 'whisper-1');
+        formData.append('language', 'pt'); // Especifica o idioma para maior precisão
+
+        const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            body: formData
+        });
+
+        if (!transcriptionResponse.ok) {
+            const errorBody = await transcriptionResponse.text();
+            throw new Error(`Falha na transcrição: ${errorBody}`);
+        }
+
+        const transcriptionData = await transcriptionResponse.json();
+        return transcriptionData.text;
+
+    } catch (error) {
+        console.error("Erro na transcrição de áudio:", error);
+        return null;
+    }
+}
+
+
+// --- MÁQUINA DE ESTADOS DA CONVERSA (sem alterações) ---
 
 async function processNewOrder(userPhoneNumber, userMessage) {
     const menu = await fetchMenu();
@@ -133,7 +192,7 @@ async function handleItemsConfirmation(userPhoneNumber, userMessage, conversatio
 async function handleAddressCapture(userPhoneNumber, userMessage, conversationState) {
     conversationState.state = 'awaiting_payment';
     conversationState.endereco = {
-        rua: userMessage, // A IA poderia extrair isso de forma mais inteligente, mas por enquanto capturamos tudo
+        rua: userMessage,
         bairro: "",
         numero: ""
     };
@@ -173,7 +232,7 @@ async function handleFinalConfirmation(userPhoneNumber, userMessage, conversatio
             },
             total: {
                 subtotal: conversationState.subtotal,
-                deliveryFee: 0, // A ser definido no PDV
+                deliveryFee: 0,
                 discount: 0,
                 finalTotal: conversationState.subtotal
             },
@@ -192,7 +251,7 @@ async function handleFinalConfirmation(userPhoneNumber, userMessage, conversatio
 }
 
 
-// --- FUNÇÕES DE INTEGRAÇÃO ---
+// --- FUNÇÕES DE INTEGRAÇÃO (sem alterações) ---
 
 async function fetchMenu() {
     try {
@@ -209,7 +268,6 @@ async function fetchMenu() {
 async function callGeminiAPI(userMessage, menu, context) {
     const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
-    // V2: O cardápio enviado para a IA agora é muito mais rico
     const simplifiedMenu = menu.cardapio.map(item => {
         let prices = {};
         if (item.isPizza) {
