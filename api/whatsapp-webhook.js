@@ -92,7 +92,7 @@ export default async function handler(req, res) {
                 await saveConversationState(userPhoneNumber, conversationState);
                 await sendWhatsAppMessage(userPhoneNumber, responseFromAI.answer);
             } else {
-                await sendWhatsAppMessage(userPhoneNumber, "Desculpe, não entendi o que quer dizer. Pode tentar novamente?");
+                await sendWhatsAppMessage(userPhoneNumber, "Desculpe, não entendi. Pode repetir, por favor?");
             }
 
         } catch (error) {
@@ -308,7 +308,7 @@ async function getAvailableMenu() {
 async function getActivePrompt() {
     const promptRef = doc(db, "config", "bot_prompt_active");
     const docSnap = await getDoc(promptRef);
-    if (docSnap.exists()) {
+    if (docSnap.exists() && docSnap.data().template) {
         return { promptTemplate: docSnap.data().template };
     }
     // Fallback se o documento não existir
