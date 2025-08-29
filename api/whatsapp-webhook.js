@@ -4,7 +4,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import fetch from 'node-fetch';
 import { SpeechClient } from '@google-cloud/speech';
-import FormData from 'form-data'; // Necessário para enviar ficheiros de áudio
+import FormData from 'form-data';
 
 // --- CONFIGURAÇÃO ---
 const firebaseConfig = {
@@ -21,16 +21,32 @@ const db = getFirestore(app);
 
 const { WHATSAPP_API_TOKEN, WHATSAPP_VERIFY_TOKEN, WHATSAPP_PHONE_NUMBER_ID, GEMINI_API_KEY, GOOGLE_CREDENTIALS_BASE64, OPENAI_API_KEY } = process.env;
 
-let speechClient;
-if (GOOGLE_CREDENTIALS_BASE64) {
-    try {
-        const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
-        const credentials = JSON.parse(credentialsJson);
-        speechClient = new SpeechClient({ credentials });
-    } catch (e) {
-        console.error("Erro ao inicializar o Google Speech Client:", e);
+// V6.1 Update: Inicialização segura e "preguiçosa" do cliente Speech
+let speechClientInstance = null;
+
+function getSpeechClient() {
+    if (speechClientInstance) {
+        return speechClientInstance;
+    }
+
+    console.log("[LOG] A tentar inicializar o cliente Google Speech...");
+    if (GOOGLE_CREDENTIALS_BASE64) {
+        try {
+            const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
+            const credentials = JSON.parse(credentialsJson);
+            speechClientInstance = new SpeechClient({ credentials });
+            console.log("[LOG] Cliente Google Speech inicializado com sucesso.");
+            return speechClientInstance;
+        } catch (e) {
+            console.error("[ERRO CRÍTICO] Falha ao processar as credenciais do Google Cloud:", e);
+            throw new Error("As credenciais do Google Cloud não puderam ser processadas.");
+        }
+    } else {
+        console.error("[ERRO CRÍTICO] Variável de ambiente GOOGLE_CREDENTIALS_BASE64 não encontrada.");
+        throw new Error("Credenciais do Google Cloud não configuradas.");
     }
 }
+
 
 // --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
 export default async function handler(req, res) {
@@ -65,19 +81,16 @@ export default async function handler(req, res) {
         
         console.log(`[LOG] A processar mensagem de: ${userPhoneNumber}`);
 
-        // Inicia a busca de dados do sistema em segundo plano para otimizar o tempo
         const systemDataPromise = getSystemData();
 
         try {
-            // Etapa 1: Obter o texto da mensagem (seja texto ou áudio)
             let userMessage = await getUserMessage(messageData, userPhoneNumber);
             if (userMessage === null) {
-                console.log("[LOG] Mensagem não processável (ex: imagem) ou falha na transcrição. A encerrar o fluxo.");
+                console.log("[LOG] Mensagem não processável ou falha na transcrição. A encerrar o fluxo.");
                 return res.status(200).send('EVENT_RECEIVED');
             }
-             console.log(`[LOG] Mensagem do utilizador (após transcrição se aplicável): "${userMessage}"`);
+             console.log(`[LOG] Mensagem do utilizador: "${userMessage}"`);
 
-            // Etapa 2: Carregar o estado da conversa e aguardar os dados do sistema
             console.log("[LOG] A carregar estado da conversa e dados do sistema...");
             const [conversationState, { availableMenu, allIngredients, promptTemplate }] = await Promise.all([
                 getConversationState(userPhoneNumber),
@@ -89,18 +102,14 @@ export default async function handler(req, res) {
             }
             console.log("[LOG] Estado da conversa e dados do sistema carregados com sucesso.");
 
-            // Etapa 3: Adicionar a mensagem atual ao histórico
             conversationState.history.push({ role: 'user', message: userMessage });
 
-            // Etapa 4: Chamar a IA para interpretar a intenção e os dados
             console.log("[LOG] A chamar a API do Gemini...");
             const responseFromAI = await callGeminiAPI(userMessage, availableMenu, allIngredients, conversationState, promptTemplate);
             console.log("[LOG] Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
             
-            // Etapa 5: Adicionar a resposta da IA ao histórico
             conversationState.history.push({ role: 'assistant', message: JSON.stringify(responseFromAI) });
             
-            // Etapa 6: Processar a resposta da IA
             if (responseFromAI.action === "PROCESS_ORDER") {
                 console.log("[LOG] Ação da IA: PROCESS_ORDER");
                 await processOrderAction(userPhoneNumber, responseFromAI, conversationState);
@@ -135,7 +144,7 @@ async function getUserMessage(messageData, userPhoneNumber) {
     if (messageData.type === 'audio') {
         await sendWhatsAppMessage(userPhoneNumber, 'Ok, a processar o seu áudio...');
         const mediaId = messageData.audio.id;
-        // Tenta transcrever com Google, se falhar, tenta com OpenAI
+        
         let transcription = await transcribeWithGoogle(mediaId);
         if (!transcription && OPENAI_API_KEY) {
             console.log("Transcrição com Google falhou, a tentar com OpenAI...");
@@ -148,7 +157,6 @@ async function getUserMessage(messageData, userPhoneNumber) {
         }
         return transcription;
     }
-    // Se não for texto nem áudio
     await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, no momento só consigo processar pedidos por texto ou áudio.');
     return null;
 }
@@ -176,7 +184,6 @@ async function getSystemData() {
 
 async function processOrderAction(userPhoneNumber, aiResponse, conversationState) {
     console.log("[LOG] A entrar em processOrderAction...");
-    // Atualiza o estado da conversa com os dados extraídos pela IA
     if (aiResponse.itens && aiResponse.itens.length > 0) {
         conversationState.itens.push(...aiResponse.itens);
     }
@@ -191,7 +198,6 @@ async function processOrderAction(userPhoneNumber, aiResponse, conversationState
 
     let nextStepMessage = '';
 
-    // Lógica para decidir o próximo passo
     if (!conversationState.itens || conversationState.itens.length === 0) {
         nextStepMessage = "Não entendi quais itens você gostaria de pedir. Poderia me dizer?";
     } else if (!conversationState.endereco) {
@@ -199,13 +205,11 @@ async function processOrderAction(userPhoneNumber, aiResponse, conversationState
     } else if (!conversationState.pagamento) {
         nextStepMessage = `Endereço anotado! Qual será a forma de pagamento? (Dinheiro, Cartão ou Pix)`;
     } else {
-        // Se todas as informações estiverem presentes, finaliza o pedido
         console.log("[LOG] Todas as informações recolhidas. A finalizar o pedido...");
         await finalizeOrder(userPhoneNumber, conversationState);
-        return; // Sai da função para não enviar outra mensagem
+        return;
     }
     
-    // Se houver uma pergunta de clarificação da IA, usa-a
     if (aiResponse.clarification_question) {
         nextStepMessage = aiResponse.clarification_question;
     }
@@ -225,7 +229,7 @@ async function finalizeOrder(userPhoneNumber, conversationState) {
         },
         total: {
             subtotal: conversationState.subtotal,
-            deliveryFee: 0, // A ser implementado
+            deliveryFee: 0,
             discount: 0,
             finalTotal: conversationState.subtotal
         },
@@ -246,7 +250,9 @@ async function finalizeOrder(userPhoneNumber, conversationState) {
 // --- FUNÇÕES DE TRANSCRIÇÃO ---
 
 async function transcribeWithGoogle(mediaId) {
+    const speechClient = getSpeechClient(); // V6.1 Update: Inicializa o cliente aqui
     if (!speechClient) return null;
+
     try {
         const audioBuffer = await downloadWhatsAppMedia(mediaId);
         const request = {
@@ -363,7 +369,7 @@ async function callGeminiAPI(userMessage, menu, ingredients, conversationState, 
     const prompt = promptTemplate
         .replace(/\${CARDAPIO}/g, JSON.stringify(simplifiedMenu))
         .replace(/\${INGREDIENTES}/g, JSON.stringify(ingredients))
-        .replace(/\${HISTORICO}/g, JSON.stringify(conversationState.history.slice(-4))) // Envia apenas as últimas 4 interações
+        .replace(/\${HISTORICO}/g, JSON.stringify(conversationState.history.slice(-4)))
         .replace(/\${ESTADO_PEDIDO}/g, JSON.stringify(conversationState.itens || []))
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
@@ -374,7 +380,7 @@ async function callGeminiAPI(userMessage, menu, ingredients, conversationState, 
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
         if (!response.ok) {
-            console.error(await response.text());
+            console.error("Erro da API do Gemini (corpo da resposta):", await response.text());
             throw new Error(`Erro na API do Gemini: ${response.status}`);
         }
         const data = await response.json();
