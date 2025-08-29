@@ -226,11 +226,10 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 8px;
+            padding: 12px;
             background-color: #f9fafb;
             border: 2px solid #e5e7eb;
             border-radius: 10px;
-            cursor: pointer;
             transition: all 0.3s ease-in-out;
             text-align: center;
             flex-shrink: 0;
@@ -241,12 +240,6 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
             transform: translateY(-4px);
         }
-        .pizza-size-option img {
-            margin-bottom: 8px;
-            width: 100px;
-            height: 70px;
-            object-fit: contain;
-        }
         .pizza-size-option .font-bold.text-lg {
             font-size: 1rem;
             color: #1f2937;
@@ -256,7 +249,7 @@
             color: #dc2626;
         }
         .pizza-size-option button {
-            padding: 0.4rem 0.8rem;
+            padding: 0.5rem 1rem;
             border-radius: 0.375rem;
             font-size: 0.875rem;
         }
@@ -446,7 +439,7 @@
             padding: 10px;
             object-fit: cover;
         }
-        .burger-builder-modal {
+        .builder-modal {
             max-width: 600px;
         }
         .ingredient-category {
@@ -491,26 +484,34 @@
             border-color: #dc2626;
             box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
         }
-        .burger-summary {
+        .builder-summary {
             background-color: #fff;
             padding: 16px;
             border-radius: 8px;
             margin-top: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        .burger-summary h5 {
+        .builder-summary h5 {
             font-weight: bold;
             color: #1f2937;
             margin-bottom: 8px;
         }
-        .burger-summary ul {
+        .builder-summary ul {
             list-style: none;
             padding: 0;
             margin: 0;
         }
-        .burger-summary li {
+        .builder-summary li {
             font-size: 0.875rem;
             color: #4b5563;
+        }
+        .scope-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .scope-button.active {
+            background-color: #ef4444;
+            color: white;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -604,6 +605,11 @@
                     <span>Total:</span>
                     <span id="total">R$ 0,00</span>
                 </div>
+
+                <div class="mt-4">
+                    <label for="order-observation" class="block text-sm font-medium text-gray-700">Observações:</label>
+                    <textarea id="order-observation" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" placeholder="Ex: Tirar a cebola, ponto da carne, etc."></textarea>
+                </div>
             </div>
 
             <div id="address-summary-section" class="border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50 hidden">
@@ -634,13 +640,13 @@
             <span class="close-button" id="close-pizza-option-modal">&times;</span>
             <h3 class="text-xl font-bold text-gray-800 mb-4" id="modal-pizza-name"></h3>
             <p class="text-gray-600 mb-6" id="modal-pizza-description"></p>
-            <div id="pizza-size-options" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 justify-items-center">
+            <div id="pizza-size-options" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             </div>
         </div>
     </div>
     
     <div id="burger-builder-modal" class="modal">
-        <div class="modal-content burger-builder-modal">
+        <div class="modal-content builder-modal">
             <span class="close-button" id="close-burger-builder-modal">&times;</span>
             <h3 class="text-xl font-bold text-gray-800 mb-4">Monte Seu Hambúrguer</h3>
             
@@ -832,6 +838,37 @@
             </button>
         </div>
     </div>
+    
+    <!-- NOVO: Modal para perguntar sobre adicionais -->
+    <div id="ask-pizza-extras-modal" class="message-modal">
+        <div class="modal-content">
+            <p class="text-lg font-semibold text-gray-800 mb-4" id="ask-extras-title"></p>
+            <p class="text-gray-600 mb-6"></p>
+            <div class="flex justify-center gap-4">
+                <button id="ask-extras-no-btn" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold hover:bg-gray-400 transition">Não, obrigado</button>
+                <button id="ask-extras-yes-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition">Sim, quero!</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- NOVO: Modal para construir adicionais da pizza -->
+    <div id="pizza-extras-builder-modal" class="modal">
+        <div class="modal-content builder-modal">
+            <span class="close-button" id="close-pizza-extras-builder-modal">&times;</span>
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="pizza-extras-builder-title"></h3>
+            <div id="pizza-extras-scope-buttons" class="flex flex-wrap gap-2 mb-4 border-b pb-4">
+                <!-- Botões de escopo serão inseridos aqui -->
+            </div>
+            <div id="pizza-extras-ingredients-container" class="mb-4 max-h-80 overflow-y-auto p-2"></div>
+            <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
+                <span class="text-lg font-bold">Total da Pizza:</span>
+                <span id="pizza-extras-total-price" class="text-2xl font-bold text-red-600">R$ 0,00</span>
+            </div>
+            <button id="add-pizza-with-extras-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition w-full mt-4">
+                Confirmar Adicionais
+            </button>
+        </div>
+    </div>
 
     <footer class="bg-gray-800 text-white py-8 px-4">
         <div class="max-w-6xl mx-auto">
@@ -870,14 +907,14 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             // --- INÍCIO DA CONFIGURAÇÃO DO FIREBASE ---
-const firebaseConfig = {
-  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
-  authDomain: "pizzaria-pdv.firebaseapp.com",
-  projectId: "pizzaria-pdv",
-  storageBucket: "pizzaria-pdv.firebasestorage.app",
-  messagingSenderId: "304171744691",
-  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
+            authDomain: "samia-cardapio.firebaseapp.com",
+            projectId: "samia-cardapio",
+            storageBucket: "samia-cardapio.firebasestorage.app",
+            messagingSenderId: "223260436641",
+            appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
+        };
 
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
@@ -888,6 +925,7 @@ const firebaseConfig = {
             let allPromotionsData = [];
             let deliveryFeesData = [];
             let allBurgerIngredients = {};
+            let allPizzaIngredients = {}; 
             let isSelectingHalfPizza = false; 
             let isFirstHalfPromotional = false; 
             let deferredPrompt; 
@@ -901,6 +939,9 @@ const firebaseConfig = {
             let unavailableItems = {};
             let ingredientVisibility = {};
             let ingredientStatus = {};
+            let pizzaHalfStatus = {};
+            let itemExtrasStatus = {}; 
+            let currentPizzaExtrasState = {}; 
             
             let selectedAddress = {
                 clientName: null, 
@@ -994,12 +1035,23 @@ const firebaseConfig = {
             const pickupCheckbox = document.getElementById('pickupCheckbox');
             const addressFieldsContainer = document.getElementById('address-fields-container');
 
+            const askPizzaExtrasModal = document.getElementById('ask-pizza-extras-modal');
+            const askExtrasTitle = document.getElementById('ask-extras-title');
+            const askExtrasYesBtn = document.getElementById('ask-extras-yes-btn');
+            const askExtrasNoBtn = document.getElementById('ask-extras-no-btn');
+            const pizzaExtrasBuilderModal = document.getElementById('pizza-extras-builder-modal');
+            const pizzaExtrasBuilderTitle = document.getElementById('pizza-extras-builder-title');
+            const closePizzaExtrasBuilderModalBtn = document.getElementById('close-pizza-extras-builder-modal');
+            const pizzaExtrasIngredientsContainer = document.getElementById('pizza-extras-ingredients-container');
+            const pizzaExtrasTotalPrice = document.getElementById('pizza-extras-total-price');
+            const addPizzaWithExtrasBtn = document.getElementById('add-pizza-with-extras-btn');
+
+
             let currentPizzaData = {}; 
             let firstHalfPizza = null; 
             let isSelectingSecondHalf = false; 
             let qrCodeInstance = null;
 
-            // Variáveis para controle do observador de rolagem
             let isScrollingFromClick = false;
             let categoryObserver;
             let firstPizzaSectionId = null;
@@ -1011,19 +1063,23 @@ const firebaseConfig = {
                 { slices: 10, label: '10 Fatias', priceKey: 'price10Slices' }
             ];
             
-            // --- INÍCIO DA ALTERAÇÃO ---
-            // Nova função para formatar a categoria da pizza
+            function formatProductName(name, category) {
+                const lowerCaseName = name.toLowerCase();
+                const lowerCaseCategory = category.toLowerCase().replace(/s$/, ''); // Remove 's' do final (ex: pizzas -> pizza)
+                if (!lowerCaseName.includes(lowerCaseCategory)) {
+                    return `${capitalizeFirstLetter(lowerCaseCategory)} ${name}`;
+                }
+                return name;
+            }
+
             function formatPizzaCategory(category) {
                 if (!category) return 'PIZZAS';
                 const upperCategory = category.toUpperCase();
-                // Verifica se a categoria já está no formato desejado
                 if (upperCategory.startsWith('PIZZA')) {
                     return category;
                 }
-                // Adiciona o prefixo
                 return `PIZZA(s) ${upperCategory}`;
             }
-            // --- FIM DA ALTERAÇÃO ---
 
             function isPwaInstalled() {
                 if (window.matchMedia('(display-mode: standalone)').matches) {
@@ -1135,6 +1191,27 @@ const firebaseConfig = {
                 onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
                     itemVisibility = doc.exists() ? doc.data() : {};
                     updateUI();
+                });
+                onSnapshot(doc(db, "config", "pizza_half_status"), (doc) => {
+                    pizzaHalfStatus = doc.exists() ? doc.data() : {};
+                    allMenuData.forEach(item => {
+                        if (item.isPizza) {
+                            item.allowHalf = pizzaHalfStatus[item.id] !== false;
+                        }
+                    });
+                    if (pizzaOptionModal.style.display === 'flex' && currentPizzaData.id) {
+                        const updatedPizza = allMenuData.find(p => p.id === currentPizzaData.id);
+                        if (updatedPizza) {
+                            renderPizzaOptions(updatedPizza);
+                        }
+                    }
+                });
+                 onSnapshot(doc(db, "config", "item_extras_status"), (doc) => {
+                    itemExtrasStatus = doc.exists() ? doc.data() : {};
+                    allMenuData.forEach(item => {
+                        const defaultExtras = item.isPizza;
+                        item.acceptsExtras = itemExtrasStatus[item.id] === undefined ? defaultExtras : itemExtrasStatus[item.id];
+                    });
                 });
                 onSnapshot(doc(db, "config", "ingredient_status"), (doc) => {
                     ingredientStatus = doc.exists() ? doc.data() : {};
@@ -1283,6 +1360,15 @@ const firebaseConfig = {
                         acc[current.category].push(current);
                         return acc;
                     }, {});
+
+                    const rawPizzaIngredients = data.ingredientesPizza || [];
+                     allPizzaIngredients = rawPizzaIngredients.reduce((acc, current) => {
+                        const category = current.category || 'Adicionais';
+                        if (!acc[category]) acc[category] = [];
+                        acc[category].push(current);
+                        return acc;
+                    }, {});
+
 
                     contactInfo = data.contact.reduce((acc, curr) => {
                         if (curr.data && curr.value) acc[curr.data.toLowerCase().replace(/[^a-z0-9]/g, '')] = curr.value;
@@ -1485,7 +1571,6 @@ const firebaseConfig = {
                             isScrollingFromClick = true;
                             targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
                             setActiveCategoryButton(category);
-                            // O timeout previne que o IntersectionObserver interfira com o clique
                             setTimeout(() => {
                                 isScrollingFromClick = false;
                             }, 1000); 
@@ -1507,26 +1592,31 @@ const firebaseConfig = {
                     const itemId = button.dataset.itemId;
                     const item = allMenuData.find(i => i.id === itemId);
 
-                    if (enableAll || !isSelectingHalfPizza) { 
+                    if (enableAll || !isSelectingHalfPizza) {
                         button.removeAttribute('disabled');
                         button.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else { 
+                    } else {
+                        let disable = false;
                         if (isFirstHalfPromotional) {
-                            if (item && item.category.toLowerCase() === 'promocionais') {
-                                button.removeAttribute('disabled');
-                                button.classList.remove('opacity-50', 'cursor-not-allowed');
-                            } else {
-                                button.setAttribute('disabled', 'true');
-                                button.classList.add('opacity-50', 'cursor-not-allowed');
+                            if (!item || item.category.toLowerCase() !== 'promocionais') {
+                                disable = true;
                             }
-                        } else { 
+                        } else {
                             if (item && item.category.toLowerCase() === 'promocionais') {
-                                button.setAttribute('disabled', 'true');
-                                button.classList.add('opacity-50', 'cursor-not-allowed');
-                            } else {
-                                button.removeAttribute('disabled'); 
-                                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                                disable = true;
                             }
+                        }
+                        
+                        if (item && pizzaHalfStatus[item.id] === false) {
+                            disable = true;
+                        }
+
+                        if (disable) {
+                            button.setAttribute('disabled', 'true');
+                            button.classList.add('opacity-50', 'cursor-not-allowed');
+                        } else {
+                            button.removeAttribute('disabled');
+                            button.classList.remove('opacity-50', 'cursor-not-allowed');
                         }
                     }
                 });
@@ -1559,15 +1649,141 @@ const firebaseConfig = {
                     }
                 });
             }
+            
+            function renderPizzaOptions(item) {
+                modalPizzaName.textContent = item.name;
+                modalPizzaDescription.textContent = item.description;
+                pizzaSizeOptions.innerHTML = '';
+                
+                const availableSizes = sizes.filter(size => item[size.priceKey] > 0);
+
+                if (availableSizes.length <= 2) {
+                    pizzaSizeOptions.classList.remove('sm:grid-cols-2', 'lg:grid-cols-4');
+                    pizzaSizeOptions.classList.add('sm:grid-cols-2');
+                } else {
+                    pizzaSizeOptions.classList.remove('sm:grid-cols-2');
+                    pizzaSizeOptions.classList.add('sm:grid-cols-2', 'lg:grid-cols-4');
+                }
+
+                availableSizes.forEach(size => {
+                    const sizePrice = item[size.priceKey];
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'pizza-size-option';
+                    
+                    const allowsHalf = pizzaHalfStatus[item.id] !== false;
+                    
+                    const fullPizzaButtonHtml = `
+                        <button class="add-full-size-pizza-btn px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition w-full"
+                                data-slices="${size.slices}" data-price-key="${size.priceKey}">
+                            Adicionar Inteira
+                        </button>
+                    `;
+
+                    let halfPizzaButtonHtml = '';
+                    if (allowsHalf) {
+                        halfPizzaButtonHtml = `
+                            <button class="add-half-size-pizza-btn px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition w-full"
+                                    data-slices="${size.slices}" data-price-key="${size.priceKey}">
+                                Adicionar Meia Pizza
+                            </button>
+                        `;
+                    } else {
+                         halfPizzaButtonHtml = `
+                            <button class="add-half-size-pizza-btn px-4 py-2 bg-gray-400 text-white rounded-md text-sm cursor-not-allowed w-full"
+                                    disabled>
+                                Adicionar Meia Pizza
+                            </button>
+                        `;
+                    }
+
+                    let halfPizzaMessageHtml = '';
+                    if (!allowsHalf) {
+                        halfPizzaMessageHtml = `<div class="text-xs text-center text-gray-500 mt-1 h-6">Este sabor não permite meia a meia.</div>`;
+                    } else {
+                        halfPizzaMessageHtml = `<div class="h-6 mt-1"></div>`;
+                    }
+                    
+                    optionDiv.innerHTML = `
+                        <span class="font-bold text-base text-gray-800">${size.label}</span>
+                        <span class="font-bold text-red-600 text-lg mb-2">R$ ${sizePrice.toFixed(2).replace('.', ',')}</span>
+                        <div class="flex flex-col gap-2 mt-2 w-full">
+                            ${fullPizzaButtonHtml}
+                            ${halfPizzaButtonHtml}
+                        </div>
+                        ${halfPizzaMessageHtml}
+                    `;
+                    pizzaSizeOptions.appendChild(optionDiv);
+
+                    optionDiv.querySelector('.add-full-size-pizza-btn').addEventListener('click', function() {
+                        const selectedSlices = parseInt(this.dataset.slices);
+                        const selectedPriceKey = this.dataset.priceKey;
+                        const newName = `${selectedSlices} FATIAS: ${currentPizzaData.name}`;
+                        addToOrder({
+                            id: Date.now() + Math.random(), // Unique ID for each item in cart
+                            type: 'full', name: newName, price: currentPizzaData[selectedPriceKey], 
+                            description: currentPizzaData.description,
+                            category: formatPizzaCategory(currentPizzaData.category),
+                            selected_slices: selectedSlices,
+                            extras: [],
+                            acceptsExtras: currentPizzaData.acceptsExtras
+                        }, this, currentPizzaData.imageUrl); 
+                        pizzaOptionModal.style.display = 'none';
+                        updatePromotionButtonVisibility(); 
+                    });
+
+                    const halfPizzaBtn = optionDiv.querySelector('.add-half-size-pizza-btn');
+                    if (halfPizzaBtn && !halfPizzaBtn.disabled) {
+                        halfPizzaBtn.addEventListener('click', function() {
+                            const selectedSlices = parseInt(this.dataset.slices);
+                            const selectedPriceKey = this.dataset.priceKey;
+                            firstHalfPizza = {
+                                name: currentPizzaData.name,
+                                price: currentPizzaData[selectedPriceKey] / 2, 
+                                description: currentPizzaData.description,
+                                original_full_price: currentPizzaData[selectedPriceKey], 
+                                selected_slices: selectedSlices,
+                                priceKeyForSlices: selectedPriceKey, 
+                                category: currentPizzaData.category 
+                            };
+                            isSelectingSecondHalf = true;
+                            isSelectingHalfPizza = true; 
+                            isFirstHalfPromotional = (currentPizzaData.category.toLowerCase() === 'promocionais'); 
+                            pizzaOptionModal.style.display = 'none';
+                            updatePromotionButtonVisibility(); 
+
+                            toggleAddItemButtons(false); 
+                            toggleCategoryButtons(false); 
+                            
+                            addToOrderOnly({
+                                type: 'half_pending', name: `½ ${currentPizzaData.name}`,
+                                price: currentPizzaData[selectedPriceKey] / 2,
+                                description: `Primeira metade: ${currentPizzaData.description}`,
+                                id: 'pending-half-pizza',
+                                category: formatPizzaCategory(currentPizzaData.category),
+                                selected_slices: selectedSlices
+                            }, this, currentPizzaData.imageUrl);
+                            
+                            setTimeout(() => {
+                                showMessageModal('Agora, escolha a segunda metade da sua pizza.'); 
+                            }, 100);
+                        });
+                    }
+                });
+            }
+
+            function openPizzaOptionsModal(item) {
+                currentPizzaData = { ...item };
+                renderPizzaOptions(item);
+                pizzaOptionModal.style.display = 'flex';
+                promotionButton.style.display = 'none';
+            }
 
             function handleAddButtonClick(e) {
                 const clickedButton = e.target; 
                 const itemId = clickedButton.dataset.itemId;
                 const item = allMenuData.find(i => i.id === itemId);
 
-                if (!item) {
-                    return;
-                }
+                if (!item) return;
 
                 const itemImageUrl = item.isPizza ? item.imageUrl : null;
                 
@@ -1579,6 +1795,11 @@ const firebaseConfig = {
                 if (isSelectingSecondHalf) {
                     if (!item.isPizza) {
                         showMessageModal('Por favor, escolha uma pizza para a segunda metade.');
+                        return;
+                    }
+                    
+                    if (pizzaHalfStatus[item.id] === false) {
+                        showMessageModal(`O sabor "${item.name}" não está disponível para meia a meia.`);
                         return;
                     }
 
@@ -1607,16 +1828,14 @@ const firebaseConfig = {
                     const combinedPrice = ((priceFirstHalfFullSize || 0) / 2) + ((priceSecondHalfFullSize || 0) / 2);
                     const combinedDescription = `${firstHalfPizza.description.replace('Primeira metade: ', '')} e ${item.description}`;
 
-                    // --- INÍCIO DA ALTERAÇÃO ---
                     addToOrder({
-                        type: 'split',
-                        name: combinedName,
-                        price: combinedPrice,
-                        description: combinedDescription,
-                        category: 'PIZZA(s) MEIA A MEIA', // Categoria fixa para meia a meia
-                        selected_slices: firstHalfPizza.selected_slices
+                        id: Date.now() + Math.random(),
+                        type: 'split', name: combinedName, price: combinedPrice,
+                        description: combinedDescription, category: 'PIZZA(s) MEIA A MEIA',
+                        selected_slices: firstHalfPizza.selected_slices,
+                        extras: [],
+                        acceptsExtras: item.acceptsExtras // Herda a permissão
                     }, clickedButton, itemImageUrl); 
-                    // --- FIM DA ALTERAÇÃO ---
 
                     firstHalfPizza = null;
                     isSelectingSecondHalf = false;
@@ -1626,119 +1845,27 @@ const firebaseConfig = {
                     toggleCategoryButtons(true); 
                     showTemporaryFeedback('Pizza meio a meia adicionada ao pedido!', 'bg-green-500'); 
                     
-                } else if (item.isCustomizable) {
-                    openBurgerBuilderModal(item);
-                    return;
                 } else if (item.isPizza) {
-                    currentPizzaData = { ...item }; 
-                    modalPizzaName.textContent = item.name;
-                    modalPizzaDescription.textContent = item.description;
-
-                    pizzaSizeOptions.innerHTML = '';
-                    
-                    const availableSizes = sizes.filter(size => currentPizzaData[size.priceKey] > 0);
-
-                    if (availableSizes.length <= 2) {
-                        pizzaSizeOptions.classList.remove('sm:grid-cols-2', 'lg:grid-cols-4');
-                        pizzaSizeOptions.classList.add('sm:grid-cols-2');
-                    } else {
-                        pizzaSizeOptions.classList.remove('sm:grid-cols-2');
-                        pizzaSizeOptions.classList.add('sm:grid-cols-2', 'lg:grid-cols-4');
-                    }
-
-                    availableSizes.forEach(size => {
-                        const sizePrice = currentPizzaData[size.priceKey];
-                        const optionDiv = document.createElement('div');
-                        optionDiv.className = 'pizza-size-option';
-                        optionDiv.innerHTML = `
-                            <span class="font-bold text-base text-gray-800">${size.label}</span>
-                            <span class="font-bold text-red-600 text-lg">R$ ${sizePrice.toFixed(2).replace('.', ',')}</span>
-                            <div class="flex flex-col gap-2 mt-2 w-full">
-                                <button class="add-full-size-pizza-btn px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition"
-                                        data-slices="${size.slices}" data-price-key="${size.priceKey}">
-                                    Adicionar Inteira
-                                </button>
-                                <button class="add-half-size-pizza-btn px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition"
-                                        data-slices="${size.slices}" data-price-key="${size.priceKey}">
-                                    Adicionar Meia Pizza
-                                </button>
-                            </div>
-                        `;
-                        pizzaSizeOptions.appendChild(optionDiv);
-
-                        optionDiv.querySelector('.add-full-size-pizza-btn').addEventListener('click', function() {
-                            const selectedSlices = parseInt(this.dataset.slices);
-                            const selectedPriceKey = this.dataset.priceKey;
-                            const newName = `${selectedSlices} FATIAS: ${currentPizzaData.name}`;
-                            // --- INÍCIO DA ALTERAÇÃO ---
-                            addToOrder({
-                                type: 'full',
-                                name: newName,
-                                price: currentPizzaData[selectedPriceKey], 
-                                description: currentPizzaData.description,
-                                category: formatPizzaCategory(currentPizzaData.category), // Formata a categoria
-                                selected_slices: selectedSlices
-                            }, this, currentPizzaData.imageUrl); 
-                            // --- FIM DA ALTERAÇÃO ---
-                            pizzaOptionModal.style.display = 'none';
-                            updatePromotionButtonVisibility(); 
-                        });
-
-                        optionDiv.querySelector('.add-half-size-pizza-btn').addEventListener('click', function() {
-                            const selectedSlices = parseInt(this.dataset.slices);
-                            const selectedPriceKey = this.dataset.priceKey;
-                            firstHalfPizza = {
-                                name: currentPizzaData.name,
-                                price: currentPizzaData[selectedPriceKey] / 2, 
-                                description: currentPizzaData.description,
-                                original_full_price: currentPizzaData[selectedPriceKey], 
-                                selected_slices: selectedSlices,
-                                priceKeyForSlices: selectedPriceKey, 
-                                category: currentPizzaData.category 
-                            };
-                            isSelectingSecondHalf = true;
-                            isSelectingHalfPizza = true; 
-                            isFirstHalfPromotional = (currentPizzaData.category.toLowerCase() === 'promocionais'); 
-                            pizzaOptionModal.style.display = 'none';
-                            updatePromotionButtonVisibility(); 
-
-                            toggleAddItemButtons(false); 
-                            toggleCategoryButtons(false); 
-                            
-                            // --- INÍCIO DA ALTERAÇÃO ---
-                            addToOrderOnly(
-                                {
-                                    type: 'half_pending',
-                                    name: `½ ${currentPizzaData.name}`,
-                                    price: currentPizzaData[selectedPriceKey] / 2,
-                                    description: `Primeira metade: ${currentPizzaData.description}`,
-                                    id: 'pending-half-pizza',
-                                    category: formatPizzaCategory(currentPizzaData.category), // Formata a categoria
-                                    selected_slices: selectedSlices
-                                }, this, currentPizzaData.imageUrl 
-                            );
-                            // --- FIM DA ALTERAÇÃO ---
-                            setTimeout(() => {
-                                showMessageModal('Agora, escolha a segunda metade da sua pizza.'); 
-                            }, 100);
-                        });
-                    });
-
-                    pizzaOptionModal.style.display = 'flex';
-                    promotionButton.style.display = 'none'; 
+                    openPizzaOptionsModal(item);
                 } else { 
                     addToOrder({
+                        id: Date.now() + Math.random(),
                         type: 'full',
                         name: item.name,
                         price: item.basePrice, 
                         description: item.description,
-                        category: item.category
+                        category: item.category,
+                        extras: [],
+                        acceptsExtras: item.acceptsExtras
                     }, clickedButton, itemImageUrl); 
                 }
             }
             
             function addToOrder(item, clickedButton = null, itemImageUrl = null) {
-                order.push(item);
+                const uniqueId = item.id || (Date.now() + Math.random());
+                const itemWithId = { ...item, id: uniqueId };
+                
+                order.push(itemWithId);
                 updateOrderDisplay();
                 updateCartCount();
 
@@ -1747,10 +1874,17 @@ const firebaseConfig = {
                 }
                 
                 showTemporaryFeedback('✔️ Adicionado ao pedido!', 'bg-green-500');
+
+                if (item.acceptsExtras && (item.type === 'full' || item.type === 'split')) {
+                    const originalItem = allMenuData.find(menuItem => menuItem.name === item.name.split(': ')[1]) || allMenuData.find(menuItem => item.name.includes(menuItem.name));
+                    showAskForExtrasModal(uniqueId, originalItem || item);
+                }
             }
 
             function addToOrderOnly(item, clickedButton = null, itemImageUrl = null) {
-                order.push(item);
+                const uniqueId = item.id || (Date.now() + Math.random());
+                const itemWithId = { ...item, id: uniqueId };
+                order.push(itemWithId);
                 updateOrderDisplay();
                 updateCartCount();
                 if (clickedButton) {
@@ -1802,8 +1936,7 @@ const firebaseConfig = {
             function updateOrderDisplay() {
                 let subtotal = 0;
 
-                const nonDiscountItems = order.filter(item => item.type !== 'discount');
-                nonDiscountItems.forEach((item) => {
+                order.forEach((item) => {
                     subtotal += item.price;
                 });
                 
@@ -1832,12 +1965,6 @@ const firebaseConfig = {
                             itemName = `<i class="fas fa-tags text-red-600 mr-2"></i> ${item.name}`;
                         } else if (item.type === 'custom_burger') {
                             itemName = `<i class="fas fa-hamburger text-red-600 mr-2"></i> ${item.name}`;
-                            const ingredientsListHtml = `
-                                <ul class="text-xs text-gray-500 mt-1 pl-4 list-disc list-inside">
-                                    ${item.ingredients.map(ing => `<li>${ing.name}</li>`).join('')}
-                                </ul>
-                            `;
-                            itemDescription = ingredientsListHtml;
                         } else if (item.type === 'discount') {
                             return;
                         }
@@ -1845,18 +1972,37 @@ const firebaseConfig = {
                         const isLastItem = (index === order.length - 1);
                         const borderClass = isLastItem && !selectedPaymentMethod && !selectedAddress.bairro && !selectedAddress.clientName ? '' : 'border-b border-gray-100';
 
+                        let extrasHtml = '';
+                        if (item.extras && item.extras.length > 0) {
+                            extrasHtml += '<ul class="text-xs text-gray-500 mt-1 pl-4 list-disc list-inside">';
+                            item.extras.forEach(extra => {
+                                extrasHtml += `<li>${extra.name} (${extra.placement}) +R$ ${extra.price.toFixed(2).replace('.',',')}</li>`;
+                            });
+                             extrasHtml += '</ul>';
+                        }
+                        
+                        let extrasButtonHtml = '';
+                        if (item.acceptsExtras && (item.type === 'full' || item.type === 'split')) {
+                            const buttonText = (item.extras && item.extras.length > 0) ? 'Editar Adicionais' : 'Incluir Adicionais';
+                            extrasButtonHtml = `<button class="edit-extras-btn text-xs text-blue-600 hover:underline" data-order-index="${index}">${buttonText}</button>`;
+                        }
+
                         itemsHTML += `
-                            <div class="flex justify-between items-center py-3 ${borderClass}">
-                                <div class="flex-1">
-                                    <p class="font-medium">${itemName}</p>
-                                    ${item.type === 'custom_burger' ? itemDescription : `<p class="text-sm text-gray-500">${itemDescription}</p>`}
+                            <div class="py-3 ${borderClass}">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <p class="font-medium">${itemName}</p>
+                                        <div class="text-sm text-gray-500">${itemDescription}</div>
+                                        ${extrasHtml}
+                                    </div>
+                                    <div class="flex items-center">
+                                        ${priceHtml}
+                                        <button data-index="${index}" class="remove-item-btn text-red-500 hover:text-red-700">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="flex items-center">
-                                    ${priceHtml}
-                                    <button data-index="${index}" class="remove-item-btn text-red-500 hover:text-red-700">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </div>
+                                ${extrasButtonHtml}
                             </div>
                         `;
                     });
@@ -1892,7 +2038,7 @@ const firebaseConfig = {
                     editDeliveryAddressBtn.classList.add('hidden');
                 }
                 
-                const total = subtotal - finalDiscountAmount + selectedAddress.deliveryFee;
+                const total = subtotal - finalDiscountAmount + (selectedAddress.deliveryFee || 0);
                 totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
 
                 if (selectedPaymentMethod) {
@@ -1957,8 +2103,9 @@ const firebaseConfig = {
             }
             
             function updateCartCount() {
-                if (order.length > 0) {
-                    cartCount.textContent = order.length;
+                const itemCount = order.filter(item => item.id !== 'pending-half-pizza').length;
+                if (itemCount > 0) {
+                    cartCount.textContent = itemCount;
                     cartCount.classList.remove('hidden');
                 } else {
                     cartCount.classList.add('hidden');
@@ -1972,9 +2119,7 @@ const firebaseConfig = {
 
                 let subtotal = 0;
                 order.forEach(item => {
-                    if (item.type !== 'discount') {
-                        subtotal += item.price;
-                    }
+                    subtotal += item.price;
                 });
                 
                 let finalDiscountAmount = 0;
@@ -1986,8 +2131,10 @@ const firebaseConfig = {
                     subtotal: subtotal,
                     discount: finalDiscountAmount,
                     deliveryFee: selectedAddress.deliveryFee,
-                    finalTotal: subtotal - finalDiscountAmount + selectedAddress.deliveryFee
+                    finalTotal: subtotal - finalDiscountAmount + (selectedAddress.deliveryFee || 0)
                 };
+
+                const observation = document.getElementById('order-observation').value.trim();
 
                 fetch('/api/criar-pedido', {
                     method: 'POST',
@@ -1999,7 +2146,8 @@ const firebaseConfig = {
                         selectedAddress: selectedAddress,
                         total: totalData,
                         paymentMethod: selectedPaymentMethod,
-                        whatsappNumber: contactInfo.whatsapp
+                        whatsappNumber: contactInfo.whatsapp,
+                        observation: observation
                     }),
                 })
                 .then(response => response.json())
@@ -2007,11 +2155,9 @@ const firebaseConfig = {
                     if (data && data.whatsappUrl) {
                         window.open(data.whatsappUrl, '_blank');
                 
-                        // Agora, limpamos o pedido independentemente do que aconteceu com o PDV.
                         clearOrder(); 
 
                         if (data.pdvSaved === false) {
-                            // Apenas deixamos um aviso no console para fins de depuração.
                             console.warn('[PDV] O pedido foi enviado ao WhatsApp, mas falhou ao salvar no PDV. Atendente deve lançar manualmente.', data.pdvError ? { error: data.pdvError } : {});
                         }
                     } else {
@@ -2026,6 +2172,22 @@ const firebaseConfig = {
                     checkoutButton.disabled = false;
                     updateCheckoutButtonText();
                 });
+            }
+
+            function calculateOrderTotal() {
+                let currentSubtotal = 0;
+                order.forEach(item => {
+                    currentSubtotal += (item.price || 0);
+                });
+
+                let finalDiscountAmount = 0;
+                if (discountPromotion) {
+                    finalDiscountAmount = currentSubtotal * (discountPromotion.promoPrice / 100);
+                }
+                
+                const deliveryFee = selectedAddress.deliveryFee || 0;
+
+                return currentSubtotal - finalDiscountAmount + deliveryFee;
             }
 
             function handleCheckoutFlow() {
@@ -2117,6 +2279,7 @@ const firebaseConfig = {
                 const promotion = allPromotionsData.find(p => p.id === promoId);
                 if (promotion) {
                     order.push({
+                        id: Date.now() + Math.random(),
                         type: 'promotion',
                         name: promotion.name,
                         price: promotion.promoPrice,
@@ -2168,6 +2331,7 @@ const firebaseConfig = {
                             const item = allMenuData.find(i => i.id === itemId);
                             if (item) {
                                 addToOrder({
+                                    id: Date.now() + Math.random(),
                                     type: 'full',
                                     name: item.name,
                                     price: item.basePrice,
@@ -2301,23 +2465,7 @@ const firebaseConfig = {
                     feedbackEl.classList.add('hidden');
                 }, 2000);
             }
-
-            function calculateOrderTotal() {
-                let currentSubtotal = 0;
-                order.forEach(item => {
-                    if (item.type !== 'discount') {
-                        currentSubtotal += item.price;
-                    }
-                });
-
-                let finalDiscountAmount = 0;
-                if (discountPromotion) {
-                    finalDiscountAmount = currentSubtotal * (discountPromotion.promoPrice / 100);
-                }
-
-                return currentSubtotal - finalDiscountAmount + selectedAddress.deliveryFee;
-            }
-
+            
             function getStickyHeaderHeight() {
                 const stickyHeader = document.querySelector('.category-bar-mobile-sticky');
                 return stickyHeader ? stickyHeader.offsetHeight : 60; // Fallback
@@ -2328,7 +2476,6 @@ const firebaseConfig = {
                     if (btn.dataset.category === category) {
                         btn.classList.add('bg-red-600', 'text-white');
                         btn.classList.remove('bg-gray-200', 'text-gray-800');
-                        // Garante que o botão ativo esteja visível na barra de rolagem horizontal
                         btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                     } else {
                         btn.classList.remove('bg-red-600', 'text-white');
@@ -2344,7 +2491,7 @@ const firebaseConfig = {
 
                 const stickyHeaderHeight = getStickyHeaderHeight();
                 const options = {
-                    root: null, // Observa em relação ao viewport
+                    root: null, 
                     rootMargin: `-${stickyHeaderHeight}px 0px -${window.innerHeight - stickyHeaderHeight - 150}px 0px`,
                     threshold: 0
                 };
@@ -2360,7 +2507,6 @@ const firebaseConfig = {
                             setActiveCategoryButton(category);
                         }
 
-                        // Lógica de restrição para pizza meia a meia
                         if (isSelectingHalfPizza && entry.isIntersecting) {
                             if (isFirstHalfPromotional && !isPromotionalSection) {
                                 document.getElementById('promocionais-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2562,6 +2708,162 @@ const firebaseConfig = {
                 return gerarPayload(pixKey, amount, merchantName, merchantCity, txid);
             }
             
+            function showAskForExtrasModal(orderItemId, item) {
+                const formattedName = formatProductName(item.name, item.category);
+                askExtrasTitle.textContent = `Turbine a(o) ${formattedName} adicionando mais ingredientes!`;
+                askPizzaExtrasModal.dataset.orderItemId = orderItemId;
+                askPizzaExtrasModal.style.display = 'flex';
+            }
+            
+            function openPizzaExtrasBuilderModal(orderIndex) {
+                const pizzaItem = order[orderIndex];
+                if (!pizzaItem || (pizzaItem.type !== 'full' && pizzaItem.type !== 'split')) return;
+
+                const formattedName = formatProductName(pizzaItem.name, pizzaItem.category);
+                pizzaExtrasBuilderTitle.textContent = `Adicionais para ${formattedName}`;
+                pizzaExtrasBuilderModal.dataset.orderIndex = orderIndex;
+
+                const scopeButtonsContainer = document.getElementById('pizza-extras-scope-buttons');
+                scopeButtonsContainer.innerHTML = '';
+
+                currentPizzaExtrasState = { metade1: [], metade2: [], toda: [] };
+                if (pizzaItem.extras && pizzaItem.extras.length > 0) {
+                    pizzaItem.extras.forEach(extra => {
+                        const placement = extra.placement.toLowerCase().replace('ª', '').replace(' pizza', '').replace(' ', '');
+                        if (currentPizzaExtrasState[placement]) {
+                            currentPizzaExtrasState[placement].push(extra);
+                        }
+                    });
+                }
+                
+                if (pizzaItem.type === 'split') {
+                    const half1Name = pizzaItem.name.split(' Meia ')[1].split(' & ')[0];
+                    const half2Name = pizzaItem.name.split(' & Meia ')[1];
+                    
+                    scopeButtonsContainer.innerHTML = `
+                        <button class="scope-button px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm" data-scope="metade1">1ª Metade: ${half1Name}</button>
+                        <button class="scope-button px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm" data-scope="metade2">2ª Metade: ${half2Name}</button>
+                        <button class="scope-button px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm active" data-scope="toda">Pizza Toda</button>
+                    `;
+                }
+                
+                scopeButtonsContainer.querySelectorAll('.scope-button').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        scopeButtonsContainer.querySelector('.active').classList.remove('active');
+                        btn.classList.add('active');
+                        renderPizzaExtrasList(orderIndex);
+                    });
+                });
+
+                renderPizzaExtrasList(orderIndex);
+                updatePizzaExtrasPrice(orderIndex);
+                pizzaExtrasBuilderModal.style.display = 'flex';
+            }
+
+            function renderPizzaExtrasList(orderIndex) {
+                const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
+                pizzaExtrasIngredientsContainer.innerHTML = '';
+
+                for (const categoryName in allPizzaIngredients) {
+                    const ingredients = allPizzaIngredients[categoryName];
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'ingredient-category';
+                    categoryDiv.innerHTML = `<h4>${capitalizeFirstLetter(categoryName)}</h4>`;
+
+                    ingredients.forEach(ingredient => {
+                        const priceDisplay = ingredient.price > 0 ? `+ R$ ${ingredient.price.toFixed(2).replace('.', ',')}` : '';
+                        const optionDiv = document.createElement('div');
+                        optionDiv.className = 'ingredient-option';
+                        const isChecked = currentPizzaExtrasState[activeScope]?.some(extra => extra.name === ingredient.name);
+                        
+                        optionDiv.innerHTML = `
+                            <label class="flex items-center w-full cursor-pointer">
+                                <input type="checkbox" data-name="${ingredient.name}" data-price="${ingredient.price}" class="form-checkbox" ${isChecked ? 'checked' : ''}>
+                                <span class="ml-2 flex-grow">${ingredient.name}</span>
+                                <span class="price">${priceDisplay}</span>
+                            </label>
+                        `;
+
+                        optionDiv.querySelector('input').addEventListener('change', (e) => handleExtraSelectionChange(e.target, orderIndex, ingredient));
+                        categoryDiv.appendChild(optionDiv);
+                    });
+                    pizzaExtrasIngredientsContainer.appendChild(categoryDiv);
+                }
+            }
+
+            function handleExtraSelectionChange(checkbox, orderIndex, ingredient) {
+                const activeScope = document.querySelector('#pizza-extras-scope-buttons .active').dataset.scope;
+                
+                if (checkbox.checked) {
+                    if (!currentPizzaExtrasState[activeScope].some(extra => extra.name === ingredient.name)) {
+                        currentPizzaExtrasState[activeScope].push({
+                            name: ingredient.name,
+                            price: ingredient.price,
+                            placement: capitalizeFirstLetter(activeScope.replace('1', '1ª').replace('2', '2ª'))
+                        });
+                    }
+                } else {
+                    currentPizzaExtrasState[activeScope] = currentPizzaExtrasState[activeScope].filter(extra => extra.name !== ingredient.name);
+                }
+                
+                updatePizzaExtrasPrice(orderIndex);
+            }
+
+            function updatePizzaExtrasPrice(orderIndex) {
+                const pizzaItem = order[orderIndex];
+                
+                let basePrice = pizzaItem.price;
+                if (pizzaItem.extras && pizzaItem.extras.length > 0) {
+                    pizzaItem.extras.forEach(extra => {
+                        basePrice -= extra.price;
+                    });
+                }
+
+                let totalExtrasPrice = 0;
+                for (const scope in currentPizzaExtrasState) {
+                    currentPizzaExtrasState[scope].forEach(extra => {
+                        totalExtrasPrice += extra.price;
+                    });
+                }
+
+                pizzaExtrasTotalPrice.textContent = `R$ ${(basePrice + totalExtrasPrice).toFixed(2).replace('.', ',')}`;
+            }
+
+            function confirmPizzaExtras() {
+                const orderIndex = parseInt(pizzaExtrasBuilderModal.dataset.orderIndex);
+                if (isNaN(orderIndex)) return;
+                
+                const pizzaItem = order[orderIndex];
+                
+                let basePrice = pizzaItem.price;
+                if (pizzaItem.extras && pizzaItem.extras.length > 0) {
+                    pizzaItem.extras.forEach(extra => {
+                        basePrice -= extra.price;
+                    });
+                }
+                
+                const finalExtras = [];
+                let finalExtrasPrice = 0;
+                const addedExtras = new Set();
+
+                for (const scope in currentPizzaExtrasState) {
+                    currentPizzaExtrasState[scope].forEach(extra => {
+                        const key = `${extra.name}-${extra.placement}`;
+                        if (!addedExtras.has(key)) {
+                            finalExtras.push(extra);
+                            finalExtrasPrice += extra.price;
+                            addedExtras.add(key);
+                        }
+                    });
+                }
+                
+                pizzaItem.extras = finalExtras;
+                pizzaItem.price = basePrice + finalExtrasPrice;
+                
+                updateOrderDisplay();
+                pizzaExtrasBuilderModal.style.display = 'none';
+            }
+
             loadMenuAndRender();
 
             // Event Listeners
@@ -2645,6 +2947,12 @@ const firebaseConfig = {
                         removeItem(indexToRemove);
                     }
                 }
+
+                const editExtrasBtn = event.target.closest('.edit-extras-btn');
+                if (editExtrasBtn) {
+                    const orderIndex = parseInt(editExtrasBtn.dataset.orderIndex, 10);
+                    openPizzaExtrasBuilderModal(orderIndex);
+                }
             });
 
             closePizzaOptionModalBtn.addEventListener('click', function() {
@@ -2673,6 +2981,12 @@ const firebaseConfig = {
                 }
                  if (event.target == addressInputModal) {
                     hideAddressInputModal();
+                }
+                if (event.target == askPizzaExtrasModal) {
+                    askPizzaExtrasModal.style.display = 'none';
+                }
+                if (event.target == pizzaExtrasBuilderModal) {
+                    pizzaExtrasBuilderModal.style.display = 'none';
                 }
             });
 
@@ -2922,6 +3236,26 @@ const firebaseConfig = {
             editDeliveryAddressBtn.addEventListener('click', function() {
                 showAddressInputModal(false);
             });
+            
+            askExtrasYesBtn.addEventListener('click', () => {
+                const orderItemId = askPizzaExtrasModal.dataset.orderItemId;
+                const orderIndex = order.findIndex(item => item.id == orderItemId);
+                if (orderIndex !== -1) {
+                    openPizzaExtrasBuilderModal(orderIndex);
+                }
+                askPizzaExtrasModal.style.display = 'none';
+            });
+            
+            askExtrasNoBtn.addEventListener('click', () => {
+                askPizzaExtrasModal.style.display = 'none';
+            });
+            
+            closePizzaExtrasBuilderModalBtn.addEventListener('click', () => {
+                 pizzaExtrasBuilderModal.style.display = 'none';
+            });
+            
+            addPizzaWithExtrasBtn.addEventListener('click', confirmPizzaExtras);
+
 
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('service-worker.js', { scope: './' })
@@ -2991,3 +3325,4 @@ const firebaseConfig = {
     </script>
 </body>
 </html>
+
