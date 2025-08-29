@@ -38,13 +38,18 @@
                     Abaixo está o "cérebro" da IA. Edite as instruções com cuidado. As variáveis entre chaves (ex: `${CARDAPIO}`) são substituídas automaticamente e não devem ser alteradas.
                 </p>
             </div>
+            
+            <div class="mb-4">
+                 <label for="prompt-name" class="block text-sm font-medium text-gray-700">Nome do Prompt Ativo:</label>
+                <input type="text" id="prompt-name" value="Prompt Padrão V6.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2">
+            </div>
 
             <textarea id="prompt-textarea" class="w-full p-4 border border-gray-300 rounded-md font-mono text-sm shadow-inner focus:ring-2 focus:ring-blue-500"></textarea>
 
             <div class="mt-4 flex justify-end items-center">
                 <span id="feedback-message" class="text-green-600 font-medium mr-4"></span>
                 <button id="save-prompt-btn" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-300">
-                    <i class="fas fa-save mr-2"></i>Salvar Alterações
+                    <i class="fas fa-save mr-2"></i>Salvar e Ativar Prompt
                 </button>
             </div>
         </div>
@@ -69,37 +74,34 @@
         const db = getFirestore(app);
 
         const promptTextarea = document.getElementById('prompt-textarea');
+        const promptNameInput = document.getElementById('prompt-name');
         const savePromptBtn = document.getElementById('save-prompt-btn');
         const feedbackMessage = document.getElementById('feedback-message');
 
-        const defaultPrompt = `
-Você é um atendente de pizzaria inteligente e conversacional. Sua tarefa é analisar a mensagem de um cliente e decidir uma ação.
+        const defaultPrompt = `Você é um atendente de pizzaria inteligente, amigável e conversacional. Sua principal tarefa é analisar a conversa de um cliente e extrair as informações do pedido de forma estruturada.
 
-**AÇÕES POSSÍVEIS:**
-1.  **PROCESS_ORDER:** Se o cliente está pedindo, adicionando ou modificando itens, ou fornecendo informações de entrega/pagamento.
-2.  **ANSWER_QUESTION:** Se o cliente está fazendo uma pergunta geral (ex: "quais os ingredientes?", "qual o horário de funcionamento?").
+**REGRAS DE NEGÓCIO CRÍTICAS:**
+- **Pizza Meio a Meio:** O preço final é a SOMA da METADE do preço de cada sabor. Exemplo: metade de uma pizza de R$30 (que é R$15) com metade de uma de R$40 (que é R$20) custa R$35. Pizzas da categoria "Promocionais" só podem ser combinadas com outras "Promocionais".
+- **Hambúrguer Montável:** O preço final é a soma do preço base do "Hambúrguer Montável" mais o preço de CADA ingrediente adicional escolhido pelo cliente.
+- **Flexibilidade:** O cliente pode fornecer informações em qualquer ordem (itens, endereço, pagamento). Você deve ser capaz de extrair o que for fornecido e, se algo estiver faltando para fechar o pedido, fazer a pergunta apropriada.
+- **Perguntas Gerais:** Se o cliente fizer uma pergunta que não seja sobre o pedido (ex: "quais os ingredientes do hambúrguer?", "vocês estão abertos?"), responda à pergunta diretamente.
 
-**REGRAS DE NEGÓCIO PARA PROCESSAR PEDIDOS:**
--   **Pizza Meio a Meio:** O preço da pizza meio a meio é a SOMA da METADE do preço de cada sabor escolhido. Exemplo: metade de uma pizza de R$30 (R$15) com metade de uma de R$40 (R$20) custa R$35. O nome deve ser "Pizza [Tamanho] Meio a Meio: [Sabor 1] e [Sabor 2]". Pizzas promocionais só combinam com outras promocionais.
--   **Hambúrguer Montável:** O cliente escolherá os ingredientes. O nome deve ser "Hambúrguer Montado". Calcule o preço somando o valor base do "Hambúrguer Montável" com o preço de cada ingrediente escolhido.
--   **Itens Indisponíveis:** Se um item não estiver no cardápio, informe que não está disponível.
--   **Flexibilidade:** O cliente pode fornecer informações em qualquer ordem. Se ele fornecer o endereço antes dos itens, extraia o endereço e continue a pedir os itens.
-
-**CONTEXTO DISPONÍVEL:**
--   **CARDÁPIO:** \${CARDAPIO}
--   **INGREDIENTES DO HAMBÚRGUER:** \${INGREDIENTES}
--   **HISTÓRICO DA CONVERSA:** \${HISTORICO}
--   **ESTADO ATUAL DO PEDIDO:** \${ESTADO_PEDIDO}
+**CONTEXTO FORNECIDO:**
+- **CARDÁPIO DISPONÍVEL:** \${CARDAPIO}
+- **INGREDIENTES DISPONÍVEIS (para Hambúrguer):** \${INGREDIENTES}
+- **HISTÓRICO DA CONVERSA (Últimas mensagens):** \${HISTORICO}
+- **PEDIDO ATUAL (Itens já no carrinho):** \${ESTADO_PEDIDO}
 
 **MENSAGEM ATUAL DO CLIENTE:**
 "\${MENSAGEM_CLIENTE}"
 
-**FORMATO DE SAÍDA JSON (ESCOLHA UM):**
--   Para Ação 1: { "action": "PROCESS_ORDER", "itens": [{ "name": "...", "price": 0.00, "quantity": 1, "notes": "..." }], "address": "...", "paymentMethod": "..." }
--   Para Ação 2: { "action": "ANSWER_QUESTION", "answer": "Sua resposta aqui." }
+**INSTRUÇÃO:**
+Analise a mensagem do cliente com base em todo o contexto fornecido. Sua resposta DEVE ser APENAS um objeto JSON. Não inclua \`\`\`json ou qualquer outro texto fora do JSON.
 
-Analise a mensagem do cliente e o contexto e retorne o JSON com a ação apropriada.
-        `.trim();
+**FORMATO DE SAÍDA JSON:**
+- **Se o cliente estiver pedindo ou alterando o pedido:** { "action": "PROCESS_ORDER", "itens": [{ "name": "Nome do Item - Tamanho", "price": 55.00, "quantity": 1, "notes": "sem cebola" }], "address": "Rua Exemplo, 123", "paymentMethod": "Cartão", "clarification_question": "Faltou alguma informação? Pergunte aqui." }
+- **Se o cliente estiver apenas a fazer uma pergunta:** { "action": "ANSWER_QUESTION", "answer": "Sua resposta aqui, baseada no cardápio ou de conhecimento geral." }
+`.trim();
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -111,13 +113,15 @@ Analise a mensagem do cliente e o contexto e retorne o JSON com a ação apropri
         });
 
         async function loadPrompt() {
-            const promptRef = doc(db, "config", "bot_prompt");
+            const promptRef = doc(db, "config", "bot_prompt_active");
             try {
                 const docSnap = await getDoc(promptRef);
-                if (docSnap.exists() && docSnap.data().template) {
-                    promptTextarea.value = docSnap.data().template;
+                if (docSnap.exists()) {
+                    promptTextarea.value = docSnap.data().template || defaultPrompt;
+                    promptNameInput.value = docSnap.data().name || 'Prompt Padrão';
                 } else {
                     promptTextarea.value = defaultPrompt;
+                    promptNameInput.value = 'Prompt Padrão V6.1';
                 }
             } catch (error) {
                 console.error("Erro ao carregar o prompt:", error);
@@ -130,9 +134,15 @@ Analise a mensagem do cliente e o contexto e retorne o JSON com a ação apropri
             savePromptBtn.textContent = 'Salvando...';
             feedbackMessage.textContent = '';
 
-            const promptRef = doc(db, "config", "bot_prompt");
+            const promptRef = doc(db, "config", "bot_prompt_active");
+            const dataToSave = {
+                name: promptNameInput.value.trim(),
+                template: promptTextarea.value,
+                lastUpdated: new Date()
+            };
+
             try {
-                await setDoc(promptRef, { template: promptTextarea.value });
+                await setDoc(promptRef, dataToSave);
                 feedbackMessage.textContent = 'Salvo com sucesso!';
                 setTimeout(() => feedbackMessage.textContent = '', 3000);
             } catch (error) {
@@ -142,10 +152,11 @@ Analise a mensagem do cliente e o contexto e retorne o JSON com a ação apropri
                 feedbackMessage.classList.add('text-red-600');
             } finally {
                 savePromptBtn.disabled = false;
-                savePromptBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Salvar Alterações';
+                savePromptBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Salvar e Ativar Prompt';
             }
         });
 
     </script>
 </body>
 </html>
+
