@@ -50,7 +50,6 @@ export default async function handler(req, res) {
 
     // Processamento de Mensagens (POST)
     if (req.method === 'POST') {
-        console.log("Recebido POST do webhook...");
         const body = req.body;
         if (!body.entry || !body.entry[0].changes || !body.entry[0].changes[0].value.messages) {
             return res.status(200).send('EVENT_RECEIVED');
@@ -59,28 +58,35 @@ export default async function handler(req, res) {
         const messageData = body.entry[0].changes[0].value.messages[0];
         const userPhoneNumber = messageData.from;
 
+        // Inicia a busca de dados do sistema em segundo plano para otimizar o tempo
+        const systemDataPromise = getSystemData();
+
         try {
             // Etapa 1: Obter o texto da mensagem (seja texto ou áudio)
             let userMessage = await getUserMessage(messageData, userPhoneNumber);
             if (userMessage === null) {
-                return res.status(200).send('EVENT_RECEIVED'); // Mensagem já tratada (ex: áudio não transcrito)
+                return res.status(200).send('EVENT_RECEIVED'); // Mensagem já tratada
             }
+             console.log(`Mensagem recebida de ${userPhoneNumber}: "${userMessage}"`);
 
-            // Etapa 2: Carregar o estado da conversa e os dados (menu e prompt) em paralelo
+            // Etapa 2: Carregar o estado da conversa e aguardar os dados do sistema
             const [conversationState, { availableMenu, allIngredients, promptTemplate }] = await Promise.all([
                 getConversationState(userPhoneNumber),
-                getSystemData()
+                systemDataPromise
             ]);
             
             if (!availableMenu || !promptTemplate) {
                  throw new Error('Não foi possível carregar os dados do sistema (cardápio ou prompt).');
             }
+            console.log("Cardápio e prompt carregados com sucesso.");
 
             // Etapa 3: Adicionar a mensagem atual ao histórico
             conversationState.history.push({ role: 'user', message: userMessage });
 
             // Etapa 4: Chamar a IA para interpretar a intenção e os dados
+            console.log("A chamar a API do Gemini...");
             const responseFromAI = await callGeminiAPI(userMessage, availableMenu, allIngredients, conversationState, promptTemplate);
+            console.log("Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
             
             // Etapa 5: Adicionar a resposta da IA ao histórico
             conversationState.history.push({ role: 'assistant', message: JSON.stringify(responseFromAI) });
