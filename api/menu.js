@@ -15,6 +15,7 @@ const firebaseConfig = {
   appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
 };
 
+
 // Inicializa o Firebase de forma segura (evita reinicialização)
 let app;
 if (!getApps().length) {
@@ -23,8 +24,6 @@ if (!getApps().length) {
     app = getApp();
 }
 const db = getFirestore(app);
-
-
 
 /*Mini Tutorial: Convertendo Links do Google Sheets para Download Direto em CSV
 O objetivo é transformar um link normal do Google Sheets em um link especial que, ao ser acessado, baixa diretamente o arquivo .csv de uma aba específica.
@@ -90,6 +89,7 @@ const DELIVERY_FEES_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVc
 const INGREDIENTES_HAMBURGUER_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=1816106560';
 const CONTACT_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=2043568216';
 
+
 // Leitor de linha CSV robusto que lida com vírgulas dentro de aspas
 function parseCsvLine(line) {
     const values = [];
@@ -119,25 +119,34 @@ function parseCsvLine(line) {
 }
 
 // Função principal para converter texto CSV em um array de objetos JSON
-function parseCsvData(csvText) {
+function parseCsvData(csvText, type) {
     const lines = csvText.split('\n').filter(line => line.trim() !== '');
     if (lines.length < 2) return [];
 
     const headersRaw = parseCsvLine(lines[0]);
+    const headerMapping = {
+        'id item (único)': 'id', 'nome do item': 'name', 'descrição': 'description',
+        'preço 4 fatias': 'price4Slices', 'preço 6 fatias': 'price6Slices',
+        'preço 8 fatias': 'basePrice', 'preço 10 fatias': 'price10Slices',
+        'categoria': 'category', 'é pizza? (sim/não)': 'isPizza', 'é montável? (sim/não)': 'isCustomizable',
+        'disponível (sim/não)': 'available', 'imagem': 'imageUrl',
+        'id promocao': 'id', 'nome da promocao': 'name', 'preco promocional': 'promoPrice',
+        'id item aplicavel': 'itemId', 'ativo (sim/nao)': 'active',
+        'bairros': 'neighborhood', 'valor frete': 'deliveryFee',
+        'id intem': 'id', 'ingredientes': 'name', 'preço': 'price', 'seleção única': 'isSingleChoice',
+        'limite': 'limit', 'limite ingrediente': 'ingredientLimit',
+        'é obrigatório?(sim/não)': 'isRequired', 'disponível': 'available',
+        'dados': 'data', 'valor': 'value',
+        // Mapeamento para Ingredientes da Pizza
+        'adicionais': 'name', 'limite adicionais': 'limit', 'limite categoria': 'categoryLimit'
+    };
+    if (type === 'pizza_ingredients' || type === 'burger_ingredients') {
+        headerMapping['id intem'] = 'id';
+        headerMapping['id item (único)'] = 'id';
+    }
+
+
     const mappedHeaders = headersRaw.map(header => {
-        const headerMapping = {
-            'id item (único)': 'id', 'nome do item': 'name', 'descrição': 'description',
-            'preço 4 fatias': 'price4Slices', 'preço 6 fatias': 'price6Slices',
-            'preço 8 fatias': 'basePrice', 'preço 10 fatias': 'price10Slices', // <-- NOVA COLUNA ADICIONADA
-            'categoria': 'category', 'é pizza? (sim/não)': 'isPizza', 'é montável? (sim/não)': 'isCustomizable',
-            'disponível (sim/não)': 'available', 'imagem': 'imageUrl', 'id promocao': 'id',
-            'nome da promocao': 'name', 'preco promocional': 'promoPrice', 'id item aplicavel': 'itemId',
-            'ativo (sim/nao)': 'active', 'bairros': 'neighborhood', 'valor frete': 'deliveryFee',
-            'id intem': 'id', 'ingredientes': 'name', 'preço': 'price', 'seleção única': 'isSingleChoice',
-            'limite': 'limit', 'limite ingrediente': 'ingredientLimit',
-            'é obrigatório?(sim/não)': 'isRequired', 'disponível': 'available',
-            'dados': 'data', 'valor': 'value'
-        };
         const cleanHeader = header.trim().toLowerCase();
         return headerMapping[cleanHeader] || cleanHeader.replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
     });
@@ -149,21 +158,25 @@ function parseCsvData(csvText) {
             let item = {};
             mappedHeaders.forEach((headerKey, j) => {
                 let value = values[j];
-                // <-- NOVA COLUNA ADICIONADA À LISTA DE PREÇOS
                 if (['basePrice', 'price6Slices', 'price4Slices', 'price10Slices', 'promoPrice', 'deliveryFee', 'price'].includes(headerKey)) {
                     item[headerKey] = parseFloat(String(value).replace(',', '.')) || 0;
-                } else if (headerKey === 'limit') {
+                } else if (['limit', 'categoryLimit', 'ingredientLimit'].includes(headerKey)) {
                     const parsedValue = parseInt(value, 10);
                     item[headerKey] = isNaN(parsedValue) ? Infinity : parsedValue;
-                } else if (headerKey === 'ingredientLimit') {
-                    const parsedValue = parseInt(value, 10);
-                    item[headerKey] = isNaN(parsedValue) ? 1 : parsedValue;
                 } else if (['isPizza', 'available', 'active', 'isCustomizable', 'isSingleChoice', 'isRequired'].includes(headerKey)) {
                     item[headerKey] = value.toUpperCase() === 'SIM';
                 } else {
                     item[headerKey] = value;
                 }
             });
+            
+            // CORREÇÃO: Adiciona prefixo para garantir IDs únicos
+            if (type === 'burger_ingredients' && item.id) {
+                item.id = `ing-${item.id}`;
+            } else if (type === 'pizza_ingredients' && item.id) {
+                item.id = `extra-${item.id}`;
+            }
+
             parsedData.push(item);
         }
     }
@@ -171,7 +184,8 @@ function parseCsvData(csvText) {
 }
 
 export default async (req, res) => {
-    res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate'); 
+    // Cache removido para garantir que as alterações de status sejam sempre as mais recentes
+    res.setHeader('Cache-Control', 'no-cache');
 
     try {
         const fetchData = async (url) => {
@@ -185,34 +199,82 @@ export default async (req, res) => {
             promocoesCsv,
             deliveryFeesCsv,
             ingredientesHamburguerCsv,
+            ingredientesPizzaCsv,
             contactCsv
         ] = await Promise.all([
             fetchData(CARDAPIO_CSV_URL),
             fetchData(PROMOCOES_CSV_URL),
             fetchData(DELIVERY_FEES_CSV_URL),
             fetchData(INGREDIENTES_HAMBURGUER_CSV_URL),
+            fetchData(INGREDIENTES_PIZZA_CSV_URL),
             fetchData(CONTACT_CSV_URL)
         ]);
+        
+        // Processa os dados das planilhas
+        let cardapioJson = parseCsvData(cardapioCsv, 'cardapio');
+        let promocoesJson = parseCsvData(promocoesCsv, 'promocoes');
+        let deliveryFeesJson = parseCsvData(deliveryFeesCsv, 'delivery');
+        let ingredientesHamburguerJson = parseCsvData(ingredientesHamburguerCsv, 'burger_ingredients');
+        let ingredientesPizzaJson = parseCsvData(ingredientesPizzaCsv, 'pizza_ingredients');
+        let contactJson = parseCsvData(contactCsv, 'contact');
 
-        let cardapioJson = parseCsvData(cardapioCsv);
+        // Busca todos os documentos de status do Firestore
+        const [
+            itemStatusSnap, 
+            itemVisibilitySnap,
+            itemExtrasSnap, 
+            pizzaHalfStatusSnap,
+            ingredientStatusSnap,
+            ingredientVisibilitySnap,
+            extraStatusSnap,
+            extraVisibilitySnap
+        ] = await Promise.all([
+             getDoc(doc(db, "config", "item_status")),
+             getDoc(doc(db, "config", "item_visibility")),
+             getDoc(doc(db, "config", "item_extras_status")),
+             getDoc(doc(db, "config", "pizza_half_status")),
+             getDoc(doc(db, "config", "ingredient_status")),
+             getDoc(doc(db, "config", "ingredient_visibility")),
+             getDoc(doc(db, "config", "extra_status")),
+             getDoc(doc(db, "config", "extra_visibility"))
+        ]);
+        
+        const itemStatus = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
+        const itemVisibility = itemVisibilitySnap.exists() ? itemVisibilitySnap.data() : {};
+        const itemExtrasStatus = itemExtrasSnap.exists() ? itemExtrasSnap.data() : {};
+        const pizzaHalfStatus = pizzaHalfStatusSnap.exists() ? pizzaHalfStatusSnap.data() : {};
+        const ingredientStatus = ingredientStatusSnap.exists() ? ingredientStatusSnap.data() : {};
+        const ingredientVisibility = ingredientVisibilitySnap.exists() ? ingredientVisibilitySnap.data() : {};
+        const extraStatus = extraStatusSnap.exists() ? extraStatusSnap.data() : {};
+        const extraVisibility = extraVisibilitySnap.exists() ? extraVisibilitySnap.data() : {};
+        
+        // Filtra e atualiza os itens principais do cardápio
+        cardapioJson = cardapioJson
+            .filter(item => itemVisibility[item.id] !== false) 
+            .map(item => ({
+                ...item, 
+                available: itemStatus[item.id] !== false,
+                acceptsExtras: itemExtrasStatus[item.id] === undefined ? item.isPizza : itemExtrasStatus[item.id],
+                allowHalf: item.isPizza ? (pizzaHalfStatus[item.id] !== false) : false
+            }));
 
-        const itemStatusRef = doc(db, "config", "item_status");
-        const itemStatusSnap = await getDoc(itemStatusRef);
-        const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
+        // Filtra e atualiza os ingredientes de hambúrguer
+        ingredientesHamburguerJson = ingredientesHamburguerJson
+            .filter(item => ingredientVisibility[item.id] !== false)
+            .map(item => ({ ...item, available: ingredientStatus[item.id] !== false }));
 
-        cardapioJson = cardapioJson.map(item => {
-            if (unavailableItems[item.id] === false) {
-                return { ...item, available: false };
-            }
-            return item;
-        });
+        // Filtra e atualiza os adicionais de pizza
+        ingredientesPizzaJson = ingredientesPizzaJson
+            .filter(item => extraVisibility[item.id] !== false)
+            .map(item => ({ ...item, available: extraStatus[item.id] !== false }));
 
         res.status(200).json({
             cardapio: cardapioJson,
-            promocoes: parseCsvData(promocoesCsv),
-            deliveryFees: parseCsvData(deliveryFeesCsv),
-            ingredientesHamburguer: parseCsvData(ingredientesHamburguerCsv),
-            contact: parseCsvData(contactCsv)
+            promocoes: promocoesJson,
+            deliveryFees: deliveryFeesJson,
+            ingredientesHamburguer: ingredientesHamburguerJson,
+            ingredientesPizza: ingredientesPizzaJson,
+            contact: contactJson
         });
 
     } catch (error) {
@@ -220,3 +282,4 @@ export default async (req, res) => {
         res.status(500).json({ error: `Erro interno no servidor: ${error.message}` });
     }
 };
+
