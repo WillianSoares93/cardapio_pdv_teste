@@ -235,6 +235,10 @@
                             <label class="flex items-center"><input type="radio" name="manual-payment" value="Pix" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Pix</span></label>
                         </div>
                     </div>
+                    <div class="mt-4">
+                        <label for="manual-observation" class="block text-sm font-medium text-gray-700">Observações do Pedido</label>
+                        <textarea id="manual-observation" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Ex: Tirar cebola, troco para R$50, etc."></textarea>
+                    </div>
                 </div>
 
                 <div class="mt-6 flex justify-between items-center">
@@ -312,12 +316,12 @@
         import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, getDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
-  authDomain: "pizzaria-pdv.firebaseapp.com",
-  projectId: "pizzaria-pdv",
-  storageBucket: "pizzaria-pdv.firebasestorage.app",
-  messagingSenderId: "304171744691",
-  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+ apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+ authDomain: "pizzaria-pdv.firebaseapp.com",
+ projectId: "pizzaria-pdv",
+ storageBucket: "pizzaria-pdv.firebasestorage.app",
+ messagingSenderId: "304171744691",
+ appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
 };
 
         const app = initializeApp(firebaseConfig);
@@ -382,21 +386,16 @@ const firebaseConfig = {
         let editingItemIndex = null;
         let currentItemForQuantity = null;
         let currentBurgerForBuilder = { burger: null, editIndex: null, existingItem: null };
-
-        // --- INÍCIO DA ALTERAÇÃO ---
-        // Nova função para formatar a categoria da pizza
+        
         function formatPizzaCategory(category) {
             if (!category) return 'PIZZAS';
             const upperCategory = category.toUpperCase();
-            // Verifica se a categoria já está no formato desejado
             if (upperCategory.startsWith('PIZZA')) {
                 return category;
             }
-            // Adiciona o prefixo
             return `PIZZA(s) ${upperCategory}`;
         }
-        // --- FIM DA ALTERAÇÃO ---
-
+        
         function showView(viewName) {
             initialSelectionView.classList.add('hidden');
             orderFormView.classList.add('hidden');
@@ -460,7 +459,7 @@ const firebaseConfig = {
             const occupiedTables = new Set();
             const groupedTables = new Map();
 
-           activeOrders.filter(order => order.status !== 'Finalizado' && order.endereco && order.endereco.rua === 'Mesa')
+            activeOrders.filter(order => order.status !== 'Finalizado' && order.endereco && order.endereco.rua === 'Mesa')
                 .forEach(order => {
                     if (order.grupoMesas && order.grupoMesas.length > 0) {
                         const sortedGroup = [...order.grupoMesas].sort((a,b) => a-b);
@@ -556,6 +555,7 @@ const firebaseConfig = {
                 const clientNameInput = document.getElementById('manual-clientName');
                 clientNameInput.value = orderData.endereco.clientName;
                 clientNameInput.readOnly = false;
+                document.getElementById('manual-observation').value = orderData.observacao || '';
                 
                 updateManualOrderDisplay();
                 showView('order-form-view');
@@ -583,6 +583,7 @@ const firebaseConfig = {
             let grupoMesas = null;
             let status = 'Em Preparo'; // Padrão para mesas
             const paymentMethod = document.querySelector('input[name="manual-payment"]:checked').value;
+            const observation = document.getElementById('manual-observation').value.trim();
 
             if (currentOrderType === 'mesa') {
                 endereco = { clientName: clientName, rua: "Mesa" };
@@ -627,7 +628,8 @@ const firebaseConfig = {
                     "endereco.clientName": clientName,
                     "total.subtotal": subtotal,
                     "total.finalTotal": finalTotal,
-                    pagamento: paymentMethod
+                    pagamento: paymentMethod,
+                    observacao: observation
                 });
                 alert("Itens adicionados com sucesso!");
             } else {
@@ -637,7 +639,8 @@ const firebaseConfig = {
                     total: { subtotal, finalTotal, deliveryFee, discount: 0 },
                     pagamento: paymentMethod,
                     status: status,
-                    criadoEm: serverTimestamp()
+                    criadoEm: serverTimestamp(),
+                    observacao: observation
                 };
                 if (grupoMesas) {
                     newOrder.grupoMesas = grupoMesas;
@@ -893,14 +896,12 @@ const firebaseConfig = {
                 const finalPrice = manualFirstHalfPizza.price + secondHalfObject.price;
                 const combinedName = `${manualFirstHalfPizza.selected_slices} FATIAS: Meia ${manualFirstHalfPizza.name} & Meia ${secondHalfObject.name}`;
                 
-                // --- INÍCIO DA ALTERAÇÃO ---
                 const newItem = { 
                     type: 'split', name: combinedName, price: finalPrice, firstHalfData: manualFirstHalfPizza,
                     secondHalfData: secondHalfObject, 
                     category: 'PIZZA(s) MEIA A MEIA', // Categoria fixa para meia a meia
                     selected_slices: manualFirstHalfPizza.selected_slices
                 };
-                // --- FIM DA ALTERAÇÃO ---
 
                 if (editingItemIndex !== null) {
                     manualOrderItems[editingItemIndex] = newItem;
@@ -956,14 +957,12 @@ const firebaseConfig = {
                     optionDiv.innerHTML = `<div><span class="font-bold">${size.label}</span><span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.',',')}</span></div><div class="flex gap-2"><button type="button" class="add-full-pizza-manual px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button><button type="button" class="add-half-pizza-manual px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button></div>`;
                     
                     optionDiv.querySelector('.add-full-pizza-manual').addEventListener('click', () => {
-                        // --- INÍCIO DA ALTERAÇÃO ---
                         const newItem = { 
                             type: 'full', name: `${size.label.toUpperCase()}: ${pizza.name}`, price: pizza[size.priceKey],
                             description: pizza.description, 
                             category: formatPizzaCategory(pizza.category), // Formata a categoria
                             selected_slices: size.slices, originalItem: pizza
                         };
-                        // --- FIM DA ALTERAÇÃO ---
 
                         if (editingItemIndex !== null) {
                             manualOrderItems[editingItemIndex] = newItem;
@@ -1325,3 +1324,4 @@ const firebaseConfig = {
     </script>
 </body>
 </html>
+
