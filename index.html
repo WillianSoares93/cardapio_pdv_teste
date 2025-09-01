@@ -809,7 +809,7 @@
                         </select>
                 </div>
                 <div class="mb-4">
-                    <label for="streetInput" class="block text-gray-700 text-sm font-bold mb-2">
+                    <label for="streetInput" class="block text-sm font-medium text-gray-700 mb-2">
                         Rua:
                     </label>
                     <input type="text" id="streetInput" placeholder="Nome da Rua" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
@@ -908,12 +908,12 @@
         document.addEventListener('DOMContentLoaded', function() {
             // --- INÍCIO DA CONFIGURAÇÃO DO FIREBASE ---
         const firebaseConfig = {
-            apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
-            authDomain: "samia-cardapio.firebaseapp.com",
-            projectId: "samia-cardapio",
-            storageBucket: "samia-cardapio.firebasestorage.app",
-            messagingSenderId: "223260436641",
-            appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
+           apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+           authDomain: "pizzaria-pdv.firebaseapp.com",
+           projectId: "pizzaria-pdv",
+           storageBucket: "pizzaria-pdv.firebasestorage.app",
+           messagingSenderId: "304171744691",
+           appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
         };
 
             const app = initializeApp(firebaseConfig);
@@ -939,6 +939,8 @@
             let unavailableItems = {};
             let ingredientVisibility = {};
             let ingredientStatus = {};
+            let extraVisibility = {};
+            let extraStatus = {};
             let pizzaHalfStatus = {};
             let itemExtrasStatus = {}; 
             let currentPizzaExtrasState = {}; 
@@ -1064,9 +1066,25 @@
             ];
             
             function formatProductName(name, category) {
+                if (!category) return name;
+                
+                let lowerCaseCategory = category.toLowerCase();
+                
+                // Regras mais específicas para o português
+                if (lowerCaseCategory.endsWith('ais')) {
+                    lowerCaseCategory = lowerCaseCategory.slice(0, -3) + 'al'; // Tradicionais -> Tradicional
+                } else if (lowerCaseCategory.endsWith('es')) {
+                    lowerCaseCategory = lowerCaseCategory.slice(0, -2); // Doces -> Doce
+                } else if (lowerCaseCategory.endsWith('s')) {
+                    lowerCaseCategory = lowerCaseCategory.slice(0, -1); // Pizzas -> Pizza
+                }
+                
                 const lowerCaseName = name.toLowerCase();
-                const lowerCaseCategory = category.toLowerCase().replace(/s$/, ''); // Remove 's' do final (ex: pizzas -> pizza)
+
                 if (!lowerCaseName.includes(lowerCaseCategory)) {
+                    if (category.toLowerCase().includes('pizza')) {
+                        return `${capitalizeFirstLetter(lowerCaseCategory)} de ${name}`;
+                    }
                     return `${capitalizeFirstLetter(lowerCaseCategory)} ${name}`;
                 }
                 return name;
@@ -1159,8 +1177,10 @@
             }
 
             function updateUI() {
+                // Filtra os itens principais com base na visibilidade
                 const visibleItems = allMenuData.filter(item => itemVisibility[item.id] !== false);
                 
+                // Cria as categorias e o menu com os itens filtrados
                 const orderedCategories = [];
                 const seenCategories = new Set();
                 visibleItems.forEach(item => {
@@ -1173,12 +1193,22 @@
                 createCategoryButtons(orderedCategories);
                 populateMenu(visibleItems, orderedCategories);
                 setupCategoryObserver(); 
-
-                if (burgerBuilderModal.style.display === 'flex') {
+            }
+            
+            function refreshOpenPopups() {
+                 if (burgerBuilderModal.style.display === 'flex') {
                     const currentBurgerId = burgerBuilderModal.dataset.burgerId;
+                    const orderIndex = burgerBuilderModal.dataset.editIndex;
                     const burgerItem = allMenuData.find(item => item.id === currentBurgerId);
                     if (burgerItem) {
-                        openBurgerBuilderModal(burgerItem);
+                        const existingItem = orderIndex ? order[parseInt(orderIndex)] : null;
+                        openBurgerBuilderModal(burgerItem, orderIndex ? parseInt(orderIndex) : null, existingItem);
+                    }
+                }
+                if(pizzaExtrasBuilderModal.style.display === 'flex') {
+                    const orderIndex = parseInt(pizzaExtrasBuilderModal.dataset.orderIndex);
+                    if(!isNaN(orderIndex) && order[orderIndex]){
+                        openPizzaExtrasBuilderModal(orderIndex);
                     }
                 }
             }
@@ -1195,7 +1225,7 @@
                 onSnapshot(doc(db, "config", "pizza_half_status"), (doc) => {
                     pizzaHalfStatus = doc.exists() ? doc.data() : {};
                     allMenuData.forEach(item => {
-                        if (item.isPizza) {
+                        if (item.isPizza && item.id) {
                             item.allowHalf = pizzaHalfStatus[item.id] !== false;
                         }
                     });
@@ -1209,17 +1239,27 @@
                  onSnapshot(doc(db, "config", "item_extras_status"), (doc) => {
                     itemExtrasStatus = doc.exists() ? doc.data() : {};
                     allMenuData.forEach(item => {
-                        const defaultExtras = item.isPizza;
-                        item.acceptsExtras = itemExtrasStatus[item.id] === undefined ? defaultExtras : itemExtrasStatus[item.id];
+                        if (item.id) {
+                           const defaultExtras = item.isPizza;
+                           item.acceptsExtras = itemExtrasStatus[item.id] === undefined ? defaultExtras : itemExtrasStatus[item.id];
+                        }
                     });
                 });
                 onSnapshot(doc(db, "config", "ingredient_status"), (doc) => {
                     ingredientStatus = doc.exists() ? doc.data() : {};
-                    updateUI();
+                    refreshOpenPopups();
                 });
                 onSnapshot(doc(db, "config", "ingredient_visibility"), (doc) => {
                     ingredientVisibility = doc.exists() ? doc.data() : {};
-                    updateUI();
+                    refreshOpenPopups();
+                });
+                onSnapshot(doc(db, "config", "extra_status"), (doc) => {
+                    extraStatus = doc.exists() ? doc.data() : {};
+                    refreshOpenPopups();
+                });
+                onSnapshot(doc(db, "config", "extra_visibility"), (doc) => {
+                    extraVisibility = doc.exists() ? doc.data() : {};
+                    refreshOpenPopups();
                 });
             }
 
@@ -1393,8 +1433,9 @@
                 }
             }
             
-            function openBurgerBuilderModal(baseBurgerItem) {
+            function openBurgerBuilderModal(baseBurgerItem, editIndex = null, existingItem = null) {
                 burgerBuilderModal.dataset.burgerId = baseBurgerItem.id;
+                burgerBuilderModal.dataset.editIndex = editIndex !== null ? editIndex : '';
                 burgerIngredientsContainer.innerHTML = '';
                 currentBurgerBasePrice = baseBurgerItem.basePrice;
 
@@ -1432,13 +1473,15 @@
                             label.className = `ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''}`;
 
                             if (isSingleChoice) {
+                                const isChecked = existingItem && existingItem.ingredients.some(ing => ing.name === ingredient.name);
                                 const inputType = 'radio';
                                 const inputName = categoryName;
                                 label.innerHTML = `
-                                    <input type="${inputType}" id="${inputName}-${ingredient.id}" name="${inputName}" value="${ingredient.id}" data-price="${ingredient.price}" class="form-${inputType}" ${isUnavailable ? 'disabled' : ''}>
+                                    <input type="${inputType}" id="${inputName}-${ingredient.id}" name="${inputName}" value="${ingredient.id}" data-price="${ingredient.price}" class="form-${inputType}" ${isUnavailable ? 'disabled' : ''} ${isChecked ? 'checked' : ''}>
                                     <span class="flex-grow">${ingredient.name} ${isUnavailable ? '(Esgotado)' : ''}</span>
                                     <span class="price ml-2">${priceDisplay}</span>
                                 `;
+                                if (isChecked) label.classList.add('selected');
                                 label.querySelector('input').addEventListener('change', (e) => {
                                     document.querySelectorAll(`input[name="${inputName}"]`).forEach(el => {
                                         el.closest('.ingredient-option').classList.remove('selected');
@@ -1449,6 +1492,13 @@
                                     updateBurgerPrice();
                                 });
                             } else {
+                                let quantity = 0;
+                                if (existingItem && existingItem.ingredients) {
+                                    const existingIng = existingItem.ingredients.find(ing => ing.name === ingredient.name);
+                                    if (existingIng) {
+                                        quantity = existingIng.quantity || 0;
+                                    }
+                                }
                                 label.innerHTML = `
                                     <div class="flex-grow">
                                         <span>${ingredient.name} ${isUnavailable ? '(Esgotado)' : ''}</span>
@@ -1456,19 +1506,27 @@
                                     </div>
                                     <div class="flex items-center space-x-3" data-ingredient-id="${ingredient.id}" data-price="${ingredient.price}" data-limit="${ingredientLimit}">
                                         <button type="button" class="quantity-btn minus-btn bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold" ${isUnavailable ? 'disabled' : ''}>-</button>
-                                        <span class="quantity-display font-bold text-lg w-4 text-center">0</span>
+                                        <span class="quantity-display font-bold text-lg w-4 text-center">${quantity}</span>
                                         <button type="button" class="quantity-btn plus-btn bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold" ${isUnavailable ? 'disabled' : ''}>+</button>
                                     </div>
                                 `;
+                                if (quantity > 0) label.classList.add('selected');
                             }
                             categoryDiv.appendChild(label);
                         });
                         burgerIngredientsContainer.appendChild(categoryDiv);
                     }
                 }
+                
+                updateBurgerPrice();
+                
+                if (editIndex !== null) {
+                    addCustomBurgerBtn.textContent = 'Atualizar Hambúrguer';
+                } else {
+                    addCustomBurgerBtn.textContent = 'Adicionar ao Pedido';
+                }
 
-                burgerTotalPriceEl.textContent = 'R$ ' + baseBurgerItem.basePrice.toFixed(2).replace('.', ',');
-                addCustomBurgerBtn.onclick = () => addCustomBurgerToOrder(baseBurgerItem);
+                addCustomBurgerBtn.onclick = () => addCustomBurgerToOrder(baseBurgerItem, editIndex);
                 burgerBuilderModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
             }
@@ -1489,7 +1547,7 @@
                 burgerTotalPriceEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
             }
 
-            function addCustomBurgerToOrder(baseBurgerItem) {
+            function addCustomBurgerToOrder(baseBurgerItem, editIndex = null) {
                 const selectedIngredients = [];
                 let finalTotal = currentBurgerBasePrice;
 
@@ -1497,7 +1555,7 @@
                 for (const categoryName in allBurgerIngredients) {
                     const isRequired = allBurgerIngredients[categoryName][0]?.isRequired || false;
                     if (isRequired) {
-                        const categoryDiv = document.querySelector(`.ingredient-category[data-category-name="${categoryName}"]`);
+                        const categoryDiv = burgerBuilderModal.querySelector(`.ingredient-category[data-category-name="${categoryName}"]`);
                         const checkedInput = categoryDiv.querySelector('input:checked');
                         let quantityCount = 0;
                         categoryDiv.querySelectorAll('.quantity-display').forEach(d => quantityCount += parseInt(d.textContent));
@@ -1510,33 +1568,58 @@
                 }
                 if (!allRequiredCategoriesFilled) return;
 
-                document.querySelectorAll('.ingredient-category').forEach(categoryDiv => {
+                burgerBuilderModal.querySelectorAll('.ingredient-category').forEach(categoryDiv => {
                     const categoryName = categoryDiv.dataset.categoryName;
-                    categoryDiv.querySelectorAll('input:checked').forEach(input => {
-                        const ingredient = allBurgerIngredients[categoryName].find(ing => ing.id === input.value);
-                        if (ingredient) {
-                            selectedIngredients.push({ name: ingredient.name, category: ingredient.category });
-                            finalTotal += ingredient.price;
-                        }
-                    });
-                    categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
-                        const quantity = parseInt(display.textContent);
-                        if (quantity > 0) {
-                            const container = display.closest('[data-ingredient-id]');
-                            const ingredientId = container.dataset.ingredientId;
-                            const ingredient = allBurgerIngredients[categoryName].find(ing => ing.id === ingredientId);
+                    if (allBurgerIngredients[categoryName]) {
+                        categoryDiv.querySelectorAll('input:checked').forEach(input => {
+                            const ingredient = allBurgerIngredients[categoryName].find(ing => ing.id === input.value);
                             if (ingredient) {
-                                selectedIngredients.push({ name: `${ingredient.name} (x${quantity})`, category: ingredient.category });
-                                finalTotal += quantity * ingredient.price;
+                                selectedIngredients.push({
+                                    name: ingredient.name,
+                                    price: ingredient.price,
+                                    quantity: 1
+                                });
+                                finalTotal += ingredient.price;
                             }
-                        }
-                    });
+                        });
+                        categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
+                            const quantity = parseInt(display.textContent);
+                            if (quantity > 0) {
+                                const container = display.closest('[data-ingredient-id]');
+                                const ingredientId = container.dataset.ingredientId;
+                                const ingredient = allBurgerIngredients[categoryName].find(ing => ing.id === ingredientId);
+                                if (ingredient) {
+                                     selectedIngredients.push({
+                                        name: ingredient.name,
+                                        price: ingredient.price,
+                                        quantity: quantity
+                                    });
+                                    finalTotal += quantity * ingredient.price;
+                                }
+                            }
+                        });
+                    }
                 });
 
-                addToOrder({
-                    type: 'custom_burger', name: 'Hambúrguer Personalizado', price: finalTotal,
-                    description: `Monte seu hambúrguer.`, ingredients: selectedIngredients, category: baseBurgerItem.category
-                }, addCustomBurgerBtn);
+                const newBurger = {
+                    id: editIndex !== null ? order[editIndex].id : Date.now() + Math.random(),
+                    type: 'custom_burger',
+                    name: 'Hambúrguer Personalizado',
+                    price: finalTotal,
+                    basePrice: baseBurgerItem.basePrice,
+                    description: `Monte seu hambúrguer.`,
+                    ingredients: selectedIngredients,
+                    category: baseBurgerItem.category,
+                    originalItem: baseBurgerItem
+                };
+                
+                if (editIndex !== null) {
+                    order[editIndex] = newBurger;
+                    updateOrderDisplay();
+                    showTemporaryFeedback('✔️ Hambúrguer atualizado!', 'bg-blue-500');
+                } else {
+                    addToOrder(newBurger, addCustomBurgerBtn);
+                }
 
                 burgerBuilderModal.style.display = 'none';
                 updatePromotionButtonVisibility();
@@ -1935,11 +2018,10 @@
             
             function updateOrderDisplay() {
                 let subtotal = 0;
-
                 order.forEach((item) => {
                     subtotal += item.price;
                 });
-                
+
                 let finalDiscountAmount = 0;
                 if (discountPromotion) {
                     finalDiscountAmount = subtotal * (discountPromotion.promoPrice / 100);
@@ -1949,73 +2031,107 @@
                     emptyOrderMessage.classList.remove('hidden');
                     orderItemsContainer.innerHTML = '';
                     orderItemsContainer.appendChild(emptyOrderMessage);
-                    subtotalEl.textContent = 'R$ 0,00';
-                    selectedPaymentMethod = null;
-                    discountSection.classList.add('hidden');
                 } else {
                     emptyOrderMessage.classList.add('hidden');
                     
-                    let itemsHTML = '';
+                    const itemsByCategory = {};
                     order.forEach((item, index) => {
-                        let itemName = item.name;
-                        let itemDescription = '';
-                        let priceHtml = `<span class="font-bold mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>`;
-
-                        if (item.type === 'promotion') {
-                            itemName = `<i class="fas fa-tags text-red-600 mr-2"></i> ${item.name}`;
-                        } else if (item.type === 'custom_burger') {
-                            itemName = `<i class="fas fa-hamburger text-red-600 mr-2"></i> ${item.name}`;
-                        } else if (item.type === 'discount') {
-                            return;
+                        const category = item.category || 'Outros';
+                        if (!itemsByCategory[category]) {
+                            itemsByCategory[category] = [];
                         }
+                        itemsByCategory[category].push({ ...item, originalIndex: index });
+                    });
+
+                    let itemsHTML = '';
+                    const categoryOrder = Object.keys(itemsByCategory);
+
+                    categoryOrder.forEach(category => {
+                        itemsHTML += `<h4 class="font-bold text-gray-700 mt-4 mb-2 border-b pb-1">${category.toUpperCase()}</h4>`;
                         
-                        const isLastItem = (index === order.length - 1);
-                        const borderClass = isLastItem && !selectedPaymentMethod && !selectedAddress.bairro && !selectedAddress.clientName ? '' : 'border-b border-gray-100';
+                        itemsByCategory[category].forEach(itemObj => {
+                            const item = itemObj;
+                            const originalIndex = item.originalIndex;
+                            let itemName = item.name;
+                            let priceHtml = `<span class="font-bold mr-4">R$ ${item.price.toFixed(2).replace('.', ',')}</span>`;
 
-                        let extrasHtml = '';
-                        if (item.extras && item.extras.length > 0) {
-                            extrasHtml += '<ul class="text-xs text-gray-500 mt-1 pl-4 list-disc list-inside">';
-                            item.extras.forEach(extra => {
-                                extrasHtml += `<li>${extra.name} (${extra.placement}) +R$ ${extra.price.toFixed(2).replace('.',',')}</li>`;
-                            });
-                             extrasHtml += '</ul>';
-                        }
-                        
-                        let extrasButtonHtml = '';
-                        if (item.acceptsExtras && (item.type === 'full' || item.type === 'split')) {
-                            const buttonText = (item.extras && item.extras.length > 0) ? 'Editar Adicionais' : 'Incluir Adicionais';
-                            extrasButtonHtml = `<button class="edit-extras-btn text-xs text-blue-600 hover:underline" data-order-index="${index}">${buttonText}</button>`;
-                        }
+                            if (item.type === 'promotion') {
+                                itemName = `<i class="fas fa-tags text-red-600 mr-2"></i> ${item.name}`;
+                            } else if (item.type === 'discount') {
+                                return; // Skip rendering
+                            }
 
-                        itemsHTML += `
-                            <div class="py-3 ${borderClass}">
-                                <div class="flex justify-between items-start">
-                                    <div class="flex-1">
-                                        <p class="font-medium">${itemName}</p>
-                                        <div class="text-sm text-gray-500">${itemDescription}</div>
-                                        ${extrasHtml}
+                            let detailsHtml = '';
+                            if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                                itemName = `<i class="fas fa-hamburger text-red-600 mr-2"></i> ${item.name}`;
+                                detailsHtml += '<ul class="text-xs text-gray-500 mt-1 pl-4 list-disc list-inside">';
+                                item.ingredients.forEach(ingredient => {
+                                    const quantityText = ingredient.quantity > 1 ? ` (x${ingredient.quantity})` : '';
+                                    const priceText = ingredient.price > 0 ? ` +R$ ${(ingredient.price * ingredient.quantity).toFixed(2).replace('.',',')}` : '';
+                                    detailsHtml += `<li>${ingredient.name}${quantityText}${priceText}</li>`;
+                                });
+                                detailsHtml += '</ul>';
+                            }
+
+                            if (item.extras && item.extras.length > 0) {
+                                detailsHtml += '<ul class="text-xs text-gray-500 mt-1 pl-4 list-disc list-inside">';
+                                item.extras.forEach(extra => {
+                                    let extraText = `${extra.name} (${extra.placement})`;
+                                    if(extra.quantity > 1) {
+                                        extraText += ` (x${extra.quantity})`;
+                                    }
+                                    extraText += ` +R$ ${(extra.price * extra.quantity).toFixed(2).replace('.',',')}`;
+                                    detailsHtml += `<li>${extraText}</li>`;
+                                });
+                                detailsHtml += '</ul>';
+                            }
+                            
+                            let actionButtonHtml = '';
+                            if (item.acceptsExtras && (item.type === 'full' || item.type === 'split')) {
+                                const hasExtras = item.extras && item.extras.length > 0;
+                                const buttonText = hasExtras ? 'Editar Adicionais' : 'Incluir Adicionais';
+                                const iconClass = hasExtras ? 'fas fa-pencil-alt' : 'fas fa-plus-circle';
+                                actionButtonHtml = `<button class="edit-extras-btn mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition-colors" data-order-index="${originalIndex}">
+                                                        <i class="${iconClass} fa-fw"></i>
+                                                        <span>${buttonText}</span>
+                                                    </button>`;
+                            } else if (item.type === 'custom_burger') {
+                                actionButtonHtml = `<button class="edit-burger-btn mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition-colors" data-order-index="${originalIndex}">
+                                                        <i class="fas fa-pencil-alt fa-fw"></i>
+                                                        <span>Editar Hambúrguer</span>
+                                                    </button>`;
+                            }
+
+                            itemsHTML += `
+                                <div class="py-3 border-b border-gray-100">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1">
+                                            <p class="font-medium">${itemName}</p>
+                                            ${detailsHtml}
+                                        </div>
+                                        <div class="flex items-center">
+                                            ${priceHtml}
+                                            <button data-index="${originalIndex}" class="remove-item-btn text-red-500 hover:text-red-700">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="flex items-center">
-                                        ${priceHtml}
-                                        <button data-index="${index}" class="remove-item-btn text-red-500 hover:text-red-700">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </div>
+                                    ${actionButtonHtml}
                                 </div>
-                                ${extrasButtonHtml}
-                            </div>
-                        `;
+                            `;
+                        });
                     });
                     orderItemsContainer.innerHTML = itemsHTML;
-                    subtotalEl.textContent = 'R$ ' + subtotal.toFixed(2).replace('.', ',')
-                    
-                    if (discountPromotion && subtotal > 0) {
-                        discountSection.classList.remove('hidden');
-                        discountPercentageDisplay.textContent = `${discountPromotion.promoPrice}%`;
-                        discountValueDisplay.textContent = `- R$ ${finalDiscountAmount.toFixed(2).replace('.', ',')}`;
-                    } else {
-                        discountSection.classList.add('hidden');
-                    }
+                }
+                
+                subtotalEl.textContent = 'R$ ' + subtotal.toFixed(2).replace('.', ',');
+                
+                if (discountPromotion && subtotal > 0) {
+                    discountSection.classList.remove('hidden');
+                    discountPercentageDisplay.textContent = `${discountPromotion.promoPrice}%`;
+                    discountValueDisplay.textContent = `- R$ ${finalDiscountAmount.toFixed(2).replace('.', ',')}`;
+                } else {
+                    discountSection.classList.add('hidden');
                 }
                 
                 if (isPickupOrder) {
@@ -2044,28 +2160,13 @@
                 if (selectedPaymentMethod) {
                     let paymentMethodText = '';
                     let trocoInfo = '';
-
                     if (typeof selectedPaymentMethod === 'object' && selectedPaymentMethod.method === 'Dinheiro') {
                         paymentMethodText = selectedPaymentMethod.method;
-                        trocoInfo = `
-                            <p class="text-sm text-gray-500 mt-1">Troco para: R$ ${selectedPaymentMethod.trocoPara.toFixed(2).replace('.', ',')}</p>
-                            <p class="text-sm text-gray-500">Troco: <span class="font-bold text-green-600">R$ ${selectedPaymentMethod.trocoTotal.toFixed(2).replace('.', ',')}</span></p>
-                        `;
+                        trocoInfo = `<p class="text-sm text-gray-500 mt-1">Troco para: R$ ${selectedPaymentMethod.trocoPara.toFixed(2).replace('.', ',')}</p><p class="text-sm text-gray-500">Troco: <span class="font-bold text-green-600">R$ ${selectedPaymentMethod.trocoTotal.toFixed(2).replace('.', ',')}</span></p>`;
                     } else {
                         paymentMethodText = selectedPaymentMethod;
                     }
-
-                    orderItemsContainer.insertAdjacentHTML('beforeend', `
-                        <div class="flex justify-between items-start py-3">
-                            <div class="flex-1">
-                                <p class="font-medium text-gray-600">Forma de Pagamento:</p>
-                                ${trocoInfo}
-                            </div>
-                            <div class="flex items-center">
-                                <span class="font-bold text-red-600">${paymentMethodText}</span>
-                            </div>
-                        </div>
-                    `);
+                    orderItemsContainer.insertAdjacentHTML('beforeend', `<div class="flex justify-between items-start py-3"><div class="flex-1"><p class="font-medium text-gray-600">Forma de Pagamento:</p>${trocoInfo}</div><div class="flex items-center"><span class="font-bold text-red-600">${paymentMethodText}</span></div></div>`);
                 }
                 
                 updateDrinkSuggestionButtons();
@@ -2091,6 +2192,8 @@
             
             function clearOrder() {
                 order = [];
+                selectedPaymentMethod = null;
+                document.getElementById('order-observation').value = '';
                 updateOrderDisplay();
                 updateCartCount();
                 firstHalfPizza = null;
@@ -2709,18 +2812,16 @@
             }
             
             function showAskForExtrasModal(orderItemId, item) {
-                const formattedName = formatProductName(item.name, item.category);
-                askExtrasTitle.textContent = `Turbine a(o) ${formattedName} adicionando mais ingredientes!`;
+                askExtrasTitle.textContent = "Turbine seu produto adicionando mais ingredientes!";
                 askPizzaExtrasModal.dataset.orderItemId = orderItemId;
                 askPizzaExtrasModal.style.display = 'flex';
             }
             
             function openPizzaExtrasBuilderModal(orderIndex) {
                 const pizzaItem = order[orderIndex];
-                if (!pizzaItem || (pizzaItem.type !== 'full' && pizzaItem.type !== 'split')) return;
+                if (!pizzaItem) return;
 
-                const formattedName = formatProductName(pizzaItem.name, pizzaItem.category);
-                pizzaExtrasBuilderTitle.textContent = `Adicionais para ${formattedName}`;
+                pizzaExtrasBuilderTitle.textContent = "Adicionais para o seu Produto";
                 pizzaExtrasBuilderModal.dataset.orderIndex = orderIndex;
 
                 const scopeButtonsContainer = document.getElementById('pizza-extras-scope-buttons');
@@ -2729,9 +2830,15 @@
                 currentPizzaExtrasState = { metade1: [], metade2: [], toda: [] };
                 if (pizzaItem.extras && pizzaItem.extras.length > 0) {
                     pizzaItem.extras.forEach(extra => {
-                        const placement = extra.placement.toLowerCase().replace('ª', '').replace(' pizza', '').replace(' ', '');
+                        let placement = 'toda';
+                        if (extra.placement.includes('1ª Metade')) {
+                            placement = 'metade1';
+                        } else if (extra.placement.includes('2ª Metade')) {
+                            placement = 'metade2';
+                        }
+                        
                         if (currentPizzaExtrasState[placement]) {
-                            currentPizzaExtrasState[placement].push(extra);
+                            currentPizzaExtrasState[placement].push({ ...extra });
                         }
                     });
                 }
@@ -2745,65 +2852,134 @@
                         <button class="scope-button px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm" data-scope="metade2">2ª Metade: ${half2Name}</button>
                         <button class="scope-button px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm active" data-scope="toda">Pizza Toda</button>
                     `;
+                    
+                    scopeButtonsContainer.querySelectorAll('.scope-button').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            scopeButtonsContainer.querySelector('.active').classList.remove('active');
+                            btn.classList.add('active');
+                            renderPizzaExtrasList(orderIndex);
+                        });
+                    });
                 }
                 
-                scopeButtonsContainer.querySelectorAll('.scope-button').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        scopeButtonsContainer.querySelector('.active').classList.remove('active');
-                        btn.classList.add('active');
-                        renderPizzaExtrasList(orderIndex);
-                    });
-                });
-
                 renderPizzaExtrasList(orderIndex);
                 updatePizzaExtrasPrice(orderIndex);
                 pizzaExtrasBuilderModal.style.display = 'flex';
             }
 
             function renderPizzaExtrasList(orderIndex) {
-                const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
+                const activeScopeButton = document.querySelector('#pizza-extras-scope-buttons .active');
+                const activeScope = activeScopeButton ? activeScopeButton.dataset.scope : 'toda';
                 pizzaExtrasIngredientsContainer.innerHTML = '';
 
                 for (const categoryName in allPizzaIngredients) {
                     const ingredients = allPizzaIngredients[categoryName];
                     const categoryDiv = document.createElement('div');
                     categoryDiv.className = 'ingredient-category';
-                    categoryDiv.innerHTML = `<h4>${capitalizeFirstLetter(categoryName)}</h4>`;
+                    
+                    const firstIngredient = ingredients[0] || {};
+                    const categoryLimit = firstIngredient.categoryLimit || Infinity;
+                    categoryDiv.dataset.limit = categoryLimit;
+                    categoryDiv.dataset.categoryName = categoryName;
+
+                    let title = capitalizeFirstLetter(categoryName);
+                    if (categoryLimit !== Infinity) {
+                        title += ` (Escolha até ${categoryLimit})`;
+                    }
+                    categoryDiv.innerHTML = `<h4>${title}</h4>`;
 
                     ingredients.forEach(ingredient => {
+                        // CORREÇÃO: Verifica o status do ingrediente antes de renderizar
+                        if (extraVisibility[ingredient.id] === false) return; // Não renderiza se estiver invisível
+                        const isUnavailable = extraStatus[ingredient.id] === false;
+
                         const priceDisplay = ingredient.price > 0 ? `+ R$ ${ingredient.price.toFixed(2).replace('.', ',')}` : '';
                         const optionDiv = document.createElement('div');
-                        optionDiv.className = 'ingredient-option';
-                        const isChecked = currentPizzaExtrasState[activeScope]?.some(extra => extra.name === ingredient.name);
+                        optionDiv.className = `ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''}`;
                         
-                        optionDiv.innerHTML = `
-                            <label class="flex items-center w-full cursor-pointer">
-                                <input type="checkbox" data-name="${ingredient.name}" data-price="${ingredient.price}" class="form-checkbox" ${isChecked ? 'checked' : ''}>
-                                <span class="ml-2 flex-grow">${ingredient.name}</span>
-                                <span class="price">${priceDisplay}</span>
-                            </label>
-                        `;
+                        const existingExtra = currentPizzaExtrasState[activeScope]?.find(extra => extra.name === ingredient.name);
+                        const quantity = existingExtra ? existingExtra.quantity : 0;
+                        const ingredientLimit = ingredient.limit || 1;
 
-                        optionDiv.querySelector('input').addEventListener('change', (e) => handleExtraSelectionChange(e.target, orderIndex, ingredient));
+                        optionDiv.innerHTML = `
+                             <div class="flex-grow">
+                                <span>${ingredient.name} ${isUnavailable ? '(Esgotado)' : ''}</span>
+                                <span class="price ml-2">${priceDisplay}</span>
+                            </div>
+                            <div class="flex items-center space-x-3" data-name="${ingredient.name}" data-price="${ingredient.price}" data-limit="${ingredientLimit}">
+                                <button type="button" class="quantity-btn minus-btn bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold" ${isUnavailable ? 'disabled' : ''}>-</button>
+                                <span class="quantity-display font-bold text-lg w-4 text-center">${quantity}</span>
+                                <button type="button" class="quantity-btn plus-btn bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-lg font-bold" ${isUnavailable ? 'disabled' : ''}>+</button>
+                            </div>
+                        `;
+                        if (quantity > 0) optionDiv.classList.add('selected');
+
                         categoryDiv.appendChild(optionDiv);
                     });
                     pizzaExtrasIngredientsContainer.appendChild(categoryDiv);
                 }
             }
 
-            function handleExtraSelectionChange(checkbox, orderIndex, ingredient) {
-                const activeScope = document.querySelector('#pizza-extras-scope-buttons .active').dataset.scope;
-                
-                if (checkbox.checked) {
-                    if (!currentPizzaExtrasState[activeScope].some(extra => extra.name === ingredient.name)) {
-                        currentPizzaExtrasState[activeScope].push({
-                            name: ingredient.name,
-                            price: ingredient.price,
-                            placement: capitalizeFirstLetter(activeScope.replace('1', '1ª').replace('2', '2ª'))
-                        });
+            function handleExtraQuantityChange(target, orderIndex) {
+                const isPlus = target.classList.contains('plus-btn');
+                const container = target.closest('[data-name]');
+                const quantityDisplay = container.querySelector('.quantity-display');
+                let currentQuantity = parseInt(quantityDisplay.textContent);
+                const ingredientLimit = parseInt(container.dataset.limit);
+                const categoryDiv = container.closest('.ingredient-category');
+                const categoryLimit = parseInt(categoryDiv.dataset.limit);
+
+                let distinctItemsCount = 0;
+                categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
+                    if (parseInt(display.textContent) > 0) {
+                        distinctItemsCount++;
+                    }
+                });
+
+                if (isPlus) {
+                    if (currentQuantity < ingredientLimit) {
+                        if (currentQuantity === 0 && distinctItemsCount >= categoryLimit) {
+                            showMessageModal(`Você pode escolher no máximo ${categoryLimit} variedades de ingredientes para esta categoria.`);
+                            return;
+                        }
+                        currentQuantity++;
                     }
                 } else {
-                    currentPizzaExtrasState[activeScope] = currentPizzaExtrasState[activeScope].filter(extra => extra.name !== ingredient.name);
+                    if (currentQuantity > 0) {
+                        currentQuantity--;
+                    }
+                }
+                quantityDisplay.textContent = currentQuantity;
+                
+                const activeScopeButton = document.querySelector('#pizza-extras-scope-buttons .active');
+                const activeScope = activeScopeButton ? activeScopeButton.dataset.scope : 'toda';
+                
+                let placementText = 'Toda';
+                if (activeScope === 'metade1') placementText = '1ª Metade';
+                if (activeScope === 'metade2') placementText = '2ª Metade';
+
+                const ingredientName = container.dataset.name;
+                const ingredientPrice = parseFloat(container.dataset.price);
+
+                const existingExtraIndex = currentPizzaExtrasState[activeScope].findIndex(ex => ex.name === ingredientName);
+
+                if (currentQuantity > 0) {
+                    if (existingExtraIndex > -1) {
+                        currentPizzaExtrasState[activeScope][existingExtraIndex].quantity = currentQuantity;
+                    } else {
+                        currentPizzaExtrasState[activeScope].push({
+                            name: ingredientName,
+                            price: ingredientPrice,
+                            placement: placementText,
+                            quantity: currentQuantity
+                        });
+                    }
+                    container.closest('.ingredient-option').classList.add('selected');
+                } else {
+                    if (existingExtraIndex > -1) {
+                        currentPizzaExtrasState[activeScope].splice(existingExtraIndex, 1);
+                    }
+                    container.closest('.ingredient-option').classList.remove('selected');
                 }
                 
                 updatePizzaExtrasPrice(orderIndex);
@@ -2815,14 +2991,14 @@
                 let basePrice = pizzaItem.price;
                 if (pizzaItem.extras && pizzaItem.extras.length > 0) {
                     pizzaItem.extras.forEach(extra => {
-                        basePrice -= extra.price;
+                        basePrice -= (extra.price * extra.quantity);
                     });
                 }
 
                 let totalExtrasPrice = 0;
                 for (const scope in currentPizzaExtrasState) {
                     currentPizzaExtrasState[scope].forEach(extra => {
-                        totalExtrasPrice += extra.price;
+                        totalExtrasPrice += (extra.price * extra.quantity);
                     });
                 }
 
@@ -2836,23 +3012,20 @@
                 const pizzaItem = order[orderIndex];
                 
                 let basePrice = pizzaItem.price;
-                if (pizzaItem.extras && pizzaItem.extras.length > 0) {
+                 if (pizzaItem.extras && pizzaItem.extras.length > 0) {
                     pizzaItem.extras.forEach(extra => {
-                        basePrice -= extra.price;
+                        basePrice -= (extra.price * extra.quantity);
                     });
                 }
                 
                 const finalExtras = [];
                 let finalExtrasPrice = 0;
-                const addedExtras = new Set();
-
+                
                 for (const scope in currentPizzaExtrasState) {
                     currentPizzaExtrasState[scope].forEach(extra => {
-                        const key = `${extra.name}-${extra.placement}`;
-                        if (!addedExtras.has(key)) {
+                        if(extra.quantity > 0) {
                             finalExtras.push(extra);
-                            finalExtrasPrice += extra.price;
-                            addedExtras.add(key);
+                            finalExtrasPrice += (extra.price * extra.quantity);
                         }
                     });
                 }
@@ -2952,6 +3125,15 @@
                 if (editExtrasBtn) {
                     const orderIndex = parseInt(editExtrasBtn.dataset.orderIndex, 10);
                     openPizzaExtrasBuilderModal(orderIndex);
+                }
+
+                const editBurgerBtn = event.target.closest('.edit-burger-btn');
+                if (editBurgerBtn) {
+                    const orderIndex = parseInt(editBurgerBtn.dataset.orderIndex, 10);
+                    const itemToEdit = order[orderIndex];
+                    if (itemToEdit && itemToEdit.originalItem) {
+                       openBurgerBuilderModal(itemToEdit.originalItem, orderIndex, itemToEdit);
+                    }
                 }
             });
 
@@ -3252,6 +3434,14 @@
             
             closePizzaExtrasBuilderModalBtn.addEventListener('click', () => {
                  pizzaExtrasBuilderModal.style.display = 'none';
+            });
+
+            pizzaExtrasIngredientsContainer.addEventListener('click', (e) => {
+                 const target = e.target;
+                if (target.classList.contains('quantity-btn')) {
+                    const orderIndex = parseInt(pizzaExtrasBuilderModal.dataset.orderIndex);
+                    handleExtraQuantityChange(target, orderIndex);
+                }
             });
             
             addPizzaWithExtrasBtn.addEventListener('click', confirmPizzaExtras);
