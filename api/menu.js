@@ -88,7 +88,7 @@ const PROMOCOES_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgN
 const DELIVERY_FEES_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=1695668250';
 const INGREDIENTES_HAMBURGUER_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=1816106560';
 const CONTACT_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=2043568216';
-
+const INGREDIENTES_PIZZA_CSV_URL = 'https://docs.google.com/spreadsheets/d/144LKS4RVcdLgNZUlIie764pQKLJx0G4-zZIIstbszFc/export?format=csv&gid=1064319795';
 
 // Leitor de linha CSV robusto que lida com vírgulas dentro de aspas
 function parseCsvLine(line) {
