@@ -188,8 +188,12 @@
     <!-- Modal Abrir Caixa -->
     <div id="open-cash-modal" class="modal">
         <div class="modal-content">
+            <div id="pending-cash-alert" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+                <p class="font-bold">Caixa Pendente</p>
+                <p id="pending-cash-message">Existe um caixa do dia anterior que não foi fechado. Por favor, feche o caixa anterior antes de continuar.</p>
+            </div>
             <h3 class="text-lg font-bold text-gray-900 mb-4">Abrir Caixa</h3>
-            <p class="text-sm text-gray-600 mb-4">Para iniciar as operações, por favor, informe o valor inicial do caixa (fundo de troco).</p>
+            <p id="open-cash-instructions" class="text-sm text-gray-600 mb-4">Para iniciar as operações, por favor, informe o valor inicial do caixa (fundo de troco).</p>
             <form id="open-cash-form">
                 <div class="mb-4">
                     <label for="initial-value" class="block text-sm font-medium text-gray-700 mb-1">Valor Inicial (R$)</label>
@@ -206,13 +210,20 @@
             <h3 class="text-lg font-bold text-gray-900 mb-4">Fechamento de Caixa</h3>
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between"><span class="text-gray-600">Valor Inicial:</span> <span id="summary-initial" class="font-medium">R$ 0,00</span></div>
-                <hr>
-                <div class="flex justify-between"><span class="text-gray-600">Vendas em Dinheiro:</span> <span id="summary-cash" class="font-medium">R$ 0,00</span></div>
-                <div class="flex justify-between"><span class="text-gray-600">Vendas em Cartão:</span> <span id="summary-card" class="font-medium">R$ 0,00</span></div>
-                <div class="flex justify-between"><span class="text-gray-600">Vendas em Pix:</span> <span id="summary-pix" class="font-medium">R$ 0,00</span></div>
-                <hr>
+                <hr class="my-2">
+                <h4 class="font-bold text-gray-700 text-md">Vendas por Tipo</h4>
+                <div class="flex justify-between pl-2"><span class="text-gray-600">Delivery:</span> <span id="summary-delivery" class="font-medium">R$ 0,00</span></div>
+                <div class="flex justify-between pl-2"><span class="text-gray-600">Retirada:</span> <span id="summary-retirada" class="font-medium">R$ 0,00</span></div>
+                <div class="flex justify-between pl-2"><span class="text-gray-600">Mesas:</span> <span id="summary-mesas" class="font-medium">R$ 0,00</span></div>
+                <div class="flex justify-between pl-2"><span class="text-gray-600">Taxas de Entrega:</span> <span id="summary-delivery-fees" class="font-medium">R$ 0,00</span></div>
+                <hr class="my-2">
+                <h4 class="font-bold text-gray-700 text-md">Vendas por Pagamento</h4>
+                <div class="flex justify-between pl-2"><span class="text-gray-600">Dinheiro:</span> <span id="summary-cash" class="font-medium">R$ 0,00</span></div>
+                <div class="flex justify-between pl-2"><span class="text-gray-600">Cartão:</span> <span id="summary-card" class="font-medium">R$ 0,00</span></div>
+                <div class="flex justify-between pl-2"><span class="text-gray-600">Pix:</span> <span id="summary-pix" class="font-medium">R$ 0,00</span></div>
+                <hr class="my-2">
                 <div class="flex justify-between font-bold"><span class="text-gray-800">Total de Vendas:</span> <span id="summary-total-sales" class="text-gray-800">R$ 0,00</span></div>
-                <hr>
+                <hr class="my-2">
                 <div class="flex justify-between font-bold"><span class="text-blue-700">Valor Esperado em Caixa:</span> <span id="summary-expected" class="text-blue-700">R$ 0,00</span></div>
             </div>
             <form id="close-cash-form" class="mt-6">
@@ -310,6 +321,7 @@
 
         // --- LÓGICA DE AUTENTICAÇÃO E CAIXA ---
         let currentCashRegister = null;
+        let detailedReportData = {}; // Para armazenar os dados do relatório detalhado
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -334,13 +346,39 @@
             const querySnapshot = await getDocs(q);
             
             if (querySnapshot.empty) {
+                document.getElementById('pending-cash-alert').classList.add('hidden');
+                openCashForm.style.display = 'block';
+                document.getElementById('open-cash-instructions').style.display = 'block';
+                document.getElementById('open-cash-btn').disabled = false;
+
                 pdvOverlay.style.display = 'block';
                 openCashModal.style.display = 'flex';
             } else {
-                currentCashRegister = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
-                pdvOverlay.style.display = 'none';
-                openCashModal.style.display = 'none';
-                initializePDV();
+                const cashDoc = querySnapshot.docs[0];
+                currentCashRegister = { id: cashDoc.id, ...cashDoc.data() };
+
+                const openDate = currentCashRegister.dataAbertura.toDate();
+                const today = new Date();
+                
+                const isOpenDateFromYesterday = openDate.getFullYear() < today.getFullYear() ||
+                                               openDate.getMonth() < today.getMonth() ||
+                                               openDate.getDate() < today.getDate();
+
+                if (isOpenDateFromYesterday) {
+                    const formattedDate = openDate.toLocaleDateString('pt-BR');
+                    document.getElementById('pending-cash-message').textContent = `Existe um caixa do dia ${formattedDate} que não foi fechado. Por favor, feche o caixa para poder continuar.`;
+                    document.getElementById('pending-cash-alert').classList.remove('hidden');
+                    openCashForm.style.display = 'none';
+                    document.getElementById('open-cash-instructions').style.display = 'none';
+                    document.getElementById('open-cash-btn').disabled = true;
+
+                    pdvOverlay.style.display = 'block';
+                    openCashModal.style.display = 'flex';
+                } else {
+                    pdvOverlay.style.display = 'none';
+                    openCashModal.style.display = 'none';
+                    initializePDV();
+                }
             }
         }
 
@@ -949,7 +987,7 @@
                             clientItemsHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li style="display: flex; justify-content: space-between; padding: 5px 0;"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`;
                                  if (item.extras && item.extras.length > 0) {
-                                    itemString += `<li><ul style="list-style: none; padding-left: 15px; font-size: 0.9em; color: #555;">${item.extras.map(extra => `<li>+ ${extra.name} (${extra.placement})</li>`).join('')}</ul></li>`;
+                                    itemString += `<li><ul style="list-style: none; padding-left: 15px; font-size: 0.9em; color: #555;">${item.extras.map(extra => `+ ${extra.name} (${extra.placement})</li>`).join('')}</ul></li>`;
                                 }
                                 return itemString;
                             }).join('');
@@ -1030,34 +1068,46 @@
 
             const ordersQuery = query(
                 collection(db, "pedidos"),
+                where("criadoEm", ">=", currentCashRegister.dataAbertura),
                 where("status", "==", "Finalizado")
             );
             const ordersSnapshot = await getDocs(ordersQuery);
 
-            let totalCash = 0;
-            let totalCard = 0;
-            let totalPix = 0;
+            let totalCash = 0, totalCard = 0, totalPix = 0;
+            let totalDelivery = 0, totalRetirada = 0, totalMesas = 0, totalDeliveryFees = 0;
 
             ordersSnapshot.forEach(doc => {
                 const order = doc.data();
-                if (order.criadoEm && order.criadoEm.seconds >= currentCashRegister.dataAbertura.seconds) {
-                    const payment = order.pagamento;
-                    const total = order.total.finalTotal;
-
-                    if (typeof payment === 'object' && payment.method === 'Dinheiro') {
-                        totalCash += total;
-                    } else if (payment === 'Cartão de Crédito/Débito') {
-                        totalCard += total;
-                    } else if (payment === 'Pix') {
-                        totalPix += total;
-                    }
+                const total = order.total.finalTotal;
+                const payment = order.pagamento;
+                
+                // Soma por tipo de pagamento
+                if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += total;
+                else if (payment === 'Cartão de Crédito/Débito') totalCard += total;
+                else if (payment === 'Pix') totalPix += total;
+                
+                // Soma por tipo de pedido
+                const orderType = identifyOrderType(order);
+                if (orderType === 'delivery') {
+                    totalDelivery += total;
+                    totalDeliveryFees += order.total.deliveryFee;
+                } else if (orderType === 'retirada') {
+                    totalRetirada += total;
+                } else if (orderType === 'mesa') {
+                    totalMesas += total;
                 }
             });
 
             const totalSales = totalCash + totalCard + totalPix;
             const expectedInCash = currentCashRegister.valorInicial + totalCash;
+            
+            detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
 
             document.getElementById('summary-initial').textContent = `R$ ${currentCashRegister.valorInicial.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-retirada').textContent = `R$ ${totalRetirada.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-mesas').textContent = `R$ ${totalMesas.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-delivery-fees').textContent = `R$ ${totalDeliveryFees.toFixed(2).replace('.', ',')}`;
             document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
             document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
             document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
@@ -1104,11 +1154,7 @@
             
             const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
             const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
-            const totalSales = parseFloat(document.getElementById('summary-total-sales').textContent.replace('R$ ', '').replace(',', '.'));
-            const totalCash = parseFloat(document.getElementById('summary-cash').textContent.replace('R$ ', '').replace(',', '.'));
-            const totalCard = parseFloat(document.getElementById('summary-card').textContent.replace('R$ ', '').replace(',', '.'));
-            const totalPix = parseFloat(document.getElementById('summary-pix').textContent.replace('R$ ', '').replace(',', '.'));
-
+            
             try {
                 await updateDoc(cashRegisterRef, {
                     status: 'fechado',
@@ -1116,10 +1162,14 @@
                     usuarioFechamento: auth.currentUser.email,
                     valorFinalContado: finalValue,
                     diferenca: finalValue - expectedValue,
-                    totalVendas: totalSales,
-                    totalDinheiro: totalCash,
-                    totalCartao: totalCard,
-                    totalPix: totalPix
+                    totalVendas: detailedReportData.totalSales,
+                    totalVendasDelivery: detailedReportData.totalDelivery,
+                    totalVendasRetirada: detailedReportData.totalRetirada,
+                    totalVendasMesas: detailedReportData.totalMesas,
+                    totalTaxasEntrega: detailedReportData.totalDeliveryFees,
+                    totalDinheiro: detailedReportData.totalCash,
+                    totalCartao: detailedReportData.totalCard,
+                    totalPix: detailedReportData.totalPix
                 });
                 alert("Caixa fechado com sucesso!");
                 closeCashModal.style.display = 'none';
@@ -1291,4 +1341,3 @@
     </script>
 </body>
 </html>
-
