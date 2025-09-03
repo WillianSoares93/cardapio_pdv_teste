@@ -1057,6 +1057,141 @@
             });
         }
         
+        async function openCloseCashModal() {
+            if (!currentCashRegister) {
+                alert("Nenhum caixa aberto para fechar.");
+                return;
+            }
+
+            const ordersQuery = query(
+                collection(db, "pedidos"),
+                where("criadoEm", ">=", currentCashRegister.dataAbertura),
+                where("status", "==", "Finalizado")
+            );
+            const ordersSnapshot = await getDocs(ordersQuery);
+
+            let totalCash = 0, totalCard = 0, totalPix = 0;
+            let totalDelivery = 0, totalRetirada = 0, totalMesas = 0, totalDeliveryFees = 0;
+
+            ordersSnapshot.forEach(doc => {
+                const order = doc.data();
+                const total = order.total.finalTotal;
+                const payment = order.pagamento;
+                
+                // Soma por tipo de pagamento
+                if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += total;
+                else if (payment === 'Cartão de Crédito/Débito') totalCard += total;
+                else if (payment === 'Pix') totalPix += total;
+                
+                // Soma por tipo de pedido
+                const orderType = identifyOrderType(order);
+                if (orderType === 'delivery') {
+                    totalDelivery += total;
+                    totalDeliveryFees += order.total.deliveryFee;
+                } else if (orderType === 'retirada') {
+                    totalRetirada += total;
+                } else if (orderType === 'mesa') {
+                    totalMesas += total;
+                }
+            });
+
+            const totalSales = totalCash + totalCard + totalPix;
+            const expectedInCash = currentCashRegister.valorInicial + totalCash;
+            
+            detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
+
+            document.getElementById('summary-initial').textContent = `R$ ${currentCashRegister.valorInicial.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-retirada').textContent = `R$ ${totalRetirada.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-mesas').textContent = `R$ ${totalMesas.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-delivery-fees').textContent = `R$ ${totalDeliveryFees.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
+
+            closeCashModal.style.display = 'flex';
+        }
+
+        async function clearFinishedOrders() {
+            if (!confirm("Tem certeza que deseja limpar todos os pedidos finalizados da tela? Eles serão arquivados.")) {
+                return;
+            }
+            const q = query(collection(db, "pedidos"), where("status", "==", "Finalizado"));
+            const snapshot = await getDocs(q);
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => {
+                batch.update(doc.ref, { status: "Arquivado" });
+            });
+            await batch.commit();
+        }
+        
+        closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
+
+        cancelCloseCashBtn.addEventListener('click', () => {
+            closeCashModal.style.display = 'none';
+        });
+
+        finalValueInput.addEventListener('input', () => {
+            const expectedText = document.getElementById('summary-expected').textContent;
+            const expectedValue = parseFloat(expectedText.replace('R$ ', '').replace(',', '.'));
+            const finalValue = parseFloat(finalValueInput.value);
+            const differenceSection = document.getElementById('summary-difference-section');
+            const differenceEl = document.getElementById('summary-difference');
+
+            if (!isNaN(finalValue)) {
+                const difference = finalValue - expectedValue;
+                differenceEl.textContent = `R$ ${difference.toFixed(2).replace('.', ',')}`;
+                if (difference < 0) {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-red-100 text-red-700';
+                } else if (difference > 0) {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-yellow-100 text-yellow-700';
+                } else {
+                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-green-100 text-green-700';
+                }
+                differenceSection.classList.remove('hidden');
+            } else {
+                differenceSection.classList.add('hidden');
+            }
+        });
+
+        closeCashForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const finalValue = parseFloat(finalValueInput.value);
+            if (isNaN(finalValue) || finalValue < 0) {
+                alert("Por favor, insira um valor válido.");
+                return;
+            }
+            
+            const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
+            const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
+            
+            try {
+                await updateDoc(cashRegisterRef, {
+                    status: 'fechado',
+                    dataFechamento: serverTimestamp(),
+                    usuarioFechamento: auth.currentUser.email,
+                    valorFinalContado: finalValue,
+                    diferenca: finalValue - expectedValue,
+                    totalVendas: detailedReportData.totalSales,
+                    totalVendasDelivery: detailedReportData.totalDelivery,
+                    totalVendasRetirada: detailedReportData.totalRetirada,
+                    totalVendasMesas: detailedReportData.totalMesas,
+                    totalTaxasEntrega: detailedReportData.totalDeliveryFees,
+                    totalDinheiro: detailedReportData.totalCash,
+                    totalCartao: detailedReportData.totalCard,
+                    totalPix: detailedReportData.totalPix
+                });
+                alert("Caixa fechado com sucesso!");
+                closeCashModal.style.display = 'none';
+                checkCashRegisterStatus(); // Bloqueia a tela
+            } catch (error) {
+                console.error("Erro ao fechar o caixa:", error);
+                alert("Não foi possível fechar o caixa. Tente novamente.");
+            }
+        });
+
         document.querySelector('main').addEventListener('click', function(e) {
             const moveBtn = e.target.closest('.move-btn');
             const manageBtn = e.target.closest('.manage-btn');
