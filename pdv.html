@@ -1114,19 +1114,6 @@
             closeCashModal.style.display = 'flex';
         }
 
-        async function clearFinishedOrders() {
-            if (!confirm("Tem certeza que deseja limpar todos os pedidos finalizados da tela? Eles serão arquivados.")) {
-                return;
-            }
-            const q = query(collection(db, "pedidos"), where("status", "==", "Finalizado"));
-            const snapshot = await getDocs(q);
-            const batch = writeBatch(db);
-            snapshot.docs.forEach(doc => {
-                batch.update(doc.ref, { status: "Arquivado" });
-            });
-            await batch.commit();
-        }
-        
         closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
 
         cancelCloseCashBtn.addEventListener('click', () => {
@@ -1255,7 +1242,6 @@
         });
 
         confirmDeleteBtn.addEventListener('click', executeDelete);
-        clearFinishedBtn.addEventListener('click', clearFinishedOrders);
         
         function toggleJoinMode(active) {
             isJoiningTables = active;
@@ -1354,6 +1340,8 @@
             openCashModal.style.display = 'none';
             openCloseCashModal();
         });
+
+        clearFinishedBtn.addEventListener('click', clearFinishedOrders);
 
     </script>
 </body>
