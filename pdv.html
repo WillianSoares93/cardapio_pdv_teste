@@ -1065,7 +1065,6 @@
 
             const ordersQuery = query(
                 collection(db, "pedidos"),
-                where("criadoEm", ">=", currentCashRegister.dataAbertura),
                 where("status", "==", "Finalizado")
             );
             const ordersSnapshot = await getDocs(ordersQuery);
@@ -1075,23 +1074,25 @@
 
             ordersSnapshot.forEach(doc => {
                 const order = doc.data();
-                const total = order.total.finalTotal;
-                const payment = order.pagamento;
-                
-                // Soma por tipo de pagamento
-                if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += total;
-                else if (payment === 'Cartão de Crédito/Débito') totalCard += total;
-                else if (payment === 'Pix') totalPix += total;
-                
-                // Soma por tipo de pedido
-                const orderType = identifyOrderType(order);
-                if (orderType === 'delivery') {
-                    totalDelivery += total;
-                    totalDeliveryFees += order.total.deliveryFee;
-                } else if (orderType === 'retirada') {
-                    totalRetirada += total;
-                } else if (orderType === 'mesa') {
-                    totalMesas += total;
+                if (order.criadoEm && order.criadoEm.seconds >= currentCashRegister.dataAbertura.seconds) {
+                    const total = order.total.finalTotal;
+                    const payment = order.pagamento;
+                    
+                    // Soma por tipo de pagamento
+                    if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += total;
+                    else if (payment === 'Cartão de Crédito/Débito') totalCard += total;
+                    else if (payment === 'Pix') totalPix += total;
+                    
+                    // Soma por tipo de pedido
+                    const orderType = identifyOrderType(order);
+                    if (orderType === 'delivery') {
+                        totalDelivery += total;
+                        totalDeliveryFees += order.total.deliveryFee;
+                    } else if (orderType === 'retirada') {
+                        totalRetirada += total;
+                    } else if (orderType === 'mesa') {
+                        totalMesas += total;
+                    }
                 }
             });
 
@@ -1113,20 +1114,7 @@
 
             closeCashModal.style.display = 'flex';
         }
-
-        async function clearFinishedOrders() {
-            if (!confirm("Tem certeza que deseja limpar todos os pedidos finalizados da tela? Eles serão arquivados.")) {
-                return;
-            }
-            const q = query(collection(db, "pedidos"), where("status", "==", "Finalizado"));
-            const snapshot = await getDocs(q);
-            const batch = writeBatch(db);
-            snapshot.docs.forEach(doc => {
-                batch.update(doc.ref, { status: "Arquivado" });
-            });
-            await batch.commit();
-        }
-
+        
         closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
 
         cancelCloseCashBtn.addEventListener('click', () => {
