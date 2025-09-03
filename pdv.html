@@ -523,141 +523,540 @@
             }
         }
         
-        async function openCloseCashModal() {
-            if (!currentCashRegister) {
-                alert("Nenhum caixa aberto para fechar.");
-                return;
+        async function loadDeliveryFees() {
+            if (deliveryFeesData.length > 0) return;
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                deliveryFeesData = data.deliveryFees;
+            } catch (error) {
+                console.error("Erro ao carregar dados de entrega:", error);
             }
-
-            const ordersQuery = query(
-                collection(db, "pedidos"),
-                where("criadoEm", ">=", currentCashRegister.dataAbertura),
-                where("status", "==", "Finalizado")
-            );
-            const ordersSnapshot = await getDocs(ordersQuery);
-
-            let totalCash = 0, totalCard = 0, totalPix = 0;
-            let totalDelivery = 0, totalRetirada = 0, totalMesas = 0, totalDeliveryFees = 0;
-
-            ordersSnapshot.forEach(doc => {
-                const order = doc.data();
-                const total = order.total.finalTotal;
-                const payment = order.pagamento;
-                
-                // Soma por tipo de pagamento
-                if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += total;
-                else if (payment === 'Cartão de Crédito/Débito') totalCard += total;
-                else if (payment === 'Pix') totalPix += total;
-                
-                // Soma por tipo de pedido
-                const orderType = identifyOrderType(order);
-                if (orderType === 'delivery') {
-                    totalDelivery += total;
-                    totalDeliveryFees += order.total.deliveryFee;
-                } else if (orderType === 'retirada') {
-                    totalRetirada += total;
-                } else if (orderType === 'mesa') {
-                    totalMesas += total;
-                }
-            });
-
-            const totalSales = totalCash + totalCard + totalPix;
-            const expectedInCash = currentCashRegister.valorInicial + totalCash;
-            
-            detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
-
-            document.getElementById('summary-initial').textContent = `R$ ${currentCashRegister.valorInicial.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-retirada').textContent = `R$ ${totalRetirada.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-mesas').textContent = `R$ ${totalMesas.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-delivery-fees').textContent = `R$ ${totalDeliveryFees.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
-
-            closeCashModal.style.display = 'flex';
         }
 
-        async function clearFinishedOrders() {
-            if (!confirm("Tem certeza que deseja limpar todos os pedidos finalizados da tela? Eles serão arquivados.")) {
-                return;
+        function initializePDV() {
+            loadDeliveryFees();
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let audioResumed = false;
+
+            document.body.addEventListener('click', () => {
+                if (!audioResumed && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                    audioResumed = true;
+                }
+            }, { once: true });
+
+            function playNotificationSound() {
+                if (audioContext.state !== 'running') return;
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 1);
             }
-            const q = query(collection(db, "pedidos"), where("status", "==", "Finalizado"));
-            const snapshot = await getDocs(q);
-            const batch = writeBatch(db);
-            snapshot.docs.forEach(doc => {
-                batch.update(doc.ref, { status: "Arquivado" });
+            
+            initializeMesas();
+
+            const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
+
+            onSnapshot(q, (snapshot) => {
+                connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
+                
+                [colDeliveryNovo, colDeliveryPreparo, colDeliveryEntrega, colDeliveryFinalizado,
+                 colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto, colRetiradaFinalizado]
+                 .forEach(col => col.innerHTML = '');
+                initializeMesas();
+
+                let totalOrdersToday = 0;
+                let totalRevenueToday = 0;
+                const today = new Date().setHours(0, 0, 0, 0);
+
+                snapshot.docChanges().forEach((change) => {
+                    const orderData = change.doc.data();
+                    if (change.type === "added" && orderData.status === 'Novo' && identifyOrderType(orderData) !== 'mesa') {
+                        playNotificationSound();
+                    }
+                });
+
+                const processedTables = new Set();
+                const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                activeOrders.filter(order => order.grupoMesas && order.grupoMesas.length > 1 && order.status !== 'Finalizado')
+                    .forEach(order => {
+                        const sortedGroup = [...order.grupoMesas].sort((a, b) => a - b);
+                        const primaryTableNumber = sortedGroup[0];
+                        
+                        const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
+                        if (primaryTableEl) {
+                            primaryTableEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-juntada';
+                            primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
+                            primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
+                            primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
+                            primaryTableEl.dataset.status = 'ocupada';
+                            primaryTableEl.dataset.orderId = order.id;
+                            processedTables.add(primaryTableNumber);
+
+                            for (let i = 1; i < sortedGroup.length; i++) {
+                                const secondaryTableNumber = sortedGroup[i];
+                                const secondaryTableEl = document.getElementById(`mesa-${secondaryTableNumber}`);
+                                if (secondaryTableEl) {
+                                    secondaryTableEl.classList.add('hidden');
+                                }
+                                processedTables.add(secondaryTableNumber);
+                            }
+                        }
+                    });
+
+                activeOrders.forEach(order => {
+                    const orderId = order.id;
+                    const card = createOrderCard(order, orderId);
+
+                    const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
+                    if(orderDate === today) {
+                        totalOrdersToday++;
+                        totalRevenueToday += order.total.finalTotal;
+                    }
+
+                    const tipoPedido = identifyOrderType(order);
+
+                    if (tipoPedido === 'delivery') {
+                        if (order.status === 'Novo') colDeliveryNovo.appendChild(card);
+                        else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
+                        else if (order.status === 'Pronto para Entrega') colDeliveryEntrega.appendChild(card);
+                        else if (order.status === 'Finalizado') colDeliveryFinalizado.appendChild(card);
+                    } else if (tipoPedido === 'retirada') {
+                        if (order.status === 'Novo') colRetiradaNovo.appendChild(card);
+                        else if (order.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
+                        else if (order.status === 'Pronto para Entrega') colRetiradaPronto.appendChild(card);
+                        else if (order.status === 'Finalizado') colRetiradaFinalizado.appendChild(card);
+                    } else if (tipoPedido === 'mesa' && !order.grupoMesas) {
+                        const clientName = order.endereco.clientName || "";
+                        const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
+                        if (numeroMesa && !processedTables.has(numeroMesa) && order.status !== 'Finalizado') {
+                            const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
+                            if (mesaEl) {
+                                mesaEl.classList.remove('mesa-status-livre');
+                                mesaEl.classList.add('mesa-status-ocupada');
+                                mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
+                                mesaEl.dataset.status = 'ocupada';
+                                mesaEl.dataset.orderId = orderId;
+                                processedTables.add(numeroMesa);
+                            }
+                        }
+                    }
+                });
+                document.getElementById('stats-total-orders').textContent = totalOrdersToday;
+                document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
+                document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
             });
-            await batch.commit();
+        }
+
+        function identifyOrderType(orderData) {
+            if (orderData.endereco && orderData.endereco.rua === "Retirada no Balcão") {
+                return 'retirada';
+            }
+            if (orderData.endereco && orderData.endereco.rua === "Mesa") {
+                return 'mesa';
+            }
+            return 'delivery';
+        }
+
+        function createOrderCard(order, id) {
+            const card = document.createElement('div');
+            card.className = 'order-card bg-white rounded-lg shadow-md border-l-4';
+            
+            let itemsHtml = order.itens.map(item => {
+                let itemContent = `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${item.price.toFixed(2).replace('.', ',')}</span></li>`;
+
+                if (item.extras && item.extras.length > 0) {
+                    const extrasList = item.extras.map(extra => `
+                        <li class="text-xs text-gray-500 ml-4 list-disc">${extra.name} (${extra.placement})</li>
+                    `).join('');
+                    itemContent += `<ul class="mt-1 space-y-1">${extrasList}</ul>`;
+                }
+
+                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                    const ingredientsList = item.ingredients.map(ingredient => `
+                        <li class="text-xs text-gray-500 ml-4 list-disc">${ingredient.name}</li>
+                    `).join('');
+                    itemContent += `<ul class="mt-1 space-y-1">${ingredientsList}</ul>`;
+                }
+
+                return itemContent;
+            }).join('');
+
+            const timestamp = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).toLocaleTimeString('pt-BR') : 'agora';
+
+            let buttonHtml = '';
+            if (order.status === 'Novo') {
+                card.classList.add('border-red-500');
+                buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors">Iniciar Preparo</button>`;
+            } else if (order.status === 'Em Preparo') {
+                card.classList.add('border-yellow-500');
+                buttonHtml = `<button data-id="${id}" data-status="Pronto para Entrega" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">Pronto</button>`;
+            } else if (order.status === 'Pronto para Entrega') {
+                card.classList.add('border-green-500');
+                buttonHtml = `<button data-id="${id}" data-status="Finalizado" class="move-btn w-full mt-4 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">Finalizar Pedido</button>`;
+            }
+
+            let observationHtml = '';
+            if (order.observacao && order.observacao.trim() !== '') {
+                observationHtml = `
+                    <div class="mt-2 pt-2 border-t border-dashed border-gray-300">
+                        <p class="text-sm font-bold text-blue-700"><i class="fas fa-comment-dots mr-2"></i>Observação:</p>
+                        <p class="text-sm text-gray-800 whitespace-pre-wrap">${order.observacao}</p>
+                    </div>
+                `;
+            }
+
+            let paymentHtml = '';
+            if (order.pagamento) {
+                let paymentText = '';
+                if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                    paymentText = `Dinheiro (Troco p/ R$ ${order.pagamento.trocoPara.toFixed(2).replace('.', ',')})`;
+                } else {
+                    paymentText = order.pagamento;
+                }
+                paymentHtml = `<div class="text-sm mt-2 pt-2 border-t border-gray-200"><strong>Pagamento:</strong> ${paymentText}</div>`;
+            }
+
+            let totalDetailsHtml = `
+                <div class="text-right text-sm space-y-1 mt-2 pt-2 border-t border-gray-200">
+                    <div class="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</span>
+                    </div>
+            `;
+            if (order.total.discount > 0) {
+                totalDetailsHtml += `
+                    <div class="flex justify-between text-red-600">
+                        <span>Desconto:</span>
+                        <span>- R$ ${order.total.discount.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                `;
+            }
+            totalDetailsHtml += `
+                    <div class="flex justify-between">
+                        <span>Taxa de Entrega:</span>
+                        <span>R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-lg text-gray-800">
+                        <span>Total:</span>
+                        <span>R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                </div>
+            `;
+            
+            let contactHtml = '';
+            if (order.endereco.telefone && order.endereco.telefone.trim() !== '') {
+                contactHtml = `<p class="text-sm text-gray-600 mt-1"><i class="fas fa-phone-alt fa-xs mr-1"></i>${order.endereco.telefone}</p>`;
+            }
+
+            card.innerHTML = `
+                <div class="card-header flex justify-between items-start cursor-pointer p-4">
+                    <div>
+                        <h3 class="font-bold text-gray-800">Pedido #${id.substring(0, 5)}</h3>
+                        <p class="text-sm font-medium text-gray-700">${order.endereco.clientName}</p>
+                        ${contactHtml}
+                    </div>
+                    <div class="text-right flex-shrink-0 ml-4">
+                        <span class="font-bold text-lg text-gray-800 block">R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</span>
+                        <span class="text-xs text-gray-500">Clique para ver mais</span>
+                    </div>
+                </div>
+                <div class="details-container">
+                    <div class="px-4 pb-4">
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-medium text-gray-500">${timestamp}</span>
+                                <div class="flex items-center space-x-2">
+                                    <button data-id="${id}" data-type="kitchen" class="print-btn text-gray-500 hover:text-gray-700" title="Imprimir Comanda da Cozinha"><i class="fas fa-utensils"></i></button>
+                                    <button data-id="${id}" data-type="client" class="print-btn text-gray-500 hover:text-gray-700" title="Imprimir Recibo do Cliente"><i class="fas fa-receipt"></i></button>
+                                    <button data-id="${id}" class="manage-btn text-blue-500 hover:text-blue-700" title="Editar Pedido"><i class="fas fa-edit"></i></button>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                            </div>
+                            <ul class="border-t border-b border-gray-200 py-2 my-2 space-y-1">${itemsHtml}</ul>
+                            ${totalDetailsHtml}
+                            ${observationHtml}
+                            ${paymentHtml}
+                            ${buttonHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        async function openManageTableModal(orderId) {
+            currentManagingOrderId = orderId;
+            const orderRef = doc(db, "pedidos", orderId);
+            const docSnap = await getDoc(orderRef);
+
+            if (docSnap.exists()) {
+                currentManagingOrderData = docSnap.data();
+                document.getElementById('manage-table-title').textContent = `Gerenciar ${currentManagingOrderData.endereco.clientName}`;
+                
+                const itemsList = document.getElementById('table-order-items-list');
+                itemsList.innerHTML = currentManagingOrderData.itens.map(item => `<li>${item.name} - R$ ${item.price.toFixed(2).replace('.',',')}</li>`).join('');
+                
+                document.getElementById('table-order-total').textContent = `R$ ${currentManagingOrderData.total.finalTotal.toFixed(2).replace('.',',')}`;
+
+                manageTableModal.style.display = 'flex';
+            }
+        }
+
+        async function openEditModal(id) {
+            await loadDeliveryFees();
+            const orderRef = doc(db, "pedidos", id);
+            const docSnap = await getDoc(orderRef);
+
+            if (docSnap.exists()) {
+                const order = docSnap.data();
+                editModalBody.innerHTML = `
+                    <input type="hidden" id="edit-order-id" value="${id}">
+                    <div>
+                        <label for="edit-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
+                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
+                        <input type="tel" id="edit-telefone" value="${order.endereco.telefone || ''}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-rua" class="block text-sm font-medium text-gray-700">Rua</label>
+                        <input type="text" id="edit-rua" value="${order.endereco.rua}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                     <div>
+                        <label for="edit-numero" class="block text-sm font-medium text-gray-700">Número</label>
+                        <input type="text" id="edit-numero" value="${order.endereco.numero}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
+                        <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></select>
+                    </div>
+                    <div class="mt-4 flex justify-between">
+                        <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
+                        <button id="delete-order-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">Excluir Pedido</button>
+                    </div>
+                `;
+
+                const bairroSelect = document.getElementById('edit-bairro');
+                bairroSelect.innerHTML = '<option value="">Selecione um bairro</option>';
+                deliveryFeesData.forEach(fee => {
+                    const option = document.createElement('option');
+                    option.value = fee.neighborhood;
+                    option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`;
+                    if (fee.neighborhood === order.endereco.bairro) {
+                        option.selected = true;
+                    }
+                    bairroSelect.appendChild(option);
+                });
+
+                editOrderModal.style.display = 'flex';
+            } else {
+                console.log("Nenhum pedido encontrado!");
+            }
+        }
+
+        async function updateOrderStatus(id, newStatus) {
+            const orderRef = doc(db, "pedidos", id);
+            try {
+                await updateDoc(orderRef, { status: newStatus });
+            } catch (error) {
+                console.error("Erro ao atualizar status: ", error);
+            }
         }
         
-        closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
-
-        cancelCloseCashBtn.addEventListener('click', () => {
-            closeCashModal.style.display = 'none';
-        });
-
-        finalValueInput.addEventListener('input', () => {
-            const expectedText = document.getElementById('summary-expected').textContent;
-            const expectedValue = parseFloat(expectedText.replace('R$ ', '').replace(',', '.'));
-            const finalValue = parseFloat(finalValueInput.value);
-            const differenceSection = document.getElementById('summary-difference-section');
-            const differenceEl = document.getElementById('summary-difference');
-
-            if (!isNaN(finalValue)) {
-                const difference = finalValue - expectedValue;
-                differenceEl.textContent = `R$ ${difference.toFixed(2).replace('.', ',')}`;
-                if (difference < 0) {
-                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-red-100 text-red-700';
-                } else if (difference > 0) {
-                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-yellow-100 text-yellow-700';
-                } else {
-                    differenceSection.className = 'text-center p-2 rounded-md mb-4 bg-green-100 text-green-700';
-                }
-                differenceSection.classList.remove('hidden');
-            } else {
-                differenceSection.classList.add('hidden');
-            }
-        });
-
-        closeCashForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const finalValue = parseFloat(finalValueInput.value);
-            if (isNaN(finalValue) || finalValue < 0) {
-                alert("Por favor, insira um valor válido.");
+        async function saveOrderChanges() {
+            const id = document.getElementById('edit-order-id').value;
+            const orderRef = doc(db, "pedidos", id);
+            
+            const docSnap = await getDoc(orderRef);
+            if (!docSnap.exists()) {
+                console.error("Pedido não encontrado para atualização.");
                 return;
             }
-            
-            const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
-            const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
-            
-            try {
-                await updateDoc(cashRegisterRef, {
-                    status: 'fechado',
-                    dataFechamento: serverTimestamp(),
-                    usuarioFechamento: auth.currentUser.email,
-                    valorFinalContado: finalValue,
-                    diferenca: finalValue - expectedValue,
-                    totalVendas: detailedReportData.totalSales,
-                    totalVendasDelivery: detailedReportData.totalDelivery,
-                    totalVendasRetirada: detailedReportData.totalRetirada,
-                    totalVendasMesas: detailedReportData.totalMesas,
-                    totalTaxasEntrega: detailedReportData.totalDeliveryFees,
-                    totalDinheiro: detailedReportData.totalCash,
-                    totalCartao: detailedReportData.totalCard,
-                    totalPix: detailedReportData.totalPix
-                });
-                alert("Caixa fechado com sucesso!");
-                closeCashModal.style.display = 'none';
-                checkCashRegisterStatus(); // Bloqueia a tela
-            } catch (error) {
-                console.error("Erro ao fechar o caixa:", error);
-                alert("Não foi possível fechar o caixa. Tente novamente.");
-            }
-        });
+            const currentOrderData = docSnap.data();
 
+            const newBairro = document.getElementById('edit-bairro').value;
+            const feeInfo = deliveryFeesData.find(fee => fee.neighborhood === newBairro);
+            const newDeliveryFee = feeInfo ? feeInfo.deliveryFee : 0;
+
+            const subtotal = currentOrderData.total.subtotal;
+            const discount = currentOrderData.total.discount || 0;
+            const newFinalTotal = subtotal - discount + newDeliveryFee;
+
+            const updatedData = {
+                "endereco.clientName": document.getElementById('edit-clientName').value,
+                "endereco.telefone": document.getElementById('edit-telefone').value,
+                "endereco.rua": document.getElementById('edit-rua').value,
+                "endereco.numero": document.getElementById('edit-numero').value,
+                "endereco.bairro": newBairro,
+                "total.deliveryFee": newDeliveryFee,
+                "total.finalTotal": newFinalTotal
+            };
+            try {
+                await updateDoc(orderRef, updatedData);
+                editOrderModal.style.display = 'none';
+            } catch (error) {
+                console.error("Erro ao salvar alterações: ", error);
+            }
+        }
+
+        function showDeleteConfirmation() {
+            orderIdToDelete = document.getElementById('edit-order-id').value;
+            deleteConfirmModal.style.display = 'flex';
+        }
+
+        async function executeDelete() {
+            if (orderIdToDelete) {
+                try {
+                    await deleteDoc(doc(db, "pedidos", orderIdToDelete));
+                    editOrderModal.style.display = 'none';
+                    deleteConfirmModal.style.display = 'none';
+                    orderIdToDelete = null;
+                } catch (error) {
+                    console.error("Erro ao excluir pedido: ", error);
+                }
+            }
+        }
+
+        function printOrder(id, type) {
+            const orderRef = doc(db, "pedidos", id);
+            getDoc(orderRef).then(docSnap => {
+                if (docSnap.exists()) {
+                    const order = docSnap.data();
+                    let printContent = '';
+
+                    const itemsByCategory = order.itens.reduce((acc, item) => {
+                        const category = item.category || 'Outros';
+                        if (!acc[category]) {
+                            acc[category] = [];
+                        }
+                        acc[category].push(item);
+                        return acc;
+                    }, {});
+                    
+                    let contactPrintHtml = '';
+                    if (order.endereco.telefone && order.endereco.telefone.trim() !== '') {
+                        contactPrintHtml = `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>`;
+                    }
+
+                    let observationPrintHtml = '';
+                    if (order.observacao && order.observacao.trim() !== '') {
+                        observationPrintHtml = `
+                        <hr style="border-top: 2px dashed black; margin: 15px 0;">
+                        <h3 style="font-size: 22px; margin-top: 20px;">OBSERVAÇÕES</h3>
+                        <p style="font-size: 20px;">${order.observacao}</p>
+                        `;
+                    }
+
+                    if (type === 'kitchen') {
+                        let kitchenHtml = '';
+                        for (const category in itemsByCategory) {
+                            kitchenHtml += `<h3 style="font-size: 22px; margin-top: 20px; border-bottom: 1px solid #ccc;">${category.toUpperCase()}</h3>`;
+                            kitchenHtml += '<ul style="font-size: 20px; list-style: none; padding: 0;">';
+                            kitchenHtml += itemsByCategory[category].map(item => {
+                                let itemString = `<li style="padding: 8px 0; border-bottom: 1px dashed #ccc;"><strong>1x</strong> ${item.name}</li>`;
+                                if (item.extras && item.extras.length > 0) {
+                                    itemString += `<ul style="list-style: none; padding-left: 20px;">${item.extras.map(extra => `<li style="font-size: 16px;">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
+                                }
+                                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                                    itemString += `<ul style="list-style: none; padding-left: 20px;">${item.ingredients.map(ing => `<li style="font-size: 16px;">- ${ing.name}</li>`).join('')}</ul>`;
+                                }
+                                return itemString;
+                            }).join('');
+                            kitchenHtml += '</ul>';
+                        }
+
+                        printContent = `
+                            <div style="font-family: monospace; padding: 20px; font-size: 16px;">
+                                <h2 style="text-align: center; font-size: 28px; margin-bottom: 20px;">COMANDA COZINHA</h2>
+                                <p style="font-size: 18px;"><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                                <p style="font-size: 18px;"><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                                ${contactPrintHtml.replace(/<strong>/g, '<strong style="font-size: 18px;">').replace(/<p>/g, '<p style="font-size: 18px;">')}
+                                <hr style="border-top: 2px dashed black; margin: 15px 0;">
+                                ${kitchenHtml}
+                                ${observationPrintHtml}
+                            </div>
+                        `;
+                    } else { // client receipt
+                        let clientItemsHtml = '';
+                        for (const category in itemsByCategory) {
+                            clientItemsHtml += `<h3 style="font-weight: bold; margin-top: 10px;">${category.toUpperCase()}</h3>`;
+                            clientItemsHtml += '<ul>';
+                            clientItemsHtml += itemsByCategory[category].map(item => {
+                                let itemString = `<li style="display: flex; justify-content: space-between; padding: 5px 0;"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`;
+                                 if (item.extras && item.extras.length > 0) {
+                                    itemString += `<li><ul style="list-style: none; padding-left: 15px; font-size: 0.9em; color: #555;">${item.extras.map(extra => `+ ${extra.name} (${extra.placement})</li>`).join('')}</ul></li>`;
+                                }
+                                return itemString;
+                            }).join('');
+                            clientItemsHtml += '</ul>';
+                        }
+
+                        let paymentDetailsHtml = '';
+                        if (order.pagamento) {
+                            let paymentText = '';
+                            let changeText = '';
+                            if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                                paymentText = 'Dinheiro';
+                                changeText = `
+                                    <p>Troco para: R$ ${order.pagamento.trocoPara.toFixed(2).replace('.', ',')}</p>
+                                    <p>Troco: R$ ${(order.pagamento.trocoPara - order.total.finalTotal).toFixed(2).replace('.', ',')}</p>
+                                `;
+                            } else {
+                                paymentText = order.pagamento;
+                            }
+                            paymentDetailsHtml = `
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed black;">
+                                    <p style="font-weight: bold;">Forma de Pagamento: ${paymentText}</p>
+                                    ${changeText}
+                                </div>
+                            `;
+                        }
+
+                        printContent = `
+                            <div style="font-family: monospace; padding: 20px;">
+                                <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2>
+                                <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                                <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                                ${contactPrintHtml}
+                                <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                                <hr style="border-top: 1px dashed black; margin: 15px 0;">
+                                ${clientItemsHtml}
+                                <hr style="border-top: 1px dashed black; margin: 15px 0;">
+                                <div style="text-align: right;">
+                                    <p>Subtotal: R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</p>
+                                    ${order.total.discount > 0 ? `<p>Desconto: -R$ ${order.total.discount.toFixed(2).replace('.', ',')}</p>` : ''}
+                                    <p>Taxa de Entrega: R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</p>
+                                    <p style="font-weight: bold; font-size: 18px;">Total: R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</p>
+                                </div>
+                                ${observationPrintHtml.replace(/<h3[^>]*>OBSERVAÇÕES<\/h3>/, '<p style="font-weight: bold;">Observações:</p>').replace(/<p[^>]*>/g, '<p>')}
+                                ${paymentDetailsHtml}
+                            </div>
+                        `;
+                    }
+
+                    const printWindow = window.open('', '', 'height=600,width=800');
+                    printWindow.document.write('<html><head><title>Imprimir Pedido</title></head><body><div id="print-area">');
+                    printWindow.document.write(printContent);
+                    printWindow.document.write('</div></body></html>');
+                    printWindow.document.close();
+                    printWindow.print();
+                }
+            });
+        }
+        
         document.querySelector('main').addEventListener('click', function(e) {
             const moveBtn = e.target.closest('.move-btn');
             const manageBtn = e.target.closest('.manage-btn');
@@ -752,6 +1151,68 @@
 
         closeManageTableModalBtn.addEventListener('click', () => {
             manageTableModal.style.display = 'none';
+        });
+
+        document.getElementById('print-partial-btn').addEventListener('click', () => {
+            if(currentManagingOrderId) printOrder(currentManagingOrderId, 'client');
+        });
+
+        document.getElementById('close-account-btn').addEventListener('click', async () => {
+            if(currentManagingOrderId) {
+                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
+                alert("Conta fechada com sucesso!");
+                manageTableModal.style.display = 'none';
+            }
+        });
+
+        document.getElementById('transfer-table-btn').addEventListener('click', () => {
+            const freeTablesSelect = document.getElementById('free-tables-select');
+            freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
+            const freeTables = [];
+            document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
+                freeTables.push(mesaEl.dataset.number);
+                const option = document.createElement('option');
+                option.value = mesaEl.dataset.number;
+                option.textContent = `Mesa ${mesaEl.dataset.number}`;
+                freeTablesSelect.appendChild(option);
+            });
+
+            if (freeTables.length === 0) {
+                alert("Nenhuma mesa livre para transferir.");
+                return;
+            }
+            transferTableModal.style.display = 'flex';
+        });
+
+        document.getElementById('cancel-transfer-btn').addEventListener('click', () => {
+            transferTableModal.style.display = 'none';
+        });
+
+        document.getElementById('confirm-transfer-btn').addEventListener('click', async () => {
+            const newTableNumber = document.getElementById('free-tables-select').value;
+            if (!newTableNumber) {
+                alert("Por favor, selecione uma mesa para a transferência.");
+                return;
+            }
+
+            if (currentManagingOrderId && currentManagingOrderData) {
+                const newClientName = `Mesa ${newTableNumber}`;
+                const newOrderData = {
+                    ...currentManagingOrderData,
+                    "endereco.clientName": newClientName,
+                    grupoMesas: null // Remove o grupo se houver
+                };
+
+                // Cria um novo pedido para a nova mesa
+                const newOrderRef = await addDoc(collection(db, "pedidos"), newOrderData);
+                
+                // Finaliza o pedido antigo
+                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
+
+                alert(`Pedido transferido com sucesso para a ${newClientName}`);
+                transferTableModal.style.display = 'none';
+                manageTableModal.style.display = 'none';
+            }
         });
 
         resolvePendingBtn.addEventListener('click', () => {
