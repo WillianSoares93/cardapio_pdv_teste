@@ -17,10 +17,10 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // --- CONFIGURAÇÃO GOOGLE SHEETS ---
-// As credenciais devem ser configuradas como Variáveis de Ambiente no Vercel
+// As credenciais e o ID da planilha devem ser configurados como Variáveis de Ambiente no Vercel
 const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined;
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID; // CORRIGIDO: Lendo o ID da planilha das variáveis de ambiente
 const SHEET_NAME = 'Pedidos Finalizados';
 
 const auth = new google.auth.GoogleAuth({
@@ -54,7 +54,7 @@ export default async (req, res) => {
         }
         const orderData = orderSnap.data();
 
-        // 2. Formatar os dados para a planilha
+        // 2. Formatar os dados para a planilha na ordem correta
         const itemsString = orderData.itens.map(item => `${item.name} (R$ ${item.price.toFixed(2)})`).join('; ');
         const paymentString = typeof orderData.pagamento === 'object' ? `${orderData.pagamento.method} (Troco p/ ${orderData.pagamento.trocoPara})` : orderData.pagamento;
         
@@ -63,16 +63,17 @@ export default async (req, res) => {
         if (orderData.endereco.rua === "Mesa") orderType = 'Mesa';
 
         const newRow = [
-            new Date().toLocaleString('pt-BR'),
-            orderId,
-            orderType,
-            orderData.endereco.clientName || '',
-            itemsString,
-            orderData.total.subtotal.toFixed(2).replace('.', ','),
-            orderData.total.deliveryFee.toFixed(2).replace('.', ','),
-            orderData.total.finalTotal.toFixed(2).replace('.', ','),
-            paymentString || 'Não definido',
-            orderData.observacao || ''
+            orderId, // Coluna: ID
+            new Date().toLocaleString('pt-BR'), // Coluna: Data Finalização
+            `#${orderId.substring(0, 5)}`, // Coluna: Pedido (ID Curto)
+            orderType, // Coluna: Tipo Pedido
+            orderData.endereco.clientName || '', // Coluna: Cliente
+            itemsString, // Coluna: Itens
+            orderData.total.subtotal.toFixed(2).replace('.', ','), // Coluna: Subtotal
+            orderData.total.deliveryFee.toFixed(2).replace('.', ','), // Coluna: Taxa Entrega
+            orderData.total.finalTotal.toFixed(2).replace('.', ','), // Coluna: Total Final
+            paymentString || 'Não definido', // Coluna: Pagamento
+            orderData.observacao || '' // Coluna: Observações
         ];
 
         // 3. Adicionar a nova linha na planilha
@@ -95,3 +96,4 @@ export default async (req, res) => {
         res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
 };
+
