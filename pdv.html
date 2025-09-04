@@ -807,9 +807,68 @@
             getDoc(orderRef).then(docSnap => {
                 if (docSnap.exists()) {
                     const order = docSnap.data();
-                    let printContent = `...`; // Lógica de impressão omitida por brevidade, mas está aqui.
+                    let printContent = '';
+
+                    const itemsByCategory = order.itens.reduce((acc, item) => {
+                        const category = item.category || 'Outros';
+                        if (!acc[category]) acc[category] = [];
+                        acc[category].push(item);
+                        return acc;
+                    }, {});
+                    
+                    let contactPrintHtml = order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : '';
+                    let observationPrintHtml = order.observacao ? `<hr style="border-top: 2px dashed black; margin: 15px 0;"><h3 style="font-size: 22px; margin-top: 20px;">OBSERVAÇÕES</h3><p style="font-size: 20px;">${order.observacao}</p>` : '';
+
+                    if (type === 'kitchen') {
+                        let kitchenHtml = '';
+                        for (const category in itemsByCategory) {
+                            kitchenHtml += `<h3 style="font-size: 22px; margin-top: 20px; border-bottom: 1px solid #ccc;">${category.toUpperCase()}</h3>`;
+                            kitchenHtml += '<ul style="font-size: 20px; list-style: none; padding: 0;">';
+                            kitchenHtml += itemsByCategory[category].map(item => {
+                                let itemString = `<li style="padding: 8px 0; border-bottom: 1px dashed #ccc;"><strong>1x</strong> ${item.name}</li>`;
+                                if (item.extras && item.extras.length > 0) {
+                                    itemString += `<ul style="list-style: none; padding-left: 20px;">${item.extras.map(extra => `<li style="font-size: 16px;">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
+                                }
+                                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                                    itemString += `<ul style="list-style: none; padding-left: 20px;">${item.ingredients.map(ing => `<li style="font-size: 16px;">- ${ing.name}</li>`).join('')}</ul>`;
+                                }
+                                return itemString;
+                            }).join('');
+                            kitchenHtml += '</ul>';
+                        }
+                        printContent = `<div style="font-family: monospace; padding: 20px; font-size: 16px;"><h2 style="text-align: center; font-size: 28px; margin-bottom: 20px;">COMANDA COZINHA</h2><p style="font-size: 18px;"><strong>Pedido:</strong> #${id.substring(0, 5)}</p><p style="font-size: 18px;"><strong>Cliente:</strong> ${order.endereco.clientName}</p>${contactPrintHtml.replace(/<strong>/g, '<strong style="font-size: 18px;">').replace(/<p>/g, '<p style="font-size: 18px;">')}<hr style="border-top: 2px dashed black; margin: 15px 0;">${kitchenHtml}${observationPrintHtml}</div>`;
+                    } else { 
+                        let clientItemsHtml = '';
+                        for (const category in itemsByCategory) {
+                            clientItemsHtml += `<h3 style="font-weight: bold; margin-top: 10px;">${category.toUpperCase()}</h3><ul>`;
+                            clientItemsHtml += itemsByCategory[category].map(item => {
+                                let itemString = `<li style="display: flex; justify-content: space-between; padding: 5px 0;"><span>${item.name}</span><span>R$${item.price.toFixed(2).replace('.', ',')}</span></li>`;
+                                 if (item.extras && item.extras.length > 0) {
+                                    itemString += `<li><ul style="list-style: none; padding-left: 15px; font-size: 0.9em; color: #555;">${item.extras.map(extra => `<li>+ ${extra.name} (${extra.placement})</li>`).join('')}</ul></li>`;
+                                }
+                                return itemString;
+                            }).join('');
+                            clientItemsHtml += '</ul>';
+                        }
+
+                        let paymentDetailsHtml = '';
+                        if (order.pagamento) {
+                            let paymentText = ''; let changeText = '';
+                            if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                                paymentText = 'Dinheiro';
+                                changeText = `<p>Troco para: R$ ${order.pagamento.trocoPara.toFixed(2).replace('.', ',')}</p><p>Troco: R$ ${(order.pagamento.trocoPara - order.total.finalTotal).toFixed(2).replace('.', ',')}</p>`;
+                            } else {
+                                paymentText = order.pagamento;
+                            }
+                            paymentDetailsHtml = `<div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed black;"><p style="font-weight: bold;">Forma de Pagamento: ${paymentText}</p>${changeText}</div>`;
+                        }
+                        printContent = `<div style="font-family: monospace; padding: 20px;"><h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2><p><strong>Pedido:</strong> #${id.substring(0, 5)}</p><p><strong>Cliente:</strong> ${order.endereco.clientName}</p>${contactPrintHtml}<p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p><hr style="border-top: 1px dashed black; margin: 15px 0;">${clientItemsHtml}<hr style="border-top: 1px dashed black; margin: 15px 0;"><div style="text-align: right;"><p>Subtotal: R$ ${order.total.subtotal.toFixed(2).replace('.', ',')}</p>${order.total.discount > 0 ? `<p>Desconto: -R$ ${order.total.discount.toFixed(2).replace('.', ',')}</p>` : ''}<p>Taxa de Entrega: R$ ${order.total.deliveryFee.toFixed(2).replace('.', ',')}</p><p style="font-weight: bold; font-size: 18px;">Total: R$ ${order.total.finalTotal.toFixed(2).replace('.', ',')}</p></div>${observationPrintHtml.replace(/<h3[^>]*>OBSERVAÇÕES<\/h3>/, '<p style="font-weight: bold;">Observações:</p>').replace(/<p[^>]*>/g, '<p>')}${paymentDetailsHtml}</div>`;
+                    }
+
                     const printWindow = window.open('', '', 'height=600,width=800');
+                    printWindow.document.write('<html><head><title>Imprimir Pedido</title></head><body>');
                     printWindow.document.write(printContent);
+                    printWindow.document.write('</body></html>');
                     printWindow.document.close();
                     printWindow.print();
                 }
@@ -941,6 +1000,75 @@
             } catch (error) {
                 console.error("Erro ao fechar o caixa:", error);
                 alert("Não foi possível fechar o caixa. Tente novamente.");
+            }
+        });
+        
+        joinTablesBtn.addEventListener('click', () => toggleJoinMode(true));
+        cancelJoinBtn.addEventListener('click', () => toggleJoinMode(false));
+        confirmJoinBtn.addEventListener('click', () => {
+            if (selectedTablesForJoining.length < 2) {
+                alert("Selecione pelo menos duas mesas para juntar.");
+                return;
+            }
+            const sortedTables = selectedTablesForJoining.sort((a, b) => a - b);
+            const tablesParam = sortedTables.join(',');
+            
+            window.open(`atendente.html?grupo=${tablesParam}`, '_blank');
+            
+            toggleJoinMode(false);
+        });
+
+        closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
+        document.getElementById('print-partial-btn').addEventListener('click', () => {
+            if(currentManagingOrderId) printOrder(currentManagingOrderId, 'client');
+        });
+        document.getElementById('transfer-table-btn').addEventListener('click', () => {
+             const freeTablesSelect = document.getElementById('free-tables-select');
+            freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
+            const freeTables = [];
+            document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
+                freeTables.push(mesaEl.dataset.number);
+                const option = document.createElement('option');
+                option.value = mesaEl.dataset.number;
+                option.textContent = `Mesa ${mesaEl.dataset.number}`;
+                freeTablesSelect.appendChild(option);
+            });
+
+            if (freeTables.length === 0) {
+                alert("Nenhuma mesa livre para transferir.");
+                return;
+            }
+            transferTableModal.style.display = 'flex';
+        });
+
+        document.getElementById('cancel-transfer-btn').addEventListener('click', () => {
+            transferTableModal.style.display = 'none';
+        });
+
+        document.getElementById('confirm-transfer-btn').addEventListener('click', async () => {
+            const newTableNumber = document.getElementById('free-tables-select').value;
+            if (!newTableNumber) {
+                alert("Por favor, selecione uma mesa para a transferência.");
+                return;
+            }
+
+            if (currentManagingOrderId && currentManagingOrderData) {
+                const newClientName = `Mesa ${newTableNumber}`;
+                const newOrderData = {
+                    ...currentManagingOrderData,
+                    "endereco.clientName": newClientName,
+                    grupoMesas: null // Remove o grupo se houver
+                };
+
+                // Cria um novo pedido para a nova mesa
+                const newOrderRef = await addDoc(collection(db, "pedidos"), newOrderData);
+                
+                // Finaliza o pedido antigo
+                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
+
+                alert(`Pedido transferido com sucesso para a ${newClientName}`);
+                transferTableModal.style.display = 'none';
+                manageTableModal.style.display = 'none';
             }
         });
 
