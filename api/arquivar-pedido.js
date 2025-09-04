@@ -20,7 +20,7 @@ const db = getFirestore(app);
 const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const SHEET_NAME = 'Pedidos Finalizados'; // ATENÇÃO: Verifique se este nome corresponde EXATAMENTE ao da sua aba.
+const SHEET_NAME = 'encerrados'; // ATUALIZADO: Nome da aba corrigido para corresponder à sua planilha.
 
 // --- FUNÇÃO PRINCIPAL ---
 export default async (req, res) => {
@@ -120,3 +120,4 @@ export default async (req, res) => {
         });
     }
 };
+
