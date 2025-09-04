@@ -728,15 +728,71 @@
         }
 
         async function openEditModal(id) {
-            // ... (código existente sem alterações)
+            await loadDeliveryFees();
+            const orderRef = doc(db, "pedidos", id);
+            const docSnap = await getDoc(orderRef);
+
+            if (docSnap.exists()) {
+                const order = docSnap.data();
+                editModalBody.innerHTML = `
+                    <input type="hidden" id="edit-order-id" value="${id}">
+                    <div>
+                        <label for="edit-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
+                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
+                        <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm"></select>
+                    </div>
+                    <div class="mt-4 flex justify-between">
+                        <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
+                        <button id="delete-order-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">Excluir Pedido</button>
+                    </div>
+                `;
+
+                const bairroSelect = document.getElementById('edit-bairro');
+                bairroSelect.innerHTML = '<option value="">Selecione um bairro</option>';
+                deliveryFeesData.forEach(fee => {
+                    const option = document.createElement('option');
+                    option.value = fee.neighborhood;
+                    option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`;
+                    if (fee.neighborhood === order.endereco.bairro) {
+                        option.selected = true;
+                    }
+                    bairroSelect.appendChild(option);
+                });
+
+                editOrderModal.style.display = 'flex';
+            }
         }
 
-        async function updateOrderStatus(id, newStatus) {
+        async function saveOrderChanges() {
+            const id = document.getElementById('edit-order-id').value;
             const orderRef = doc(db, "pedidos", id);
-            await updateDoc(orderRef, { status: newStatus });
+            await updateDoc(orderRef, {
+                "endereco.clientName": document.getElementById('edit-clientName').value,
+                "endereco.bairro": document.getElementById('edit-bairro').value
+            });
+            editOrderModal.style.display = 'none';
+        }
+
+        function showDeleteConfirmation() {
+            orderIdToDelete = document.getElementById('edit-order-id').value;
+            deleteConfirmModal.style.display = 'flex';
+        }
+
+        async function executeDelete() {
+            if (orderIdToDelete) {
+                await deleteDoc(doc(db, "pedidos", orderIdToDelete));
+                editOrderModal.style.display = 'none';
+                deleteConfirmModal.style.display = 'none';
+                orderIdToDelete = null;
+            }
         }
         
-        // ... (resto do código de saveOrderChanges, showDeleteConfirmation, etc, sem alterações)
+        function printOrder(id, type) {
+            // Logic to print order
+        }
         
         async function openCloseCashModal() {
             if (!currentCashRegister) {
@@ -791,14 +847,78 @@
             closeCashModal.style.display = 'flex';
         }
 
-        closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
-        // ... (resto dos event listeners)
+        document.querySelector('main').addEventListener('click', function(e) {
+            const moveBtn = e.target.closest('.move-btn');
+            const manageBtn = e.target.closest('.manage-btn');
+            const printBtn = e.target.closest('.print-btn');
+            const archiveBtn = e.target.closest('.archive-btn');
+            const cardHeader = e.target.closest('.card-header');
+
+            if (moveBtn) updateOrderStatus(moveBtn.dataset.id, moveBtn.dataset.status);
+            if (manageBtn) openEditModal(manageBtn.dataset.id);
+            if (printBtn) printOrder(printBtn.dataset.id, printBtn.dataset.type);
+            if (archiveBtn) handleArchiveOrder(archiveBtn.dataset.id);
+            if (cardHeader && !e.target.closest('button, a')) {
+                cardHeader.closest('.order-card').classList.toggle('expanded');
+            }
+        });
+
+        closeEditModalBtn.addEventListener('click', () => editOrderModal.style.display = 'none');
+        editModalBody.addEventListener('click', (e) => {
+            if (e.target.id === 'save-changes-btn') saveOrderChanges();
+            if (e.target.id === 'delete-order-btn') showDeleteConfirmation();
+        });
+        cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.style.display = 'none');
+        confirmDeleteBtn.addEventListener('click', executeDelete);
         
         document.getElementById('close-account-btn').addEventListener('click', async () => {
             if(currentManagingOrderId) {
                 await handleArchiveOrder(currentManagingOrderId);
                 alert("Conta fechada e arquivada com sucesso!");
                 manageTableModal.style.display = 'none';
+            }
+        });
+
+        resolvePendingBtn.addEventListener('click', () => {
+            openCashModal.style.display = 'none';
+            openCloseCashModal();
+        });
+
+        closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
+        cancelCloseCashBtn.addEventListener('click', () => closeCashModal.style.display = 'none');
+        closeCashForm.addEventListener('submit', async (e) => {
+             e.preventDefault();
+            const finalValue = parseFloat(finalValueInput.value);
+            if (isNaN(finalValue) || finalValue < 0) {
+                alert("Por favor, insira um valor válido.");
+                return;
+            }
+            
+            const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
+            const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
+            
+            try {
+                await updateDoc(cashRegisterRef, {
+                    status: 'fechado',
+                    dataFechamento: serverTimestamp(),
+                    usuarioFechamento: auth.currentUser.email,
+                    valorFinalContado: finalValue,
+                    diferenca: finalValue - expectedValue,
+                    totalVendas: detailedReportData.totalSales,
+                    totalVendasDelivery: detailedReportData.totalDelivery,
+                    totalVendasRetirada: detailedReportData.totalRetirada,
+                    totalVendasMesas: detailedReportData.totalMesas,
+                    totalTaxasEntrega: detailedReportData.totalDeliveryFees,
+                    totalDinheiro: detailedReportData.totalCash,
+                    totalCartao: detailedReportData.totalCard,
+                    totalPix: detailedReportData.totalPix
+                });
+                alert("Caixa fechado com sucesso!");
+                closeCashModal.style.display = 'none';
+                checkCashRegisterStatus(); // Bloqueia a tela
+            } catch (error) {
+                console.error("Erro ao fechar o caixa:", error);
+                alert("Não foi possível fechar o caixa. Tente novamente.");
             }
         });
 
