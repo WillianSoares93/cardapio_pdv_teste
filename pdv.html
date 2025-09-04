@@ -637,16 +637,12 @@
                 buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600">Iniciar Preparo</button>`;
             } else if (order.status === 'Em Preparo') {
                 card.classList.add('border-yellow-500');
-                const nextStatus = 'Pronto para Entrega';
+                const nextStatus = orderType === 'retirada' ? 'Pronto para Retirada' : 'Pronto para Entrega';
                 buttonHtml = `<button data-id="${id}" data-status="${nextStatus}" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto</button>`;
             } else if (order.status === 'Pronto para Entrega') {
                 card.classList.add('border-green-500');
-                 if (orderType === 'delivery') {
-                    buttonHtml = `<button data-id="${id}" data-status="Saiu para Entrega" class="move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Saiu p/ Entrega</button>`;
-                 } else { // Retirada
-                    finalStep = true;
-                 }
-            } else if (order.status === 'Saiu para Entrega') {
+                buttonHtml = `<button data-id="${id}" data-status="Saiu para Entrega" class="move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Saiu p/ Entrega</button>`;
+            } else if (order.status === 'Saiu para Entrega' || order.status === 'Pronto para Retirada') {
                 card.classList.add('border-blue-500');
                 finalStep = true;
             }
@@ -701,12 +697,13 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Falha ao arquivar o pedido no servidor.');
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Falha ao arquivar o pedido no servidor.');
                 }
                 // O onSnapshot cuidará de remover o card da tela.
             } catch (error) {
                 console.error("Erro ao arquivar pedido:", error);
-                alert("Não foi possível arquivar o pedido. Verifique o console.");
+                alert("Não foi possível arquivar o pedido: " + error.message);
                 archiveBtn.disabled = false;
                 archiveBtn.innerHTML = `<i class="fas fa-check-circle"></i>`;
             }
@@ -825,7 +822,7 @@
                 return;
             }
 
-            const ordersQuery = query(collection(db, "pedidos"), where("status", "==", "Finalizado"));
+            const ordersQuery = query(collection(db, "pedidos"));
             const ordersSnapshot = await getDocs(ordersQuery);
 
             let totalCash = 0, totalCard = 0, totalPix = 0;
@@ -833,7 +830,7 @@
 
             ordersSnapshot.forEach(doc => {
                 const order = doc.data();
-                if (order.criadoEm && order.criadoEm.seconds >= currentCashRegister.dataAbertura.seconds) {
+                if (order.status === 'Finalizado' && order.criadoEm && order.criadoEm.seconds >= currentCashRegister.dataAbertura.seconds) {
                     const total = order.total.finalTotal;
                     const payment = order.pagamento;
                     
