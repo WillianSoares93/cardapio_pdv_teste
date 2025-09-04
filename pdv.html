@@ -290,7 +290,7 @@
            projectId: "pizzaria-pdv",
            storageBucket: "pizzaria-pdv.firebasestorage.app",
            messagingSenderId: "304171744691",
-           appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+           appId: "1:304171744691:web:e54d7ffe55c7a75485fc6"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -802,6 +802,11 @@
             }
         }
         
+        async function updateOrderStatus(id, newStatus) {
+            const orderRef = doc(db, "pedidos", id);
+            await updateDoc(orderRef, { status: newStatus });
+        }
+
         function printOrder(id, type) {
             const orderRef = doc(db, "pedidos", id);
             getDoc(orderRef).then(docSnap => {
