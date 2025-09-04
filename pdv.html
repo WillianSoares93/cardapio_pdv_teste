@@ -127,9 +127,10 @@
 
         <!-- Conteúdo das Abas -->
         <div id="tab-content-delivery" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
                 <div class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div id="col-delivery-novo" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
                 <div class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div id="col-delivery-preparo" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div id="col-delivery-pronto" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
                 <div class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div id="col-delivery-entrega" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
             </div>
         </div>
@@ -389,6 +390,7 @@
 
         const colDeliveryNovo = document.getElementById('col-delivery-novo');
         const colDeliveryPreparo = document.getElementById('col-delivery-preparo');
+        const colDeliveryPronto = document.getElementById('col-delivery-pronto');
         const colDeliveryEntrega = document.getElementById('col-delivery-entrega');
 
         const colRetiradaNovo = document.getElementById('col-retirada-novo');
@@ -527,7 +529,7 @@
             onSnapshot(q, (snapshot) => {
                 connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
                 
-                [colDeliveryNovo, colDeliveryPreparo, colDeliveryEntrega, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto]
+                [colDeliveryNovo, colDeliveryPreparo, colDeliveryPronto, colDeliveryEntrega, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto]
                  .forEach(col => col.innerHTML = '');
                 initializeMesas();
 
@@ -570,7 +572,7 @@
 
                 activeOrders.forEach(order => {
                     const orderId = order.id;
-                    if (order.status === 'Finalizado') return;
+                    if (order.status === 'Finalizado' || order.status === 'Arquivado') return;
 
                     const card = createOrderCard(order, orderId);
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
@@ -584,6 +586,7 @@
                     if (tipoPedido === 'delivery') {
                         if (order.status === 'Novo') colDeliveryNovo.appendChild(card);
                         else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
+                        else if (order.status === 'Pronto para Entrega') colDeliveryPronto.appendChild(card);
                         else if (order.status === 'Saiu para Entrega') colDeliveryEntrega.appendChild(card);
                     } else if (tipoPedido === 'retirada') {
                         if (order.status === 'Novo') colRetiradaNovo.appendChild(card);
@@ -634,9 +637,16 @@
                 buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600">Iniciar Preparo</button>`;
             } else if (order.status === 'Em Preparo') {
                 card.classList.add('border-yellow-500');
-                const nextStatus = orderType === 'delivery' ? 'Saiu para Entrega' : 'Pronto para Retirada';
+                const nextStatus = 'Pronto para Entrega';
                 buttonHtml = `<button data-id="${id}" data-status="${nextStatus}" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto</button>`;
-            } else if (order.status === 'Saiu para Entrega' || order.status === 'Pronto para Retirada') {
+            } else if (order.status === 'Pronto para Entrega') {
+                card.classList.add('border-green-500');
+                 if (orderType === 'delivery') {
+                    buttonHtml = `<button data-id="${id}" data-status="Saiu para Entrega" class="move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Saiu p/ Entrega</button>`;
+                 } else { // Retirada
+                    finalStep = true;
+                 }
+            } else if (order.status === 'Saiu para Entrega') {
                 card.classList.add('border-blue-500');
                 finalStep = true;
             }
@@ -729,25 +739,60 @@
         // ... (resto do código de saveOrderChanges, showDeleteConfirmation, etc, sem alterações)
         
         async function openCloseCashModal() {
-            // ... (código existente sem alterações)
-        }
-        
-        // --- EVENT LISTENERS ---
-        document.querySelector('main').addEventListener('click', function(e) {
-            const moveBtn = e.target.closest('.move-btn');
-            const manageBtn = e.target.closest('.manage-btn');
-            const printBtn = e.target.closest('.print-btn');
-            const archiveBtn = e.target.closest('.archive-btn');
-            const cardHeader = e.target.closest('.card-header');
+            if (!currentCashRegister) {
+                alert("Nenhum caixa aberto para fechar.");
+                return;
+            }
 
-            if (moveBtn) updateOrderStatus(moveBtn.dataset.id, moveBtn.dataset.status);
-            if (manageBtn) openEditModal(manageBtn.dataset.id);
-            if (printBtn) printOrder(printBtn.dataset.id, printBtn.dataset.type);
-            if (archiveBtn) handleArchiveOrder(archiveBtn.dataset.id);
-            if (cardHeader) cardHeader.closest('.order-card').classList.toggle('expanded');
-        });
-        
-        // ... (resto dos event listeners existentes, como close-account-btn)
+            const ordersQuery = query(collection(db, "pedidos"), where("status", "==", "Finalizado"));
+            const ordersSnapshot = await getDocs(ordersQuery);
+
+            let totalCash = 0, totalCard = 0, totalPix = 0;
+            let totalDelivery = 0, totalRetirada = 0, totalMesas = 0, totalDeliveryFees = 0;
+
+            ordersSnapshot.forEach(doc => {
+                const order = doc.data();
+                if (order.criadoEm && order.criadoEm.seconds >= currentCashRegister.dataAbertura.seconds) {
+                    const total = order.total.finalTotal;
+                    const payment = order.pagamento;
+                    
+                    if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += total;
+                    else if (payment === 'Cartão de Crédito/Débito') totalCard += total;
+                    else if (payment === 'Pix') totalPix += total;
+                    
+                    const orderType = identifyOrderType(order);
+                    if (orderType === 'delivery') {
+                        totalDelivery += total;
+                        totalDeliveryFees += order.total.deliveryFee;
+                    } else if (orderType === 'retirada') {
+                        totalRetirada += total;
+                    } else if (orderType === 'mesa') {
+                        totalMesas += total;
+                    }
+                }
+            });
+
+            const totalSales = totalCash + totalCard + totalPix;
+            const expectedInCash = currentCashRegister.valorInicial + totalCash;
+            
+            detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
+
+            document.getElementById('summary-initial').textContent = `R$ ${currentCashRegister.valorInicial.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-retirada').textContent = `R$ ${totalRetirada.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-mesas').textContent = `R$ ${totalMesas.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-delivery-fees').textContent = `R$ ${totalDeliveryFees.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
+            document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
+
+            closeCashModal.style.display = 'flex';
+        }
+
+        closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
+        // ... (resto dos event listeners)
         
         document.getElementById('close-account-btn').addEventListener('click', async () => {
             if(currentManagingOrderId) {
