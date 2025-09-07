@@ -459,12 +459,16 @@
                         }
                         
                         if (neighborhood !== 'N/A') { 
-                            salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; 
+                            if (!salesByNeighborhood[neighborhood]) {
+                                salesByNeighborhood[neighborhood] = { count: 0, revenue: 0 };
+                            }
+                            salesByNeighborhood[neighborhood].count++;
+                            salesByNeighborhood[neighborhood].revenue += order.total;
                         }
                     }
                 });
 
-                const sortedNeighborhoods = Object.entries(salesByNeighborhood).sort((a,b) => b[1] - a[1]).slice(0, 5);
+                const sortedNeighborhoods = Object.entries(salesByNeighborhood).sort((a,b) => b[1].revenue - a[1].revenue).slice(0, 5);
 
                 if (sortedNeighborhoods.length === 0) {
                     document.getElementById('neighborhood-chart').style.display = 'none';
@@ -475,9 +479,10 @@
                 document.getElementById('neighborhood-chart').style.display = 'block';
                 renderChart('neighborhood-chart', 'bar', {
                     labels: sortedNeighborhoods.map(n => n[0]),
-                    datasets: [{ label: 'Nº de Pedidos', data: sortedNeighborhoods.map(n => n[1]), backgroundColor: '#f97316' }]
+                    datasets: [{ label: 'Nº de Pedidos', data: sortedNeighborhoods.map(n => n[1].count), backgroundColor: '#f97316' }]
                 });
-                const tableHtml = createSimpleTable(Object.fromEntries(sortedNeighborhoods), "Bairro", "Nº de Pedidos");
+                
+                const tableHtml = createRankingTable(sortedNeighborhoods, ['Bairro', 'Pedidos', 'Total Gasto'], (data, key) => key, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
                 document.getElementById('neighborhood-table').innerHTML = tableHtml;
             }
 
@@ -558,3 +563,4 @@
     </script>
 </body>
 </html>
+
