@@ -18,6 +18,10 @@
         .flatpickr-input {
             background-color: white;
         }
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -97,6 +101,12 @@
                         <!-- Linhas da tabela serão inseridas aqui -->
                     </tbody>
                 </table>
+                 <!-- Controles de Paginação -->
+                <div id="pagination-controls" class="px-6 py-3 flex items-center justify-between border-t">
+                    <button id="prev-page-btn" class="pagination-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Anterior</button>
+                    <span id="page-info" class="text-sm text-gray-600">Página 1 de 1</span>
+                    <button id="next-page-btn" class="pagination-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Próxima</button>
+                </div>
             </div>
         </div>
     </main>
@@ -122,8 +132,12 @@
         
         document.addEventListener('DOMContentLoaded', () => {
             let allOrders = [];
+            let filteredOrdersCache = [];
             let revenueChartInstance = null;
             let categoryChartInstance = null;
+
+            let currentPage = 1;
+            const ROWS_PER_PAGE = 20;
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
@@ -146,44 +160,52 @@
             async function initializeApp() {
                 try {
                     const response = await fetch('/api/historico');
-                    if (!response.ok) {
-                        throw new Error(`Erro ao buscar dados: ${response.statusText}`);
-                    }
+                    if (!response.ok) throw new Error(`Erro ao buscar dados: ${response.statusText}`);
+                    
                     const rawOrders = await response.json();
-
-                    allOrders = rawOrders.map(order => ({
-                        ...order, 
-                        date: parseDate(order.date)
-                    })).filter(order => order.date !== null);
+                    allOrders = rawOrders.map(order => ({ ...order, date: parseDate(order.date) })).filter(order => order.date !== null);
                     
                     document.getElementById('loading-state').classList.add('hidden');
                     document.getElementById('report-content').classList.remove('hidden');
                     
-                    setupFilters();
+                    setupFiltersAndPagination();
                     applyFilters();
 
                 } catch (error) {
                     console.error("Falha ao inicializar:", error);
-                    document.getElementById('loading-state').innerHTML = `<p class="text-red-500 font-bold">Não foi possível carregar o histórico de pedidos. Verifique o console para mais detalhes.</p>`;
+                    document.getElementById('loading-state').innerHTML = `<p class="text-red-500 font-bold">Não foi possível carregar o histórico. Verifique o console.</p>`;
                 }
             }
 
-            function setupFilters() {
+            function setupFiltersAndPagination() {
                 flatpickr("#date-filter", {
                     mode: "range",
                     dateFormat: "d/m/Y",
                     locale: "pt",
-                    onChange: applyFilters
+                    onChange: () => { currentPage = 1; applyFilters(); }
                 });
-                document.getElementById('search-filter').addEventListener('input', applyFilters);
+                document.getElementById('search-filter').addEventListener('input', () => { currentPage = 1; applyFilters(); });
                 document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
+                document.getElementById('prev-page-btn').addEventListener('click', () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        renderTable(filteredOrdersCache);
+                    }
+                });
+                document.getElementById('next-page-btn').addEventListener('click', () => {
+                    const totalPages = Math.ceil(filteredOrdersCache.length / ROWS_PER_PAGE);
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        renderTable(filteredOrdersCache);
+                    }
+                });
             }
 
             function applyFilters() {
                 const dateRange = document.getElementById('date-filter')._flatpickr.selectedDates;
                 const searchTerm = document.getElementById('search-filter').value.toLowerCase();
 
-                const filteredOrders = allOrders.filter(order => {
+                filteredOrdersCache = allOrders.filter(order => {
                     const dateMatch = !dateRange.length || (order.date >= dateRange[0] && order.date <= (dateRange[1] || dateRange[0]));
                     const searchMatch = !searchTerm || 
                         order.clientData.toLowerCase().includes(searchTerm) ||
@@ -192,9 +214,9 @@
                     return dateMatch && searchMatch;
                 });
 
-                updateDashboard(filteredOrders);
-                updateCharts(filteredOrders);
-                renderTable(filteredOrders);
+                updateDashboard(filteredOrdersCache);
+                updateCharts(filteredOrdersCache);
+                renderTable(filteredOrdersCache);
             }
             
             function updateDashboard(orders) {
@@ -222,7 +244,6 @@
             }
 
             function updateCharts(orders) {
-                // Revenue Chart
                 const revenueByDay = orders.reduce((acc, order) => {
                     const day = order.date.toLocaleDateString('pt-BR');
                     acc[day] = (acc[day] || 0) + order.total;
@@ -238,19 +259,9 @@
                 if (revenueChartInstance) revenueChartInstance.destroy();
                 revenueChartInstance = new Chart(document.getElementById('revenue-chart'), {
                     type: 'line',
-                    data: {
-                        labels: sortedDays,
-                        datasets: [{
-                            label: 'Faturamento',
-                            data: sortedDays.map(day => revenueByDay[day]),
-                            borderColor: '#3b82f6',
-                            tension: 0.1,
-                            fill: false
-                        }]
-                    }
+                    data: { labels: sortedDays, datasets: [{ label: 'Faturamento', data: sortedDays.map(day => revenueByDay[day]), borderColor: '#3b82f6', tension: 0.1, fill: false }] }
                 });
                 
-                // Category Chart
                 const salesByCategory = {};
                 orders.forEach(order => {
                     if (order.items.toLowerCase().includes('pizza')) salesByCategory['Pizzas'] = (salesByCategory['Pizzas'] || 0) + 1;
@@ -262,24 +273,28 @@
                 if (categoryChartInstance) categoryChartInstance.destroy();
                 categoryChartInstance = new Chart(document.getElementById('category-chart'), {
                     type: 'pie',
-                    data: {
-                        labels: Object.keys(salesByCategory),
-                        datasets: [{
-                            data: Object.values(salesByCategory),
-                            backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#6b7280']
-                        }]
-                    }
+                    data: { labels: Object.keys(salesByCategory), datasets: [{ data: Object.values(salesByCategory), backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#6b7280'] }] }
                 });
             }
 
             function renderTable(orders) {
                 const tbody = document.getElementById('history-table-body');
                 tbody.innerHTML = '';
+                const totalPages = Math.ceil(orders.length / ROWS_PER_PAGE);
+
                 if (orders.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">Nenhum pedido encontrado para os filtros selecionados.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">Nenhum pedido encontrado.</td></tr>`;
+                    document.getElementById('pagination-controls').classList.add('hidden');
                     return;
                 }
-                orders.forEach(order => {
+                
+                document.getElementById('pagination-controls').classList.remove('hidden');
+
+                const start = (currentPage - 1) * ROWS_PER_PAGE;
+                const end = start + ROWS_PER_PAGE;
+                const paginatedOrders = orders.slice(start, end);
+
+                paginatedOrders.forEach(order => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${order.date.toLocaleString('pt-BR')}</td>
@@ -291,16 +306,24 @@
                     `;
                     tbody.appendChild(tr);
                 });
+
+                document.getElementById('page-info').textContent = `Página ${currentPage} de ${totalPages}`;
+                document.getElementById('prev-page-btn').disabled = currentPage === 1;
+                document.getElementById('next-page-btn').disabled = currentPage === totalPages;
             }
 
             function exportToCSV() {
-                const tableRows = document.querySelectorAll('#history-table-body tr');
                 let csvContent = "data:text/csv;charset=utf-8,Data,Cliente,Itens,Tipo,Pagamento,Total\n";
                 
-                tableRows.forEach(row => {
-                    const cols = row.querySelectorAll('td');
-                    if (cols.length === 0) return;
-                    const rowData = Array.from(cols).map(col => `"${col.innerText.replace(/"/g, '""')}"`);
+                filteredOrdersCache.forEach(order => { // Exporta todos os dados filtrados, não apenas a página atual
+                    const rowData = [
+                        order.date.toLocaleString('pt-BR'),
+                        order.clientData,
+                        order.items,
+                        order.type,
+                        order.payment,
+                        order.total.toFixed(2).replace('.', ',')
+                    ].map(field => `"${String(field).replace(/"/g, '""')}"`);
                     csvContent += rowData.join(',') + "\n";
                 });
 
