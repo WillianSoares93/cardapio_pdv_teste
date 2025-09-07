@@ -439,10 +439,13 @@
                 const salesByNeighborhood = {};
                 orders.forEach(order => {
                     if (order.type === 'Delivery' && order.clientData.includes(';')) {
-                        let addressPart = order.clientData.split(';')[1] || '';
+                        let addressPart = (order.clientData.split(';')[1] || '').trim();
                         addressPart = addressPart.replace(/\(Ref:.*\)/i, '').trim();
                         const neighborhoodMatch = addressPart.match(/(?:-|,)\s*([^-,\s].*)$/);
-                        const neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : 'N/A';
+                        let neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : 'N/A';
+                         if (neighborhood === 'N/A' && addressPart) {
+                            neighborhood = addressPart;
+                        }
                         if (neighborhood !== 'N/A' && neighborhood) { salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; }
                     }
                 });
