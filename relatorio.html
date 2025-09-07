@@ -310,9 +310,13 @@
 
             function renderPaymentChart(orders) {
                 const salesByPayment = orders.reduce((acc, order) => {
-                    let paymentMethod = order.payment.split(' (')[0];
-                    if (paymentMethod.includes('Débito')) paymentMethod = 'Cartão';
-                    acc[paymentMethod] = (acc[paymentMethod] || 0) + order.total;
+                    if (order.payment && typeof order.payment === 'string') {
+                        let paymentMethod = order.payment.split(' (')[0];
+                        if (paymentMethod.includes('Débito')) paymentMethod = 'Cartão';
+                        acc[paymentMethod] = (acc[paymentMethod] || 0) + order.total;
+                    } else {
+                        acc['Não definido'] = (acc['Não definido'] || 0) + order.total;
+                    }
                     return acc;
                 }, {});
                 renderChart('payment-chart', 'bar', {
