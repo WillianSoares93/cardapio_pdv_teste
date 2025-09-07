@@ -125,7 +125,7 @@
                     <div id="clientes-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="space-y-4">
                              <div class="flex justify-between items-center">
-                                <h3 class="font-bold text-gray-800">Ranking de Clientes</h3>
+                                <h3 class="font-bold text-gray-800">Ranking de Clientes (Top 100)</h3>
                                 <div class="text-sm bg-gray-100 rounded-full p-0.5">
                                     <button class="sort-btn active px-2 py-1 rounded-full text-xs" data-sort="revenue" data-target="client">Total Gasto</button>
                                     <button class="sort-btn px-2 py-1 rounded-full text-xs" data-sort="count" data-target="client">Nº Pedidos</button>
@@ -489,7 +489,9 @@
                 
                 renderChart('client-chart', 'bar', chartData, chartOptions);
 
-                const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Taxa Entrega', 'Total Gasto'], [
+                const top100ClientsForTable = sortedClients.slice(0, 100);
+
+                const tableHtml = createRankingTable(top100ClientsForTable, ['Cliente', 'Pedidos', 'Taxa Entrega', 'Total Gasto'], [
                     (data, key) => `${key} <span class="text-xs text-gray-500 block">${data.phone}</span>`,
                     (data) => data.count,
                     (data) => `R$ ${data.deliveryFee.toFixed(2).replace('.', ',')}`,
