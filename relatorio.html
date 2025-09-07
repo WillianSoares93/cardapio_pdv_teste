@@ -409,10 +409,10 @@
             function renderClientRanking(orders) {
                 const clientData = {};
                 orders.forEach(order => {
-                    const phoneMatch = order.clientData.match(/\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}/);
-                    const phone = phoneMatch ? phoneMatch[0] : 'N/A';
+                    const phoneMatch = order.clientData.match(/\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}|\d{10,11}/);
+                    const phone = phoneMatch ? phoneMatch[0] : null;
                     
-                    if (phone === 'N/A' || !phone) return;
+                    if (!phone) return;
 
                     if (!clientData[phone]) { 
                         clientData[phone] = { 
@@ -439,8 +439,9 @@
                 const salesByNeighborhood = {};
                 orders.forEach(order => {
                     if (order.type === 'Delivery' && order.clientData.includes(';')) {
-                        const addressPart = order.clientData.split(';')[1] || '';
-                        const neighborhoodMatch = addressPart.match(/(?:-|,)\s*([^-,\s][^,-]*)$/);
+                        let addressPart = order.clientData.split(';')[1] || '';
+                        addressPart = addressPart.replace(/\(Ref:.*\)/i, '').trim();
+                        const neighborhoodMatch = addressPart.match(/(?:-|,)\s*([^-,\s].*)$/);
                         const neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : 'N/A';
                         if (neighborhood !== 'N/A' && neighborhood) { salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; }
                     }
