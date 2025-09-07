@@ -137,7 +137,7 @@
                         </div>
                         <div class="space-y-4">
                             <div class="flex justify-between items-center">
-                                <h3 id="neighborhood-report-title" class="font-bold text-gray-800">Top 5 Bairros (Delivery)</h3>
+                                <h3 id="neighborhood-report-title" class="font-bold text-gray-800">Ranking de Bairros (Delivery)</h3>
                                 <div class="text-sm bg-gray-100 rounded-full p-0.5">
                                     <button class="sort-btn active px-2 py-1 rounded-full text-xs" data-sort="revenue" data-target="neighborhood">Total Gasto</button>
                                     <button class="sort-btn px-2 py-1 rounded-full text-xs" data-sort="count" data-target="neighborhood">Nº Pedidos</button>
@@ -503,7 +503,7 @@
                 const totalDeliveryOrders = deliveryOrders.length;
                 
                 const titleElement = document.getElementById('neighborhood-report-title');
-                titleElement.innerHTML = `Top 5 Bairros (Delivery) <span class="text-sm font-normal text-gray-500">- ${totalDeliveryOrders} pedidos no total</span>`;
+                titleElement.innerHTML = `Ranking de Bairros (Delivery) <span class="text-sm font-normal text-gray-500">- ${totalDeliveryOrders} pedidos no total</span>`;
                 
                 const salesByNeighborhood = {};
                 deliveryOrders.forEach(order => {
@@ -534,8 +534,7 @@
                 });
 
                 const sortedNeighborhoods = Object.entries(salesByNeighborhood)
-                    .sort((a,b) => b[1][neighborhoodSortCriteria] - a[1][neighborhoodSortCriteria])
-                    .slice(0, 5);
+                    .sort((a,b) => b[1][neighborhoodSortCriteria] - a[1][neighborhoodSortCriteria]);
 
                 if (sortedNeighborhoods.length === 0) {
                     document.getElementById('neighborhood-chart').style.display = 'none';
@@ -544,24 +543,26 @@
                 }
                 
                 document.getElementById('neighborhood-chart').style.display = 'block';
+                const top5Neighborhoods = sortedNeighborhoods.slice(0, 5);
+                
                 const chartData = {
-                    labels: sortedNeighborhoods.map(n => n[0]),
+                    labels: top5Neighborhoods.map(n => n[0]),
                     datasets: [
                         { 
                             label: 'Nº de Pedidos', 
-                            data: sortedNeighborhoods.map(n => n[1].count), 
+                            data: top5Neighborhoods.map(n => n[1].count), 
                             backgroundColor: '#8b5cf6',
                             yAxisID: 'yCount'
                         },
                         { 
                             label: 'Total Gasto (R$)', 
-                            data: sortedNeighborhoods.map(n => n[1].revenue), 
+                            data: top5Neighborhoods.map(n => n[1].revenue), 
                             backgroundColor: '#16a34a',
                             yAxisID: 'yRevenue'
                         },
                         { 
                             label: 'Taxas de Entrega (R$)', 
-                            data: sortedNeighborhoods.map(n => n[1].deliveryFee), 
+                            data: top5Neighborhoods.map(n => n[1].deliveryFee), 
                             backgroundColor: '#f97316',
                             yAxisID: 'yRevenue'
                         }
@@ -688,3 +689,4 @@
     </script>
 </body>
 </html>
+
