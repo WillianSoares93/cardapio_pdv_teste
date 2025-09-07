@@ -1,63 +1,79 @@
-import { google } from 'googleapis';
+// /api/historico.js
+import fetch from 'node-fetch';
 
-const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_NAME = 'encerrados';
 
-const auth = new google.auth.GoogleAuth({
-    credentials: {
-        client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: GOOGLE_PRIVATE_KEY,
-    },
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-});
+// URL para acessar a planilha como CSV (pública)
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
 
-const sheets = google.sheets({ version: 'v4', auth });
+// Leitor de linha CSV robusto que lida com vírgulas dentro de aspas
+function parseCsvLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++; // Pula a próxima aspa (escapada)
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            // Ignora o caractere de retorno de carro
+            if (char !== '\r') {
+               current += char;
+            }
+        }
+    }
+    values.push(current.trim());
+    return values;
+}
+
 
 export default async (req, res) => {
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
-
-    if (req.method !== 'GET') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
-    }
+    res.setHeader('Cache-Control', 'no-cache');
 
     try {
-        if (!SPREADSHEET_ID || !GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-            throw new Error("Credenciais do Google Sheets ou ID da Planilha não configurados no servidor.");
+        const response = await fetch(CSV_URL);
+        if (!response.ok) {
+            throw new Error(`Erro ao buscar dados da planilha: ${response.statusText}`);
         }
-
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: `${SHEET_NAME}!A2:K`, // Lê até a coluna K (11 colunas)
-        });
-
-        const rows = response.data.values || [];
         
-        const orders = rows.map(row => {
-            // Garante que a linha tem o mínimo de colunas para não dar erro
-            if (!row || row.length < 9) return null;
+        const csvText = await response.text();
+        const lines = csvText.split('\n').slice(1); // Pula o cabeçalho
+        
+        const orders = lines.map(line => {
+            if (!line.trim()) return null;
 
+            const values = parseCsvLine(line);
+            
+            // Mapeia as colunas baseado na ordem definida no 'arquivar-pedido.js'
             return {
-                id: row[0] || '',
-                date: row[1] || '',
-                orderNum: row[2] || '',
-                type: row[3] || '',
-                clientData: row[4] || '',
-                items: row[5] || '',
-                subtotal: parseFloat(String(row[6]).replace(',', '.') || 0),
-                deliveryFee: parseFloat(String(row[7]).replace(',', '.') || 0),
-                total: parseFloat(String(row[8]).replace(',', '.') || 0),
-                payment: row[9] || 'Não definido', // Corrigido: Mapeia a coluna 10 (índice 9)
-                observation: row[10] || ''
+                id: values[0],
+                date: values[1],
+                shortId: values[2],
+                type: values[3],
+                clientData: values[4],
+                items: values[5],
+                subtotal: parseFloat(String(values[6]).replace(',', '.')) || 0,
+                deliveryFee: parseFloat(String(values[7]).replace(',', '.')) || 0,
+                total: parseFloat(String(values[8]).replace(',', '.')) || 0,
+                payment: values[9],
+                observations: values[10]
             };
-        }).filter(Boolean); // Remove linhas nulas/inválidas
+        }).filter(Boolean); // Remove linhas nulas
 
         res.status(200).json(orders);
 
     } catch (error) {
-        console.error('Erro na API /api/historico:', error);
-        res.status(500).json({ error: 'Erro interno no servidor ao buscar histórico.', details: error.message });
+        console.error('Erro na API /historico:', error);
+        res.status(500).json({ error: `Erro interno no servidor: ${error.message}` });
     }
 };
 
