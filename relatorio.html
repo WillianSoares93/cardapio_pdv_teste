@@ -125,7 +125,7 @@
                     <div id="clientes-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div><h3 class="font-bold text-gray-800 mb-4">Ranking de Clientes</h3><div id="client-ranking-table" class="max-h-96 overflow-y-auto"></div></div>
                         <div class="space-y-4">
-                            <h3 class="font-bold text-gray-800">Top 5 Bairros (Delivery)</h3>
+                            <h3 id="neighborhood-report-title" class="font-bold text-gray-800">Top 5 Bairros (Delivery)</h3>
                             <canvas id="neighborhood-chart"></canvas>
                              <div id="neighborhood-table" class="max-h-48 overflow-y-auto"></div>
                         </div>
@@ -410,7 +410,7 @@
                 const clientData = {};
                 orders.forEach(order => {
                     const name = (order.clientData.split(';')[0] || 'N/A').trim();
-                    if(name === 'N/A') return;
+                    if(name === 'N/A' || !name) return;
                     
                     if (!clientData[name]) { 
                         const phoneMatch = order.clientData.match(/\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}|\d{10,11}/);
@@ -425,7 +425,7 @@
                 });
 
                 if (Object.keys(clientData).length === 0) {
-                     document.getElementById('client-ranking-table').innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum dado de cliente com nome encontrado para exibir o ranking.</p>';
+                     document.getElementById('client-ranking-table').innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum dado de cliente encontrado para exibir o ranking.</p>';
                      return;
                 }
 
@@ -435,30 +435,49 @@
             }
             
             function renderNeighborhoodReports(orders) {
+                const deliveryOrders = orders.filter(order => order.type === 'Delivery');
+                const totalDeliveryOrders = deliveryOrders.length;
+                
+                const titleElement = document.getElementById('neighborhood-report-title');
+                titleElement.innerHTML = `Top 5 Bairros (Delivery) <span class="text-sm font-normal text-gray-500">- ${totalDeliveryOrders} pedidos no total</span>`;
+                
                 const salesByNeighborhood = {};
-                orders.forEach(order => {
-                    if (order.type === 'Delivery' && order.clientData.includes(';')) {
+                deliveryOrders.forEach(order => {
+                    if (order.clientData.includes(';')) {
                         let addressPart = (order.clientData.split(';')[1] || '').trim();
                         addressPart = addressPart.replace(/\(Ref:.*\)/i, '').trim();
                         
                         const parts = addressPart.split(/[,-]/);
-                        let neighborhood = parts.pop().trim();
+                        let neighborhood = 'N/A';
 
-                        if (/^[\d\s/SNsn]+$/.test(neighborhood) && parts.length > 0) {
-                            neighborhood = parts.pop().trim();
+                        for (let i = parts.length - 1; i >= 0; i--) {
+                            const potentialNeighborhood = parts[i].trim();
+                            if (potentialNeighborhood && !/^\d+$/.test(potentialNeighborhood) && potentialNeighborhood.toLowerCase() !== 's/n') {
+                                neighborhood = potentialNeighborhood;
+                                break;
+                            }
                         }
                         
-                        if (neighborhood) { 
+                        if (neighborhood !== 'N/A') { 
                             salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; 
                         }
                     }
                 });
+
                 const sortedNeighborhoods = Object.entries(salesByNeighborhood).sort((a,b) => b[1] - a[1]).slice(0, 5);
+
+                if (sortedNeighborhoods.length === 0) {
+                    document.getElementById('neighborhood-chart').style.display = 'none';
+                    document.getElementById('neighborhood-table').innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum dado de bairro encontrado.</p>';
+                    return;
+                }
+                
+                document.getElementById('neighborhood-chart').style.display = 'block';
                 renderChart('neighborhood-chart', 'bar', {
                     labels: sortedNeighborhoods.map(n => n[0]),
                     datasets: [{ label: 'Nº de Pedidos', data: sortedNeighborhoods.map(n => n[1]), backgroundColor: '#f97316' }]
                 });
-                const tableHtml = createSimpleTable(Object.fromEntries(sortedNeighborhoods), "Bairro", "Nº Pedidos");
+                const tableHtml = createSimpleTable(Object.fromEntries(sortedNeighborhoods), "Bairro", "Nº de Pedidos");
                 document.getElementById('neighborhood-table').innerHTML = tableHtml;
             }
 
