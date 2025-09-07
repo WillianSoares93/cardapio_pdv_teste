@@ -399,7 +399,19 @@
                         else if (itemName.includes('FATIAS:')) { itemName = itemName.split(': ')[1]; }
                         const menuItem = fullMenuData.get(itemName) || fullMenuData.get(itemName.replace('Hambúrguer Personalizado', 'Hambúrguer Montável'));
                         const category = menuItem ? menuItem.category : 'Outros';
-                        salesByCategory[category] = (salesByCategory[category] || 0) + 1;
+
+                        const isPizzaCategory = Array.from(fullMenuData.values()).some(item => item.category === category && item.isPizza);
+                        
+                        let formattedCategory;
+                        if (category === 'Outros') {
+                            formattedCategory = 'Outros';
+                        } else if (isPizzaCategory) {
+                            formattedCategory = `Pizzas ${category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()}`;
+                        } else {
+                            formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+                        }
+
+                        salesByCategory[formattedCategory] = (salesByCategory[formattedCategory] || 0) + 1;
                     });
                 });
                 renderChart('category-chart', 'pie', { labels: Object.keys(salesByCategory), datasets: [{ data: Object.values(salesByCategory), backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#6b7280', '#6366f1', '#ec4899'] }] });
