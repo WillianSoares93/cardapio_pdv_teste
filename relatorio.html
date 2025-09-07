@@ -118,8 +118,11 @@
                             </div>
                         </div>
                         <div>
-                             <div class="flex justify-between items-center mb-4">
-                                <h3 class="font-bold text-gray-800">Vendas por Categoria</h3>
+                             <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 class="font-bold text-gray-800">Vendas por Categoria</h3>
+                                    <div id="category-chart-totals" class="text-xs text-gray-500 mt-1"></div>
+                                </div>
                                 <div class="text-sm bg-gray-100 rounded-full p-0.5">
                                     <button class="category-chart-view-btn active px-2 py-1 rounded-full text-xs" data-view="count">Quantidade</button>
                                     <button class="category-chart-view-btn px-2 py-1 rounded-full text-xs" data-view="revenue">Valor</button>
@@ -498,6 +501,21 @@
                         }
                     });
                 });
+                
+                let totalCategoryCount = 0;
+                let totalCategoryRevenue = 0;
+                for (const category in categorySalesData) {
+                    totalCategoryCount += categorySalesData[category].count;
+                    totalCategoryRevenue += categorySalesData[category].revenue;
+                }
+
+                const totalsContainer = document.getElementById('category-chart-totals');
+                if (totalsContainer) {
+                    totalsContainer.innerHTML = `
+                        <span>Total Itens: <strong>${totalCategoryCount % 1 === 0 ? totalCategoryCount : totalCategoryCount.toFixed(1).replace('.', ',')}</strong></span> | 
+                        <span>Valor Total: <strong>R$ ${totalCategoryRevenue.toFixed(2).replace('.', ',')}</strong></span>
+                    `;
+                }
 
                 // Render Pie Chart
                 const chartLabels = Object.keys(categorySalesData);
