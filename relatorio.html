@@ -126,7 +126,6 @@
                                 <div class="text-sm bg-gray-100 rounded-full p-0.5">
                                     <button class="category-chart-view-btn active px-2 py-1 rounded-full text-xs" data-view="count">Quantidade</button>
                                     <button class="category-chart-view-btn px-2 py-1 rounded-full text-xs" data-view="revenue">Valor</button>
-                                    <button class="category-chart-view-btn px-2 py-1 rounded-full text-xs" data-view="percentage">% do Total</button>
                                 </div>
                             </div>
                             <canvas id="category-chart"></canvas>
@@ -521,15 +520,22 @@
                 const chartLabels = Object.keys(categorySalesData);
                 let dataForChart;
                 let datalabelsFormatter;
+                let datalabelsConfig = {
+                    color: '#fff',
+                    font: {
+                        weight: 'bold'
+                    }
+                };
 
                 switch (categoryChartView) {
                     case 'revenue':
                         dataForChart = chartLabels.map(label => categorySalesData[label].revenue);
-                        datalabelsFormatter = (value) => `R$ ${value.toFixed(2).replace('.', ',')}`;
-                        break;
-                    case 'percentage':
-                        dataForChart = totalRevenue > 0 ? chartLabels.map(label => (categorySalesData[label].revenue / totalRevenue) * 100) : chartLabels.map(() => 0);
-                        datalabelsFormatter = (value) => `${value.toFixed(1).replace('.', ',')}%`;
+                        datalabelsFormatter = (value, ctx) => {
+                            const percentage = totalRevenue > 0 ? (value / totalRevenue) * 100 : 0;
+                            return [`R$ ${value.toFixed(2).replace('.', ',')}`, `(${percentage.toFixed(1).replace('.', ',')}%)`];
+                        };
+                        datalabelsConfig.font = { weight: 'bold', size: 10 };
+                        datalabelsConfig.align = 'center';
                         break;
                     case 'count':
                     default:
@@ -549,9 +555,8 @@
                 const pieChartOptions = {
                     plugins: {
                         datalabels: {
+                            ...datalabelsConfig,
                             formatter: datalabelsFormatter,
-                            color: '#fff',
-                            font: { weight: 'bold' }
                         }
                     }
                 };
