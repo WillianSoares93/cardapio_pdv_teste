@@ -409,29 +409,28 @@
             function renderClientRanking(orders) {
                 const clientData = {};
                 orders.forEach(order => {
-                    const phoneMatch = order.clientData.match(/\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}|\d{10,11}/);
-                    const phone = phoneMatch ? phoneMatch[0] : null;
+                    const name = (order.clientData.split(';')[0] || 'N/A').trim();
+                    if(name === 'N/A') return;
                     
-                    if (!phone) return;
-
-                    if (!clientData[phone]) { 
-                        clientData[phone] = { 
+                    if (!clientData[name]) { 
+                        const phoneMatch = order.clientData.match(/\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}|\d{10,11}/);
+                        clientData[name] = { 
                             count: 0, 
                             revenue: 0, 
-                            name: order.clientData.split(';')[0].trim() 
+                            phone: phoneMatch ? phoneMatch[0] : ''
                         }; 
                     }
-                    clientData[phone].count++;
-                    clientData[phone].revenue += order.total;
+                    clientData[name].count++;
+                    clientData[name].revenue += order.total;
                 });
 
                 if (Object.keys(clientData).length === 0) {
-                     document.getElementById('client-ranking-table').innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum dado de cliente com telefone encontrado para exibir o ranking.</p>';
+                     document.getElementById('client-ranking-table').innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum dado de cliente com nome encontrado para exibir o ranking.</p>';
                      return;
                 }
 
                 const sortedClients = Object.entries(clientData).sort((a, b) => b[1].revenue - a[1].revenue);
-                const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Total Gasto'], (data, key) => `${data.name} <span class="text-xs text-gray-500 block">${key}</span>`, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
+                const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Total Gasto'], (data, key) => `${key} <span class="text-xs text-gray-500 block">${data.phone}</span>`, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
                 document.getElementById('client-ranking-table').innerHTML = tableHtml;
             }
             
@@ -441,8 +440,14 @@
                     if (order.type === 'Delivery' && order.clientData.includes(';')) {
                         let addressPart = (order.clientData.split(';')[1] || '').trim();
                         addressPart = addressPart.replace(/\(Ref:.*\)/i, '').trim();
-                        const neighborhoodMatch = addressPart.match(/(?:-|,)\s*([^-,\s].*)$/);
-                        let neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : addressPart;
+                        
+                        const parts = addressPart.split(/[,-]/);
+                        let neighborhood = parts.pop().trim();
+
+                        if (/^[\d\s/SNsn]+$/.test(neighborhood) && parts.length > 0) {
+                            neighborhood = parts.pop().trim();
+                        }
+                        
                         if (neighborhood) { 
                             salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; 
                         }
