@@ -238,22 +238,27 @@
                     btn.addEventListener('click', () => {
                         document.querySelectorAll('.period-filter-btn').forEach(b => b.classList.remove('active'));
                         btn.classList.add('active');
+                        
                         const period = btn.dataset.period;
-                        const today = new Date();
-                        let startDate;
+                        const end = new Date();
+                        end.setHours(23, 59, 59, 999);
+
+                        let start = new Date();
+                        start.setHours(0, 0, 0, 0);
+
                         switch(period) {
                             case 'today':
-                                startDate = today;
+                                // start is already correct (start of today)
                                 break;
                             case 'last7':
-                                startDate = new Date();
-                                startDate.setDate(today.getDate() - 6);
+                                start.setDate(start.getDate() - 6);
                                 break;
                             case 'month':
-                                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                                start = new Date(end.getFullYear(), end.getMonth(), 1);
+                                start.setHours(0, 0, 0, 0);
                                 break;
                         }
-                        datePicker.setDate([startDate, today], true);
+                        datePicker.setDate([start, end], true);
                     });
                 });
 
@@ -276,12 +281,23 @@
             function applyFilters() {
                 const dateRange = document.getElementById('date-filter')._flatpickr.selectedDates;
                 const searchTerm = document.getElementById('search-filter').value.toLowerCase();
+                
                 if(!document.querySelector('.period-filter-btn.active') && dateRange.length > 0) {
                      document.querySelectorAll('.period-filter-btn').forEach(b => b.classList.remove('active'));
                 }
 
                 filteredOrdersCache = allOrders.filter(order => {
-                    const dateMatch = !dateRange.length || (order.date >= dateRange[0] && order.date <= (dateRange[1] || dateRange[0]));
+                    let dateMatch = true;
+                    if (dateRange.length > 0) {
+                        const startDate = dateRange[0];
+                        startDate.setHours(0, 0, 0, 0);
+                        
+                        const endDate = dateRange.length > 1 ? dateRange[1] : new Date(startDate);
+                        endDate.setHours(23, 59, 59, 999);
+                        
+                        dateMatch = order.date >= startDate && order.date <= endDate;
+                    }
+
                     const searchMatch = !searchTerm || order.clientData.toLowerCase().includes(searchTerm) || order.items.toLowerCase().includes(searchTerm);
                     return dateMatch && searchMatch;
                 });
