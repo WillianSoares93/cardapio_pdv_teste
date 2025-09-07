@@ -107,8 +107,20 @@
                 </div>
                 <div class="p-6">
                     <div id="geral-panel" class="report-panel grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div><h3 class="font-bold text-gray-800 mb-4">Faturamento por Dia</h3><canvas id="revenue-chart"></canvas></div>
-                        <div><h3 class="font-bold text-gray-800 mb-4">Vendas por Categoria</h3><canvas id="category-chart"></canvas></div>
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="font-bold text-gray-800 mb-4">Faturamento por Dia</h3>
+                                <canvas id="revenue-chart"></canvas>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 mb-4">Vendas por Categoria (Detalhado)</h3>
+                                <div id="category-sales-table" class="max-h-96 overflow-y-auto"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-800 mb-4">Vendas por Categoria</h3>
+                            <canvas id="category-chart"></canvas>
+                        </div>
                     </div>
                     <div id="financeiro-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="space-y-4">
@@ -353,7 +365,7 @@
                 updateDashboard(orders);
                 renderTable(orders);
                 renderRevenueChart(orders);
-                renderCategoryChart(orders);
+                renderCategoryReports(orders);
                 renderPaymentReports(orders);
                 renderDeliveryFeeReport(orders);
                 renderProductRanking(orders);
@@ -424,10 +436,10 @@
                 renderChart('revenue-chart', 'line', { labels: sortedDays, datasets: [{ label: 'Faturamento', data: sortedDays.map(day => revenueByDay[day]), borderColor: '#3b82f6', tension: 0.1 }] });
             }
 
-            function renderCategoryChart(orders) {
-                const salesByCategory = {};
+            function renderCategoryReports(orders) {
+                const categorySalesData = {};
 
-                const processCategory = (itemName, value) => {
+                const processCategoryData = (itemName, value, price) => {
                     const menuItem = fullMenuData.get(itemName) || fullMenuData.get(itemName.replace('Hambúrguer Personalizado', 'Hambúrguer Montável'));
                     const category = menuItem ? menuItem.category : 'Outros';
                     const isPizzaCategory = Array.from(fullMenuData.values()).some(item => item.category === category && item.isPizza);
@@ -441,56 +453,78 @@
                         formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
                     }
 
-                    salesByCategory[formattedCategory] = (salesByCategory[formattedCategory] || 0) + value;
+                    if (!categorySalesData[formattedCategory]) {
+                        categorySalesData[formattedCategory] = { count: 0, revenue: 0 };
+                    }
+                    categorySalesData[formattedCategory].count += value;
+                    categorySalesData[formattedCategory].revenue += price;
                 };
 
                 orders.forEach(order => {
                     order.items.split('; ').forEach(itemString => {
+                        const itemPriceMatch = itemString.match(/\(R\$\s*([\d,]+)\)/);
+                        const itemPrice = itemPriceMatch ? parseFloat(itemPriceMatch[1].replace(',', '.')) : 0;
                         let itemName = itemString.split(' [')[0].split(' (R$')[0].trim();
                         
                         if (itemName.includes('FATIAS: Meia')) {
                             const parts = itemName.split(' & Meia ');
                             const firstHalfName = parts[0].split(' Meia ')[1];
                             const secondHalfName = parts[1];
-                            processCategory(firstHalfName, 0.5);
-                            processCategory(secondHalfName, 0.5);
+                            processCategoryData(firstHalfName, 0.5, itemPrice / 2);
+                            processCategoryData(secondHalfName, 0.5, itemPrice / 2);
                         } else {
                             if (itemName.includes('FATIAS:')) {
                                 itemName = itemName.split(': ')[1];
                             }
-                            processCategory(itemName, 1);
+                            processCategoryData(itemName, 1, itemPrice);
                         }
                     });
                 });
 
-                const chartData = {
-                    labels: Object.keys(salesByCategory),
+                // Render Pie Chart
+                const chartLabels = Object.keys(categorySalesData);
+                const chartCounts = chartLabels.map(label => categorySalesData[label].count);
+                const pieChartData = {
+                    labels: chartLabels,
                     datasets: [{
-                        data: Object.values(salesByCategory),
+                        data: chartCounts,
                         backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#6b7280', '#6366f1', '#ec4899']
                     }]
                 };
-
-                const chartOptions = {
+                const pieChartOptions = {
                     plugins: {
                         datalabels: {
                             formatter: (value, ctx) => {
-                                if (value % 1 === 0) {
-                                    return value;
-                                } else {
-                                    return value.toFixed(1).replace('.', ',');
-                                }
+                                return value % 1 === 0 ? value : value.toFixed(1).replace('.', ',');
                             },
                             color: '#fff',
-                            font: {
-                                weight: 'bold'
-                            }
+                            font: { weight: 'bold' }
                         }
                     }
                 };
+                renderChart('category-chart', 'pie', pieChartData, pieChartOptions);
 
-                renderChart('category-chart', 'pie', chartData, chartOptions);
+                // Render Numerical Table
+                const tableContainer = document.getElementById('category-sales-table');
+                const sortedCategories = Object.entries(categorySalesData).sort((a, b) => b[1].revenue - a[1].revenue);
+                let tableHtml = `<table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50"><tr>
+                        <th class="px-4 py-2 text-left font-medium text-gray-500">Categoria</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-500">Qtd. Vendida</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-500">Valor Total</th>
+                    </tr></thead>
+                    <tbody class="bg-white divide-y divide-gray-200">`;
+                sortedCategories.forEach(([categoryName, data]) => {
+                    tableHtml += `<tr>
+                        <td class="px-4 py-2">${categoryName}</td>
+                        <td class="px-4 py-2">${data.count % 1 === 0 ? data.count : data.count.toFixed(1).replace('.', ',')}</td>
+                        <td class="px-4 py-2 font-medium">R$ ${data.revenue.toFixed(2).replace('.', ',')}</td>
+                    </tr>`;
+                });
+                tableHtml += `</tbody></table>`;
+                tableContainer.innerHTML = tableHtml;
             }
+
 
             function renderPaymentReports(orders) {
                 const salesByPayment = orders.reduce((acc, order) => {
