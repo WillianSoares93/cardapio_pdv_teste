@@ -534,13 +534,14 @@
                             const percentage = totalRevenue > 0 ? (value / totalRevenue) * 100 : 0;
                             return [`R$ ${value.toFixed(2).replace('.', ',')}`, `(${percentage.toFixed(1).replace('.', ',')}%)`];
                         };
-                        datalabelsConfig.font = { weight: 'bold', size: 10 };
+                        datalabelsConfig.font = { weight: 'bold', size: 12 };
                         datalabelsConfig.align = 'center';
                         break;
                     case 'count':
                     default:
                         dataForChart = chartLabels.map(label => categorySalesData[label].count);
                         datalabelsFormatter = (value) => value % 1 === 0 ? value : value.toFixed(1).replace('.', ',');
+                        datalabelsConfig.font = { weight: 'bold', size: 12 };
                         break;
                 }
 
