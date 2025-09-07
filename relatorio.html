@@ -100,25 +100,32 @@
             </div>
         </div>
     </main>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        const app = initializeApp({}); // Dummy init
-        const auth = getAuth(app);
-    </script>
+    
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+
+        const firebaseConfig = {
+           apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+           authDomain: "pizzaria-pdv.firebaseapp.com",
+           projectId: "pizzaria-pdv",
+           storageBucket: "pizzaria-pdv.firebasestorage.app",
+           messagingSenderId: "304171744691",
+           appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
         document.addEventListener('DOMContentLoaded', () => {
-            const authModule = window.firebase.auth;
-            const auth = authModule.getAuth();
             let allOrders = [];
             let revenueChartInstance = null;
             let categoryChartInstance = null;
 
-            authModule.onAuthStateChanged(auth, (user) => {
+            onAuthStateChanged(auth, (user) => {
                 if (user) {
                     document.body.style.visibility = 'visible';
                     initializeApp();
@@ -127,7 +134,7 @@
                 }
             });
 
-            document.getElementById('logout-btn').addEventListener('click', () => authModule.signOut(auth));
+            document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
             function parseDate(dateString) {
                 if (!dateString || !dateString.includes(',')) return null;
@@ -147,7 +154,7 @@
                     allOrders = rawOrders.map(order => ({
                         ...order, 
                         date: parseDate(order.date)
-                    })).filter(order => order.date !== null); // Filtra pedidos com data inválida
+                    })).filter(order => order.date !== null);
                     
                     document.getElementById('loading-state').classList.add('hidden');
                     document.getElementById('report-content').classList.remove('hidden');
