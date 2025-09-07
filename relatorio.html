@@ -434,7 +434,8 @@
                 orders.forEach(order => {
                     if (order.type === 'Delivery' && order.clientData.includes(';')) {
                         const addressPart = order.clientData.split(';')[1] || '';
-                        const neighborhood = (addressPart.split(' - ').pop() || 'N/A').trim();
+                        const neighborhoodMatch = addressPart.match(/(?:-|,)\s*([^-,\s][^,-]*)$/);
+                        const neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : 'N/A';
                         if (neighborhood !== 'N/A' && neighborhood) { salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; }
                     }
                 });
