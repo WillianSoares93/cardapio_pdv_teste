@@ -457,8 +457,7 @@
 
             function renderCategoryReports(orders) {
                 const categorySalesData = {};
-                const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-
+                
                 const processCategoryData = (itemName, value, price) => {
                     const menuItem = fullMenuData.get(itemName) || fullMenuData.get(itemName.replace('Hambúrguer Personalizado', 'Hambúrguer Montável'));
                     const category = menuItem ? menuItem.category : 'Outros';
@@ -531,7 +530,7 @@
                     case 'revenue':
                         dataForChart = chartLabels.map(label => categorySalesData[label].revenue);
                         datalabelsFormatter = (value, ctx) => {
-                            const percentage = totalRevenue > 0 ? (value / totalRevenue) * 100 : 0;
+                            const percentage = totalCategoryRevenue > 0 ? (value / totalCategoryRevenue) * 100 : 0;
                             return [`R$ ${value.toFixed(2).replace('.', ',')}`, `(${percentage.toFixed(1).replace('.', ',')}%)`];
                         };
                         datalabelsConfig.font = { weight: 'bold', size: 12 };
