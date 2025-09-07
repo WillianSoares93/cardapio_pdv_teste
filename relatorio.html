@@ -411,8 +411,16 @@
                 orders.forEach(order => {
                     const phoneMatch = order.clientData.match(/\(\d{2}\)\s*\d{4,5}[- ]?\d{4}/);
                     const phone = phoneMatch ? phoneMatch[0] : 'N/A';
+                    
                     if (phone === 'N/A' || !phone) return;
-                    if (!clientData[phone]) { clientData[phone] = { count: 0, revenue: 0, name: order.clientData.split(';')[0].trim() }; }
+
+                    if (!clientData[phone]) { 
+                        clientData[phone] = { 
+                            count: 0, 
+                            revenue: 0, 
+                            name: order.clientData.split(';')[0].trim() 
+                        }; 
+                    }
                     clientData[phone].count++;
                     clientData[phone].revenue += order.total;
                 });
