@@ -364,7 +364,7 @@
             }
 
             function renderDeliveryFeeReport(orders) {
-                const totalFee = orders.reduce((sum, order) => sum + order.deliveryFee, 0);
+                const totalFee = orders.reduce((sum, order) => sum + (order.deliveryFee || 0), 0);
                 document.getElementById('stats-total-delivery-fee').textContent = `R$ ${totalFee.toFixed(2).replace('.', ',')}`;
             }
 
@@ -381,16 +381,16 @@
                     });
                 });
                 const sortedProducts = Object.entries(productCounts).sort((a, b) => b[1].count - a[1].count);
-                const tableHtml = createRankingTable(sortedProducts, ['Produto', 'Qtd.', 'Faturamento'], (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
+                const tableHtml = createRankingTable(sortedProducts, ['Produto', 'Qtd.', 'Faturamento'], (data, key) => key, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
                 document.getElementById('product-ranking-table').innerHTML = tableHtml;
             }
 
             function renderClientRanking(orders) {
                 const clientData = {};
                 orders.forEach(order => {
-                    const phoneMatch = order.clientData.match(/\(\d{2}\)\s*\d{4,5}-\d{4}/);
+                    const phoneMatch = order.clientData.match(/\(\d{2}\)\s*\d{4,5}[- ]?\d{4}/);
                     const phone = phoneMatch ? phoneMatch[0] : 'N/A';
-                    if (phone === 'N/A') return;
+                    if (phone === 'N/A' || !phone) return;
                     if (!clientData[phone]) { clientData[phone] = { count: 0, revenue: 0, name: order.clientData.split(';')[0].trim() }; }
                     clientData[phone].count++;
                     clientData[phone].revenue += order.total;
@@ -405,9 +405,8 @@
                 orders.forEach(order => {
                     if (order.type === 'Delivery' && order.clientData.includes(';')) {
                         const addressPart = order.clientData.split(';')[1] || '';
-                        const neighborhoodMatch = addressPart.match(/-\s*(.+)/);
-                        const neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : 'N/A';
-                        if (neighborhood !== 'N/A') { salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; }
+                        const neighborhood = (addressPart.split(' - ').pop() || 'N/A').trim();
+                        if (neighborhood !== 'N/A' && neighborhood) { salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; }
                     }
                 });
                 const sortedNeighborhoods = Object.entries(salesByNeighborhood).sort((a,b) => b[1] - a[1]).slice(0, 5);
@@ -496,3 +495,4 @@
     </script>
 </body>
 </html>
+
