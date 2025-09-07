@@ -123,7 +123,7 @@
                         <div id="product-ranking-table" class="max-h-96 overflow-y-auto"></div>
                     </div>
                     <div id="clientes-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div><h3 class="font-bold text-gray-800 mb-4">Ranking de Clientes (por telefone)</h3><div id="client-ranking-table" class="max-h-96 overflow-y-auto"></div></div>
+                        <div><h3 class="font-bold text-gray-800 mb-4">Ranking de Clientes</h3><div id="client-ranking-table" class="max-h-96 overflow-y-auto"></div></div>
                         <div class="space-y-4">
                             <h3 class="font-bold text-gray-800">Top 5 Bairros (Delivery)</h3>
                             <canvas id="neighborhood-chart"></canvas>
@@ -409,7 +409,7 @@
             function renderClientRanking(orders) {
                 const clientData = {};
                 orders.forEach(order => {
-                    const phoneMatch = order.clientData.match(/\(\d{2}\)\s*\d{4,5}[- ]?\d{4}/);
+                    const phoneMatch = order.clientData.match(/\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}/);
                     const phone = phoneMatch ? phoneMatch[0] : 'N/A';
                     
                     if (phone === 'N/A' || !phone) return;
@@ -424,8 +424,14 @@
                     clientData[phone].count++;
                     clientData[phone].revenue += order.total;
                 });
+
+                if (Object.keys(clientData).length === 0) {
+                     document.getElementById('client-ranking-table').innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum dado de cliente com telefone encontrado para exibir o ranking.</p>';
+                     return;
+                }
+
                 const sortedClients = Object.entries(clientData).sort((a, b) => b[1].revenue - a[1].revenue);
-                const tableHtml = createRankingTable(sortedClients, ['Cliente (Telefone)', 'Pedidos', 'Total Gasto'], (data, key) => `${data.name} (${key})`, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
+                const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Total Gasto'], (data, key) => `${data.name} <span class="text-xs text-gray-500 block">${key}</span>`, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
                 document.getElementById('client-ranking-table').innerHTML = tableHtml;
             }
             
