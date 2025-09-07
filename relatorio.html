@@ -440,11 +440,13 @@
                         clientData[name] = { 
                             count: 0, 
                             revenue: 0, 
-                            phone: phoneMatch ? phoneMatch[0] : ''
+                            phone: phoneMatch ? phoneMatch[0] : '',
+                            deliveryFee: 0
                         }; 
                     }
                     clientData[name].count++;
                     clientData[name].revenue += order.total;
+                    clientData[name].deliveryFee += order.deliveryFee || 0;
                 });
 
                 if (Object.keys(clientData).length === 0) {
@@ -469,7 +471,7 @@
                 
                 renderChart('client-chart', 'bar', chartData, chartOptions);
 
-                const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Total Gasto'], (data, key) => `${key} <span class="text-xs text-gray-500 block">${data.phone}</span>`, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
+                const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Taxa Entrega', 'Total Gasto'], (data, key) => `${key} <span class="text-xs text-gray-500 block">${data.phone}</span>`, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`, (data) => `R$ ${data.deliveryFee.toFixed(2).replace('.', ',')}`);
                 document.getElementById('client-ranking-table').innerHTML = tableHtml;
             }
             
@@ -499,10 +501,11 @@
                         
                         if (neighborhood !== 'N/A') { 
                             if (!salesByNeighborhood[neighborhood]) {
-                                salesByNeighborhood[neighborhood] = { count: 0, revenue: 0 };
+                                salesByNeighborhood[neighborhood] = { count: 0, revenue: 0, deliveryFee: 0 };
                             }
                             salesByNeighborhood[neighborhood].count++;
                             salesByNeighborhood[neighborhood].revenue += order.total;
+                            salesByNeighborhood[neighborhood].deliveryFee += order.deliveryFee || 0;
                         }
                     }
                 });
@@ -564,7 +567,7 @@
                 
                 renderChart('neighborhood-chart', 'bar', chartData, chartOptions);
                 
-                const tableHtml = createRankingTable(sortedNeighborhoods, ['Bairro', 'Pedidos', 'Total Gasto'], (data, key) => key, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
+                const tableHtml = createRankingTable(sortedNeighborhoods, ['Bairro', 'Pedidos', 'Taxa Entrega', 'Total Gasto'], (data, key) => key, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`, (data) => `R$ ${data.deliveryFee.toFixed(2).replace('.', ',')}`);
                 document.getElementById('neighborhood-table').innerHTML = tableHtml;
             }
 
@@ -580,13 +583,14 @@
                 </table>`;
             }
 
-            function createRankingTable(sortedData, headers, nameFormatter, revenueFormatter) {
+            function createRankingTable(sortedData, headers, nameFormatter, revenueFormatter, deliveryFeeFormatter) {
                 return `<table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50"><tr>${headers.map(h => `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500">${h}</th>`).join('')}</tr></thead>
                     <tbody class="bg-white divide-y divide-gray-200">${sortedData.map(([key, data]) => `
                         <tr>
                             <td class="px-4 py-2 text-sm">${nameFormatter ? nameFormatter(data, key) : key}</td>
                             <td class="px-4 py-2 text-sm">${data.count}</td>
+                            ${deliveryFeeFormatter ? `<td class="px-4 py-2 text-sm">${deliveryFeeFormatter(data)}</td>` : ''}
                             <td class="px-4 py-2 text-sm">${revenueFormatter(data)}</td>
                         </tr>`).join('')}
                     </tbody></table>`;
