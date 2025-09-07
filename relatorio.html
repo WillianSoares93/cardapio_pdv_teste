@@ -425,7 +425,11 @@
                     });
                 });
                 const sortedProducts = Object.entries(productCounts).sort((a, b) => b[1].count - a[1].count);
-                const tableHtml = createRankingTable(sortedProducts, ['Produto', 'Qtd.', 'Faturamento'], (data, key) => key, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
+                const tableHtml = createRankingTable(sortedProducts, ['Produto', 'Qtd.', 'Faturamento'], [
+                    (data, key) => key,
+                    (data) => data.count,
+                    (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`
+                ]);
                 document.getElementById('product-ranking-table').innerHTML = tableHtml;
             }
 
@@ -471,7 +475,12 @@
                 
                 renderChart('client-chart', 'bar', chartData, chartOptions);
 
-                const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Taxa Entrega', 'Total Gasto'], (data, key) => `${key} <span class="text-xs text-gray-500 block">${data.phone}</span>`, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`, (data) => `R$ ${data.deliveryFee.toFixed(2).replace('.', ',')}`);
+                const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Taxa Entrega', 'Total Gasto'], [
+                    (data, key) => `${key} <span class="text-xs text-gray-500 block">${data.phone}</span>`,
+                    (data) => data.count,
+                    (data) => `R$ ${data.deliveryFee.toFixed(2).replace('.', ',')}`,
+                    (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`
+                ]);
                 document.getElementById('client-ranking-table').innerHTML = tableHtml;
             }
             
@@ -567,7 +576,12 @@
                 
                 renderChart('neighborhood-chart', 'bar', chartData, chartOptions);
                 
-                const tableHtml = createRankingTable(sortedNeighborhoods, ['Bairro', 'Pedidos', 'Taxa Entrega', 'Total Gasto'], (data, key) => key, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`, (data) => `R$ ${data.deliveryFee.toFixed(2).replace('.', ',')}`);
+                const tableHtml = createRankingTable(sortedNeighborhoods, ['Bairro', 'Pedidos', 'Taxa Entrega', 'Total Gasto'], [
+                    (data, key) => key,
+                    (data) => data.count,
+                    (data) => `R$ ${data.deliveryFee.toFixed(2).replace('.', ',')}`,
+                    (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`
+                ]);
                 document.getElementById('neighborhood-table').innerHTML = tableHtml;
             }
 
@@ -582,19 +596,24 @@
                     <tbody>${Object.entries(data).map(([key, value]) => `<tr><td class="px-2 py-1">${key}</td><td class="px-2 py-1">${isCurrency ? `R$ ${value.toFixed(2).replace('.',',')}` : value}</td></tr>`).join('')}</tbody>
                 </table>`;
             }
-
-            function createRankingTable(sortedData, headers, nameFormatter, revenueFormatter, deliveryFeeFormatter) {
-                return `<table class="min-w-full divide-y divide-gray-200">
+            
+            function createRankingTable(sortedData, headers, formatters) {
+                let table = `<table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50"><tr>${headers.map(h => `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500">${h}</th>`).join('')}</tr></thead>
-                    <tbody class="bg-white divide-y divide-gray-200">${sortedData.map(([key, data]) => `
-                        <tr>
-                            <td class="px-4 py-2 text-sm">${nameFormatter ? nameFormatter(data, key) : key}</td>
-                            <td class="px-4 py-2 text-sm">${data.count}</td>
-                            ${deliveryFeeFormatter ? `<td class="px-4 py-2 text-sm">${deliveryFeeFormatter(data)}</td>` : ''}
-                            <td class="px-4 py-2 text-sm">${revenueFormatter(data)}</td>
-                        </tr>`).join('')}
-                    </tbody></table>`;
+                    <tbody class="bg-white divide-y divide-gray-200">`;
+                
+                sortedData.forEach(([key, data]) => {
+                    table += '<tr>';
+                    formatters.forEach(formatter => {
+                        table += `<td class="px-4 py-2 text-sm">${formatter(data, key)}</td>`;
+                    });
+                    table += '</tr>';
+                });
+
+                table += '</tbody></table>';
+                return table;
             }
+
 
             function renderTable(orders) {
                 const tbody = document.getElementById('history-table-body');
