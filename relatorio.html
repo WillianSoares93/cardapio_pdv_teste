@@ -22,7 +22,7 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
-        .report-tab-btn, .period-filter-btn, .sort-neighborhood-btn {
+        .report-tab-btn, .period-filter-btn, .sort-btn {
             transition: all 0.2s ease-in-out;
         }
         .report-tab-btn {
@@ -33,7 +33,7 @@
             color: #3b82f6;
             font-weight: 600;
         }
-        .period-filter-btn.active, .sort-neighborhood-btn.active {
+        .period-filter-btn.active, .sort-btn.active {
             background-color: #3b82f6;
             color: white;
         }
@@ -123,15 +123,19 @@
                         <div id="product-ranking-table" class="max-h-96 overflow-y-auto"></div>
                     </div>
                     <div id="clientes-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div><h3 class="font-bold text-gray-800 mb-4">Ranking de Clientes</h3><div id="client-ranking-table" class="max-h-96 overflow-y-auto"></div></div>
                         <div class="space-y-4">
                              <div class="flex justify-between items-center">
-                                <h3 id="neighborhood-report-title" class="font-bold text-gray-800">Top 5 Bairros (Delivery)</h3>
+                                <h3 class="font-bold text-gray-800">Ranking de Clientes</h3>
                                 <div class="text-sm bg-gray-100 rounded-full p-0.5">
-                                    <button class="sort-neighborhood-btn active px-2 py-1 rounded-full text-xs" data-sort="revenue">Total Gasto</button>
-                                    <button class="sort-neighborhood-btn px-2 py-1 rounded-full text-xs" data-sort="count">Nº Pedidos</button>
+                                    <button class="sort-btn active px-2 py-1 rounded-full text-xs" data-sort="revenue" data-target="client">Total Gasto</button>
+                                    <button class="sort-btn px-2 py-1 rounded-full text-xs" data-sort="count" data-target="client">Nº Pedidos</button>
                                 </div>
                             </div>
+                            <canvas id="client-chart"></canvas>
+                            <div id="client-ranking-table" class="max-h-96 overflow-y-auto"></div>
+                        </div>
+                        <div class="space-y-4">
+                            <h3 id="neighborhood-report-title" class="font-bold text-gray-800">Top 5 Bairros (Delivery)</h3>
                             <canvas id="neighborhood-chart"></canvas>
                              <div id="neighborhood-table" class="max-h-48 overflow-y-auto"></div>
                         </div>
@@ -189,7 +193,7 @@
             let chartInstances = {};
             let currentPage = 1;
             const ROWS_PER_PAGE = 20;
-            let neighborhoodSortCriteria = 'revenue'; // 'revenue' or 'count'
+            let clientSortCriteria = 'revenue'; 
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
@@ -269,12 +273,15 @@
                     });
                 });
                 
-                document.querySelectorAll('.sort-neighborhood-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.querySelectorAll('.sort-neighborhood-btn').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        neighborhoodSortCriteria = btn.dataset.sort;
-                        renderNeighborhoodReports(filteredOrdersCache);
+                document.querySelectorAll('.sort-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const target = e.currentTarget.dataset.target;
+                        if(target === 'client'){
+                            document.querySelectorAll('.sort-btn[data-target="client"]').forEach(b => b.classList.remove('active'));
+                            e.currentTarget.classList.add('active');
+                            clientSortCriteria = e.currentTarget.dataset.sort;
+                            renderClientRanking(filteredOrdersCache);
+                        }
                     });
                 });
 
@@ -442,10 +449,26 @@
 
                 if (Object.keys(clientData).length === 0) {
                      document.getElementById('client-ranking-table').innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum dado de cliente encontrado para exibir o ranking.</p>';
+                     document.getElementById('client-chart').style.display = 'none';
                      return;
                 }
+                
+                document.getElementById('client-chart').style.display = 'block';
 
-                const sortedClients = Object.entries(clientData).sort((a, b) => b[1].revenue - a[1].revenue);
+                const sortedClients = Object.entries(clientData).sort((a, b) => b[1][clientSortCriteria] - a[1][clientSortCriteria]);
+                const top5Clients = sortedClients.slice(0,5);
+
+                const chartData = {
+                    labels: top5Clients.map(c => c[0]),
+                    datasets: [
+                        { label: 'Nº de Pedidos', data: top5Clients.map(c => c[1].count), backgroundColor: '#8b5cf6', yAxisID: 'yCount' },
+                        { label: 'Total Gasto (R$)', data: top5Clients.map(c => c[1].revenue), backgroundColor: '#16a34a', yAxisID: 'yRevenue' }
+                    ]
+                };
+                 const chartOptions = { scales: { yCount: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Nº de Pedidos' } }, yRevenue: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Total Gasto (R$)'}, grid: { drawOnChartArea: false } } } };
+                
+                renderChart('client-chart', 'bar', chartData, chartOptions);
+
                 const tableHtml = createRankingTable(sortedClients, ['Cliente', 'Pedidos', 'Total Gasto'], (data, key) => `${key} <span class="text-xs text-gray-500 block">${data.phone}</span>`, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
                 document.getElementById('client-ranking-table').innerHTML = tableHtml;
             }
@@ -485,7 +508,7 @@
                 });
 
                 const sortedNeighborhoods = Object.entries(salesByNeighborhood)
-                    .sort((a,b) => b[1][neighborhoodSortCriteria] - a[1][neighborhoodSortCriteria])
+                    .sort((a,b) => b[1].revenue - a[1].revenue)
                     .slice(0, 5);
 
                 if (sortedNeighborhoods.length === 0) {
