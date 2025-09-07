@@ -651,7 +651,7 @@
                  orders.forEach(order => {
                     order.items.split('; ').forEach(itemString => {
                         const itemName = itemString.split(' [')[0].split(' (R$')[0].trim();
-                        const itemPriceMatch = itemString.match(/\(R\$\s*([\d,]+)\)/);
+                        const itemPriceMatch = itemString.match(/\(R\$\s*([\d.,]+)\)/);
                         const itemPrice = itemPriceMatch ? parseFloat(itemPriceMatch[1].replace(',', '.')) : 0;
                         if (!productCounts[itemName]) { productCounts[itemName] = { count: 0, revenue: 0 }; }
                         productCounts[itemName].count++;
