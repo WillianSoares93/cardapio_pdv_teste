@@ -350,7 +350,7 @@
 
             function renderPaymentReports(orders) {
                 const salesByPayment = orders.reduce((acc, order) => {
-                    const paymentMethod = (order.payment && order.payment.split(' (')[0].replace(/.*Débito.*/, 'Cartão')) || 'Não definido';
+                    const paymentMethod = (order.payment && String(order.payment).split(' (')[0].replace(/.*Débito.*/, 'Cartão')) || 'Não definido';
                     acc[paymentMethod] = (acc[paymentMethod] || 0) + order.total;
                     return acc;
                 }, {});
@@ -388,10 +388,10 @@
             function renderClientRanking(orders) {
                 const clientData = {};
                 orders.forEach(order => {
-                    const clientParts = order.clientData.split(';').map(p => p.trim());
-                    const phone = clientParts.length > 2 ? clientParts[2] : 'N/A';
-                    if (phone === 'N/A' || !phone) return;
-                    if (!clientData[phone]) { clientData[phone] = { count: 0, revenue: 0, name: clientParts[0] }; }
+                    const phoneMatch = order.clientData.match(/\(\d{2}\)\s*\d{4,5}-\d{4}/);
+                    const phone = phoneMatch ? phoneMatch[0] : 'N/A';
+                    if (phone === 'N/A') return;
+                    if (!clientData[phone]) { clientData[phone] = { count: 0, revenue: 0, name: order.clientData.split(';')[0].trim() }; }
                     clientData[phone].count++;
                     clientData[phone].revenue += order.total;
                 });
@@ -405,7 +405,8 @@
                 orders.forEach(order => {
                     if (order.type === 'Delivery' && order.clientData.includes(';')) {
                         const addressPart = order.clientData.split(';')[1] || '';
-                        const neighborhood = (addressPart.split(' - ')[1] || 'N/A').trim();
+                        const neighborhoodMatch = addressPart.match(/-\s*(.+)/);
+                        const neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : 'N/A';
                         if (neighborhood !== 'N/A') { salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; }
                     }
                 });
@@ -495,4 +496,3 @@
     </script>
 </body>
 </html>
-
