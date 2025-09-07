@@ -20,11 +20,10 @@ const db = getFirestore(app);
 const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const SHEET_NAME = 'encerrados'; // ATUALIZADO: Nome da aba corrigido para corresponder à sua planilha.
+const SHEET_NAME = 'encerrados';
 
 // --- FUNÇÃO PRINCIPAL ---
 export default async (req, res) => {
-    // Adicionando um log no início da execução
     console.log('[LOG] Função arquivar-pedido iniciada.');
 
     if (req.method !== 'POST') {
@@ -33,20 +32,10 @@ export default async (req, res) => {
 
     try {
         const { orderId } = req.body;
-        console.log(`[LOG] Recebido pedido para arquivar ID: ${orderId}`);
-
         if (!orderId) {
-            console.error('[ERRO] ID do pedido não foi fornecido no corpo da requisição.');
             return res.status(400).json({ error: 'ID do pedido não fornecido.' });
         }
 
-        // Verificando a presença das variáveis de ambiente
-        console.log(`[LOG] SPREADSHEET_ID presente: ${!!SPREADSHEET_ID}`);
-        console.log(`[LOG] GOOGLE_SERVICE_ACCOUNT_EMAIL presente: ${!!GOOGLE_SERVICE_ACCOUNT_EMAIL}`);
-        console.log(`[LOG] GOOGLE_PRIVATE_KEY presente: ${!!GOOGLE_PRIVATE_KEY}`);
-
-        // 1. Autenticação com o Google
-        console.log('[LOG] Tentando autenticar com a API do Google Sheets...');
         const auth = new google.auth.GoogleAuth({
             credentials: {
                 client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
@@ -55,40 +44,71 @@ export default async (req, res) => {
             scopes: ['https://www.googleapis.com/auth/spreadsheets'],
         });
         const sheets = google.sheets({ version: 'v4', auth });
-        console.log('[LOG] Autenticação com o Google bem-sucedida.');
 
-        // 2. Buscar os dados completos do pedido no Firestore
-        console.log(`[LOG] Buscando dados do pedido ${orderId} no Firestore...`);
         const orderRef = doc(db, "pedidos", orderId);
         const orderSnap = await getDoc(orderRef);
 
         if (!orderSnap.exists()) {
-            console.error(`[ERRO] Pedido com ID ${orderId} não encontrado no Firestore.`);
             return res.status(404).json({ error: 'Pedido não encontrado no banco de dados.' });
         }
         const orderData = orderSnap.data();
-        console.log('[LOG] Dados do pedido encontrados no Firestore.');
 
         // 3. Formatar os dados para a planilha
-        const itemsString = orderData.itens.map(item => `${item.name} (R$ ${item.price.toFixed(2)})`).join('; ');
         const paymentString = typeof orderData.pagamento === 'object' ? `${orderData.pagamento.method} (Troco p/ ${orderData.pagamento.trocoPara})` : orderData.pagamento;
-        
+
         let orderType = 'Delivery';
         if (orderData.endereco.rua === "Retirada no Balcão") orderType = 'Retirada';
         if (orderData.endereco.rua === "Mesa") orderType = 'Mesa';
+        
+        // **NOVA LÓGICA PARA DADOS DO CLIENTE CONSOLIDADOS**
+        let clientInfoParts = [orderData.endereco.clientName || ''];
+        if (orderType === 'Delivery') {
+            let fullAddress = `${orderData.endereco.rua || ''}, ${orderData.endereco.numero || ''} - ${orderData.endereco.bairro || ''}`;
+            if (orderData.endereco.referencia) {
+                fullAddress += ` (Ref: ${orderData.endereco.referencia})`;
+            }
+            clientInfoParts.push(fullAddress);
+        }
+        if (orderData.endereco.telefone) {
+            clientInfoParts.push(orderData.endereco.telefone);
+        }
+        const clientDataString = clientInfoParts.join('; ');
+
+        // **NOVA LÓGICA PARA DADOS DOS ITENS DETALHADOS**
+        const itemsString = orderData.itens.map(item => {
+            let mainString = `${item.name} (R$ ${item.price.toFixed(2).replace('.',',')})`;
+            let details = [];
+
+            const itemsToDetail = item.ingredients || item.extras || [];
+            if (itemsToDetail.length > 0) {
+                 details = itemsToDetail.map(detail => {
+                    const quantityText = detail.quantity > 1 ? ` x${detail.quantity}` : '';
+                    const priceText = detail.price > 0 ? ` (R$ ${(detail.price * (detail.quantity || 1)).toFixed(2).replace('.',',')})` : '';
+                    return `${detail.name}${quantityText}${priceText}`;
+                });
+            }
+
+            if (details.length > 0) {
+                mainString += ` [${details.join(', ')}]`;
+            }
+            return mainString;
+        }).join('; ');
+
 
         const newRow = [
-            orderId, new Date().toLocaleString('pt-BR'), `#${orderId.substring(0, 5)}`,
-            orderType, orderData.endereco.clientName || '', itemsString,
+            orderId,
+            new Date().toLocaleString('pt-BR'),
+            `#${orderId.substring(0, 5)}`,
+            orderType,
+            clientDataString, // DADOS DO CLIENTE CONSOLIDADOS
+            itemsString,      // ITENS DETALHADOS
             orderData.total.subtotal.toFixed(2).replace('.', ','),
             orderData.total.deliveryFee.toFixed(2).replace('.', ','),
             orderData.total.finalTotal.toFixed(2).replace('.', ','),
-            paymentString || 'Não definido', orderData.observacao || ''
+            paymentString || 'Não definido',
+            orderData.observacao || ''
         ];
-        console.log('[LOG] Linha de dados formatada para a planilha.');
 
-        // 4. Adicionar a nova linha na planilha
-        console.log(`[LOG] Enviando dados para a planilha ID: ${SPREADSHEET_ID}, Aba: ${SHEET_NAME}`);
         await sheets.spreadsheets.values.append({
             spreadsheetId: SPREADSHEET_ID,
             range: `${SHEET_NAME}!A:A`,
@@ -97,23 +117,17 @@ export default async (req, res) => {
                 values: [newRow],
             },
         });
-        console.log('[LOG] Linha adicionada à planilha com sucesso.');
 
-        // 5. Deletar o pedido do Firestore
-        console.log(`[LOG] Deletando o pedido ${orderId} do Firestore...`);
         await deleteDoc(orderRef);
-        console.log('[LOG] Pedido deletado do Firestore com sucesso.');
 
         res.status(200).json({ success: true, message: 'Pedido arquivado com sucesso!' });
 
     } catch (error) {
-        // Log detalhado do erro
-        console.error('--- ERRO DETALHADO NA FUNÇÃO DE ARQUIVAMENTO ---');
-        console.error('Mensagem:', error.message);
-        console.error('Stack Trace:', error.stack);
-        console.error('--- FIM DO ERRO DETALHADO ---');
-        
-        // Retorna um JSON de erro, em vez de deixar a função quebrar
+        console.error('--- ERRO DETALHADO NA FUNÇÃO DE ARQUIVAMENTO ---', {
+            message: error.message,
+            stack: error.stack,
+            requestBody: req.body
+        });
         res.status(500).json({ 
             error: 'Erro interno no servidor ao tentar arquivar.', 
             details: error.message 
