@@ -104,18 +104,21 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        const app = initializeApp({}); // Dummy init
+        const auth = getAuth(app);
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const auth = getAuth();
+            const authModule = window.firebase.auth;
+            const auth = authModule.getAuth();
             let allOrders = [];
             let revenueChartInstance = null;
             let categoryChartInstance = null;
 
-            onAuthStateChanged(auth, (user) => {
+            authModule.onAuthStateChanged(auth, (user) => {
                 if (user) {
                     document.body.style.visibility = 'visible';
                     initializeApp();
@@ -124,7 +127,14 @@
                 }
             });
 
-            document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+            document.getElementById('logout-btn').addEventListener('click', () => authModule.signOut(auth));
+
+            function parseDate(dateString) {
+                if (!dateString || !dateString.includes(',')) return null;
+                const [datePart, timePart] = dateString.split(', ');
+                const [day, month, year] = datePart.split('/');
+                return new Date(`${year}-${month}-${day}T${timePart}`);
+            }
 
             async function initializeApp() {
                 try {
@@ -132,7 +142,12 @@
                     if (!response.ok) {
                         throw new Error(`Erro ao buscar dados: ${response.statusText}`);
                     }
-                    allOrders = await response.json();
+                    const rawOrders = await response.json();
+
+                    allOrders = rawOrders.map(order => ({
+                        ...order, 
+                        date: parseDate(order.date)
+                    })).filter(order => order.date !== null); // Filtra pedidos com data inválida
                     
                     document.getElementById('loading-state').classList.add('hidden');
                     document.getElementById('report-content').classList.remove('hidden');
@@ -175,14 +190,6 @@
                 renderTable(filteredOrders);
             }
             
-            function parseDate(dateString) {
-                const [datePart, timePart] = dateString.split(', ');
-                const [day, month, year] = datePart.split('/');
-                return new Date(`${year}-${month}-${day}T${timePart}`);
-            }
-            
-            allOrders = allOrders.map(order => ({...order, date: parseDate(order.date)}));
-
             function updateDashboard(orders) {
                 const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
                 const totalOrders = orders.length;
@@ -215,7 +222,11 @@
                     return acc;
                 }, {});
                 
-                const sortedDays = Object.keys(revenueByDay).sort((a,b) => parseDate(a) - parseDate(b));
+                const sortedDays = Object.keys(revenueByDay).sort((a,b) => {
+                    const [dayA, monthA, yearA] = a.split('/');
+                    const [dayB, monthB, yearB] = b.split('/');
+                    return new Date(`${yearA}-${monthA}-${dayA}`) - new Date(`${yearB}-${monthB}-${dayB}`);
+                });
 
                 if (revenueChartInstance) revenueChartInstance.destroy();
                 revenueChartInstance = new Chart(document.getElementById('revenue-chart'), {
@@ -235,7 +246,6 @@
                 // Category Chart
                 const salesByCategory = {};
                 orders.forEach(order => {
-                    // Simples heurística para determinar a categoria
                     if (order.items.toLowerCase().includes('pizza')) salesByCategory['Pizzas'] = (salesByCategory['Pizzas'] || 0) + 1;
                     else if (order.items.toLowerCase().includes('hambúrguer')) salesByCategory['Hambúrgueres'] = (salesByCategory['Hambúrgueres'] || 0) + 1;
                     else if (order.items.toLowerCase().includes('bebida')) salesByCategory['Bebidas'] = (salesByCategory['Bebidas'] || 0) + 1;
@@ -299,3 +309,4 @@
     </script>
 </body>
 </html>
+
