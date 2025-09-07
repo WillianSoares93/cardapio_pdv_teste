@@ -442,7 +442,7 @@
                         let addressPart = (order.clientData.split(';')[1] || '').trim();
                         addressPart = addressPart.replace(/\(Ref:.*\)/i, '').trim();
                         const neighborhoodMatch = addressPart.match(/(?:-|,)\s*([^-,\s].*)$/);
-                        let neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : addressPart.split(',')[0].trim();
+                        let neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : addressPart;
                         if (neighborhood) { 
                             salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; 
                         }
