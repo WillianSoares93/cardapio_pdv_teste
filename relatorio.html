@@ -106,35 +106,20 @@
                     </nav>
                 </div>
                 <div class="p-6">
-                    <div id="geral-panel" class="report-panel grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="space-y-6">
-                            <div>
-                                <h3 class="font-bold text-gray-800 mb-4">Faturamento por Dia</h3>
-                                <canvas id="revenue-chart"></canvas>
-                            </div>
-                            <div>
-                                <div class="flex justify-between items-center mb-4">
-                                    <h3 class="font-bold text-gray-800">Vendas por Categoria (Detalhado)</h3>
-                                    <div class="text-sm bg-gray-100 rounded-full p-0.5">
-                                        <button class="sort-btn active px-2 py-1 rounded-full text-xs" data-sort="revenue" data-target="category-table">Valor Total</button>
-                                        <button class="sort-btn px-2 py-1 rounded-full text-xs" data-sort="count" data-target="category-table">Quantidade</button>
-                                    </div>
-                                </div>
-                                <div id="category-sales-table" class="max-h-96 overflow-y-auto"></div>
-                            </div>
+                    <div id="geral-panel" class="report-panel space-y-6">
+                        <div>
+                            <h3 class="font-bold text-gray-800 mb-4">Faturamento por Dia</h3>
+                            <canvas id="revenue-chart"></canvas>
                         </div>
                         <div>
-                             <div class="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 class="font-bold text-gray-800">Vendas por Categoria</h3>
-                                    <div id="category-chart-totals" class="text-xs text-gray-500 mt-1"></div>
-                                </div>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-gray-800">Vendas por Categoria (Detalhado)</h3>
                                 <div class="text-sm bg-gray-100 rounded-full p-0.5">
-                                    <button class="category-chart-view-btn active px-2 py-1 rounded-full text-xs" data-view="count">Quantidade</button>
-                                    <button class="category-chart-view-btn px-2 py-1 rounded-full text-xs" data-view="revenue">Valor</button>
+                                    <button class="sort-btn active px-2 py-1 rounded-full text-xs" data-sort="revenue" data-target="category-table">Valor Total</button>
+                                    <button class="sort-btn px-2 py-1 rounded-full text-xs" data-sort="count" data-target="category-table">Quantidade</button>
                                 </div>
                             </div>
-                            <canvas id="category-chart"></canvas>
+                            <div id="category-sales-table" class="max-h-96 overflow-y-auto"></div>
                         </div>
                     </div>
                     <div id="financeiro-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -238,7 +223,6 @@
             const ROWS_PER_PAGE = 20;
             let clientSortCriteria = 'revenue'; 
             let neighborhoodSortCriteria = 'revenue';
-            let categoryChartView = 'count';
             let categoryTableSortCriteria = 'revenue';
             let productSortCriteria = 'count';
             let categorySalesDataCache = {};
