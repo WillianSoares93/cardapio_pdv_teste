@@ -146,7 +146,14 @@
                         <div class="bg-blue-50 p-5 rounded-lg flex flex-col items-center justify-center"><h3 class="text-lg font-medium text-blue-800">TOTAL TAXAS DE ENTREGA</h3><p id="stats-total-delivery-fee" class="text-4xl font-bold text-blue-900 mt-2">R$ 0,00</p></div>
                     </div>
                     <div id="produtos-panel" class="report-panel hidden">
-                        <h3 class="font-bold text-gray-800 mb-4">Ranking de Produtos Vendidos</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-gray-800">Ranking de Produtos Vendidos</h3>
+                            <div class="text-sm bg-gray-100 rounded-full p-0.5">
+                                <button class="sort-btn active px-2 py-1 rounded-full text-xs" data-sort="count" data-target="product-ranking">Quantidade</button>
+                                <button class="sort-btn px-2 py-1 rounded-full text-xs" data-sort="revenue" data-target="product-ranking">Faturamento</button>
+                            </div>
+                        </div>
+                        <canvas id="product-ranking-chart" class="mb-6"></canvas>
                         <div id="product-ranking-table" class="max-h-96 overflow-y-auto"></div>
                     </div>
                     <div id="clientes-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -233,6 +240,7 @@
             let neighborhoodSortCriteria = 'revenue';
             let categoryChartView = 'count';
             let categoryTableSortCriteria = 'revenue';
+            let productSortCriteria = 'count';
             let categorySalesDataCache = {};
 
             Chart.register(ChartDataLabels);
@@ -330,6 +338,9 @@
                         } else if (target === 'category-table') {
                             categoryTableSortCriteria = e.currentTarget.dataset.sort;
                             renderCategoryTable();
+                        } else if (target === 'product-ranking') {
+                            productSortCriteria = e.currentTarget.dataset.sort;
+                            renderProductRanking(filteredOrdersCache);
                         }
                     });
                 });
@@ -648,6 +659,8 @@
 
             function renderProductRanking(orders) {
                 const productCounts = {};
+                const totalProductRevenue = orders.reduce((sum, order) => sum + order.subtotal, 0);
+
                  orders.forEach(order => {
                     order.items.split('; ').forEach(itemString => {
                         const itemName = itemString.split(' [')[0].split(' (R$')[0].trim();
@@ -658,11 +671,30 @@
                         productCounts[itemName].revenue += itemPrice;
                     });
                 });
-                const sortedProducts = Object.entries(productCounts).sort((a, b) => b[1].count - a[1].count);
-                const tableHtml = createRankingTable(sortedProducts, ['Produto', 'Qtd.', 'Faturamento'], [
+                
+                const sortedProducts = Object.entries(productCounts).sort((a, b) => {
+                    if (productSortCriteria === 'revenue') {
+                        return b[1].revenue - a[1].revenue;
+                    }
+                    return b[1].count - a[1].count;
+                });
+
+                const top10Products = sortedProducts.slice(0, 10);
+                const chartData = {
+                    labels: top10Products.map(p => p[0]),
+                    datasets: [
+                        { label: 'Qtd. Vendida', data: top10Products.map(p => p[1].count), backgroundColor: '#8b5cf6', yAxisID: 'yCount' },
+                        { label: 'Faturamento (R$)', data: top10Products.map(p => p[1].revenue), backgroundColor: '#16a34a', yAxisID: 'yRevenue' }
+                    ]
+                };
+                const chartOptions = { scales: { yCount: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Qtd. Vendida' } }, yRevenue: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Faturamento (R$)'}, grid: { drawOnChartArea: false } } } };
+                renderChart('product-ranking-chart', 'bar', chartData, chartOptions);
+
+                const tableHtml = createRankingTable(sortedProducts, ['Produto', 'Qtd.', 'Faturamento', '% Faturamento'], [
                     (data, key) => key,
                     (data) => data.count,
-                    (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`
+                    (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`,
+                    (data) => totalProductRevenue > 0 ? `${((data.revenue / totalProductRevenue) * 100).toFixed(1).replace('.', ',')}%` : '0,0%'
                 ]);
                 document.getElementById('product-ranking-table').innerHTML = tableHtml;
             }
