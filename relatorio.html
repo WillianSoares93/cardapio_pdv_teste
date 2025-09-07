@@ -22,6 +22,15 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+        .report-tab-btn {
+            transition: all 0.2s ease-in-out;
+            border-bottom: 4px solid transparent;
+        }
+        .report-tab-btn.active {
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -72,20 +81,38 @@
                 </div>
             </div>
 
-            <!-- Gráficos -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div class="bg-white p-5 rounded-lg shadow">
-                    <h3 class="font-bold text-gray-800 mb-4">Faturamento por Dia</h3>
-                    <canvas id="revenue-chart"></canvas>
+            <!-- Abas de Relatórios -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="border-b border-gray-200">
+                    <nav id="report-tabs" class="-mb-px flex space-x-6 px-6" aria-label="Tabs">
+                        <button class="report-tab-btn active" data-target="geral-panel">Visão Geral</button>
+                        <button class="report-tab-btn" data-target="financeiro-panel">Financeiro</button>
+                        <button class="report-tab-btn" data-target="produtos-panel">Produtos</button>
+                        <button class="report-tab-btn" data-target="clientes-panel">Clientes e Bairros</button>
+                    </nav>
                 </div>
-                <div class="bg-white p-5 rounded-lg shadow">
-                    <h3 class="font-bold text-gray-800 mb-4">Vendas por Categoria de Item</h3>
-                    <canvas id="category-chart"></canvas>
+                <div class="p-6">
+                    <div id="geral-panel" class="report-panel grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div><h3 class="font-bold text-gray-800 mb-4">Faturamento por Dia</h3><canvas id="revenue-chart"></canvas></div>
+                        <div><h3 class="font-bold text-gray-800 mb-4">Vendas por Categoria</h3><canvas id="category-chart"></canvas></div>
+                    </div>
+                    <div id="financeiro-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div><h3 class="font-bold text-gray-800 mb-4">Faturamento por Pagamento</h3><canvas id="payment-chart"></canvas></div>
+                        <div class="bg-blue-50 p-5 rounded-lg flex flex-col items-center justify-center"><h3 class="text-lg font-medium text-blue-800">TOTAL TAXAS DE ENTREGA</h3><p id="stats-total-delivery-fee" class="text-4xl font-bold text-blue-900 mt-2">R$ 0,00</p></div>
+                    </div>
+                    <div id="produtos-panel" class="report-panel hidden">
+                        <h3 class="font-bold text-gray-800 mb-4">Ranking de Produtos Vendidos</h3>
+                        <div id="product-ranking-table" class="max-h-96 overflow-y-auto"></div>
+                    </div>
+                    <div id="clientes-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div><h3 class="font-bold text-gray-800 mb-4">Ranking de Clientes (por telefone)</h3><div id="client-ranking-table" class="max-h-96 overflow-y-auto"></div></div>
+                        <div><h3 class="font-bold text-gray-800 mb-4">Top 5 Bairros (Delivery)</h3><canvas id="neighborhood-chart"></canvas></div>
+                    </div>
                 </div>
             </div>
 
             <!-- Tabela de Histórico -->
-            <div class="bg-white rounded-lg shadow overflow-x-auto">
+            <div class="bg-white rounded-lg shadow overflow-x-auto mt-6">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
@@ -97,11 +124,8 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                         </tr>
                     </thead>
-                    <tbody id="history-table-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Linhas da tabela serão inseridas aqui -->
-                    </tbody>
+                    <tbody id="history-table-body" class="bg-white divide-y divide-gray-200"></tbody>
                 </table>
-                 <!-- Controles de Paginação -->
                 <div id="pagination-controls" class="px-6 py-3 flex items-center justify-between border-t">
                     <button id="prev-page-btn" class="pagination-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Anterior</button>
                     <span id="page-info" class="text-sm text-gray-600">Página 1 de 1</span>
@@ -132,10 +156,9 @@
         
         document.addEventListener('DOMContentLoaded', () => {
             let allOrders = [];
+            let fullMenuData = new Map();
             let filteredOrdersCache = [];
-            let revenueChartInstance = null;
-            let categoryChartInstance = null;
-
+            let chartInstances = {};
             let currentPage = 1;
             const ROWS_PER_PAGE = 20;
 
@@ -159,44 +182,51 @@
 
             async function initializeApp() {
                 try {
-                    const response = await fetch('/api/historico');
-                    if (!response.ok) throw new Error(`Erro ao buscar dados: ${response.statusText}`);
+                    const [historyResponse, menuResponse] = await Promise.all([
+                        fetch('/api/historico'),
+                        fetch('/api/menu')
+                    ]);
+
+                    if (!historyResponse.ok) throw new Error(`Erro ao buscar histórico: ${historyResponse.statusText}`);
+                    if (!menuResponse.ok) throw new Error(`Erro ao buscar cardápio: ${menuResponse.statusText}`);
                     
-                    const rawOrders = await response.json();
+                    const rawOrders = await historyResponse.json();
+                    const menuData = await menuResponse.json();
+                    
+                    menuData.cardapio.forEach(item => fullMenuData.set(item.name, item));
+                    
                     allOrders = rawOrders.map(order => ({ ...order, date: parseDate(order.date) })).filter(order => order.date !== null);
                     
                     document.getElementById('loading-state').classList.add('hidden');
                     document.getElementById('report-content').classList.remove('hidden');
                     
-                    setupFiltersAndPagination();
+                    setupUI();
                     applyFilters();
 
                 } catch (error) {
                     console.error("Falha ao inicializar:", error);
-                    document.getElementById('loading-state').innerHTML = `<p class="text-red-500 font-bold">Não foi possível carregar o histórico. Verifique o console.</p>`;
+                    document.getElementById('loading-state').innerHTML = `<p class="text-red-500 font-bold">Não foi possível carregar os dados. Verifique o console.</p>`;
                 }
             }
 
-            function setupFiltersAndPagination() {
-                flatpickr("#date-filter", {
-                    mode: "range",
-                    dateFormat: "d/m/Y",
-                    locale: "pt",
-                    onChange: () => { currentPage = 1; applyFilters(); }
-                });
+            function setupUI() {
+                // Filtros
+                flatpickr("#date-filter", { mode: "range", dateFormat: "d/m/Y", locale: "pt", onChange: () => { currentPage = 1; applyFilters(); } });
                 document.getElementById('search-filter').addEventListener('input', () => { currentPage = 1; applyFilters(); });
                 document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
-                document.getElementById('prev-page-btn').addEventListener('click', () => {
-                    if (currentPage > 1) {
-                        currentPage--;
-                        renderTable(filteredOrdersCache);
-                    }
-                });
-                document.getElementById('next-page-btn').addEventListener('click', () => {
-                    const totalPages = Math.ceil(filteredOrdersCache.length / ROWS_PER_PAGE);
-                    if (currentPage < totalPages) {
-                        currentPage++;
-                        renderTable(filteredOrdersCache);
+                
+                // Paginação
+                document.getElementById('prev-page-btn').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(filteredOrdersCache); } });
+                document.getElementById('next-page-btn').addEventListener('click', () => { const totalPages = Math.ceil(filteredOrdersCache.length / ROWS_PER_PAGE); if (currentPage < totalPages) { currentPage++; renderTable(filteredOrdersCache); } });
+            
+                // Abas
+                document.getElementById('report-tabs').addEventListener('click', (e) => {
+                    const btn = e.target.closest('.report-tab-btn');
+                    if(btn) {
+                        document.querySelectorAll('.report-tab-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        document.querySelectorAll('.report-panel').forEach(p => p.classList.add('hidden'));
+                        document.getElementById(btn.dataset.target).classList.remove('hidden');
                     }
                 });
             }
@@ -207,18 +237,26 @@
 
                 filteredOrdersCache = allOrders.filter(order => {
                     const dateMatch = !dateRange.length || (order.date >= dateRange[0] && order.date <= (dateRange[1] || dateRange[0]));
-                    const searchMatch = !searchTerm || 
-                        order.clientData.toLowerCase().includes(searchTerm) ||
-                        order.items.toLowerCase().includes(searchTerm);
-                    
+                    const searchMatch = !searchTerm || order.clientData.toLowerCase().includes(searchTerm) || order.items.toLowerCase().includes(searchTerm);
                     return dateMatch && searchMatch;
                 });
 
-                updateDashboard(filteredOrdersCache);
-                updateCharts(filteredOrdersCache);
-                renderTable(filteredOrdersCache);
+                renderAllReports(filteredOrdersCache);
             }
             
+            function renderAllReports(orders) {
+                updateDashboard(orders);
+                renderTable(orders);
+                // Gráficos e Tabelas
+                renderRevenueChart(orders);
+                renderCategoryChart(orders);
+                renderPaymentChart(orders);
+                renderDeliveryFeeReport(orders);
+                renderProductRanking(orders);
+                renderClientRanking(orders);
+                renderNeighborhoodChart(orders);
+            }
+
             function updateDashboard(orders) {
                 const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
                 const totalOrders = orders.length;
@@ -233,9 +271,7 @@
                     });
                 });
                 
-                const topProduct = Object.keys(itemCounts).length > 0
-                    ? Object.entries(itemCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0]
-                    : '-';
+                const topProduct = Object.keys(itemCounts).length > 0 ? Object.entries(itemCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0] : '-';
 
                 document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenue.toFixed(2).replace('.', ',')}`;
                 document.getElementById('stats-total-orders').textContent = totalOrders;
@@ -243,38 +279,122 @@
                 document.getElementById('stats-top-product').textContent = topProduct;
             }
 
-            function updateCharts(orders) {
+            function renderRevenueChart(orders) {
                 const revenueByDay = orders.reduce((acc, order) => {
                     const day = order.date.toLocaleDateString('pt-BR');
                     acc[day] = (acc[day] || 0) + order.total;
                     return acc;
                 }, {});
-                
-                const sortedDays = Object.keys(revenueByDay).sort((a,b) => {
-                    const [dayA, monthA, yearA] = a.split('/');
-                    const [dayB, monthB, yearB] = b.split('/');
-                    return new Date(`${yearA}-${monthA}-${dayA}`) - new Date(`${yearB}-${monthB}-${dayB}`);
-                });
+                const sortedDays = Object.keys(revenueByDay).sort((a,b) => parseDate(a + ", 00:00:00") - parseDate(b + ", 00:00:00"));
+                renderChart('revenue-chart', 'line', { labels: sortedDays, datasets: [{ label: 'Faturamento', data: sortedDays.map(day => revenueByDay[day]), borderColor: '#3b82f6', tension: 0.1 }] });
+            }
 
-                if (revenueChartInstance) revenueChartInstance.destroy();
-                revenueChartInstance = new Chart(document.getElementById('revenue-chart'), {
-                    type: 'line',
-                    data: { labels: sortedDays, datasets: [{ label: 'Faturamento', data: sortedDays.map(day => revenueByDay[day]), borderColor: '#3b82f6', tension: 0.1, fill: false }] }
-                });
-                
+            function renderCategoryChart(orders) {
                 const salesByCategory = {};
                 orders.forEach(order => {
-                    if (order.items.toLowerCase().includes('pizza')) salesByCategory['Pizzas'] = (salesByCategory['Pizzas'] || 0) + 1;
-                    else if (order.items.toLowerCase().includes('hambúrguer')) salesByCategory['Hambúrgueres'] = (salesByCategory['Hambúrgueres'] || 0) + 1;
-                    else if (order.items.toLowerCase().includes('bebida')) salesByCategory['Bebidas'] = (salesByCategory['Bebidas'] || 0) + 1;
-                    else salesByCategory['Outros'] = (salesByCategory['Outros'] || 0) + 1;
+                    order.items.split('; ').forEach(itemString => {
+                        let itemName = itemString.split(' (R$')[0].trim();
+                        // Simplifica nomes de pizza para lookup
+                        if (itemName.includes('FATIAS: Meia')) {
+                            itemName = itemName.split(' & Meia ')[1]; // Pega a segunda metade como referência
+                        } else if (itemName.includes('FATIAS:')) {
+                            itemName = itemName.split(': ')[1];
+                        }
+                        const menuItem = fullMenuData.get(itemName);
+                        const category = menuItem ? menuItem.category : 'Outros';
+                        salesByCategory[category] = (salesByCategory[category] || 0) + 1;
+                    });
                 });
+                renderChart('category-chart', 'pie', { labels: Object.keys(salesByCategory), datasets: [{ data: Object.values(salesByCategory), backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#6b7280', '#6366f1', '#ec4899'] }] });
+            }
 
-                if (categoryChartInstance) categoryChartInstance.destroy();
-                categoryChartInstance = new Chart(document.getElementById('category-chart'), {
-                    type: 'pie',
-                    data: { labels: Object.keys(salesByCategory), datasets: [{ data: Object.values(salesByCategory), backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#6b7280'] }] }
+            function renderPaymentChart(orders) {
+                const salesByPayment = orders.reduce((acc, order) => {
+                    let paymentMethod = order.payment.split(' (')[0];
+                    if (paymentMethod.includes('Débito')) paymentMethod = 'Cartão';
+                    acc[paymentMethod] = (acc[paymentMethod] || 0) + order.total;
+                    return acc;
+                }, {});
+                renderChart('payment-chart', 'bar', {
+                    labels: Object.keys(salesByPayment),
+                    datasets: [{ label: 'Faturamento', data: Object.values(salesByPayment), backgroundColor: '#10b981' }]
+                }, { indexAxis: 'y' });
+            }
+
+            function renderDeliveryFeeReport(orders) {
+                const totalFee = orders.reduce((sum, order) => sum + order.deliveryFee, 0);
+                document.getElementById('stats-total-delivery-fee').textContent = `R$ ${totalFee.toFixed(2).replace('.', ',')}`;
+            }
+
+            function renderProductRanking(orders) {
+                const productCounts = {};
+                 orders.forEach(order => {
+                    order.items.split('; ').forEach(itemString => {
+                        const itemName = itemString.split(' (R$')[0].trim();
+                        const itemPrice = parseFloat(itemString.match(/\(R\$\s*([\d,]+)\)/)?.[1].replace(',', '.') || 0);
+                        if (!productCounts[itemName]) {
+                            productCounts[itemName] = { count: 0, revenue: 0 };
+                        }
+                        productCounts[itemName].count++;
+                        productCounts[itemName].revenue += itemPrice;
+                    });
                 });
+                const sortedProducts = Object.entries(productCounts).sort((a, b) => b[1].count - a[1].count);
+                const tableHtml = `
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50"><tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Produto</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Qtd.</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Faturamento</th>
+                        </tr></thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${sortedProducts.map(([name, data]) => `
+                                <tr>
+                                    <td class="px-4 py-2 text-sm">${name}</td>
+                                    <td class="px-4 py-2 text-sm">${data.count}</td>
+                                    <td class="px-4 py-2 text-sm">R$ ${data.revenue.toFixed(2).replace('.', ',')}</td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+                document.getElementById('product-ranking-table').innerHTML = tableHtml;
+            }
+
+            function renderClientRanking(orders) {
+                const clientData = {};
+                orders.forEach(order => {
+                    const phone = (order.clientData.match(/(\(\d{2}\)\s*\d{4,5}-\d{4})/) || ['N/A'])[0];
+                    if (phone === 'N/A') return;
+                    if (!clientData[phone]) {
+                        clientData[phone] = { count: 0, revenue: 0, name: order.clientData.split(';')[0] };
+                    }
+                    clientData[phone].count++;
+                    clientData[phone].revenue += order.total;
+                });
+                const sortedClients = Object.entries(clientData).sort((a, b) => b[1].revenue - a[1].revenue);
+                const tableHtml = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Cliente (Telefone)</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Pedidos</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Total Gasto</th></tr></thead><tbody>${sortedClients.slice(0, 10).map(([phone, data]) => `<tr><td class="px-4 py-2 text-sm">${data.name} (${phone})</td><td class="px-4 py-2 text-sm">${data.count}</td><td class="px-4 py-2 text-sm">R$ ${data.revenue.toFixed(2).replace('.', ',')}</td></tr>`).join('')}</tbody></table>`;
+                document.getElementById('client-ranking-table').innerHTML = tableHtml;
+            }
+            
+            function renderNeighborhoodChart(orders) {
+                const salesByNeighborhood = {};
+                orders.forEach(order => {
+                    if (order.type === 'Delivery') {
+                        const neighborhood = (order.clientData.split('; ')[1] || '').split(' - ').slice(-1)[0] || 'N/A';
+                        if (neighborhood !== 'N/A') {
+                            salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1;
+                        }
+                    }
+                });
+                const sortedNeighborhoods = Object.entries(salesByNeighborhood).sort((a,b) => b[1] - a[1]).slice(0, 5);
+                renderChart('neighborhood-chart', 'bar', {
+                    labels: sortedNeighborhoods.map(n => n[0]),
+                    datasets: [{ label: 'Nº de Pedidos', data: sortedNeighborhoods.map(n => n[1]), backgroundColor: '#f97316' }]
+                });
+            }
+
+            function renderChart(canvasId, type, data, options = {}) {
+                if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+                chartInstances[canvasId] = new Chart(document.getElementById(canvasId), { type, data, options });
             }
 
             function renderTable(orders) {
@@ -289,7 +409,6 @@
                 }
                 
                 document.getElementById('pagination-controls').classList.remove('hidden');
-
                 const start = (currentPage - 1) * ROWS_PER_PAGE;
                 const end = start + ROWS_PER_PAGE;
                 const paginatedOrders = orders.slice(start, end);
@@ -314,19 +433,13 @@
 
             function exportToCSV() {
                 let csvContent = "data:text/csv;charset=utf-8,Data,Cliente,Itens,Tipo,Pagamento,Total\n";
-                
-                filteredOrdersCache.forEach(order => { // Exporta todos os dados filtrados, não apenas a página atual
+                filteredOrdersCache.forEach(order => {
                     const rowData = [
-                        order.date.toLocaleString('pt-BR'),
-                        order.clientData,
-                        order.items,
-                        order.type,
-                        order.payment,
-                        order.total.toFixed(2).replace('.', ',')
+                        order.date.toLocaleString('pt-BR'), order.clientData, order.items, order.type,
+                        order.payment, order.total.toFixed(2).replace('.', ',')
                     ].map(field => `"${String(field).replace(/"/g, '""')}"`);
                     csvContent += rowData.join(',') + "\n";
                 });
-
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a");
                 link.setAttribute("href", encodedUri);
