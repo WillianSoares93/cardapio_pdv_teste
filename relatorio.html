@@ -442,11 +442,10 @@
                         let addressPart = (order.clientData.split(';')[1] || '').trim();
                         addressPart = addressPart.replace(/\(Ref:.*\)/i, '').trim();
                         const neighborhoodMatch = addressPart.match(/(?:-|,)\s*([^-,\s].*)$/);
-                        let neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : 'N/A';
-                         if (neighborhood === 'N/A' && addressPart) {
-                            neighborhood = addressPart;
+                        let neighborhood = neighborhoodMatch ? neighborhoodMatch[1].trim() : addressPart.split(',')[0].trim();
+                        if (neighborhood) { 
+                            salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; 
                         }
-                        if (neighborhood !== 'N/A' && neighborhood) { salesByNeighborhood[neighborhood] = (salesByNeighborhood[neighborhood] || 0) + 1; }
                     }
                 });
                 const sortedNeighborhoods = Object.entries(salesByNeighborhood).sort((a,b) => b[1] - a[1]).slice(0, 5);
