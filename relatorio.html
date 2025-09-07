@@ -519,28 +519,40 @@
                 const chartLabels = Object.keys(categorySalesData);
                 let dataForChart;
                 let datalabelsFormatter;
+                let tooltipCallback;
+
                 let datalabelsConfig = {
                     color: '#fff',
                     font: {
-                        weight: 'bold'
+                        weight: 'bold',
+                        size: 12
                     }
                 };
 
                 switch (categoryChartView) {
                     case 'revenue':
                         dataForChart = chartLabels.map(label => categorySalesData[label].revenue);
-                        datalabelsFormatter = (value, ctx) => {
+                        datalabelsFormatter = (value) => {
                             const percentage = totalCategoryRevenue > 0 ? (value / totalCategoryRevenue) * 100 : 0;
                             return [`R$ ${value.toFixed(2).replace('.', ',')}`, `(${percentage.toFixed(1).replace('.', ',')}%)`];
                         };
-                        datalabelsConfig.font = { weight: 'bold', size: 12 };
+                        tooltipCallback = (ctx) => {
+                            const label = ctx.label || '';
+                            const value = ctx.raw;
+                            const percentage = totalCategoryRevenue > 0 ? (value / totalCategoryRevenue) * 100 : 0;
+                            return `${label}: R$ ${value.toFixed(2).replace('.', ',')} (${percentage.toFixed(1).replace('.', ',')}%)`;
+                        };
                         datalabelsConfig.align = 'center';
                         break;
                     case 'count':
                     default:
                         dataForChart = chartLabels.map(label => categorySalesData[label].count);
                         datalabelsFormatter = (value) => value % 1 === 0 ? value : value.toFixed(1).replace('.', ',');
-                        datalabelsConfig.font = { weight: 'bold', size: 12 };
+                        tooltipCallback = (ctx) => {
+                             const label = ctx.label || '';
+                             const value = ctx.raw;
+                             return `${label}: ${value % 1 === 0 ? value : value.toFixed(1).replace('.', ',')}`;
+                        };
                         break;
                 }
 
@@ -557,6 +569,11 @@
                         datalabels: {
                             ...datalabelsConfig,
                             formatter: datalabelsFormatter,
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: tooltipCallback
+                            }
                         }
                     }
                 };
