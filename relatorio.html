@@ -502,10 +502,8 @@
             
             function renderNeighborhoodReports(orders) {
                 const deliveryOrders = orders.filter(order => order.type === 'Delivery');
-                const totalDeliveryOrders = deliveryOrders.length;
-                
                 const titleElement = document.getElementById('neighborhood-report-title');
-                titleElement.innerHTML = `Ranking de Bairros (Delivery) <span class="text-sm font-normal text-gray-500">- ${totalDeliveryOrders} pedidos no total</span>`;
+                titleElement.innerHTML = `Ranking de Bairros (Delivery)`;
                 
                 const salesByNeighborhood = {};
                 deliveryOrders.forEach(order => {
