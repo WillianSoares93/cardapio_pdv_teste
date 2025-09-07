@@ -673,7 +673,7 @@
                         }; 
                     }
                     clientData[name].count++;
-                    clientData[name].revenue += order.total;
+                    clientData[name].revenue += order.subtotal;
                     clientData[name].deliveryFee += order.deliveryFee || 0;
                 });
 
@@ -738,7 +738,7 @@
                                 salesByNeighborhood[neighborhood] = { count: 0, revenue: 0, deliveryFee: 0 };
                             }
                             salesByNeighborhood[neighborhood].count++;
-                            salesByNeighborhood[neighborhood].revenue += order.total;
+                            salesByNeighborhood[neighborhood].revenue += order.subtotal;
                             salesByNeighborhood[neighborhood].deliveryFee += order.deliveryFee || 0;
                         }
                     }
