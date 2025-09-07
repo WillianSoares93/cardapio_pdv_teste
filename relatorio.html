@@ -233,6 +233,7 @@
             let neighborhoodSortCriteria = 'revenue';
             let categoryChartView = 'count';
             let categoryTableSortCriteria = 'revenue';
+            let categorySalesDataCache = {};
 
             Chart.register(ChartDataLabels);
 
@@ -328,7 +329,7 @@
                             renderNeighborhoodReports(filteredOrdersCache);
                         } else if (target === 'category-table') {
                             categoryTableSortCriteria = e.currentTarget.dataset.sort;
-                            renderCategoryReports(filteredOrdersCache);
+                            renderCategoryTable();
                         }
                     });
                 });
@@ -338,7 +339,7 @@
                         document.querySelectorAll('.category-chart-view-btn').forEach(b => b.classList.remove('active'));
                         e.currentTarget.classList.add('active');
                         categoryChartView = e.currentTarget.dataset.view;
-                        renderCategoryReports(filteredOrdersCache);
+                        renderCategoryPieChart();
                     });
                 });
 
@@ -509,23 +510,15 @@
                         }
                     });
                 });
-                
-                let totalCategoryCount = 0;
-                let totalCategoryRevenue = 0;
-                for (const category in categorySalesData) {
-                    totalCategoryCount += categorySalesData[category].count;
-                    totalCategoryRevenue += categorySalesData[category].revenue;
-                }
+                categorySalesDataCache = categorySalesData;
+                renderCategoryPieChart();
+                renderCategoryTable();
+            }
 
-                const totalsContainer = document.getElementById('category-chart-totals');
-                if (totalsContainer) {
-                    totalsContainer.innerHTML = `
-                        <span>Total Itens: <strong>${totalCategoryCount % 1 === 0 ? totalCategoryCount : totalCategoryCount.toFixed(1).replace('.', ',')}</strong></span> | 
-                        <span>Valor Total: <strong>R$ ${totalCategoryRevenue.toFixed(2).replace('.', ',')}</strong></span>
-                    `;
-                }
+            function renderCategoryPieChart() {
+                const categorySalesData = categorySalesDataCache;
+                const totalCategoryRevenue = Object.values(categorySalesData).reduce((sum, data) => sum + data.revenue, 0);
 
-                // Render Pie Chart
                 const chartLabels = Object.keys(categorySalesData);
                 let dataForChart;
                 let datalabelsFormatter;
@@ -588,8 +581,25 @@
                     }
                 };
                 renderChart('category-chart', 'pie', pieChartData, pieChartOptions);
+            }
 
-                // Render Numerical Table
+            function renderCategoryTable() {
+                const categorySalesData = categorySalesDataCache;
+                let totalCategoryCount = 0;
+                let totalCategoryRevenue = 0;
+                for (const category in categorySalesData) {
+                    totalCategoryCount += categorySalesData[category].count;
+                    totalCategoryRevenue += categorySalesData[category].revenue;
+                }
+
+                const totalsContainer = document.getElementById('category-chart-totals');
+                 if (totalsContainer) {
+                    totalsContainer.innerHTML = `
+                        <span>Total Itens: <strong>${totalCategoryCount % 1 === 0 ? totalCategoryCount : totalCategoryCount.toFixed(1).replace('.', ',')}</strong></span> | 
+                        <span>Valor Total: <strong>R$ ${totalCategoryRevenue.toFixed(2).replace('.', ',')}</strong></span>
+                    `;
+                }
+
                 const tableContainer = document.getElementById('category-sales-table');
                 const sortedCategories = Object.entries(categorySalesData).sort((a, b) => {
                     if (categoryTableSortCriteria === 'count') {
