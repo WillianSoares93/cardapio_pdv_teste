@@ -22,7 +22,7 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
-        .report-tab-btn, .period-filter-btn {
+        .report-tab-btn, .period-filter-btn, .sort-neighborhood-btn {
             transition: all 0.2s ease-in-out;
         }
         .report-tab-btn {
@@ -33,7 +33,7 @@
             color: #3b82f6;
             font-weight: 600;
         }
-        .period-filter-btn.active {
+        .period-filter-btn.active, .sort-neighborhood-btn.active {
             background-color: #3b82f6;
             color: white;
         }
@@ -125,7 +125,13 @@
                     <div id="clientes-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div><h3 class="font-bold text-gray-800 mb-4">Ranking de Clientes</h3><div id="client-ranking-table" class="max-h-96 overflow-y-auto"></div></div>
                         <div class="space-y-4">
-                            <h3 id="neighborhood-report-title" class="font-bold text-gray-800">Top 5 Bairros (Delivery)</h3>
+                            <div class="flex justify-between items-center">
+                                <h3 id="neighborhood-report-title" class="font-bold text-gray-800">Top 5 Bairros (Delivery)</h3>
+                                <div class="text-sm bg-gray-100 rounded-full p-0.5">
+                                    <button class="sort-neighborhood-btn active px-2 py-1 rounded-full" data-sort="revenue">Total Gasto</button>
+                                    <button class="sort-neighborhood-btn px-2 py-1 rounded-full" data-sort="count">Nº Pedidos</button>
+                                </div>
+                            </div>
                             <canvas id="neighborhood-chart"></canvas>
                              <div id="neighborhood-table" class="max-h-48 overflow-y-auto"></div>
                         </div>
@@ -183,6 +189,7 @@
             let chartInstances = {};
             let currentPage = 1;
             const ROWS_PER_PAGE = 20;
+            let neighborhoodSortCriteria = 'revenue'; // 'revenue' or 'count'
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
@@ -259,6 +266,15 @@
                                 break;
                         }
                         datePicker.setDate([start, end], true);
+                    });
+                });
+                
+                document.querySelectorAll('.sort-neighborhood-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.sort-neighborhood-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        neighborhoodSortCriteria = btn.dataset.sort;
+                        renderNeighborhoodReports(filteredOrdersCache);
                     });
                 });
 
@@ -468,7 +484,9 @@
                     }
                 });
 
-                const sortedNeighborhoods = Object.entries(salesByNeighborhood).sort((a,b) => b[1].revenue - a[1].revenue).slice(0, 5);
+                const sortedNeighborhoods = Object.entries(salesByNeighborhood)
+                    .sort((a,b) => b[1][neighborhoodSortCriteria] - a[1][neighborhoodSortCriteria])
+                    .slice(0, 5);
 
                 if (sortedNeighborhoods.length === 0) {
                     document.getElementById('neighborhood-chart').style.display = 'none';
@@ -479,7 +497,11 @@
                 document.getElementById('neighborhood-chart').style.display = 'block';
                 renderChart('neighborhood-chart', 'bar', {
                     labels: sortedNeighborhoods.map(n => n[0]),
-                    datasets: [{ label: 'Nº de Pedidos', data: sortedNeighborhoods.map(n => n[1].count), backgroundColor: '#f97316' }]
+                    datasets: [{ 
+                        label: neighborhoodSortCriteria === 'revenue' ? 'Total Gasto (R$)' : 'Nº de Pedidos', 
+                        data: sortedNeighborhoods.map(n => n[1][neighborhoodSortCriteria]), 
+                        backgroundColor: '#f97316' 
+                    }]
                 });
                 
                 const tableHtml = createRankingTable(sortedNeighborhoods, ['Bairro', 'Pedidos', 'Total Gasto'], (data, key) => key, (data) => `R$ ${data.revenue.toFixed(2).replace('.', ',')}`);
