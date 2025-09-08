@@ -153,7 +153,7 @@
                                 <button class="sort-btn px-2 py-1 rounded-full text-xs" data-sort="revenue" data-target="product-ranking">Faturamento</button>
                             </div>
                         </div>
-                        <div id="product-ranking-table" class="max-h-96 overflow-y-auto"></div>
+                        <div id="product-ranking-table" class="max-h-[70vh] overflow-y-auto"></div>
                     </div>
                     <div id="clientes-panel" class="report-panel hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="space-y-4">
@@ -677,7 +677,7 @@
                     }
                     return b[1].count - a[1].count;
                 });
-                
+
                 const tableHtml = createRankingTable(sortedProducts, ['Produto', 'Qtd.', 'Faturamento', '% Faturamento'], [
                     (data, key) => key,
                     (data) => data.count,
@@ -694,7 +694,8 @@
                     if(name === 'N/A' || !name) return;
                     
                     if (!clientData[name]) { 
-                        const phoneMatch = order.clientData.match(new RegExp('\\(\\s*\\d{2}\\s*\\)\\s*\\d{4,5}[- ]?\\d{4}|\\d{10,11}'));
+                        const phoneRegex = new RegExp('\\(\\s*\\d{2}\\s*\\)\\s*\\d{4,5}[- ]?\\d{4}|\\d{10,11}');
+                        const phoneMatch = order.clientData.match(phoneRegex);
                         clientData[name] = { 
                             count: 0, 
                             revenue: 0, 
