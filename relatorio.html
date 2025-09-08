@@ -694,7 +694,7 @@
                     if(name === 'N/A' || !name) return;
                     
                     if (!clientData[name]) { 
-                        const phoneMatch = order.clientData.match(/\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}|\d{10,11}/);
+                        const phoneMatch = order.clientData.match(new RegExp('\\(\\s*\\d{2}\\s*\\)\\s*\\d{4,5}[- ]?\\d{4}|\\d{10,11}'));
                         clientData[name] = { 
                             count: 0, 
                             revenue: 0, 
@@ -930,3 +930,4 @@
     </script>
 </body>
 </html>
+
