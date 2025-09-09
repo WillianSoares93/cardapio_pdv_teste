@@ -694,7 +694,7 @@
                     if(name === 'N/A' || !name) return;
                     
                     if (!clientData[name]) { 
-                        const phoneRegex = new RegExp('\\(\\s*\\d{2}\\s*\\)\\s*\\d{4,5}[- ]?\\d{4}|\\d{10,11}');
+                        const phoneRegex = /\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}|\d{10,11}/;
                         const phoneMatch = order.clientData.match(phoneRegex);
                         clientData[name] = { 
                             count: 0, 
@@ -751,7 +751,7 @@
                 deliveryOrders.forEach(order => {
                     if (order.clientData.includes(';')) {
                         let addressPart = (order.clientData.split(';')[1] || '').trim();
-                        addressPart = addressPart.replace(new RegExp('\\(Ref:.*\\)', 'i'), '').trim();
+                        addressPart = addressPart.replace(/\(Ref:.*\)/i, '').trim();
                         
                         const parts = addressPart.split(/[,-]/);
                         let neighborhood = 'N/A';
