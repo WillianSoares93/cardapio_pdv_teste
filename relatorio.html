@@ -693,7 +693,7 @@
                     const name = (order.clientData.split(';')[0] || 'N/A').trim();
                     if(name === 'N/A' || !name) return;
                     
-                    if (!clientData[name]) { 
+                    if (!clientData[name]) {
                         const phoneRegex = /\(\s*\d{2}\s*\)\s*\d{4,5}[- ]?\d{4}|\d{10,11}/;
                         const phoneMatch = order.clientData.match(phoneRegex);
                         clientData[name] = { 
