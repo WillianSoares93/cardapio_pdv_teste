@@ -751,7 +751,7 @@
                 deliveryOrders.forEach(order => {
                     if (order.clientData.includes(';')) {
                         let addressPart = (order.clientData.split(';')[1] || '').trim();
-                        addressPart = addressPart.replace(/\(Ref:.*\)/i, '').trim();
+                        addressPart = addressPart.replace(new RegExp('\\(Ref:.*\\)', 'i'), '').trim();
                         
                         const parts = addressPart.split(/[,-]/);
                         let neighborhood = 'N/A';
