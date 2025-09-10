@@ -899,7 +899,8 @@
             }
 
             try {
-                const response = await fetch('/api/historico');
+                // Adicionado cache-busting para garantir que os dados sejam sempre os mais recentes.
+                const response = await fetch(`/api/historico?t=${new Date().getTime()}`);
                 if (!response.ok) {
                     throw new Error('Não foi possível carregar o histórico de pedidos para fechar o caixa.');
                 }
