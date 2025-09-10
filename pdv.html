@@ -127,19 +127,21 @@
 
         <!-- Conteúdo das Abas -->
         <div id="tab-content-delivery" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
                 <div class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div id="col-delivery-novo" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
                 <div class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div id="col-delivery-preparo" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
                 <div class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div id="col-delivery-pronto" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
                 <div class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div id="col-delivery-entrega" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div id="col-delivery-entregue" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
             </div>
         </div>
 
         <div id="tab-content-retirada" class="tab-content hidden">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
                 <div class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div id="col-retirada-novo" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
                 <div class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div id="col-retirada-preparo" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
                 <div class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div id="col-retirada-pronto" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div id="col-retirada-entregue" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
             </div>
         </div>
 
@@ -290,7 +292,7 @@
            projectId: "pizzaria-pdv",
            storageBucket: "pizzaria-pdv.firebasestorage.app",
            messagingSenderId: "304171744691",
-           appId: "1:304171744691:web:e54d7ffe55c7a75485fc6"
+           appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -392,10 +394,12 @@
         const colDeliveryPreparo = document.getElementById('col-delivery-preparo');
         const colDeliveryPronto = document.getElementById('col-delivery-pronto');
         const colDeliveryEntrega = document.getElementById('col-delivery-entrega');
+        const colDeliveryEntregue = document.getElementById('col-delivery-entregue');
 
         const colRetiradaNovo = document.getElementById('col-retirada-novo');
         const colRetiradaPreparo = document.getElementById('col-retirada-preparo');
         const colRetiradaPronto = document.getElementById('col-retirada-pronto');
+        const colRetiradaEntregue = document.getElementById('col-retirada-entregue');
         
         const connectionStatus = document.getElementById('connection-status');
         const editOrderModal = document.getElementById('edit-order-modal');
@@ -529,7 +533,7 @@
             onSnapshot(q, (snapshot) => {
                 connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
                 
-                [colDeliveryNovo, colDeliveryPreparo, colDeliveryPronto, colDeliveryEntrega, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto]
+                [colDeliveryNovo, colDeliveryPreparo, colDeliveryPronto, colDeliveryEntrega, colDeliveryEntregue, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto, colRetiradaEntregue]
                  .forEach(col => col.innerHTML = '');
                 initializeMesas();
 
@@ -588,10 +592,12 @@
                         else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
                         else if (order.status === 'Pronto para Entrega') colDeliveryPronto.appendChild(card);
                         else if (order.status === 'Saiu para Entrega') colDeliveryEntrega.appendChild(card);
+                        else if (order.status === 'Entregue') colDeliveryEntregue.appendChild(card);
                     } else if (tipoPedido === 'retirada') {
                         if (order.status === 'Novo') colRetiradaNovo.appendChild(card);
                         else if (order.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
                         else if (order.status === 'Pronto para Retirada') colRetiradaPronto.appendChild(card);
+                        else if (order.status === 'Entregue') colRetiradaEntregue.appendChild(card);
                     } else if (tipoPedido === 'mesa' && !order.grupoMesas) {
                         const clientName = order.endereco.clientName || "";
                         const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
@@ -642,8 +648,14 @@
             } else if (order.status === 'Pronto para Entrega') {
                 card.classList.add('border-green-500');
                 buttonHtml = `<button data-id="${id}" data-status="Saiu para Entrega" class="move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Saiu p/ Entrega</button>`;
-            } else if (order.status === 'Saiu para Entrega' || order.status === 'Pronto para Retirada') {
+            } else if (order.status === 'Saiu para Entrega') {
                 card.classList.add('border-blue-500');
+                buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
+            } else if (order.status === 'Pronto para Retirada') {
+                card.classList.add('border-green-500');
+                buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
+            } else if (order.status === 'Entregue') {
+                card.classList.add('border-gray-400');
                 finalStep = true;
             }
 
@@ -1080,4 +1092,3 @@
     </script>
 </body>
 </html>
-
