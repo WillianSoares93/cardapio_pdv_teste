@@ -898,51 +898,70 @@
                 return;
             }
 
-            const ordersQuery = query(collection(db, "pedidos"));
-            const ordersSnapshot = await getDocs(ordersQuery);
-
-            let totalCash = 0, totalCard = 0, totalPix = 0;
-            let totalDelivery = 0, totalRetirada = 0, totalMesas = 0, totalDeliveryFees = 0;
-
-            ordersSnapshot.forEach(doc => {
-                const order = doc.data();
-                if (order.status === 'Finalizado' && order.criadoEm && order.criadoEm.seconds >= currentCashRegister.dataAbertura.seconds) {
-                    const total = order.total.finalTotal;
-                    const payment = order.pagamento;
-                    
-                    if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += total;
-                    else if (payment === 'Cartão de Crédito/Débito') totalCard += total;
-                    else if (payment === 'Pix') totalPix += total;
-                    
-                    const orderType = identifyOrderType(order);
-                    if (orderType === 'delivery') {
-                        totalDelivery += total;
-                        totalDeliveryFees += order.total.deliveryFee;
-                    } else if (orderType === 'retirada') {
-                        totalRetirada += total;
-                    } else if (orderType === 'mesa') {
-                        totalMesas += total;
-                    }
+            try {
+                const response = await fetch('/api/historico');
+                if (!response.ok) {
+                    throw new Error('Não foi possível carregar o histórico de pedidos para fechar o caixa.');
                 }
-            });
+                const archivedOrders = await response.json();
 
-            const totalSales = totalCash + totalCard + totalPix;
-            const expectedInCash = currentCashRegister.valorInicial + totalCash;
-            
-            detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
+                let totalCash = 0, totalCard = 0, totalPix = 0;
+                let totalDelivery = 0, totalRetirada = 0, totalMesas = 0, totalDeliveryFees = 0;
 
-            document.getElementById('summary-initial').textContent = `R$ ${currentCashRegister.valorInicial.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-retirada').textContent = `R$ ${totalRetirada.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-mesas').textContent = `R$ ${totalMesas.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-delivery-fees').textContent = `R$ ${totalDeliveryFees.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
-            document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
+                const parseDateString = (dateStr) => {
+                    if (!dateStr || !dateStr.includes(',')) return null;
+                    const [datePart, timePart] = dateStr.split(', ');
+                    const [day, month, year] = datePart.split('/');
+                    if (!timePart) return new Date(year, month - 1, day);
+                    const [hours, minutes, seconds] = timePart.split(':');
+                    return new Date(year, month - 1, day, hours, minutes, seconds);
+                };
 
-            closeCashModal.style.display = 'flex';
+                const openingTime = currentCashRegister.dataAbertura.toDate();
+
+                archivedOrders.forEach(order => {
+                    const orderDate = parseDateString(order.date);
+                    if (orderDate && orderDate >= openingTime) {
+                        const total = order.total;
+                        const payment = order.payment;
+                        
+                        if (payment.includes('Dinheiro')) totalCash += total;
+                        else if (payment.includes('Cartão')) totalCard += total;
+                        else if (payment.includes('Pix')) totalPix += total;
+                        
+                        const orderType = order.type;
+                        if (orderType === 'Delivery') {
+                            totalDelivery += total;
+                            totalDeliveryFees += order.deliveryFee;
+                        } else if (orderType === 'Retirada') {
+                            totalRetirada += total;
+                        } else if (orderType === 'Mesa') {
+                            totalMesas += total;
+                        }
+                    }
+                });
+
+                const totalSales = totalCash + totalCard + totalPix;
+                const expectedInCash = currentCashRegister.valorInicial + totalCash;
+                
+                detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
+
+                document.getElementById('summary-initial').textContent = `R$ ${currentCashRegister.valorInicial.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-retirada').textContent = `R$ ${totalRetirada.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-mesas').textContent = `R$ ${totalMesas.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-delivery-fees').textContent = `R$ ${totalDeliveryFees.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
+
+                closeCashModal.style.display = 'flex';
+            } catch (error) {
+                console.error("Erro ao abrir modal de fechamento de caixa:", error);
+                alert("Falha ao calcular totais do caixa: " + error.message);
+            }
         }
 
         document.querySelector('main').addEventListener('click', function(e) {
@@ -1092,3 +1111,4 @@
     </script>
 </body>
 </html>
+
