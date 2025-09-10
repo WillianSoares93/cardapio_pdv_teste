@@ -922,6 +922,7 @@
 
                 archivedOrders.forEach(order => {
                     const orderDate = parseDateString(order.date);
+                    // A condição crucial: o pedido foi arquivado DEPOIS da abertura do caixa?
                     if (orderDate && orderDate >= openingTime) {
                         const total = order.total;
                         const payment = order.payment;
@@ -1112,4 +1113,5 @@
     </script>
 </body>
 </html>
+
 
