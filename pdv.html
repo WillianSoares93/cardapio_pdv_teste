@@ -1058,7 +1058,7 @@
             const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
             
             try {
-                await updateDoc(cashRegisterRef, {
+                const dataToSave = {
                     status: 'fechado',
                     dataFechamento: serverTimestamp(),
                     usuarioFechamento: auth.currentUser.email,
@@ -1072,10 +1072,43 @@
                     totalDinheiro: detailedReportData.totalCash,
                     totalCartao: detailedReportData.totalCard,
                     totalPix: detailedReportData.totalPix
-                });
+                };
+                
+                await updateDoc(cashRegisterRef, dataToSave);
                 alert("Caixa fechado com sucesso!");
+                
+                // Prepara os dados para arquivamento na planilha
+                const dataToArchive = {
+                    ...detailedReportData,
+                    id: currentCashRegister.id,
+                    dataAbertura: currentCashRegister.dataAbertura.toDate(),
+                    usuarioAbertura: currentCashRegister.usuarioAbertura,
+                    valorInicial: currentCashRegister.valorInicial,
+                    usuarioFechamento: auth.currentUser.email,
+                    valorFinalContado: finalValue,
+                    diferenca: finalValue - expectedValue,
+                };
+
+                // Chama a nova API para arquivar os dados
+                fetch('/api/arquivar-fechamento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cashRegisterData: dataToArchive })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        console.log("Fechamento de caixa arquivado na planilha com sucesso.");
+                    } else {
+                        console.error("Falha ao arquivar fechamento na planilha:", data.error);
+                        alert("O caixa foi fechado no sistema, mas houve uma falha ao salvar na planilha. Verifique o console de logs.");
+                    }
+                }).catch(err => {
+                    console.error("Erro de rede ao arquivar fechamento:", err);
+                     alert("O caixa foi fechado no sistema, mas houve uma falha de rede ao salvar na planilha.");
+                });
+
                 closeCashModal.style.display = 'none';
                 checkCashRegisterStatus();
+
             } catch (error) {
                 console.error("Erro ao fechar o caixa:", error);
                 alert("Não foi possível fechar o caixa. Tente novamente.");
