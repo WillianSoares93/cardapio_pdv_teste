@@ -953,7 +953,7 @@
                 });
 
                 const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
-                const expectedInCash = currentCashRegister.valorInicial + totalCash;
+                const expectedInCash = currentCashRegister.valorInicial + totalSales;
                 
                 detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
 
