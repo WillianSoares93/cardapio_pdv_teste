@@ -227,7 +227,7 @@
                     <input type="number" id="final-value" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Digite o valor contado">
                 </div>
                 <div id="summary-difference-section" class="text-center p-2 rounded-md mb-4 hidden">
-                    <span class="font-bold">Diferença:</span> <span id="summary-difference" class="font-bold">R$ 0,00</span>
+                    <span id="summary-difference" class="font-bold"></span>
                 </div>
                 <div class="flex justify-end space-x-4">
                     <button type="button" id="cancel-close-cash-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
@@ -1014,6 +1014,38 @@
 
         closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
         cancelCloseCashBtn.addEventListener('click', () => closeCashModal.style.display = 'none');
+
+        finalValueInput.addEventListener('input', () => {
+            const finalValue = parseFloat(finalValueInput.value);
+            const expectedValueText = document.getElementById('summary-expected').textContent;
+            if (!expectedValueText) return;
+
+            const expectedValue = parseFloat(expectedValueText.replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
+
+            const differenceSection = document.getElementById('summary-difference-section');
+            const differenceEl = document.getElementById('summary-difference');
+
+            if (isNaN(finalValue)) {
+                differenceSection.classList.add('hidden');
+                return;
+            }
+
+            const difference = finalValue - expectedValue;
+
+            differenceSection.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-gray-100', 'text-gray-800');
+
+            if (difference > 0) {
+                differenceSection.classList.add('bg-green-100', 'text-green-800');
+                differenceEl.textContent = `SOBRA: R$ ${difference.toFixed(2).replace('.', ',')}`;
+            } else if (difference < 0) {
+                differenceSection.classList.add('bg-red-100', 'text-red-800');
+                differenceEl.textContent = `FALTA: R$ ${Math.abs(difference).toFixed(2).replace('.', ',')}`;
+            } else {
+                differenceSection.classList.add('bg-gray-100', 'text-gray-800');
+                differenceEl.textContent = 'VALORES BATEM: R$ 0,00';
+            }
+        });
+
         closeCashForm.addEventListener('submit', async (e) => {
              e.preventDefault();
             const finalValue = parseFloat(finalValueInput.value);
