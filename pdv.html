@@ -934,21 +934,21 @@
 
                     // A condição crucial: o pedido foi criado DEPOIS da abertura do caixa?
                     if (orderDate >= openingTime) {
-                        const total = order.total.finalTotal;
+                        const accountableTotal = (order.total.subtotal || 0) + (order.total.deliveryFee || 0);
                         const payment = order.pagamento;
                         
-                        if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += total;
-                        else if (payment === 'Cartão de Crédito/Débito') totalCard += total;
-                        else if (payment === 'Pix') totalPix += total;
+                        if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += accountableTotal;
+                        else if (payment === 'Cartão de Crédito/Débito') totalCard += accountableTotal;
+                        else if (payment === 'Pix') totalPix += accountableTotal;
                         
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
-                            totalDelivery += total;
+                            totalDelivery += accountableTotal;
                             totalDeliveryFees += order.total.deliveryFee;
                         } else if (orderType === 'retirada') {
-                            totalRetirada += total;
+                            totalRetirada += accountableTotal;
                         } else if (orderType === 'mesa') {
-                            totalMesas += total;
+                            totalMesas += accountableTotal;
                         }
                     }
                 });
