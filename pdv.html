@@ -919,7 +919,6 @@
             }
 
             try {
-                // CORREÇÃO: Busca os pedidos com status 'Entregue' OU 'Fechado' diretamente do Firestore.
                 const deliveredOrdersQuery = query(collection(db, "pedidos"), where("status", "in", ["Entregue", "Fechado"]));
                 const querySnapshot = await getDocs(deliveredOrdersQuery);
 
@@ -932,28 +931,28 @@
                     const order = doc.data();
                     const orderDate = order.criadoEm ? order.criadoEm.toDate() : new Date();
 
-                    // A condição crucial: o pedido foi criado DEPOIS da abertura do caixa?
                     if (orderDate >= openingTime) {
-                        const accountableTotal = (order.total.subtotal || 0) + (order.total.deliveryFee || 0);
+                        const totalForPayment = (order.total.finalTotal || 0);
+                        const totalForType = (order.total.subtotal || 0);
                         const payment = order.pagamento;
                         
-                        if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += accountableTotal;
-                        else if (payment === 'Cartão de Crédito/Débito') totalCard += accountableTotal;
-                        else if (payment === 'Pix') totalPix += accountableTotal;
+                        if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += totalForPayment;
+                        else if (payment === 'Cartão de Crédito/Débito') totalCard += totalForPayment;
+                        else if (payment === 'Pix') totalPix += totalForPayment;
                         
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
-                            totalDelivery += accountableTotal;
-                            totalDeliveryFees += order.total.deliveryFee;
+                            totalDelivery += totalForType;
+                            totalDeliveryFees += order.total.deliveryFee || 0;
                         } else if (orderType === 'retirada') {
-                            totalRetirada += accountableTotal;
+                            totalRetirada += totalForType;
                         } else if (orderType === 'mesa') {
-                            totalMesas += accountableTotal;
+                            totalMesas += totalForType;
                         }
                     }
                 });
 
-                const totalSales = totalCash + totalCard + totalPix;
+                const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
                 const expectedInCash = currentCashRegister.valorInicial + totalCash;
                 
                 detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
