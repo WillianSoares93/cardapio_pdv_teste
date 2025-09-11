@@ -146,17 +146,31 @@
         </div>
 
         <div id="tab-content-mesas" class="tab-content hidden">
-            <div id="mesas-controls" class="mt-4 p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
-                <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
-                    <i class="fas fa-link mr-2"></i>Agrupar Mesas
-                </button>
-                <div id="joining-controls" class="hidden space-x-2">
-                    <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
-                    <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+                <div class="lg:col-span-2">
+                    <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
+                        <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
+                            <i class="fas fa-link mr-2"></i>Agrupar Mesas
+                        </button>
+                        <div id="joining-controls" class="hidden space-x-2">
+                            <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
+                            <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
+                        </div>
+                    </div>
+                    <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-4">
+                        <!-- As mesas serão inseridas aqui pelo JavaScript -->
+                    </div>
                 </div>
-            </div>
-            <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mt-4">
-                <!-- As mesas serão inseridas aqui pelo JavaScript -->
+                <div class="lg:col-span-1">
+                     <div class="bg-gray-100 rounded-lg shadow h-full">
+                        <div class="p-4 border-b border-gray-300">
+                            <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
+                        </div>
+                        <div id="col-mesas-fechado" class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-22rem)]">
+                            <!-- Cards de mesas fechadas aqui -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -241,7 +255,7 @@
                 <div class="grid grid-cols-2 gap-4 pt-4 border-t">
                     <button id="print-partial-btn" class="p-3 bg-blue-500 text-white rounded-md hover:bg-blue-600">Imprimir Parcial</button>
                     <button id="transfer-table-btn" class="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">Transferir Mesa</button>
-                    <button id="close-account-btn" class="col-span-2 p-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-bold text-lg">Fechar e Arquivar Conta</button>
+                    <button id="close-account-btn" class="col-span-2 p-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-bold text-lg">Fechar Conta</button>
                 </div>
             </div>
         </div>
@@ -400,6 +414,8 @@
         const colRetiradaPreparo = document.getElementById('col-retirada-preparo');
         const colRetiradaPronto = document.getElementById('col-retirada-pronto');
         const colRetiradaEntregue = document.getElementById('col-retirada-entregue');
+
+        const colMesasFechado = document.getElementById('col-mesas-fechado');
         
         const connectionStatus = document.getElementById('connection-status');
         const editOrderModal = document.getElementById('edit-order-modal');
@@ -533,7 +549,7 @@
             onSnapshot(q, (snapshot) => {
                 connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
                 
-                [colDeliveryNovo, colDeliveryPreparo, colDeliveryPronto, colDeliveryEntrega, colDeliveryEntregue, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto, colRetiradaEntregue]
+                [colDeliveryNovo, colDeliveryPreparo, colDeliveryPronto, colDeliveryEntrega, colDeliveryEntregue, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto, colRetiradaEntregue, colMesasFechado]
                  .forEach(col => col.innerHTML = '');
                 initializeMesas();
 
@@ -550,7 +566,7 @@
                 const processedTables = new Set();
                 const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                activeOrders.filter(order => order.grupoMesas && order.grupoMesas.length > 1 && order.status !== 'Finalizado')
+                activeOrders.filter(order => order.grupoMesas && order.grupoMesas.length > 1 && order.status !== 'Finalizado' && order.status !== 'Fechado')
                     .forEach(order => {
                         const sortedGroup = [...order.grupoMesas].sort((a, b) => a - b);
                         const primaryTableNumber = sortedGroup[0];
@@ -598,18 +614,22 @@
                         else if (order.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
                         else if (order.status === 'Pronto para Retirada') colRetiradaPronto.appendChild(card);
                         else if (order.status === 'Entregue') colRetiradaEntregue.appendChild(card);
-                    } else if (tipoPedido === 'mesa' && !order.grupoMesas) {
-                        const clientName = order.endereco.clientName || "";
-                        const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
-                        if (numeroMesa && !processedTables.has(numeroMesa)) {
-                            const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
-                            if (mesaEl) {
-                                mesaEl.classList.remove('mesa-status-livre');
-                                mesaEl.classList.add('mesa-status-ocupada');
-                                mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
-                                mesaEl.dataset.status = 'ocupada';
-                                mesaEl.dataset.orderId = orderId;
-                                processedTables.add(numeroMesa);
+                    } else if (tipoPedido === 'mesa') {
+                        if (order.status === 'Fechado') {
+                            colMesasFechado.appendChild(card);
+                        } else if (!order.grupoMesas) {
+                            const clientName = order.endereco.clientName || "";
+                            const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
+                            if (numeroMesa && !processedTables.has(numeroMesa)) {
+                                const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
+                                if (mesaEl) {
+                                    mesaEl.classList.remove('mesa-status-livre');
+                                    mesaEl.classList.add('mesa-status-ocupada');
+                                    mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
+                                    mesaEl.dataset.status = 'ocupada';
+                                    mesaEl.dataset.orderId = orderId;
+                                    processedTables.add(numeroMesa);
+                                }
                             }
                         }
                     }
@@ -654,7 +674,7 @@
             } else if (order.status === 'Pronto para Retirada') {
                 card.classList.add('border-green-500');
                 buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
-            } else if (order.status === 'Entregue') {
+            } else if (order.status === 'Entregue' || order.status === 'Fechado') {
                 card.classList.add('border-gray-400');
                 finalStep = true;
             }
@@ -899,8 +919,8 @@
             }
 
             try {
-                // CORREÇÃO: Busca os pedidos com status 'Entregue' diretamente do Firestore.
-                const deliveredOrdersQuery = query(collection(db, "pedidos"), where("status", "==", "Entregue"));
+                // CORREÇÃO: Busca os pedidos com status 'Entregue' OU 'Fechado' diretamente do Firestore.
+                const deliveredOrdersQuery = query(collection(db, "pedidos"), where("status", "in", ["Entregue", "Fechado"]));
                 const querySnapshot = await getDocs(deliveredOrdersQuery);
 
                 let totalCash = 0, totalCard = 0, totalPix = 0;
@@ -982,8 +1002,8 @@
         
         document.getElementById('close-account-btn').addEventListener('click', async () => {
             if(currentManagingOrderId) {
-                await handleArchiveOrder(currentManagingOrderId);
-                alert("Conta fechada e arquivada com sucesso!");
+                await updateOrderStatus(currentManagingOrderId, 'Fechado');
+                alert("Conta fechada com sucesso!");
                 manageTableModal.style.display = 'none';
             }
         });
