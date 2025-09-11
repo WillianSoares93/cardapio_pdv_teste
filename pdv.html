@@ -1107,6 +1107,8 @@
                 });
 
                 closeCashModal.style.display = 'none';
+                closeCashForm.reset();
+                document.getElementById('summary-difference-section').classList.add('hidden');
                 checkCashRegisterStatus();
 
             } catch (error) {
