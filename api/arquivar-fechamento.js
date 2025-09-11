@@ -1,0 +1,94 @@
+// /api/arquivar-fechamento.js
+import { google } from 'googleapis';
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, doc, updateDoc } from "firebase/firestore";
+
+// --- CONFIGURAÇÃO FIREBASE ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+  authDomain: "pizzaria-pdv.firebaseapp.com",
+  projectId: "pizzaria-pdv",
+  storageBucket: "pizzaria-pdv.firebasestorage.app",
+  messagingSenderId: "304171744691",
+  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+};
+
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// --- CONFIGURAÇÃO GOOGLE SHEETS ---
+const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined;
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+// Nome da aba específica para os fechamentos, vindo das variáveis de ambiente
+const SHEET_NAME = process.env.CASH_CLOSURES_SHEET_NAME || 'fechamentos_caixa';
+
+const auth = new google.auth.GoogleAuth({
+    credentials: {
+        client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: GOOGLE_PRIVATE_KEY,
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+});
+
+const sheets = google.sheets({ version: 'v4', auth });
+
+// --- FUNÇÃO PRINCIPAL ---
+export default async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
+    }
+
+    try {
+        const { cashRegisterData } = req.body;
+        if (!cashRegisterData || !cashRegisterData.id) {
+            return res.status(400).json({ error: 'Dados do fechamento de caixa não fornecidos.' });
+        }
+
+        // Formata a data e hora para o fuso horário de São Paulo (Brasil)
+        const formatToBrazilTime = (date) => {
+            if (!date) return '';
+            return new Date(date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        }
+        
+        const newRow = [
+            cashRegisterData.id,
+            formatToBrazilTime(cashRegisterData.dataAbertura),
+            cashRegisterData.usuarioAbertura,
+            String(cashRegisterData.valorInicial.toFixed(2)).replace('.', ','),
+            formatToBrazilTime(new Date()), // Data de Fechamento atual
+            cashRegisterData.usuarioFechamento,
+            String(cashRegisterData.valorFinalContado.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.diferenca.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.totalVendas.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.totalVendasDelivery.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.totalVendasRetirada.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.totalVendasMesas.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.totalTaxasEntrega.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.totalDinheiro.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.totalCartao.toFixed(2)).replace('.', ','),
+            String(cashRegisterData.totalPix.toFixed(2)).replace('.', ',')
+        ];
+
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEET_NAME}!A:A`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+                values: [newRow],
+            },
+        });
+
+        // Marca o caixa como arquivado no Firestore para segurança
+        const cashRegisterRef = doc(db, "caixas", cashRegisterData.id);
+        await updateDoc(cashRegisterRef, {
+            arquivado: true
+        });
+
+        res.status(200).json({ success: true, message: 'Fechamento de caixa arquivado com sucesso!' });
+
+    } catch (error) {
+        console.error('Erro ao arquivar fechamento de caixa:', error);
+        res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    }
+};
