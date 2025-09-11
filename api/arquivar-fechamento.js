@@ -55,19 +55,19 @@ export default async (req, res) => {
             cashRegisterData.id,
             formatToBrazilTime(cashRegisterData.dataAbertura),
             cashRegisterData.usuarioAbertura,
-            String(cashRegisterData.valorInicial.toFixed(2)).replace('.', ','),
+            String((cashRegisterData.valorInicial || 0).toFixed(2)).replace('.', ','),
             formatToBrazilTime(new Date()), // Data de Fechamento atual
             cashRegisterData.usuarioFechamento,
-            String(cashRegisterData.valorFinalContado.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.diferenca.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.totalVendas.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.totalVendasDelivery.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.totalVendasRetirada.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.totalVendasMesas.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.totalTaxasEntrega.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.totalDinheiro.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.totalCartao.toFixed(2)).replace('.', ','),
-            String(cashRegisterData.totalPix.toFixed(2)).replace('.', ',')
+            String((cashRegisterData.valorFinalContado || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.diferenca || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalSales || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalDelivery || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalRetirada || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalMesas || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalDeliveryFees || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalCash || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalCard || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalPix || 0).toFixed(2)).replace('.', ',')
         ];
 
         await sheets.spreadsheets.values.append({
@@ -92,3 +92,4 @@ export default async (req, res) => {
         res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
 };
+
