@@ -932,28 +932,38 @@
                     const orderDate = order.criadoEm ? order.criadoEm.toDate() : new Date();
 
                     if (orderDate >= openingTime) {
-                        const totalForPayment = (order.total.finalTotal || 0);
-                        const totalForType = (order.total.subtotal || 0);
+                        const subtotal = order.total.subtotal || 0;
+                        const deliveryFee = order.total.deliveryFee || 0;
+                        const finalTotal = order.total.finalTotal || 0;
                         const payment = order.pagamento;
                         
-                        if (typeof payment === 'object' && payment.method === 'Dinheiro') totalCash += totalForPayment;
-                        else if (payment === 'Cartão de Crédito/Débito') totalCard += totalForPayment;
-                        else if (payment === 'Pix') totalPix += totalForPayment;
+                        // Payment totals are based on the final amount paid.
+                        if (typeof payment === 'object' && payment.method === 'Dinheiro') {
+                            totalCash += finalTotal;
+                        } else if (payment === 'Cartão de Crédito/Débito') {
+                            totalCard += finalTotal;
+                        } else if (payment === 'Pix') {
+                            totalPix += finalTotal;
+                        }
                         
+                        // Sale type totals are based on the value of goods (subtotal).
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
-                            totalDelivery += totalForType;
-                            totalDeliveryFees += order.total.deliveryFee || 0;
+                            totalDelivery += subtotal;
+                            totalDeliveryFees += deliveryFee;
                         } else if (orderType === 'retirada') {
-                            totalRetirada += totalForType;
+                            totalRetirada += subtotal;
                         } else if (orderType === 'mesa') {
-                            totalMesas += totalForType;
+                            totalMesas += subtotal;
                         }
                     }
                 });
 
+                // Calculate grand total of all sales
                 const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
-                const expectedInCash = currentCashRegister.valorInicial + totalSales;
+                
+                // Expected cash in drawer is initial + cash received
+                const expectedInCash = currentCashRegister.valorInicial + totalCash;
                 
                 detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
 
