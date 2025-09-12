@@ -959,10 +959,7 @@
                     }
                 });
 
-                // Calculate grand total of all sales
                 const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
-                
-                // Expected cash in drawer is initial + cash received
                 const expectedInCash = currentCashRegister.valorInicial + totalCash;
                 
                 detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
