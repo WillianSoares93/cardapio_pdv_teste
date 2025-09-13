@@ -948,11 +948,11 @@
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
                             totalDelivery += subtotal;
-                          //  totalDeliveryFees += deliveryFee;
+                            totalDeliveryFees += deliveryFee;
                         } else if (orderType === 'retirada') {
-                            totalRetirada += subtotal;
+                            totalRetirada += finalTotal;
                         } else if (orderType === 'mesa') {
-                            totalMesas += subtotal;
+                            totalMesas += finalTotal;
                         }
                     }
                 });
