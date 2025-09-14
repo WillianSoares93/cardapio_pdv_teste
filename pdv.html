@@ -933,6 +933,7 @@
 
                     if (orderDate >= openingTime) {
                         const finalTotal = parseFloat(order.total.finalTotal || 0);
+                        const subtotal = parseFloat(order.total.subtotal || 0);
                         const payment = order.pagamento;
                         
                         // Corrigido para lidar com pagamentos em dinheiro como objeto (do cardápio) ou string (do atendente)
@@ -947,7 +948,7 @@
                         // A lógica de soma por tipo de venda foi corrigida aqui
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
-                            totalDelivery += finalTotal;
+                            totalDelivery += subtotal;
                             totalDeliveryFees += parseFloat(order.total.deliveryFee || 0);
                         } else if (orderType === 'retirada') {
                             totalRetirada += finalTotal;
@@ -957,8 +958,8 @@
                     }
                 });
 
-                // O Total de Vendas é a soma de cada modalidade.
-                const totalSales = totalDelivery + totalRetirada + totalMesas;
+                // O Total de Vendas é a soma dos produtos de cada modalidade mais as taxas.
+                const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
                 
                 // O valor esperado em caixa é o inicial mais o que entrou em dinheiro.
                 const expectedInCash = currentCashRegister.valorInicial + totalCash;
