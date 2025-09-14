@@ -680,7 +680,19 @@
             }
 
             let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
-            let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${order.pagamento}</div>` : '';
+            
+            let paymentText = 'Não definido';
+            if (order.pagamento) {
+                if (typeof order.pagamento === 'object' && order.pagamento.method) {
+                    paymentText = `${order.pagamento.method}`;
+                    if (order.pagamento.trocoPara) {
+                        paymentText += ` (Troco p/ R$ ${parseFloat(order.pagamento.trocoPara).toFixed(2).replace('.', ',')})`;
+                    }
+                } else {
+                    paymentText = order.pagamento;
+                }
+            }
+            let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
             
             card.innerHTML = `
                 <div class="card-header flex justify-between items-start cursor-pointer p-4">
