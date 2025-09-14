@@ -728,10 +728,12 @@
 
         async function handleArchiveOrder(orderId) {
             const archiveBtn = document.querySelector(`.archive-btn[data-id="${orderId}"]`);
-            if (!archiveBtn || archiveBtn.disabled) return;
+            if (archiveBtn && archiveBtn.disabled) return;
             
-            archiveBtn.disabled = true;
-            archiveBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
+            if(archiveBtn) {
+                archiveBtn.disabled = true;
+                archiveBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
+            }
 
             try {
                 const response = await fetch('/api/arquivar-pedido', {
@@ -748,8 +750,10 @@
             } catch (error) {
                 console.error("Erro ao arquivar pedido:", error);
                 alert("Não foi possível arquivar o pedido: " + error.message);
-                archiveBtn.disabled = false;
-                archiveBtn.innerHTML = `<i class="fas fa-check-circle"></i>`;
+                if(archiveBtn){
+                    archiveBtn.disabled = false;
+                    archiveBtn.innerHTML = `<i class="fas fa-check-circle"></i>`;
+                }
             }
         }
 
@@ -1098,6 +1102,29 @@
                 
                 await updateDoc(cashRegisterRef, dataToSave);
                 alert("Caixa fechado com sucesso!");
+
+                // Arquiva todos os pedidos finalizados
+                const confirmCloseBtn = document.getElementById('confirm-close-cash-btn');
+                confirmCloseBtn.disabled = true;
+                confirmCloseBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Arquivando Pedidos...';
+
+                try {
+                    const ordersToArchiveQuery = query(collection(db, "pedidos"), where("status", "in", ["Entregue", "Fechado"]));
+                    const querySnapshot = await getDocs(ordersToArchiveQuery);
+                    
+                    const archivePromises = [];
+                    querySnapshot.forEach((doc) => {
+                        archivePromises.push(handleArchiveOrder(doc.id));
+                    });
+
+                    await Promise.all(archivePromises);
+                } catch (archiveError) {
+                    console.error("Ocorreu um erro ao tentar arquivar os pedidos automaticamente:", archiveError);
+                    alert("O caixa foi fechado, mas ocorreu um erro ao arquivar os pedidos. Verifique o console.");
+                } finally {
+                     confirmCloseBtn.disabled = false;
+                     confirmCloseBtn.textContent = 'Confirmar Fechamento';
+                }
                 
                 // Prepara os dados para arquivamento na planilha
                 const dataToArchive = {
@@ -1211,4 +1238,5 @@
     </script>
 </body>
 </html>
+
 
