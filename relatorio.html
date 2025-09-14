@@ -467,6 +467,59 @@
                 renderCashClosureReports(filteredClosuresCache);
             }
             
+            function updateDashboard(orders) {
+                const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+                const totalOrders = orders.length;
+                const avgTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+                
+                const itemCounts = {};
+                orders.forEach(order => {
+                    const items = order.items.split('; ');
+                    items.forEach(itemString => {
+                        const itemName = itemString.split(' [')[0].split(' (R$')[0].trim();
+                        
+                        let baseItemName = itemName;
+                        if (itemName.includes('FATIAS: Meia')) {
+                            baseItemName = itemName.split(' & Meia ')[1]; 
+                        } else if (itemName.includes('FATIAS:')) {
+                            baseItemName = itemName.split(': ')[1];
+                        } else if (itemName === 'Hambúrguer Personalizado') {
+                            baseItemName = 'Hambúrguer Montável';
+                        }
+
+                        const menuItem = fullMenuData.get(baseItemName);
+                        const category = menuItem ? menuItem.category : 'Outros';
+                        
+                        if (!itemCounts[itemName]) {
+                            itemCounts[itemName] = { count: 0, category: category };
+                        }
+                        itemCounts[itemName].count++;
+                    });
+                });
+                
+                let topProductHTML = '-';
+                if (Object.keys(itemCounts).length > 0) {
+                    const topProductEntry = Object.entries(itemCounts).reduce((a, b) => a[1].count > b[1].count ? a : b);
+                    const topProductName = topProductEntry[0];
+                    const topProductData = topProductEntry[1];
+                    
+                    const isPizzaCategory = Array.from(fullMenuData.values()).some(item => item.category === topProductData.category && item.isPizza);
+                    let formattedCategory = topProductData.category;
+                    if (topProductData.category !== 'Outros') {
+                        formattedCategory = isPizzaCategory ? 
+                            `Pizzas ${topProductData.category.charAt(0).toUpperCase() + topProductData.category.slice(1).toLowerCase()}` : 
+                            `${topProductData.category.charAt(0).toUpperCase() + topProductData.category.slice(1).toLowerCase()}`;
+                    }
+                    
+                    topProductHTML = `${topProductName} <span class="block text-sm font-medium text-gray-500">${formattedCategory}</span>`;
+                }
+
+                document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenue.toFixed(2).replace('.', ',')}`;
+                document.getElementById('stats-total-orders').textContent = totalOrders;
+                document.getElementById('stats-avg-ticket').textContent = `R$ ${avgTicket.toFixed(2).replace('.', ',')}`;
+                document.getElementById('stats-top-product').innerHTML = topProductHTML;
+            }
+
             function renderAllReports(orders) {
                 updateDashboard(orders);
                 renderTable(orders);
