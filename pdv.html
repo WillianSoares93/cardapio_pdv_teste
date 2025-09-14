@@ -936,8 +936,8 @@
                         const finalTotal = parseFloat(order.total.finalTotal || 0);
                         const payment = order.pagamento;
                         
-                        // Os totais de pagamento são baseados no valor final pago.
-                        if (typeof payment === 'object' && payment.method === 'Dinheiro') {
+                        // Corrigido para lidar com pagamentos em dinheiro como objeto (do cardápio) ou string (do atendente)
+                        if ((typeof payment === 'object' && payment.method === 'Dinheiro') || payment === 'Dinheiro') {
                             totalCash += finalTotal;
                         } else if (payment === 'Cartão de Crédito/Débito') {
                             totalCard += finalTotal;
@@ -945,7 +945,6 @@
                             totalPix += finalTotal;
                         }
                         
-                        // Os totais por tipo são baseados no valor final para consistência.
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
                             totalDelivery += finalTotal;
