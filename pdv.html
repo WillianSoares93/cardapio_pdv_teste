@@ -937,6 +937,7 @@
                         const finalTotal = parseFloat(order.total.finalTotal || 0);
                         const payment = order.pagamento;
                         
+                        // Payment totals are based on the final amount paid.
                         if (typeof payment === 'object' && payment.method === 'Dinheiro') {
                             totalCash += finalTotal;
                         } else if (payment === 'Cartão de Crédito/Débito') {
@@ -945,14 +946,15 @@
                             totalPix += finalTotal;
                         }
                         
+                        // Sale type totals are calculated differently now.
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
-                            totalDelivery += subtotal;
+                            totalDelivery += subtotal; // Delivery shows only product value
                             totalDeliveryFees += deliveryFee;
                         } else if (orderType === 'retirada') {
-                            totalRetirada += finalTotal;
+                            totalRetirada += finalTotal; // Retirada shows final value (no fee)
                         } else if (orderType === 'mesa') {
-                            totalMesas += finalTotal;
+                            totalMesas += finalTotal; // Mesa shows final value (no fee)
                         }
                     }
                 });
