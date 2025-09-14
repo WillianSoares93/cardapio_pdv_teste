@@ -1,24 +1,29 @@
-// /api/menu.js - O seu código, agora com autenticação de administrador.
+// Este arquivo é uma função Serverless para o Vercel.
+// Ele foi atualizado para ler a nova coluna "preço 10 fatias" da planilha.
 
 import fetch from 'node-fetch';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
-// --- INÍCIO DA ALTERAÇÃO: Autenticação de Administrador ---
-// Apenas inicializa se nenhuma outra app Firebase Admin estiver a correr
+// Suas credenciais do Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+  authDomain: "pizzaria-pdv.firebaseapp.com",
+  projectId: "pizzaria-pdv",
+  storageBucket: "pizzaria-pdv.firebasestorage.app",
+  messagingSenderId: "304171744691",
+  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+};
+
+
+// Inicializa o Firebase de forma segura (evita reinicialização)
+let app;
 if (!getApps().length) {
-  try {
-    // Esta linha lê as credenciais seguras que você irá configurar na Vercel
-    const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8'));
-    initializeApp({
-      credential: cert(serviceAccount)
-    });
-  } catch (e) {
-    console.error('Falha ao inicializar o Firebase Admin SDK. Verifique a variável de ambiente FIREBASE_SERVICE_ACCOUNT_BASE64.', e);
-  }
+    app = initializeApp(firebaseConfig);
+} else {
+    app = getApp();
 }
-const db = getFirestore();
-// --- FIM DA ALTERAÇÃO ---
+const db = getFirestore(app);
 
 /*Mini Tutorial: Convertendo Links do Google Sheets para Download Direto em CSV
 O objetivo é transformar um link normal do Google Sheets em um link especial que, ao ser acessado, baixa diretamente o arquivo .csv de uma aba específica.
@@ -213,8 +218,7 @@ export default async (req, res) => {
         let ingredientesPizzaJson = parseCsvData(ingredientesPizzaCsv, 'pizza_ingredients');
         let contactJson = parseCsvData(contactCsv, 'contact');
 
-        // --- INÍCIO DA ALTERAÇÃO: Sintaxe de acesso ao Firestore ---
-        // Busca todos os documentos de status do Firestore usando o Admin SDK
+        // Busca todos os documentos de status do Firestore
         const [
             itemStatusSnap, 
             itemVisibilitySnap,
@@ -225,25 +229,24 @@ export default async (req, res) => {
             extraStatusSnap,
             extraVisibilitySnap
         ] = await Promise.all([
-             db.collection('config').doc('item_status').get(),
-             db.collection('config').doc('item_visibility').get(),
-             db.collection('config').doc('item_extras_status').get(),
-             db.collection('config').doc('pizza_half_status').get(),
-             db.collection('config').doc('ingredient_status').get(),
-             db.collection('config').doc('ingredient_visibility').get(),
-             db.collection('config').doc('extra_status').get(),
-             db.collection('config').doc('extra_visibility').get()
+             getDoc(doc(db, "config", "item_status")),
+             getDoc(doc(db, "config", "item_visibility")),
+             getDoc(doc(db, "config", "item_extras_status")),
+             getDoc(doc(db, "config", "pizza_half_status")),
+             getDoc(doc(db, "config", "ingredient_status")),
+             getDoc(doc(db, "config", "ingredient_visibility")),
+             getDoc(doc(db, "config", "extra_status")),
+             getDoc(doc(db, "config", "extra_visibility"))
         ]);
-        // --- FIM DA ALTERAÇÃO ---
         
-        const itemStatus = itemStatusSnap.exists ? itemStatusSnap.data() : {};
-        const itemVisibility = itemVisibilitySnap.exists ? itemVisibilitySnap.data() : {};
-        const itemExtrasStatus = itemExtrasSnap.exists ? itemExtrasSnap.data() : {};
-        const pizzaHalfStatus = pizzaHalfStatusSnap.exists ? pizzaHalfStatusSnap.data() : {};
-        const ingredientStatus = ingredientStatusSnap.exists ? ingredientStatusSnap.data() : {};
-        const ingredientVisibility = ingredientVisibilitySnap.exists ? ingredientVisibilitySnap.data() : {};
-        const extraStatus = extraStatusSnap.exists ? extraStatusSnap.data() : {};
-        const extraVisibility = extraVisibilitySnap.exists ? extraVisibilitySnap.data() : {};
+        const itemStatus = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
+        const itemVisibility = itemVisibilitySnap.exists() ? itemVisibilitySnap.data() : {};
+        const itemExtrasStatus = itemExtrasSnap.exists() ? itemExtrasSnap.data() : {};
+        const pizzaHalfStatus = pizzaHalfStatusSnap.exists() ? pizzaHalfStatusSnap.data() : {};
+        const ingredientStatus = ingredientStatusSnap.exists() ? ingredientStatusSnap.data() : {};
+        const ingredientVisibility = ingredientVisibilitySnap.exists() ? ingredientVisibilitySnap.data() : {};
+        const extraStatus = extraStatusSnap.exists() ? extraStatusSnap.data() : {};
+        const extraVisibility = extraVisibilitySnap.exists() ? extraVisibilitySnap.data() : {};
         
         // Filtra e atualiza os itens principais do cardápio
         cardapioJson = cardapioJson
