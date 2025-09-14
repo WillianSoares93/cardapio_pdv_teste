@@ -934,6 +934,7 @@
                     if (orderDate >= openingTime) {
                         const finalTotal = parseFloat(order.total.finalTotal || 0);
                         const subtotal = parseFloat(order.total.subtotal || 0);
+                        const discount = parseFloat(order.total.discount || 0);
                         const payment = order.pagamento;
                         
                         // Corrigido para lidar com pagamentos em dinheiro como objeto (do cardápio) ou string (do atendente)
@@ -948,12 +949,12 @@
                         // A lógica de soma por tipo de venda foi corrigida aqui
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
-                            totalDelivery += subtotal;
+                            totalDelivery += (subtotal - discount); // Usa subtotal - desconto para Delivery
                             totalDeliveryFees += parseFloat(order.total.deliveryFee || 0);
                         } else if (orderType === 'retirada') {
-                            totalRetirada += finalTotal;
+                            totalRetirada += finalTotal; // Usa finalTotal para Retirada
                         } else if (orderType === 'mesa') {
-                            totalMesas += finalTotal;
+                            totalMesas += finalTotal; // Usa finalTotal para Mesas
                         }
                     }
                 });
