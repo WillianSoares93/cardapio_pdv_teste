@@ -932,12 +932,11 @@
                     const orderDate = order.criadoEm ? order.criadoEm.toDate() : new Date();
 
                     if (orderDate >= openingTime) {
-                        const subtotal = parseFloat(order.total.subtotal || 0);
                         const deliveryFee = parseFloat(order.total.deliveryFee || 0);
                         const finalTotal = parseFloat(order.total.finalTotal || 0);
                         const payment = order.pagamento;
                         
-                        // Payment totals are based on the final amount paid.
+                        // Os totais de pagamento são baseados no valor final pago.
                         if (typeof payment === 'object' && payment.method === 'Dinheiro') {
                             totalCash += finalTotal;
                         } else if (payment === 'Cartão de Crédito/Débito') {
@@ -946,20 +945,23 @@
                             totalPix += finalTotal;
                         }
                         
-                        // Sale type totals are calculated differently now.
+                        // Os totais por tipo são baseados no valor final para consistência.
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
-                            totalDelivery += subtotal; // Delivery shows only product value
+                            totalDelivery += finalTotal;
                             totalDeliveryFees += deliveryFee;
                         } else if (orderType === 'retirada') {
-                            totalRetirada += finalTotal; // Retirada shows final value (no fee)
+                            totalRetirada += finalTotal;
                         } else if (orderType === 'mesa') {
-                            totalMesas += finalTotal; // Mesa shows final value (no fee)
+                            totalMesas += finalTotal;
                         }
                     }
                 });
 
-                const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
+                // O Total de Vendas é a soma de cada modalidade.
+                const totalSales = totalDelivery + totalRetirada + totalMesas;
+                
+                // O valor esperado em caixa é o inicial mais o que entrou em dinheiro.
                 const expectedInCash = currentCashRegister.valorInicial + totalCash;
                 
                 detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
