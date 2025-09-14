@@ -1224,19 +1224,8 @@
                 onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
                     itemVisibility = doc.exists() ? doc.data() : {};
                     updateUI();
-                });
-                onSnapshot(doc(db, "config", "pizza_half_status"), (doc) => {
-                    pizzaHalfStatus = doc.exists() ? doc.data() : {};
-                    allMenuData.forEach(item => {
-                        if (item.isPizza && item.id) {
-                            item.allowHalf = pizzaHalfStatus[item.id] !== false;
-                        }
-                    });
-                    if (pizzaOptionModal.style.display === 'flex' && currentPizzaData.id) {
-                        const updatedPizza = allMenuData.find(p => p.id === currentPizzaData.id);
-                        if (updatedPizza) {
-                            renderPizzaOptions(updatedPizza);
-                        }
+                    if (drinkSuggestionModal.style.display === 'flex') {
+                        refreshDrinkSuggestionModal();
                     }
                 });
                  onSnapshot(doc(db, "config", "item_extras_status"), (doc) => {
@@ -3166,80 +3155,80 @@
                     promotionPopup.style.display = 'none';
                     updatePromotionButtonVisibility();
                 }
-                if (event.target == confirmNoDrinkModal) {
-                    confirmNoDrinkModal.style.display = 'none';
-                    updatePromotionButtonVisibility();
-                    drinkSuggestionModal.style.display = 'flex'; 
+            }
+
+            function refreshDrinkSuggestionModal() {
+                suggestedDrinksList.innerHTML = '';
+                
+                // Filtra primeiro por VISIBILIDADE
+                const visibleDrinks = allMenuData.filter(item =>
+                    item.category === 'bebidas' &&
+                    itemVisibility[item.id] !== false
+                );
+
+                if (visibleDrinks.length > 0) {
+                    visibleDrinks.forEach(drink => {
+                        // Para cada bebida visível, verifica a DISPONIBILIDADE
+                        const isUnavailable = unavailableItems[drink.id] === false;
+                        
+                        let buttonHtml;
+                        let itemClasses = "suggested-drink-item";
+
+                        if (isUnavailable) {
+                            // Se indisponível, mostra o botão desabilitado
+                            buttonHtml = `<button class="bg-gray-400 text-white px-3 py-1 rounded-md text-sm cursor-not-allowed" disabled>Esgotado</button>`;
+                            itemClasses += " opacity-60"; // Deixa o item com opacidade
+                        } else {
+                            // Se disponível, mostra o botão de adicionar
+                            buttonHtml = `<button class="add-suggested-drink-btn bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm transition" data-item-id="${drink.id}">Adicionar</button>`;
+                        }
+
+                        const drinkItemHtml = `
+                            <div class="${itemClasses}">
+                                <div>
+                                    <span class="drink-name">${drink.name}</span>
+                                    <span class="drink-price ml-2">R$ ${drink.basePrice.toFixed(2).replace('.', ',')}</span>
+                                </div>
+                                ${buttonHtml}
+                            </div>
+                        `;
+                        suggestedDrinksList.insertAdjacentHTML('beforeend', drinkItemHtml);
+                    });
+
+                    // Adiciona os listeners novamente, apenas para os botões que não estão desabilitados
+                    document.querySelectorAll('.add-suggested-drink-btn').forEach(button => {
+                        button.addEventListener('click', function() {
+                            const itemId = this.dataset.itemId;
+                            const item = allMenuData.find(i => i.id === itemId);
+                            if (item) {
+                                addToOrder({
+                                    id: Date.now() + Math.random(),
+                                    type: 'full',
+                                    name: item.name,
+                                    price: item.basePrice,
+                                    description: item.description,
+                                    category: item.category
+                                }, this, null);
+                                updateDrinkSuggestionButtons();
+                            }
+                        });
+                    });
+
+                } else {
+                    suggestedDrinksList.innerHTML = '<p class="text-gray-500">Nenhuma bebida disponível para sugestão no momento.</p>';
                 }
-                 if (event.target == addressInputModal) {
-                    hideAddressInputModal();
-                }
-                if (event.target == askPizzaExtrasModal) {
-                    askPizzaExtrasModal.style.display = 'none';
-                }
-                if (event.target == pizzaExtrasBuilderModal) {
-                    pizzaExtrasBuilderModal.style.display = 'none';
-                }
-            });
+                updateDrinkSuggestionButtons();
+            }
 
-            closeBurgerBuilderModalBtn.addEventListener('click', () => {
-                burgerBuilderModal.style.display = 'none';
+            function displayDrinkSuggestionModal() {
+                refreshDrinkSuggestionModal(); // A função principal agora tem a lógica correta
+                drinkSuggestionModal.style.display = 'flex'; 
                 updatePromotionButtonVisibility();
-            });
+            }
 
-            closePromotionPopupBtn.addEventListener('click', function() {
-                promotionPopup.style.display = 'none';
-                updatePromotionButtonVisibility();
-            });
-            closePromotionPopupBtnBottom.addEventListener('click', function() {
-                promotionPopup.style.display = 'none';
-                updatePromotionButtonVisibility();
-            });
-
-            promotionButton.addEventListener('click', function() {
-                displayPromotionsPopup();
-            });
-
-            closeDrinkSuggestionModalBtn.addEventListener('click', function() {
-                drinkSuggestionModal.style.display = 'none';
-                updatePromotionButtonVisibility();
-            });
-
-            proceedWithoutDrinksBtn.addEventListener('click', function() {
-                drinkSuggestionModal.style.display = 'none';
+            function updateDrinkSuggestionButtons() {
                 const hasDrinks = order.some(item => item.category === 'bebidas');
-
-                if (!selectedPaymentMethod) {
-                    isCheckoutInitiated = true; 
-                    openPaymentMethodModal(true); 
-                } else {
-                    proceedToWhatsappCheckout();
-                }
-            });
-
-            closeConfirmNoDrinkModalBtn.addEventListener('click', function() {
-                confirmNoDrinkModal.style.display = 'none';
-                updatePromotionButtonVisibility();
-                drinkSuggestionModal.style.display = 'flex'; 
-            });
-
-            confirmNoDrinkYesBtn.addEventListener('click', function() {
-                confirmNoDrinkModal.style.display = 'none';
-                if (selectedPaymentMethod) {
-                    proceedToWhatsappCheckout(); 
-                } else {
-                    isCheckoutInitiated = true; 
-                    openPaymentMethodModal(true); 
-                }
-            });
-
-            confirmNoDrinkNoBtn.addEventListener('click', function() { 
-                confirmNoDrinkModal.style.display = 'none';
-                updatePromotionButtonVisibility();
-                drinkSuggestionModal.style.display = 'flex'; 
-            });
-            
-            closePaymentMethodModalBtn.addEventListener('click', closePaymentMethodModal);
+                if (hasDrinks) {
 
             paymentOptionsContainer.addEventListener('click', (event) => {
                 const label = event.target.closest('.payment-option');
@@ -3525,4 +3514,5 @@
     </script>
 </body>
 </html>
+
 
