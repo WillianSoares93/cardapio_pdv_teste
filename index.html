@@ -2413,7 +2413,13 @@
 
             function displayDrinkSuggestionModal() {
                 suggestedDrinksList.innerHTML = ''; 
-                const availableDrinks = allMenuData.filter(item => item.category === 'bebidas' && item.available);
+                // *** CORREÇÃO APLICADA AQUI ***
+                // Filtra as bebidas usando o objeto 'unavailableItems' que é atualizado em tempo real pelo Firestore,
+                // em vez da propriedade 'available' que só é definida no carregamento da página.
+                const availableDrinks = allMenuData.filter(item => 
+                    item.category === 'bebidas' && 
+                    unavailableItems[item.id] !== false
+                );
 
                 if (availableDrinks.length > 0) {
                     const drinksToSuggest = availableDrinks; 
@@ -3515,4 +3521,3 @@
     </script>
 </body>
 </html>
-
