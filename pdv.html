@@ -962,8 +962,8 @@
                 // O Total de Vendas é a soma dos produtos de cada modalidade mais as taxas.
                 const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
                 
-                // O valor esperado em caixa é o inicial mais o que entrou em dinheiro.
-                const expectedInCash = currentCashRegister.valorInicial + totalCash;
+                // O valor esperado em caixa é o inicial mais TODAS as vendas.
+                const expectedInCash = currentCashRegister.valorInicial + totalSales;
                 
                 detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
 
