@@ -1,7 +1,7 @@
 // /api/arquivar-fechamento.js
 import { google } from 'googleapis';
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, doc, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, deleteDoc } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO FIREBASE ---
 const firebaseConfig = {
@@ -20,7 +20,6 @@ const db = getFirestore(app);
 const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-// Nome da aba específica para os fechamentos, vindo das variáveis de ambiente
 const SHEET_NAME = process.env.CASH_CLOSURES_SHEET_NAME || 'fechamentos_caixa';
 
 const auth = new google.auth.GoogleAuth({
@@ -45,7 +44,6 @@ export default async (req, res) => {
             return res.status(400).json({ error: 'Dados do fechamento de caixa não fornecidos.' });
         }
 
-        // Formata a data e hora para o fuso horário de São Paulo (Brasil)
         const formatToBrazilTime = (date) => {
             if (!date) return '';
             return new Date(date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -56,7 +54,7 @@ export default async (req, res) => {
             formatToBrazilTime(cashRegisterData.dataAbertura),
             cashRegisterData.usuarioAbertura,
             String((cashRegisterData.valorInicial || 0).toFixed(2)).replace('.', ','),
-            formatToBrazilTime(new Date()), // Data de Fechamento atual
+            formatToBrazilTime(new Date()),
             cashRegisterData.usuarioFechamento,
             String((cashRegisterData.valorFinalContado || 0).toFixed(2)).replace('.', ','),
             String((cashRegisterData.diferenca || 0).toFixed(2)).replace('.', ','),
@@ -79,13 +77,11 @@ export default async (req, res) => {
             },
         });
 
-        // Marca o caixa como arquivado no Firestore para segurança
+        // Apaga o registro do caixa do Firestore após arquivar na planilha.
         const cashRegisterRef = doc(db, "caixas", cashRegisterData.id);
-        await updateDoc(cashRegisterRef, {
-            arquivado: true
-        });
+        await deleteDoc(cashRegisterRef);
 
-        res.status(200).json({ success: true, message: 'Fechamento de caixa arquivado com sucesso!' });
+        res.status(200).json({ success: true, message: 'Fechamento de caixa arquivado e removido com sucesso!' });
 
     } catch (error) {
         console.error('Erro ao arquivar fechamento de caixa:', error);
