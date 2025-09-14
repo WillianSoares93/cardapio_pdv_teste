@@ -1217,6 +1217,9 @@
                 onSnapshot(doc(db, "config", "item_status"), (doc) => {
                     unavailableItems = doc.exists() ? doc.data() : {};
                     updateUI();
+                    if (drinkSuggestionModal.style.display === 'flex') {
+                        refreshDrinkSuggestionModal();
+                    }
                 });
                 onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
                     itemVisibility = doc.exists() ? doc.data() : {};
@@ -2411,18 +2414,15 @@
                 }
             }
 
-            function displayDrinkSuggestionModal() {
-                suggestedDrinksList.innerHTML = ''; 
-                // *** CORREÇÃO APLICADA AQUI ***
-                // Filtra as bebidas usando o objeto 'unavailableItems' que é atualizado em tempo real pelo Firestore,
-                // em vez da propriedade 'available' que só é definida no carregamento da página.
-                const availableDrinks = allMenuData.filter(item => 
-                    item.category === 'bebidas' && 
+            function refreshDrinkSuggestionModal() {
+                suggestedDrinksList.innerHTML = '';
+                const availableDrinks = allMenuData.filter(item =>
+                    item.category === 'bebidas' &&
                     unavailableItems[item.id] !== false
                 );
 
                 if (availableDrinks.length > 0) {
-                    const drinksToSuggest = availableDrinks; 
+                    const drinksToSuggest = availableDrinks;
                     drinksToSuggest.forEach(drink => {
                         const drinkItemHtml = `
                             <div class="suggested-drink-item">
@@ -2446,17 +2446,21 @@
                                     price: item.basePrice,
                                     description: item.description,
                                     category: item.category
-                                }, this, null); 
-                                updateDrinkSuggestionButtons(); 
+                                }, this, null);
+                                updateDrinkSuggestionButtons();
                             }
                         });
                     });
                 } else {
                     suggestedDrinksList.innerHTML = '<p class="text-gray-500">Nenhuma bebida disponível para sugestão no momento.</p>';
                 }
-                drinkSuggestionModal.style.display = 'flex'; 
+                updateDrinkSuggestionButtons();
+            }
+
+            function displayDrinkSuggestionModal() {
+                refreshDrinkSuggestionModal();
+                drinkSuggestionModal.style.display = 'flex';
                 updatePromotionButtonVisibility();
-                updateDrinkSuggestionButtons(); 
             }
 
             function updateDrinkSuggestionButtons() {
@@ -3521,3 +3525,4 @@
     </script>
 </body>
 </html>
+
