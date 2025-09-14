@@ -932,7 +932,6 @@
                     const orderDate = order.criadoEm ? order.criadoEm.toDate() : new Date();
 
                     if (orderDate >= openingTime) {
-                        const deliveryFee = parseFloat(order.total.deliveryFee || 0);
                         const finalTotal = parseFloat(order.total.finalTotal || 0);
                         const payment = order.pagamento;
                         
@@ -945,10 +944,11 @@
                             totalPix += finalTotal;
                         }
                         
+                        // A lógica de soma por tipo de venda foi corrigida aqui
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
                             totalDelivery += finalTotal;
-                            totalDeliveryFees += deliveryFee;
+                            totalDeliveryFees += parseFloat(order.total.deliveryFee || 0);
                         } else if (orderType === 'retirada') {
                             totalRetirada += finalTotal;
                         } else if (orderType === 'mesa') {
