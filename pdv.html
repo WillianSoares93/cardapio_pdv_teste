@@ -766,7 +766,7 @@
                 currentManagingOrderData = docSnap.data();
                 document.getElementById('manage-table-title').textContent = `Gerenciar ${currentManagingOrderData.endereco.clientName}`;
                 const itemsList = document.getElementById('table-order-items-list');
-                itemsList.innerHTML = currentManagingOrderData.itens.map(item => `<li>${item.name} - R$ ${parseFloat(item.price || 0).toFixed(2).replace('.',',')}</li>`).join('');
+                itemsList.innerHTML = currentManagingOrderData.itens.map(item => `<li>${item.name} - R$ ${parseFloat(item.price || 0).toFixed(2).replace(',',',')}</li>`).join('');
                 document.getElementById('table-order-total').textContent = `R$ ${parseFloat(currentManagingOrderData.total.finalTotal || 0).toFixed(2).replace('.',',')}`;
                 manageTableModal.style.display = 'flex';
             }
@@ -854,76 +854,149 @@
             const orderRef = doc(db, "pedidos", id);
             await updateDoc(orderRef, { status: newStatus });
         }
-
+        
         function printOrder(id, type) {
             const orderRef = doc(db, "pedidos", id);
             getDoc(orderRef).then(docSnap => {
                 if (docSnap.exists()) {
                     const order = docSnap.data();
-                    let printContent = '';
 
+                    // --- INÍCIO DA LÓGICA DE IMPRESSÃO OTIMIZADA ---
+                    const styles = `
+                        <style>
+                            @media print {
+                                @page { margin: 0; size: 80mm auto; }
+                                body {
+                                    width: 80mm;
+                                    margin: 0;
+                                    padding: 5mm;
+                                    font-family: 'Courier New', Courier, monospace;
+                                    font-size: 10pt;
+                                    color: #000;
+                                    background-color: #fff;
+                                }
+                                * {
+                                    font-family: 'Courier New', Courier, monospace;
+                                    font-size: 10pt;
+                                }
+                                h1 { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 5px;}
+                                h2 { font-size: 12pt; font-weight: bold; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px dashed #000; padding-bottom: 2px;}
+                                p { margin: 2px 0; }
+                                ul { list-style: none; padding: 0; margin: 0; }
+                                li { margin-bottom: 2px; }
+                                .item-line { display: flex; justify-content: space-between; }
+                                .item-details { padding-left: 15px; font-size: 9pt; color: #333; }
+                                hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+                                .text-right { text-align: right; }
+                                .font-bold { font-weight: bold; }
+                            }
+                        </style>
+                    `;
+
+                    let printContent = '';
                     const itemsByCategory = order.itens.reduce((acc, item) => {
                         const category = item.category || 'Outros';
                         if (!acc[category]) acc[category] = [];
                         acc[category].push(item);
                         return acc;
                     }, {});
-                    
-                    let contactPrintHtml = order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : '';
-                    let observationPrintHtml = order.observacao ? `<hr style="border-top: 2px dashed black; margin: 15px 0;"><h3 style="font-size: 22px; margin-top: 20px;">OBSERVAÇÕES</h3><p style="font-size: 20px;">${order.observacao}</p>` : '';
 
                     if (type === 'kitchen') {
                         let kitchenHtml = '';
                         for (const category in itemsByCategory) {
-                            kitchenHtml += `<h3 style="font-size: 22px; margin-top: 20px; border-bottom: 1px solid #ccc;">${category.toUpperCase()}</h3>`;
-                            kitchenHtml += '<ul style="font-size: 20px; list-style: none; padding: 0;">';
+                            kitchenHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
                             kitchenHtml += itemsByCategory[category].map(item => {
-                                let itemString = `<li style="padding: 8px 0; border-bottom: 1px dashed #ccc;"><strong>1x</strong> ${item.name}</li>`;
+                                let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<ul style="list-style: none; padding-left: 20px;">${item.extras.map(extra => `<li style="font-size: 16px;">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
+                                    itemString += `<li class="item-details">${item.extras.map(extra => `+ ${extra.name} (${extra.placement})`).join(', ')}</li>`;
                                 }
                                 if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                    itemString += `<ul style="list-style: none; padding-left: 20px;">${item.ingredients.map(ing => `<li style="font-size: 16px;">- ${ing.name}</li>`).join('')}</ul>`;
+                                     itemString += `<li class="item-details">${item.ingredients.map(ing => `- ${ing.name}`).join(', ')}</li>`;
                                 }
                                 return itemString;
                             }).join('');
                             kitchenHtml += '</ul>';
                         }
-                        printContent = `<div style="font-family: monospace; padding: 20px; font-size: 16px;"><h2 style="text-align: center; font-size: 28px; margin-bottom: 20px;">COMANDA COZINHA</h2><p style="font-size: 18px;"><strong>Pedido:</strong> #${id.substring(0, 5)}</p><p style="font-size: 18px;"><strong>Cliente:</strong> ${order.endereco.clientName}</p>${contactPrintHtml.replace(/<strong>/g, '<strong style="font-size: 18px;">').replace(/<p>/g, '<p style="font-size: 18px;">')}<hr style="border-top: 2px dashed black; margin: 15px 0;">${kitchenHtml}${observationPrintHtml}</div>`;
-                    } else { 
+                        
+                        printContent = `
+                            <h1>COMANDA COZINHA</h1>
+                            <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                            <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                            ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
+                            <hr>
+                            ${kitchenHtml}
+                            ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
+                        `;
+                    } else { // type === 'client'
                         let clientItemsHtml = '';
                         for (const category in itemsByCategory) {
-                            clientItemsHtml += `<h3 style="font-weight: bold; margin-top: 10px;">${category.toUpperCase()}</h3><ul>`;
-                            clientItemsHtml += itemsByCategory[category].map(item => {
-                                let itemString = `<li style="display: flex; justify-content: space-between; padding: 5px 0;"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
-                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<li><ul style="list-style: none; padding-left: 15px; font-size: 0.9em; color: #555;">${item.extras.map(extra => `<li>+ ${extra.name} (${extra.placement})</li>`).join('')}</ul></li>`;
+                             clientItemsHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
+                             clientItemsHtml += itemsByCategory[category].map(item => {
+                                let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
+                                if (item.extras && item.extras.length > 0) {
+                                    itemString += `<li class="item-details">${item.extras.map(extra => `+ ${extra.name} (${extra.placement})`).join(', ')}</li>`;
                                 }
                                 return itemString;
                             }).join('');
                             clientItemsHtml += '</ul>';
                         }
-
+                        
                         let paymentDetailsHtml = '';
                         if (order.pagamento) {
-                            let paymentText = ''; let changeText = '';
+                            let paymentText = '', changeText = '';
                             if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
                                 paymentText = 'Dinheiro';
-                                changeText = `<p>Troco para: R$ ${parseFloat(order.pagamento.trocoPara || 0).toFixed(2).replace('.', ',')}</p><p>Troco: R$ ${(parseFloat(order.pagamento.trocoPara || 0) - parseFloat(order.total.finalTotal || 0)).toFixed(2).replace('.', ',')}</p>`;
+                                const trocoTotal = (parseFloat(order.pagamento.trocoPara || 0) - parseFloat(order.total.finalTotal || 0));
+                                changeText = `<p class="text-right">Troco p/: R$ ${parseFloat(order.pagamento.trocoPara || 0).toFixed(2).replace('.', ',')}</p>
+                                            <p class="text-right">Troco: R$ ${trocoTotal.toFixed(2).replace('.', ',')}</p>`;
                             } else {
                                 paymentText = order.pagamento;
                             }
-                            paymentDetailsHtml = `<div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed black;"><p style="font-weight: bold;">Forma de Pagamento: ${paymentText}</p>${changeText}</div>`;
+                            paymentDetailsHtml = `<hr><p><strong>Pagamento: ${paymentText}</strong></p>${changeText}`;
                         }
-                        printContent = `<div style="font-family: monospace; padding: 20px;"><h2 style="text-align: center; font-size: 24px; margin-bottom: 20px;">Sâmia Pizzaria</h2><p><strong>Pedido:</strong> #${id.substring(0, 5)}</p><p><strong>Cliente:</strong> ${order.endereco.clientName}</p>${contactPrintHtml}<p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p><hr style="border-top: 1px dashed black; margin: 15px 0;">${clientItemsHtml}<hr style="border-top: 1px dashed black; margin: 15px 0;"><div style="text-align: right;"><p>Subtotal: R$ ${parseFloat(order.total.subtotal || 0).toFixed(2).replace('.', ',')}</p>${order.total.discount > 0 ? `<p>Desconto: -R$ ${parseFloat(order.total.discount || 0).toFixed(2).replace('.', ',')}</p>` : ''}<p>Taxa de Entrega: R$ ${parseFloat(order.total.deliveryFee || 0).toFixed(2).replace('.', ',')}</p><p style="font-weight: bold; font-size: 18px;">Total: R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</p></div>${observationPrintHtml.replace(/<h3[^>]*>OBSERVAÇÕES<\/h3>/, '<p style="font-weight: bold;">Observações:</p>').replace(/<p[^>]*>/g, '<p>')}${paymentDetailsHtml}</div>`;
+
+                        printContent = `
+                            <h1>Sâmia Pizzaria</h1>
+                            <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                            <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                             ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
+                            <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                            <hr>
+                            ${clientItemsHtml}
+                            <hr>
+                            <div class="text-right">
+                                <p>Subtotal: R$ ${parseFloat(order.total.subtotal || 0).toFixed(2).replace('.', ',')}</p>
+                                ${order.total.discount > 0 ? `<p>Desconto: -R$ ${parseFloat(order.total.discount || 0).toFixed(2).replace('.', ',')}</p>` : ''}
+                                <p>Taxa Entrega: R$ ${parseFloat(order.total.deliveryFee || 0).toFixed(2).replace('.', ',')}</p>
+                                <p class="font-bold">Total: R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</p>
+                            </div>
+                             ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
+                             ${paymentDetailsHtml}
+                        `;
+                    }
+                    
+                    let printFrame = document.getElementById('print-frame');
+                    if (!printFrame) {
+                        printFrame = document.createElement('iframe');
+                        printFrame.id = 'print-frame';
+                        printFrame.style.position = 'absolute';
+                        printFrame.style.width = '0';
+                        printFrame.style.height = '0';
+                        printFrame.style.border = '0';
+                        document.body.appendChild(printFrame);
                     }
 
-                    const printWindow = window.open('', '', 'height=600,width=800');
-                    printWindow.document.write('<html><head><title>Imprimir Pedido</title></head><body>');
-                    printWindow.document.write(printContent);
-                    printWindow.document.write('</body></html>');
-                    printWindow.document.close();
-                    printWindow.print();
+                    const frameDoc = printFrame.contentWindow.document;
+                    frameDoc.open();
+                    frameDoc.write(styles + printContent);
+                    frameDoc.close();
+                    
+                    setTimeout(() => {
+                        printFrame.contentWindow.focus();
+                        printFrame.contentWindow.print();
+                    }, 100);
+                    
+                    // --- FIM DA LÓGICA DE IMPRESSÃO OTIMIZADA ---
                 }
             });
         }
@@ -1238,5 +1311,3 @@
     </script>
 </body>
 </html>
-
-
