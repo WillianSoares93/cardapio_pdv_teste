@@ -58,14 +58,16 @@ export default async (req, res) => {
             cashRegisterData.usuarioFechamento,
             String((cashRegisterData.valorFinalContado || 0).toFixed(2)).replace('.', ','),
             String((cashRegisterData.diferenca || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalSales || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalDelivery || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalRetirada || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalMesas || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalDeliveryFees || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalCash || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalCard || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalPix || 0).toFixed(2)).replace('.', ',')
+            String((cashRegisterData.totalVendas || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalVendasDelivery || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalVendasRetirada || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalVendasMesas || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalTaxasEntrega || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalDinheiro || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalCartao || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalPix || 0).toFixed(2)).replace('.', ','),
+            String((cashRegisterData.totalSangrias || 0).toFixed(2)).replace('.', ','),
+            cashRegisterData.sangrias || ''
         ];
 
         await sheets.spreadsheets.values.append({
