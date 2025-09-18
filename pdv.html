@@ -89,6 +89,7 @@
             <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
             <div class="flex items-center space-x-2">
                 <a href="atendente.html" target="_blank" class="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700">Lançar Pedido</a>
+                <button id="register-sangria-btn" class="px-3 py-2 bg-orange-500 text-white text-xs font-bold rounded-md hover:bg-orange-600">Registrar Sangria</button>
                 <button id="close-cash-register-btn" class="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700">Fechar Caixa</button>
                 <a href="gerenciar.html" target="_blank" class="px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</a>
                 <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">Sair</button>
@@ -223,6 +224,7 @@
                 <div class="flex justify-between pl-2"><span class="text-gray-600">Pix:</span> <span id="summary-pix" class="font-medium">R$ 0,00</span></div>
                 <hr class="my-2">
                 <div class="flex justify-between font-bold"><span class="text-gray-800">Total de Vendas:</span> <span id="summary-total-sales" class="text-gray-800">R$ 0,00</span></div>
+                <div class="flex justify-between text-red-600"><span class="font-medium">Total Sangrias:</span> <span id="summary-sangrias" class="font-medium">- R$ 0,00</span></div>
                 <hr class="my-2">
                 <div class="flex justify-between font-bold"><span class="text-blue-700">Valor Esperado em Caixa:</span> <span id="summary-expected" class="text-blue-700">R$ 0,00</span></div>
             </div>
@@ -296,6 +298,27 @@
                 <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
                 <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Sim, Excluir</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal para Registrar Sangria -->
+    <div id="sangria-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Registrar Sangria de Caixa</h3>
+            <form id="sangria-form">
+                <div class="mb-4">
+                    <label for="sangria-amount" class="block text-sm font-medium text-gray-700 mb-1">Valor da Retirada (R$)</label>
+                    <input type="number" id="sangria-amount" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: 20,00">
+                </div>
+                <div class="mb-4">
+                    <label for="sangria-reason" class="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
+                    <input type="text" id="sangria-reason" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: Pagamento de fornecedor">
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" id="cancel-sangria-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" id="confirm-sangria-btn" class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">Confirmar Sangria</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1035,6 +1058,7 @@
             const totalCard = document.getElementById('summary-card').textContent;
             const totalPix = document.getElementById('summary-pix').textContent;
             const totalSales = document.getElementById('summary-total-sales').textContent;
+            const totalSangrias = document.getElementById('summary-sangrias').textContent;
             const expectedInCash = document.getElementById('summary-expected').textContent;
             const finalValue = document.getElementById('final-value').value;
             const differenceText = document.getElementById('summary-difference').textContent;
@@ -1083,6 +1107,7 @@
                 <hr>
                 <h2>Resumo do Caixa</h2>
                 <p><span>Valor Inicial:</span> <span>${initialValue}</span></p>
+                <p><span>Total Sangrias:</span> <span>${totalSangrias}</span></p>
                 <p><span>Valor Esperado:</span> <span>${expectedInCash}</span></p>
                 <p><span>Valor Contado:</span> <span>R$ ${parseFloat(finalValue || 0).toFixed(2).replace('.', ',')}</span></p>
                 <p class="font-bold"><span>Diferença:</span> <span>${differenceText || 'N/A'}</span></p>
@@ -1125,6 +1150,12 @@
                 
                 const openingTime = currentCashRegister.dataAbertura.toDate();
 
+                // Recarrega os dados do caixa para pegar as sangrias mais recentes
+                const updatedCashRegisterSnap = await getDoc(doc(db, "caixas", currentCashRegister.id));
+                const updatedCashRegisterData = updatedCashRegisterSnap.data();
+                const sangrias = updatedCashRegisterData.sangrias || [];
+                const totalSangrias = sangrias.reduce((sum, s) => sum + s.amount, 0);
+
                 querySnapshot.forEach(doc => {
                     const order = doc.data();
                     const orderDate = order.criadoEm ? order.criadoEm.toDate() : new Date();
@@ -1160,10 +1191,12 @@
                 // O Total de Vendas é a soma dos produtos de cada modalidade mais as taxas.
                 const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
                 
-                // O valor esperado em caixa é o inicial mais TODAS as vendas.
-                const expectedInCash = currentCashRegister.valorInicial + totalSales;
+                // O valor esperado em caixa é o inicial mais as vendas, menos as sangrias.
+                const expectedInCash = currentCashRegister.valorInicial + totalSales - totalSangrias;
                 
-                detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales };
+                const sangriaDetails = sangrias.map(s => `${s.reason}: R$${s.amount.toFixed(2).replace('.',',')}`).join('; ');
+                
+                detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales, totalSangrias, sangriaDetails };
 
                 document.getElementById('summary-initial').textContent = `R$ ${parseFloat(currentCashRegister.valorInicial || 0).toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
@@ -1174,6 +1207,7 @@
                 document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-sangrias').textContent = `- R$ ${totalSangrias.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
 
                 closeCashModal.style.display = 'flex';
@@ -1280,7 +1314,9 @@
                     totalTaxasEntrega: detailedReportData.totalDeliveryFees,
                     totalDinheiro: detailedReportData.totalCash,
                     totalCartao: detailedReportData.totalCard,
-                    totalPix: detailedReportData.totalPix
+                    totalPix: detailedReportData.totalPix,
+                    totalSangrias: detailedReportData.totalSangrias, // Adicionado para arquivamento
+                    sangrias: detailedReportData.sangriaDetails // Adiciona detalhes para arquivamento
                 };
                 
                 await updateDoc(cashRegisterRef, dataToSave);
@@ -1325,7 +1361,7 @@
                 fetch('/api/arquivar-fechamento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cashRegisterData: dataToArchive })
+                    body: JSON.stringify({ cashRegisterData: dataToSave }) // Envía dataToSave que contém os detalhes
                 }).then(res => res.json()).then(data => {
                     if (data.success) {
                         console.log("Fechamento de caixa arquivado na planilha com sucesso.");
@@ -1415,10 +1451,76 @@
                 alert(`Pedido transferido com sucesso para a ${newClientName}`);
                 transferTableModal.style.display = 'none';
                 manageTableModal.style.display = 'none';
+                manageTableModal.style.display = 'none';
+            }
+        });
+
+        // --- LÓGICA DA SANGRIA ---
+        const sangriaModal = document.getElementById('sangria-modal');
+        const sangriaForm = document.getElementById('sangria-form');
+
+        document.getElementById('register-sangria-btn').addEventListener('click', () => {
+            if (!currentCashRegister) {
+                alert("É necessário ter um caixa aberto para registrar uma sangria.");
+                return;
+            }
+            sangriaForm.reset();
+            sangriaModal.style.display = 'flex';
+        });
+
+        document.getElementById('cancel-sangria-btn').addEventListener('click', () => {
+            sangriaModal.style.display = 'none';
+        });
+
+        sangriaForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('sangria-amount').value);
+            const reason = document.getElementById('sangria-reason').value.trim();
+
+            if (isNaN(amount) || amount <= 0) {
+                alert("Por favor, insira um valor válido para a sangria.");
+                return;
+            }
+            if (!reason) {
+                alert("O motivo da sangria é obrigatório.");
+                return;
+            }
+
+            const confirmBtn = document.getElementById('confirm-sangria-btn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Registrando...';
+
+            try {
+                const response = await fetch('/api/registrar-sangria', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount,
+                        reason,
+                        userEmail: auth.currentUser.email,
+                        cashRegisterId: currentCashRegister.id
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Falha ao registrar sangria.');
+                }
+
+                alert("Sangria registrada com sucesso!");
+                sangriaModal.style.display = 'none';
+
+            } catch (error) {
+                console.error("Erro ao registrar sangria:", error);
+                alert(`Erro: ${error.message}`);
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Confirmar Sangria';
             }
         });
 
     </script>
 </body>
 </html>
+
 
