@@ -202,7 +202,12 @@
     <!-- Modal Fechar Caixa -->
     <div id="close-cash-modal" class="modal">
         <div class="modal-content">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Fechamento de Caixa</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900">Fechamento de Caixa</h3>
+                <button id="print-cash-closure-btn" class="text-gray-600 hover:text-gray-800">
+                    <i class="fas fa-print text-xl"></i>
+                </button>
+            </div>
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between"><span class="text-gray-600">Valor Inicial:</span> <span id="summary-initial" class="font-medium">R$ 0,00</span></div>
                 <hr class="my-2">
@@ -1019,6 +1024,92 @@
             });
         }
         
+        function printCashClosure() {
+            // Gather data from the modal
+            const initialValue = document.getElementById('summary-initial').textContent;
+            const totalDelivery = document.getElementById('summary-delivery').textContent;
+            const totalRetirada = document.getElementById('summary-retirada').textContent;
+            const totalMesas = document.getElementById('summary-mesas').textContent;
+            const totalDeliveryFees = document.getElementById('summary-delivery-fees').textContent;
+            const totalCash = document.getElementById('summary-cash').textContent;
+            const totalCard = document.getElementById('summary-card').textContent;
+            const totalPix = document.getElementById('summary-pix').textContent;
+            const totalSales = document.getElementById('summary-total-sales').textContent;
+            const expectedInCash = document.getElementById('summary-expected').textContent;
+            const finalValue = document.getElementById('final-value').value;
+            const differenceText = document.getElementById('summary-difference').textContent;
+
+            const styles = `
+                <style>
+                    @media print {
+                        @page { margin: 0; size: 80mm auto; }
+                        body {
+                            width: 80mm;
+                            margin: 0;
+                            padding: 5mm;
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 10pt;
+                            color: #000;
+                        }
+                        * {
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 10pt;
+                        }
+                        h1 { font-size: 14pt; text-align: center; margin-bottom: 5px; }
+                        h2 { font-size: 11pt; font-weight: bold; margin-top: 10px; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 2px;}
+                        p { margin: 2px 0; display: flex; justify-content: space-between; }
+                        hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
+                        .font-bold { font-weight: bold; }
+                    }
+                </style>
+            `;
+
+            const printContent = `
+                <h1>Fechamento de Caixa</h1>
+                <p><span>Data:</span> <span>${new Date().toLocaleString('pt-BR')}</span></p>
+                <hr>
+                <h2>Resumo de Vendas</h2>
+                <p><span>Vendas Delivery:</span> <span>${totalDelivery}</span></p>
+                <p><span>Vendas Retirada:</span> <span>${totalRetirada}</span></p>
+                <p><span>Vendas Mesas:</span> <span>${totalMesas}</span></p>
+                <p><span>Taxas de Entrega:</span> <span>${totalDeliveryFees}</span></p>
+                <hr>
+                <p class="font-bold"><span>Total de Vendas:</span> <span>${totalSales}</span></p>
+                <hr>
+                <h2>Pagamentos</h2>
+                <p><span>Dinheiro:</span> <span>${totalCash}</span></p>
+                <p><span>Cartão:</span> <span>${totalCard}</span></p>
+                <p><span>Pix:</span> <span>${totalPix}</span></p>
+                <hr>
+                <h2>Resumo do Caixa</h2>
+                <p><span>Valor Inicial:</span> <span>${initialValue}</span></p>
+                <p><span>Valor Esperado:</span> <span>${expectedInCash}</span></p>
+                <p><span>Valor Contado:</span> <span>R$ ${parseFloat(finalValue || 0).toFixed(2).replace('.', ',')}</span></p>
+                <p class="font-bold"><span>Diferença:</span> <span>${differenceText || 'N/A'}</span></p>
+            `;
+
+            let printFrame = document.getElementById('print-frame');
+            if (!printFrame) {
+                printFrame = document.createElement('iframe');
+                printFrame.id = 'print-frame';
+                printFrame.style.position = 'absolute';
+                printFrame.style.width = '0';
+                printFrame.style.height = '0';
+                printFrame.style.border = '0';
+                document.body.appendChild(printFrame);
+            }
+
+            const frameDoc = printFrame.contentWindow.document;
+            frameDoc.open();
+            frameDoc.write(styles + printContent);
+            frameDoc.close();
+            
+            setTimeout(() => {
+                printFrame.contentWindow.focus();
+                printFrame.contentWindow.print();
+            }, 100);
+        }
+
         async function openCloseCashModal() {
             if (!currentCashRegister) {
                 alert("Nenhum caixa aberto para fechar.");
@@ -1131,6 +1222,7 @@
 
         closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
         cancelCloseCashBtn.addEventListener('click', () => closeCashModal.style.display = 'none');
+        document.getElementById('print-cash-closure-btn').addEventListener('click', printCashClosure);
 
         finalValueInput.addEventListener('input', () => {
             const finalValue = parseFloat(finalValueInput.value);
