@@ -947,6 +947,13 @@
                                         return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
                                     }).join('')}</ul>`;
                                 }
+                                // CORREÇÃO AQUI: Adiciona os ingredientes do hambúrguer na comanda do cliente.
+                                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                                     itemString += `<ul>${item.ingredients.map(ing => {
+                                         const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
+                                         return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
+                                     }).join('')}</ul>`;
+                                }
                                 return itemString;
                             }).join('');
                             clientItemsHtml += '</ul>';
