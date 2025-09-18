@@ -1290,7 +1290,7 @@
             const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
             
             try {
-                const dataToSave = {
+                const dataToSaveInFirestore = {
                     status: 'fechado',
                     dataFechamento: serverTimestamp(),
                     usuarioFechamento: auth.currentUser.email,
@@ -1304,11 +1304,10 @@
                     totalDinheiro: detailedReportData.totalCash,
                     totalCartao: detailedReportData.totalCard,
                     totalPix: detailedReportData.totalPix,
-                    totalSangrias: detailedReportData.totalSangrias, // Adicionado para arquivamento
-                    sangrias: detailedReportData.sangriaDetails // Adiciona detalhes para arquivamento
+                    totalSangrias: detailedReportData.totalSangrias,
                 };
                 
-                await updateDoc(cashRegisterRef, dataToSave);
+                await updateDoc(cashRegisterRef, dataToSaveInFirestore);
                 alert("Caixa fechado com sucesso!");
 
                 // Arquiva todos os pedidos finalizados
@@ -1334,7 +1333,7 @@
                      confirmCloseBtn.textContent = 'Confirmar Fechamento';
                 }
                 
-                // Prepara os dados para arquivamento na planilha
+                // Prepara os dados COMPLETOS para arquivamento na planilha
                 const dataToArchive = {
                     ...detailedReportData,
                     id: currentCashRegister.id,
@@ -1344,13 +1343,14 @@
                     usuarioFechamento: auth.currentUser.email,
                     valorFinalContado: finalValue,
                     diferenca: finalValue - expectedValue,
+                    sangrias: detailedReportData.sangriaDetails // Garante que os detalhes da sangria estão aqui
                 };
 
-                // Chama a nova API para arquivar os dados
+                // Chama a API para arquivar os dados com o objeto correto
                 fetch('/api/arquivar-fechamento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cashRegisterData: dataToSave }) // Envía dataToSave que contém os detalhes
+                    body: JSON.stringify({ cashRegisterData: dataToArchive })
                 }).then(res => res.json()).then(data => {
                     if (data.success) {
                         console.log("Fechamento de caixa arquivado na planilha com sucesso.");
@@ -1517,4 +1517,5 @@
     </script>
 </body>
 </html>
+
 
