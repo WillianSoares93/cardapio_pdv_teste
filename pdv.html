@@ -908,10 +908,18 @@
                             kitchenHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<ul>${item.extras.map(extra => `<li class="item-details">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
+                                    // CORRIGIDO: Adiciona quantidade e garante que cada extra esteja em uma nova linha.
+                                    itemString += `<ul>${item.extras.map(extra => {
+                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
+                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
+                                    }).join('')}</ul>`;
                                 }
                                 if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                     itemString += `<ul>${item.ingredients.map(ing => `<li class="item-details">- ${ing.name}</li>`).join('')}</ul>`;
+                                     // CORRIGIDO: Adiciona quantidade e garante que cada ingrediente esteja em uma nova linha.
+                                     itemString += `<ul>${item.ingredients.map(ing => {
+                                         const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
+                                         return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
+                                     }).join('')}</ul>`;
                                 }
                                 return itemString;
                             }).join('');
@@ -934,7 +942,10 @@
                              clientItemsHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<ul>${item.extras.map(extra => `<li class="item-details">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
+                                    itemString += `<ul>${item.extras.map(extra => {
+                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
+                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
+                                    }).join('')}</ul>`;
                                 }
                                 return itemString;
                             }).join('');
