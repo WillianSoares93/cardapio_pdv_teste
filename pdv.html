@@ -89,8 +89,7 @@
             <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
             <div class="flex items-center space-x-2">
                 <a href="atendente.html" target="_blank" class="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700">Lançar Pedido</a>
-                <button id="register-sangria-btn" class="px-3 py-2 bg-orange-500 text-white text-xs font-bold rounded-md hover:bg-orange-600">Registrar Sangria</button>
-                <button id="close-cash-register-btn" class="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700">Fechar Caixa</button>
+                <button id="close-cash-register-btn" class="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700">Ver Caixa</button>
                 <a href="gerenciar.html" target="_blank" class="px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</a>
                 <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">Sair</button>
                 <div id="connection-status" class="text-sm font-medium text-gray-500">
@@ -237,6 +236,7 @@
                     <span id="summary-difference" class="font-bold"></span>
                 </div>
                 <div class="flex justify-end space-x-4">
+                    <button type="button" id="register-sangria-btn" class="px-4 py-2 bg-orange-500 text-white font-bold rounded-md hover:bg-orange-600">Registrar Sangria</button>
                     <button type="button" id="cancel-close-cash-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
                     <button type="submit" id="confirm-close-cash-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Confirmar Fechamento</button>
                 </div>
@@ -936,18 +936,10 @@
                             kitchenHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    // CORRIGIDO: Adiciona quantidade e garante que cada extra esteja em uma nova linha.
-                                    itemString += `<ul>${item.extras.map(extra => {
-                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
-                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
-                                    }).join('')}</ul>`;
+                                    itemString += `<ul>${item.extras.map(extra => `<li class="item-details">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
                                 }
                                 if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                     // CORRIGIDO: Adiciona quantidade e garante que cada ingrediente esteja em uma nova linha.
-                                     itemString += `<ul>${item.ingredients.map(ing => {
-                                         const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
-                                         return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
-                                     }).join('')}</ul>`;
+                                     itemString += `<ul>${item.ingredients.map(ing => `<li class="item-details">- ${ing.name}</li>`).join('')}</ul>`;
                                 }
                                 return itemString;
                             }).join('');
@@ -970,10 +962,7 @@
                              clientItemsHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<ul>${item.extras.map(extra => {
-                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
-                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
-                                    }).join('')}</ul>`;
+                                    itemString += `<ul>${item.extras.map(extra => `<li class="item-details">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
                                 }
                                 // CORREÇÃO AQUI: Adiciona os ingredientes do hambúrguer na comanda do cliente.
                                 if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
@@ -1451,7 +1440,6 @@
                 alert(`Pedido transferido com sucesso para a ${newClientName}`);
                 transferTableModal.style.display = 'none';
                 manageTableModal.style.display = 'none';
-                manageTableModal.style.display = 'none';
             }
         });
 
@@ -1459,13 +1447,16 @@
         const sangriaModal = document.getElementById('sangria-modal');
         const sangriaForm = document.getElementById('sangria-form');
 
-        document.getElementById('register-sangria-btn').addEventListener('click', () => {
-            if (!currentCashRegister) {
-                alert("É necessário ter um caixa aberto para registrar uma sangria.");
-                return;
+        // O botão agora está dentro do modal de fechamento
+        document.getElementById('close-cash-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'register-sangria-btn') {
+                 if (!currentCashRegister) {
+                    alert("É necessário ter um caixa aberto para registrar uma sangria.");
+                    return;
+                }
+                sangriaForm.reset();
+                sangriaModal.style.display = 'flex';
             }
-            sangriaForm.reset();
-            sangriaModal.style.display = 'flex';
         });
 
         document.getElementById('cancel-sangria-btn').addEventListener('click', () => {
@@ -1509,6 +1500,10 @@
 
                 alert("Sangria registrada com sucesso!");
                 sangriaModal.style.display = 'none';
+                // Atualiza a visualização do caixa se estiver aberta
+                if (closeCashModal.style.display === 'flex') {
+                    openCloseCashModal();
+                }
 
             } catch (error) {
                 console.error("Erro ao registrar sangria:", error);
@@ -1522,5 +1517,4 @@
     </script>
 </body>
 </html>
-
 
