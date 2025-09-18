@@ -49,6 +49,9 @@ export default async (req, res) => {
             return new Date(date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
         }
         
+        // CORREÇÃO: Combina o total e os detalhes da sangria em uma única string.
+        const sangriaInfo = `Total: R$${(cashRegisterData.totalSangrias || 0).toFixed(2).replace('.', ',')} (${cashRegisterData.sangrias || 'Nenhuma sangria registrada'})`;
+
         const newRow = [
             cashRegisterData.id,
             formatToBrazilTime(cashRegisterData.dataAbertura),
@@ -66,8 +69,7 @@ export default async (req, res) => {
             String((cashRegisterData.totalDinheiro || 0).toFixed(2)).replace('.', ','),
             String((cashRegisterData.totalCartao || 0).toFixed(2)).replace('.', ','),
             String((cashRegisterData.totalPix || 0).toFixed(2)).replace('.', ','),
-            String((cashRegisterData.totalSangrias || 0).toFixed(2)).replace('.', ','),
-            cashRegisterData.sangrias || ''
+            sangriaInfo // Usa a string combinada para uma única coluna.
         ];
 
         await sheets.spreadsheets.values.append({
