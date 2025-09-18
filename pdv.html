@@ -908,10 +908,10 @@
                             kitchenHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<li class="item-details">${item.extras.map(extra => `+ ${extra.name} (${extra.placement})`).join(', ')}</li>`;
+                                    itemString += `<ul>${item.extras.map(extra => `<li class="item-details">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
                                 }
                                 if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                     itemString += `<li class="item-details">${item.ingredients.map(ing => `- ${ing.name}`).join(', ')}</li>`;
+                                     itemString += `<ul>${item.ingredients.map(ing => `<li class="item-details">- ${ing.name}</li>`).join('')}</ul>`;
                                 }
                                 return itemString;
                             }).join('');
@@ -934,7 +934,7 @@
                              clientItemsHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<li class="item-details">${item.extras.map(extra => `+ ${extra.name} (${extra.placement})`).join(', ')}</li>`;
+                                    itemString += `<ul>${item.extras.map(extra => `<li class="item-details">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
                                 }
                                 return itemString;
                             }).join('');
@@ -1311,3 +1311,4 @@
     </script>
 </body>
 </html>
+
