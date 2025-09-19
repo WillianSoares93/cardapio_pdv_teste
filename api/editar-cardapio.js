@@ -24,9 +24,15 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Nome da planilha e ação são obrigatórios.' });
         }
         
+        // CORREÇÃO: Verifica se a planilha (aba) existe antes de tentar ler
+        const sheetId = await getSheetIdByName(sheetName);
+        if (sheetId === null) {
+            return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada no seu arquivo Google Sheets. Por favor, crie-a para continuar.` });
+        }
+        
         const headersResponse = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!1:1` });
         
-        // CORREÇÃO: Verifica se a planilha tem cabeçalhos antes de prosseguir.
+        // Mantém a verificação para o caso da planilha existir mas estar vazia.
         if (!headersResponse.data.values || headersResponse.data.values.length === 0 || headersResponse.data.values[0].length === 0) {
             return res.status(400).json({ error: `A planilha "${sheetName}" parece estar vazia ou não tem uma linha de cabeçalho. Por favor, adicione os cabeçalhos para continuar.` });
         }
@@ -65,9 +71,7 @@ export default async function handler(req, res) {
             case 'delete': {
                 if (!rowIndex) return res.status(400).json({ error: 'Índice da linha é obrigatório.' });
                 
-                const sheetId = await getSheetIdByName(sheetName);
-                if (sheetId === null) return res.status(404).json({ error: `Planilha não encontrada: ${sheetName}` });
-
+                // sheetId já foi verificado no início
                 await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SPREADSHEET_ID,
                     requestBody: { requests: [{ deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: rowIndex - 1, endIndex: rowIndex }}}] },
@@ -123,9 +127,7 @@ export default async function handler(req, res) {
              case 'bulk-delete': {
                 if (!rowIndexes || rowIndexes.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios para exclusão em massa.' });
                 
-                const sheetId = await getSheetIdByName(sheetName);
-                if (sheetId === null) return res.status(404).json({ error: `Planilha não encontrada: ${sheetName}` });
-
+                // sheetId já foi verificado no início
                 // Ordena os índices em ordem decrescente para evitar problemas de deslocamento
                 const sortedIndexes = rowIndexes.sort((a, b) => b - a);
                 const deleteRequests = sortedIndexes.map(rIndex => ({
