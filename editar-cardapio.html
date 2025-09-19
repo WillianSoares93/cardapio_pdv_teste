@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Cardápio - Sâmia Pizzaria</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png" type="image/png">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f3f4f6;
+            visibility: hidden; /* Esconde o corpo até a autenticação */
+        }
+        .tab-btn.active {
+            border-color: #ef4444;
+            color: #ef4444;
+            background-color: #fef2f2;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            max-height: 90vh;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <header class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800">Gerenciador de Cardápio</h1>
+            <div class="flex items-center space-x-4">
+                 <a href="pdv.html" class="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-md hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-clipboard-list mr-2"></i>Ir para o PDV
+                </a>
+                <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div id="loading-state" class="text-center py-10">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+            <p class="mt-4 text-gray-600">Carregando dados da planilha...</p>
+        </div>
+
+        <div id="editor-content" class="hidden">
+            <div class="mb-6">
+                <div class="border-b border-gray-200">
+                    <nav id="editor-tabs" class="-mb-px flex space-x-4 overflow-x-auto">
+                        <!-- As abas serão geradas aqui -->
+                    </nav>
+                </div>
+            </div>
+
+            <div id="tab-panels">
+                <!-- Os painéis com as tabelas de edição serão gerados aqui -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para Edição/Criação de Itens -->
+    <div id="edit-item-modal" class="modal">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl overflow-y-auto">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 id="modal-title" class="text-xl font-bold text-gray-900">Editar Item</h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <form id="edit-item-form" class="mt-4 space-y-4">
+                <!-- Campos do formulário serão gerados aqui -->
+            </form>
+            <div class="flex justify-between items-center mt-6 pt-4 border-t">
+                <button id="delete-item-btn" class="px-4 py-2 bg-red-600 text-white font-bold rounded-md hover:bg-red-700 transition-colors">
+                    <i class="fas fa-trash-alt mr-2"></i>Excluir
+                </button>
+                <div class="space-x-4">
+                    <button id="cancel-edit-btn" class="px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button id="save-item-btn" class="px-4 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+
+        const firebaseConfig = {
+           apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+           authDomain: "pizzaria-pdv.firebaseapp.com",
+           projectId: "pizzaria-pdv",
+           storageBucket: "pizzaria-pdv.firebasestorage.app",
+           messagingSenderId: "304171744691",
+           appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        let fullData = {};
+        let currentEditingItem = { sheetName: null, rowIndex: null };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    document.body.style.visibility = 'visible';
+                    initializeApp();
+                } else {
+                    window.location.href = `login.html?redirect=editar-cardapio.html`;
+                }
+            });
+
+            document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+        });
+
+        async function initializeApp() {
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) throw new Error('Falha ao carregar dados');
+                fullData = await response.json();
+                
+                // Renomeia as chaves para melhor apresentação
+                fullData['Itens do Cardápio'] = fullData.cardapio; delete fullData.cardapio;
+                fullData['Promoções'] = fullData.promocoes; delete fullData.promocoes;
+                fullData['Ingredientes Hambúrguer'] = fullData.ingredientesHamburguer; delete fullData.ingredientesHamburguer;
+                fullData['Adicionais Pizza'] = fullData.ingredientesPizza; delete fullData.ingredientesPizza;
+                fullData['Taxas de Entrega'] = fullData.deliveryFees; delete fullData.deliveryFees;
+                fullData['Dados da Empresa'] = fullData.contact; delete fullData.contact;
+
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('editor-content').classList.remove('hidden');
+
+                renderTabsAndPanels();
+                setupEventListeners();
+
+            } catch (error) {
+                console.error("Erro ao inicializar:", error);
+                document.getElementById('loading-state').innerHTML = `<p class="text-red-500 font-bold">Não foi possível carregar os dados. Verifique o console.</p>`;
+            }
+        }
+        
+        function getSheetNameFromTitle(title) {
+            const map = {
+                'Itens do Cardápio': 'cardapio',
+                'Promoções': 'promocoes',
+                'Ingredientes Hambúrguer': 'ingredientesHamburguer',
+                'Adicionais Pizza': 'ingredientesPizza',
+                'Taxas de Entrega': 'deliveryFees',
+                'Dados da Empresa': 'contact'
+            };
+            return map[title];
+        }
+
+        function renderTabsAndPanels() {
+            const tabsContainer = document.getElementById('editor-tabs');
+            const panelsContainer = document.getElementById('tab-panels');
+            tabsContainer.innerHTML = '';
+            panelsContainer.innerHTML = '';
+            let isFirstTab = true;
+
+            for (const title in fullData) {
+                const sheetName = getSheetNameFromTitle(title);
+                const isActive = isFirstTab ? 'active' : '';
+                
+                tabsContainer.innerHTML += `<button class="tab-btn ${isActive} py-3 px-4 font-medium text-sm text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap" data-tab="${sheetName}">${title}</button>`;
+                
+                const panelHiddenClass = isFirstTab ? '' : 'hidden';
+                const headers = Object.keys(fullData[title][0] || {});
+                let tableHtml = `
+                    <div id="${sheetName}-panel" class="tab-panel ${panelHiddenClass}">
+                        <div class="flex justify-end mb-4">
+                            <button class="add-new-btn px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700" data-sheet="${sheetName}" data-title="${title}">
+                                <i class="fas fa-plus mr-2"></i>Adicionar Novo
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto bg-white rounded-lg shadow">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        ${headers.map(h => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${h}</th>`).join('')}
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${fullData[title].map((item, index) => `
+                                        <tr>
+                                            ${headers.map(h => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${item[h] === true ? 'Sim' : item[h] === false ? 'Não' : item[h]}</td>`).join('')}
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-sheet="${sheetName}" data-title="${title}" data-index="${index}">Editar</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>`;
+                panelsContainer.innerHTML += tableHtml;
+                isFirstTab = false;
+            }
+        }
+        
+        function setupEventListeners() {
+            const tabs = document.querySelectorAll('.tab-btn');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+                    document.getElementById(`${tab.dataset.tab}-panel`).classList.remove('hidden');
+                });
+            });
+
+            document.querySelectorAll('.add-new-btn, .edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const { sheet, title, index } = e.currentTarget.dataset;
+                    const isEditing = index !== undefined;
+                    const itemData = isEditing ? fullData[title][index] : {};
+                    
+                    currentEditingItem = {
+                        sheetName: getSheetNameFromTitle(title),
+                        rowIndex: isEditing ? parseInt(index) + 2 : null, // +2 para compensar cabeçalho e index 0
+                        isNew: !isEditing
+                    };
+                    
+                    openEditModal(title, itemData, isEditing);
+                });
+            });
+
+            document.getElementById('save-item-btn').addEventListener('click', handleSave);
+            document.getElementById('delete-item-btn').addEventListener('click', handleDelete);
+            document.getElementById('close-modal-btn').addEventListener('click', closeEditModal);
+            document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
+        }
+        
+        function openEditModal(title, itemData, isEditing) {
+            document.getElementById('modal-title').textContent = isEditing ? `Editar ${title}` : `Adicionar Novo em ${title}`;
+            document.getElementById('delete-item-btn').style.display = isEditing ? 'block' : 'none';
+            const form = document.getElementById('edit-item-form');
+            form.innerHTML = '';
+            
+            const headers = Object.keys(fullData[title][0] || {});
+            headers.forEach(header => {
+                const value = itemData[header];
+                let inputHtml = '';
+                if (typeof value === 'boolean') {
+                    inputHtml = `
+                        <select id="form-input-${header}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            <option value="true" ${value === true ? 'selected' : ''}>Sim</option>
+                            <option value="false" ${!value ? 'selected' : ''}>Não</option>
+                        </select>`;
+                } else if (String(value).length > 100 || String(value).includes('\n')) {
+                    inputHtml = `<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">${value || ''}</textarea>`;
+                } else {
+                    inputHtml = `<input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">`;
+                }
+
+                form.innerHTML += `
+                    <div>
+                        <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${header}</label>
+                        ${inputHtml}
+                    </div>`;
+            });
+
+            document.getElementById('edit-item-modal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-item-modal').style.display = 'none';
+        }
+
+        async function handleSave() {
+            const form = document.getElementById('edit-item-form');
+            const data = {};
+            const inputs = form.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                const key = input.id.replace('form-input-', '');
+                if (input.tagName === 'SELECT') {
+                    data[key] = input.value === 'true';
+                } else {
+                    data[key] = input.value;
+                }
+            });
+
+            const action = currentEditingItem.isNew ? 'add' : 'update';
+            const body = {
+                sheetName: currentEditingItem.sheetName,
+                action: action,
+                rowIndex: currentEditingItem.rowIndex,
+                data: data
+            };
+            
+            await sendUpdateRequest(body);
+        }
+
+        async function handleDelete() {
+            if (confirm("Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.")) {
+                const body = {
+                    sheetName: currentEditingItem.sheetName,
+                    action: 'delete',
+                    rowIndex: currentEditingItem.rowIndex
+                };
+                await sendUpdateRequest(body);
+            }
+        }
+
+        async function sendUpdateRequest(body) {
+            const saveBtn = document.getElementById('save-item-btn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+
+            try {
+                const response = await fetch('/api/editar-cardapio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Erro desconhecido');
+                }
+                alert('Operação realizada com sucesso!');
+                closeEditModal();
+                initializeApp(); // Recarrega os dados para mostrar a alteração
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert(`Falha ao salvar: ${error.message}`);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Salvar Alterações';
+            }
+        }
+
+    </script>
+</body>
+</html>
