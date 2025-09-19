@@ -78,6 +78,17 @@
         }
         .joining-mode .mesa-item.mesa-status-livre { cursor: pointer; }
         .joining-mode .mesa-item:not(.mesa-status-livre) { cursor: not-allowed; opacity: 0.5; }
+
+        /* Estilos para Drag and Drop */
+        .order-card.dragging {
+            opacity: 0.5;
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .pdv-column.drag-over {
+            background-color: rgba(0, 0, 0, 0.05);
+            border: 2px dashed #9ca3af;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -572,6 +583,67 @@
             
             initializeMesas();
 
+            // Lógica de Drag and Drop
+            let draggedItemId = null;
+            const pdvColumns = document.querySelectorAll('.overflow-y-auto[id^="col-"]');
+            
+            pdvColumns.forEach(col => col.classList.add('pdv-column'));
+
+            document.querySelector('main').addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.order-card');
+                if (card) {
+                    draggedItemId = card.dataset.id;
+                    setTimeout(() => card.classList.add('dragging'), 0);
+                }
+            });
+
+            document.querySelector('main').addEventListener('dragend', (e) => {
+                const card = e.target.closest('.order-card');
+                if (card) {
+                    card.classList.remove('dragging');
+                }
+                draggedItemId = null;
+            });
+
+            pdvColumns.forEach(column => {
+                column.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    column.classList.add('drag-over');
+                });
+
+                column.addEventListener('dragleave', () => column.classList.remove('drag-over'));
+
+                column.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    column.classList.remove('drag-over');
+
+                    if (!draggedItemId) return;
+                    
+                    const columnId = column.id;
+                    const parts = columnId.split('-');
+                    const typePart = parts[1];
+                    const statusPart = parts[2];
+
+                    let newStatus = null;
+                    if (typePart !== 'mesas') {
+                        switch(statusPart) {
+                            case 'novo': newStatus = 'Novo'; break;
+                            case 'preparo': newStatus = 'Em Preparo'; break;
+                            case 'pronto':
+                                newStatus = typePart === 'retirada' ? 'Pronto para Retirada' : 'Pronto para Entrega';
+                                break;
+                            case 'entrega': newStatus = 'Saiu para Entrega'; break;
+                            case 'entregue': newStatus = 'Entregue'; break;
+                        }
+                    }
+
+                    if (newStatus) {
+                        updateOrderStatus(draggedItemId, newStatus);
+                    }
+                });
+            });
+
+
             const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
 
             onSnapshot(q, (snapshot) => {
@@ -677,6 +749,8 @@
         function createOrderCard(order, id) {
             const card = document.createElement('div');
             card.className = 'order-card bg-white rounded-lg shadow-md border-l-4';
+            card.setAttribute('draggable', 'true');
+            card.dataset.id = id;
             
             let itemsHtml = order.itens.map(item => `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`).join('');
 
@@ -936,10 +1010,18 @@
                             kitchenHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<ul>${item.extras.map(extra => `<li class="item-details">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
+                                    // CORRIGIDO: Adiciona quantidade e garante que cada extra esteja em uma nova linha.
+                                    itemString += `<ul>${item.extras.map(extra => {
+                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
+                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
+                                    }).join('')}</ul>`;
                                 }
                                 if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                     itemString += `<ul>${item.ingredients.map(ing => `<li class="item-details">- ${ing.name}</li>`).join('')}</ul>`;
+                                     // CORRIGIDO: Adiciona quantidade e garante que cada ingrediente esteja em uma nova linha.
+                                     itemString += `<ul>${item.ingredients.map(ing => {
+                                         const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
+                                         return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
+                                     }).join('')}</ul>`;
                                 }
                                 return itemString;
                             }).join('');
@@ -962,7 +1044,10 @@
                              clientItemsHtml += itemsByCategory[category].map(item => {
                                 let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
                                 if (item.extras && item.extras.length > 0) {
-                                    itemString += `<ul>${item.extras.map(extra => `<li class="item-details">+ ${extra.name} (${extra.placement})</li>`).join('')}</ul>`;
+                                    itemString += `<ul>${item.extras.map(extra => {
+                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
+                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
+                                    }).join('')}</ul>`;
                                 }
                                 // CORREÇÃO AQUI: Adiciona os ingredientes do hambúrguer na comanda do cliente.
                                 if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
@@ -1517,5 +1602,4 @@
     </script>
 </body>
 </html>
-
 
