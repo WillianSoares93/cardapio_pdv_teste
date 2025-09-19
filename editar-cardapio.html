@@ -35,6 +35,23 @@
         .modal-content {
             max-height: 90vh;
         }
+        .sticky-col {
+            position: sticky;
+            right: 0;
+            background-color: #f9fafb; /* bg-gray-50 for header */
+            z-index: 10;
+        }
+
+        .sticky-col-body {
+            position: sticky;
+            right: 0;
+            background-color: #ffffff; /* bg-white for body */
+            z-index: 10;
+        }
+
+        .sticky-col, .sticky-col-body {
+            border-left: 1px solid #e5e7eb; /* border-gray-200 */
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -114,12 +131,41 @@
 
         let fullData = {};
         let currentEditingItem = { sheetName: null, rowIndex: null };
+        
+        const columnTranslations = {
+            id: 'ID',
+            name: 'Nome',
+            description: 'Descrição',
+            category: 'Categoria',
+            basePrice: 'Preço Base (8 Fatias)',
+            price4Slices: 'Preço 4 Fatias',
+            price6Slices: 'Preço 6 Fatias',
+            price10Slices: 'Preço 10 Fatias',
+            isPizza: 'É Pizza?',
+            isCustomizable: 'É Montável?',
+            imageUrl: 'URL da Imagem',
+            promoPrice: 'Preço Promocional',
+            active: 'Ativo?',
+            itemId: 'ID do Item (Opcional)',
+            price: 'Preço',
+            isSingleChoice: 'Escolha Única?',
+            isRequired: 'Obrigatório?',
+            limit: 'Limite',
+            neighborhood: 'Bairro',
+            deliveryFee: 'Taxa de Entrega',
+            data: 'Dado',
+            value: 'Valor'
+        };
+
+        function getTranslatedHeader(header) {
+            return columnTranslations[header] || header;
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     document.body.style.visibility = 'visible';
-                    loadEditorData(); // CORRIGIDO: Chamando a função com o nome correto
+                    loadEditorData(); 
                 } else {
                     window.location.href = `login.html?redirect=editar-cardapio.html`;
                 }
@@ -128,14 +174,12 @@
             document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
         });
 
-        // CORRIGIDO: Nome da função alterado para evitar conflito
         async function loadEditorData() {
             try {
                 const response = await fetch('/api/menu');
                 if (!response.ok) throw new Error('Falha ao carregar dados');
                 fullData = await response.json();
                 
-                // Renomeia as chaves para melhor apresentação
                 fullData['Itens do Cardápio'] = fullData.cardapio; delete fullData.cardapio;
                 fullData['Promoções'] = fullData.promocoes; delete fullData.promocoes;
                 fullData['Ingredientes Hambúrguer'] = fullData.ingredientesHamburguer; delete fullData.ingredientesHamburguer;
@@ -193,15 +237,15 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        ${headers.map(h => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${h}</th>`).join('')}
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                        ${headers.map(h => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${getTranslatedHeader(h)}</th>`).join('')}
+                                        <th class="sticky-col px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     ${fullData[title].map((item, index) => `
                                         <tr>
-                                            ${headers.map(h => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${item[h] === true ? 'Sim' : item[h] === false ? 'Não' : item[h]}</td>`).join('')}
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            ${headers.map(h => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${item[h] === true ? 'Sim' : item[h] === false ? 'Não' : item[h] || ''}</td>`).join('')}
+                                            <td class="sticky-col-body px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-sheet="${sheetName}" data-title="${title}" data-index="${index}">Editar</button>
                                             </td>
                                         </tr>
@@ -272,7 +316,7 @@
 
                 form.innerHTML += `
                     <div>
-                        <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${header}</label>
+                        <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
                         ${inputHtml}
                     </div>`;
             });
