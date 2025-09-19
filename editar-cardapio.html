@@ -77,6 +77,18 @@
         </div>
 
         <div id="editor-content" class="hidden">
+            <div class="bg-white p-4 rounded-lg shadow mb-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="search-filter" class="text-sm font-medium text-gray-700">Pesquisar na Tabela</label>
+                        <input type="text" id="search-filter" class="mt-1 w-full p-2 border border-gray-300 rounded-md" placeholder="Digite para pesquisar...">
+                    </div>
+                    <div id="advanced-filters-container">
+                        <!-- Filtros avançados (como categorias) serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+
             <div class="mb-6">
                 <div class="border-b border-gray-200">
                     <nav id="editor-tabs" class="-mb-px flex space-x-4 overflow-x-auto">
@@ -216,6 +228,18 @@
             return map[title];
         }
 
+        function getTitleFromSheetName(sheetName) {
+            const map = {
+                'cardapio': 'Itens do Cardápio',
+                'promocoes': 'Promoções',
+                'ingredientesHamburguer': 'Ingredientes Hambúrguer',
+                'ingredientesPizza': 'Adicionais Pizza',
+                'deliveryFees': 'Taxas de Entrega',
+                'contact': 'Dados da Empresa'
+            };
+            return map[sheetName];
+        }
+
         function renderTabsAndPanels() {
             const tabsContainer = document.getElementById('editor-tabs');
             const panelsContainer = document.getElementById('tab-panels');
@@ -247,48 +271,120 @@
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
-                                    ${fullData[title].map((item, index) => `
-                                        <tr>
-                                            ${headers.map(h => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${item[h] === true ? 'Sim' : item[h] === false ? 'Não' : item[h] || ''}</td>`).join('')}
-                                            <td class="sticky-col-body px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-sheet="${sheetName}" data-title="${title}" data-index="${index}">Editar</button>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
+                                    <!-- O corpo da tabela será renderizado dinamicamente -->
                                 </tbody>
                             </table>
                         </div>
                     </div>`;
                 panelsContainer.innerHTML += tableHtml;
+                if (isFirstTab) {
+                    renderAdvancedFilters(title);
+                }
                 isFirstTab = false;
             }
+            applyFilters();
+        }
+
+        function renderTableBody(title, data) {
+            const sheetName = getSheetNameFromTitle(title);
+            const tableBody = document.querySelector(`#${sheetName}-panel tbody`);
+            tableBody.innerHTML = '';
+            
+            const headers = Object.keys(fullData[title][0] || {});
+            tableBody.innerHTML = data.map((item, index) => `
+                <tr>
+                    ${headers.map(h => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${item[h] === true ? 'Sim' : item[h] === false ? 'Não' : item[h] || ''}</td>`).join('')}
+                    <td class="sticky-col-body px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-sheet="${sheetName}" data-title="${title}" data-index="${item.originalIndex}">Editar</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Re-anexa os event listeners para os botões de editar
+             document.querySelectorAll(`#${sheetName}-panel .edit-btn`).forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const { sheet, title, index } = e.currentTarget.dataset;
+                    const itemData = fullData[title][index];
+                    currentEditingItem = {
+                        sheetName: getSheetNameFromTitle(title),
+                        rowIndex: parseInt(index) + 2,
+                        isNew: false
+                    };
+                    openEditModal(title, itemData, true);
+                });
+            });
         }
         
+        function applyFilters() {
+            const activeTab = document.querySelector('.tab-btn.active');
+            if (!activeTab) return;
+            
+            const sheetName = activeTab.dataset.tab;
+            const title = getTitleFromSheetName(sheetName);
+            const originalData = fullData[title].map((item, index) => ({ ...item, originalIndex: index }));
+
+            const searchTerm = document.getElementById('search-filter').value.toLowerCase();
+            const categoryFilter = document.getElementById('category-filter');
+            const selectedCategory = categoryFilter ? categoryFilter.value : 'all';
+
+            const filteredData = originalData.filter(item => {
+                const categoryMatch = (selectedCategory === 'all' || item.category === selectedCategory);
+                const searchMatch = !searchTerm || Object.values(item).some(val => String(val).toLowerCase().includes(searchTerm));
+                return categoryMatch && searchMatch;
+            });
+            
+            renderTableBody(title, filteredData);
+        }
+
+        function renderAdvancedFilters(title) {
+            const container = document.getElementById('advanced-filters-container');
+            container.innerHTML = '';
+
+            if (title === 'Itens do Cardápio') {
+                const categories = [...new Set(fullData[title].map(item => item.category))];
+                let optionsHtml = '<option value="all">Todas as Categorias</option>';
+                categories.forEach(cat => {
+                    optionsHtml += `<option value="${cat}">${cat}</option>`;
+                });
+
+                container.innerHTML = `
+                    <div>
+                        <label for="category-filter" class="text-sm font-medium text-gray-700">Filtrar por Categoria</label>
+                        <select id="category-filter" class="mt-1 w-full p-2 border border-gray-300 rounded-md">${optionsHtml}</select>
+                    </div>`;
+                document.getElementById('category-filter').addEventListener('change', applyFilters);
+            }
+        }
+
         function setupEventListeners() {
+            document.getElementById('search-filter').addEventListener('input', applyFilters);
+
             const tabs = document.querySelectorAll('.tab-btn');
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     tabs.forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
                     document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-                    document.getElementById(`${tab.dataset.tab}-panel`).classList.remove('hidden');
+                    const panel = document.getElementById(`${tab.dataset.tab}-panel`);
+                    panel.classList.remove('hidden');
+
+                    const title = getTitleFromSheetName(tab.dataset.tab);
+                    renderAdvancedFilters(title);
+                    applyFilters();
                 });
             });
 
-            document.querySelectorAll('.add-new-btn, .edit-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const { sheet, title, index } = e.currentTarget.dataset;
-                    const isEditing = index !== undefined;
-                    const itemData = isEditing ? fullData[title][index] : {};
-                    
+            // Usando delegação de eventos para os botões de adicionar e editar
+            document.getElementById('tab-panels').addEventListener('click', (e) => {
+                 if (e.target.matches('.add-new-btn')) {
+                    const { sheet, title } = e.target.dataset;
                     currentEditingItem = {
-                        sheetName: getSheetNameFromTitle(title),
-                        rowIndex: isEditing ? parseInt(index) + 2 : null, // +2 para compensar cabeçalho e index 0
-                        isNew: !isEditing
+                        sheetName: sheet,
+                        rowIndex: null,
+                        isNew: true
                     };
-                    
-                    openEditModal(title, itemData, isEditing);
-                });
+                    openEditModal(title, {}, false);
+                }
             });
 
             document.getElementById('save-item-btn').addEventListener('click', handleSave);
@@ -313,7 +409,7 @@
                             <option value="true" ${value === true ? 'selected' : ''}>Sim</option>
                             <option value="false" ${!value ? 'selected' : ''}>Não</option>
                         </select>`;
-                } else if (String(value).length > 100 || String(value).includes('\n')) {
+                } else if (String(value || '').length > 100 || String(value || '').includes('\n')) {
                     inputHtml = `<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">${value || ''}</textarea>`;
                 } else {
                     inputHtml = `<input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">`;
