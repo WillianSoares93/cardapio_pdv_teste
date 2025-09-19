@@ -102,6 +102,27 @@
             </div>
         </div>
     </main>
+    
+    <!-- Modal de Ações em Massa -->
+    <div id="bulk-actions-modal" class="modal">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl overflow-y-auto">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 id="bulk-modal-title" class="text-xl font-bold text-gray-900">Edição em Massa</h3>
+                <button id="close-bulk-modal-btn" class="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <div class="mt-4 space-y-4">
+                <p>Você selecionou <strong id="bulk-selection-count">0</strong> itens.</p>
+                <div id="bulk-edit-fields">
+                    <!-- Campos para edição em massa serão inseridos aqui -->
+                </div>
+            </div>
+            <div class="flex justify-end items-center mt-6 pt-4 border-t">
+                <button id="cancel-bulk-edit-btn" class="px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-md hover:bg-gray-300 mr-4">Cancelar</button>
+                <button id="save-bulk-changes-btn" class="px-4 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Aplicar Alterações</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Modal para Edição/Criação de Itens -->
     <div id="edit-item-modal" class="modal">
@@ -143,6 +164,7 @@
 
         let fullData = {};
         let currentEditingItem = { sheetName: null, rowIndex: null };
+        let selectedItems = new Set();
         
         const columnTranslations = {
             id: 'ID',
@@ -257,7 +279,11 @@
                 const headers = Object.keys(fullData[title][0] || {});
                 let tableHtml = `
                     <div id="${sheetName}-panel" class="tab-panel ${panelHiddenClass}">
-                        <div class="flex justify-end mb-4">
+                        <div class="flex justify-between items-center mb-4">
+                             <div id="bulk-actions-container-${sheetName}" class="hidden space-x-2">
+                                <button class="bulk-edit-btn px-4 py-2 bg-yellow-500 text-white font-bold rounded-md hover:bg-yellow-600">Editar Selecionados</button>
+                                <button class="bulk-delete-btn px-4 py-2 bg-red-600 text-white font-bold rounded-md hover:bg-red-700">Excluir Selecionados</button>
+                            </div>
                             <button class="add-new-btn px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700" data-sheet="${sheetName}" data-title="${title}">
                                 <i class="fas fa-plus mr-2"></i>Adicionar Novo
                             </button>
@@ -266,6 +292,7 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
+                                        <th class="px-4 py-3"><input type="checkbox" class="select-all-checkbox"></th>
                                         ${headers.map(h => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${getTranslatedHeader(h)}</th>`).join('')}
                                         <th class="sticky-col px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                                     </tr>
@@ -292,27 +319,14 @@
             
             const headers = Object.keys(fullData[title][0] || {});
             tableBody.innerHTML = data.map((item, index) => `
-                <tr>
+                <tr data-original-index="${item.originalIndex}">
+                    <td class="px-4 py-4"><input type="checkbox" class="row-checkbox" data-index="${item.originalIndex}"></td>
                     ${headers.map(h => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${item[h] === true ? 'Sim' : item[h] === false ? 'Não' : item[h] || ''}</td>`).join('')}
                     <td class="sticky-col-body px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-sheet="${sheetName}" data-title="${title}" data-index="${item.originalIndex}">Editar</button>
                     </td>
                 </tr>
             `).join('');
-
-            // Re-anexa os event listeners para os botões de editar
-             document.querySelectorAll(`#${sheetName}-panel .edit-btn`).forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const { sheet, title, index } = e.currentTarget.dataset;
-                    const itemData = fullData[title][index];
-                    currentEditingItem = {
-                        sheetName: getSheetNameFromTitle(title),
-                        rowIndex: parseInt(index) + 2,
-                        isNew: false
-                    };
-                    openEditModal(title, itemData, true);
-                });
-            });
         }
         
         function applyFilters() {
@@ -328,31 +342,35 @@
             const selectedCategory = categoryFilter ? categoryFilter.value : 'all';
 
             const filteredData = originalData.filter(item => {
-                const categoryMatch = (selectedCategory === 'all' || item.category === selectedCategory);
+                const categoryMatch = (selectedCategory === 'all' || !item.category || item.category === selectedCategory);
                 const searchMatch = !searchTerm || Object.values(item).some(val => String(val).toLowerCase().includes(searchTerm));
                 return categoryMatch && searchMatch;
             });
             
             renderTableBody(title, filteredData);
+            updateSelectionState();
         }
 
         function renderAdvancedFilters(title) {
             const container = document.getElementById('advanced-filters-container');
             container.innerHTML = '';
 
-            if (title === 'Itens do Cardápio') {
-                const categories = [...new Set(fullData[title].map(item => item.category))];
-                let optionsHtml = '<option value="all">Todas as Categorias</option>';
-                categories.forEach(cat => {
-                    optionsHtml += `<option value="${cat}">${cat}</option>`;
-                });
+            const relevantTabs = ['Itens do Cardápio', 'Ingredientes Hambúrguer', 'Adicionais Pizza'];
+            if (relevantTabs.includes(title)) {
+                const categories = [...new Set(fullData[title].map(item => item.category))].filter(Boolean);
+                if (categories.length > 0) {
+                    let optionsHtml = '<option value="all">Todas as Categorias</option>';
+                    categories.forEach(cat => {
+                        optionsHtml += `<option value="${cat}">${cat}</option>`;
+                    });
 
-                container.innerHTML = `
-                    <div>
-                        <label for="category-filter" class="text-sm font-medium text-gray-700">Filtrar por Categoria</label>
-                        <select id="category-filter" class="mt-1 w-full p-2 border border-gray-300 rounded-md">${optionsHtml}</select>
-                    </div>`;
-                document.getElementById('category-filter').addEventListener('change', applyFilters);
+                    container.innerHTML = `
+                        <div>
+                            <label for="category-filter" class="text-sm font-medium text-gray-700">Filtrar por Categoria</label>
+                            <select id="category-filter" class="mt-1 w-full p-2 border border-gray-300 rounded-md">${optionsHtml}</select>
+                        </div>`;
+                    document.getElementById('category-filter').addEventListener('change', applyFilters);
+                }
             }
         }
 
@@ -369,21 +387,51 @@
                     panel.classList.remove('hidden');
 
                     const title = getTitleFromSheetName(tab.dataset.tab);
+                    selectedItems.clear(); // Limpa a seleção ao trocar de aba
                     renderAdvancedFilters(title);
                     applyFilters();
                 });
             });
 
-            // Usando delegação de eventos para os botões de adicionar e editar
             document.getElementById('tab-panels').addEventListener('click', (e) => {
                  if (e.target.matches('.add-new-btn')) {
                     const { sheet, title } = e.target.dataset;
-                    currentEditingItem = {
-                        sheetName: sheet,
-                        rowIndex: null,
-                        isNew: true
-                    };
+                    currentEditingItem = { sheetName: sheet, rowIndex: null, isNew: true };
                     openEditModal(title, {}, false);
+                } else if (e.target.matches('.edit-btn')) {
+                    const { sheet, title, index } = e.target.dataset;
+                    const itemData = fullData[title][index];
+                    currentEditingItem = {
+                        sheetName: getSheetNameFromTitle(title),
+                        rowIndex: parseInt(index) + 2,
+                        isNew: false
+                    };
+                    openEditModal(title, itemData, true);
+                } else if (e.target.matches('.select-all-checkbox')) {
+                    const panel = e.target.closest('.tab-panel');
+                    const checkboxes = panel.querySelectorAll('.row-checkbox');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = e.target.checked;
+                        const index = parseInt(checkbox.dataset.index);
+                        if (e.target.checked) {
+                            selectedItems.add(index);
+                        } else {
+                            selectedItems.delete(index);
+                        }
+                    });
+                    updateSelectionState();
+                } else if (e.target.matches('.row-checkbox')) {
+                     const index = parseInt(e.target.dataset.index);
+                     if (e.target.checked) {
+                         selectedItems.add(index);
+                     } else {
+                         selectedItems.delete(index);
+                     }
+                     updateSelectionState();
+                } else if (e.target.matches('.bulk-edit-btn')) {
+                    openBulkEditModal();
+                } else if (e.target.matches('.bulk-delete-btn')) {
+                    handleBulkDelete();
                 }
             });
 
@@ -391,8 +439,36 @@
             document.getElementById('delete-item-btn').addEventListener('click', handleDelete);
             document.getElementById('close-modal-btn').addEventListener('click', closeEditModal);
             document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
+
+            document.getElementById('close-bulk-modal-btn').addEventListener('click', () => document.getElementById('bulk-actions-modal').style.display = 'none');
+            document.getElementById('cancel-bulk-edit-btn').addEventListener('click', () => document.getElementById('bulk-actions-modal').style.display = 'none');
+            document.getElementById('save-bulk-changes-btn').addEventListener('click', handleBulkSave);
         }
         
+        function updateSelectionState() {
+            const activeTab = document.querySelector('.tab-btn.active');
+            if (!activeTab) return;
+            const sheetName = activeTab.dataset.tab;
+            const bulkContainer = document.getElementById(`bulk-actions-container-${sheetName}`);
+            
+            // Sincroniza os checkboxes visíveis com o estado da seleção
+            const panel = document.getElementById(`${sheetName}-panel`);
+            panel.querySelectorAll('.row-checkbox').forEach(cb => {
+                const index = parseInt(cb.dataset.index);
+                cb.checked = selectedItems.has(index);
+            });
+            const allVisibleCheckboxes = panel.querySelectorAll('.row-checkbox');
+            const allVisibleAndChecked = Array.from(allVisibleCheckboxes).every(cb => cb.checked);
+            panel.querySelector('.select-all-checkbox').checked = allVisibleCheckboxes.length > 0 && allVisibleAndChecked;
+
+
+            if (selectedItems.size > 0) {
+                bulkContainer.classList.remove('hidden');
+            } else {
+                bulkContainer.classList.add('hidden');
+            }
+        }
+
         function openEditModal(title, itemData, isEditing) {
             document.getElementById('modal-title').textContent = isEditing ? `Editar ${title}` : `Adicionar Novo em ${title}`;
             document.getElementById('delete-item-btn').style.display = isEditing ? 'block' : 'none';
@@ -425,6 +501,70 @@
             document.getElementById('edit-item-modal').style.display = 'flex';
         }
 
+        function openBulkEditModal() {
+            const activeTab = document.querySelector('.tab-btn.active');
+            const title = getTitleFromSheetName(activeTab.dataset.tab);
+            const headers = Object.keys(fullData[title][0] || {});
+            const fieldsContainer = document.getElementById('bulk-edit-fields');
+            fieldsContainer.innerHTML = '';
+
+            const commonFields = ['category', 'available', 'active'];
+            const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
+
+            // Adiciona campos comuns se existirem no cabeçalho
+            commonFields.forEach(field => {
+                if(headers.includes(field)){
+                     fieldsContainer.innerHTML += `
+                        <div class="grid grid-cols-3 items-center gap-4">
+                            <input type="checkbox" id="bulk-checkbox-${field}" class="form-checkbox h-5 w-5 text-indigo-600">
+                            <label for="bulk-select-${field}" class="col-span-2 block text-sm font-medium text-gray-700">${getTranslatedHeader(field)}</label>
+                            <select id="bulk-select-${field}" disabled class="col-span-3 mt-1 block w-full p-2 border border-gray-300 rounded-md bg-gray-100">
+                                <option value="">-- Selecione --</option>
+                                <option value="true">Sim</option>
+                                <option value="false">Não</option>
+                            </select>
+                        </div>`;
+                }
+            });
+
+            // Adiciona ferramenta de ajuste de preço
+            const hasPriceField = headers.some(h => priceFields.includes(h));
+            if(hasPriceField) {
+                 fieldsContainer.innerHTML += `
+                    <div class="mt-4 pt-4 border-t">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ajuste de Preço</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="bulk-price-adjustment-type" class="text-xs">Tipo de Ajuste</label>
+                                <select id="bulk-price-adjustment-type" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="percent_increase">Aumentar %</option>
+                                    <option value="percent_decrease">Diminuir %</option>
+                                    <option value="value_increase">Aumentar Valor (R$)</option>
+                                    <option value="value_decrease">Diminuir Valor (R$)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="bulk-price-adjustment-value" class="text-xs">Valor</label>
+                                <input type="number" id="bulk-price-adjustment-value" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Ex: 10 ou 2.50">
+                            </div>
+                        </div>
+                    </div>
+                 `;
+            }
+
+            // Habilita/desabilita campos
+            fieldsContainer.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const select = fieldsContainer.querySelector(`#${e.target.id.replace('checkbox', 'select')}`);
+                    select.disabled = !e.target.checked;
+                    select.classList.toggle('bg-gray-100', !e.target.checked);
+                });
+            });
+
+            document.getElementById('bulk-selection-count').textContent = selectedItems.size;
+            document.getElementById('bulk-actions-modal').style.display = 'flex';
+        }
+
         function closeEditModal() {
             document.getElementById('edit-item-modal').style.display = 'none';
         }
@@ -453,6 +593,46 @@
             await sendUpdateRequest(body);
         }
 
+        async function handleBulkSave() {
+            const activeTab = document.querySelector('.tab-btn.active');
+            const title = getTitleFromSheetName(activeTab.dataset.tab);
+            const sheetName = activeTab.dataset.tab;
+            
+            const updates = [];
+            const fieldsToUpdate = {};
+            
+            // Coleta campos de checkbox/select
+            document.querySelectorAll('#bulk-edit-fields input[type="checkbox"]:checked').forEach(checkbox => {
+                const field = checkbox.id.replace('bulk-checkbox-', '');
+                const select = document.getElementById(`bulk-select-${field}`);
+                if(select.value) {
+                    fieldsToUpdate[field] = select.value === 'true';
+                }
+            });
+
+            // Coleta e calcula ajustes de preço
+            const adjustmentValueEl = document.getElementById('bulk-price-adjustment-value');
+            if (adjustmentValueEl && adjustmentValueEl.value) {
+                const value = parseFloat(adjustmentValueEl.value);
+                const type = document.getElementById('bulk-price-adjustment-type').value;
+                fieldsToUpdate.priceAdjustment = { type, value };
+            }
+            
+            if (Object.keys(fieldsToUpdate).length === 0) {
+                alert("Nenhuma alteração foi especificada.");
+                return;
+            }
+
+            const body = {
+                sheetName,
+                action: 'bulk-update',
+                rowIndexes: Array.from(selectedItems).map(i => i + 2),
+                data: fieldsToUpdate
+            };
+            
+            await sendUpdateRequest(body, true);
+        }
+
         async function handleDelete() {
             if (confirm("Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.")) {
                 const body = {
@@ -464,10 +644,24 @@
             }
         }
 
-        async function sendUpdateRequest(body) {
-            const saveBtn = document.getElementById('save-item-btn');
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+        async function handleBulkDelete() {
+            if (confirm(`Tem certeza que deseja excluir os ${selectedItems.size} itens selecionados? Esta ação não pode ser desfeita.`)) {
+                const activeTab = document.querySelector('.tab-btn.active');
+                const sheetName = activeTab.dataset.tab;
+                const body = {
+                    sheetName,
+                    action: 'bulk-delete',
+                    rowIndexes: Array.from(selectedItems).map(i => i + 2)
+                };
+                await sendUpdateRequest(body, true);
+            }
+        }
+
+        async function sendUpdateRequest(body, isBulk = false) {
+            const btn = isBulk ? document.getElementById('save-bulk-changes-btn') : document.getElementById('save-item-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
 
             try {
                 const response = await fetch('/api/editar-cardapio', {
@@ -480,14 +674,19 @@
                     throw new Error(error.error || 'Erro desconhecido');
                 }
                 alert('Operação realizada com sucesso!');
-                closeEditModal();
+                if(isBulk) {
+                    document.getElementById('bulk-actions-modal').style.display = 'none';
+                    selectedItems.clear();
+                } else {
+                    closeEditModal();
+                }
                 loadEditorData(); // Recarrega os dados para mostrar a alteração
             } catch (error) {
                 console.error('Erro ao salvar:', error);
                 alert(`Falha ao salvar: ${error.message}`);
             } finally {
-                saveBtn.disabled = false;
-                saveBtn.textContent = 'Salvar Alterações';
+                btn.disabled = false;
+                btn.textContent = originalText;
             }
         }
 
