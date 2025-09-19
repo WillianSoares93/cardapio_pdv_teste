@@ -119,7 +119,7 @@
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     document.body.style.visibility = 'visible';
-                    initializeApp();
+                    loadEditorData(); // CORRIGIDO: Chamando a função com o nome correto
                 } else {
                     window.location.href = `login.html?redirect=editar-cardapio.html`;
                 }
@@ -128,7 +128,8 @@
             document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
         });
 
-        async function initializeApp() {
+        // CORRIGIDO: Nome da função alterado para evitar conflito
+        async function loadEditorData() {
             try {
                 const response = await fetch('/api/menu');
                 if (!response.ok) throw new Error('Falha ao carregar dados');
@@ -335,7 +336,7 @@
                 }
                 alert('Operação realizada com sucesso!');
                 closeEditModal();
-                initializeApp(); // Recarrega os dados para mostrar a alteração
+                loadEditorData(); // Recarrega os dados para mostrar a alteração
             } catch (error) {
                 console.error('Erro ao salvar:', error);
                 alert(`Falha ao salvar: ${error.message}`);
@@ -348,3 +349,4 @@
     </script>
 </body>
 </html>
+
