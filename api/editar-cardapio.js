@@ -10,24 +10,30 @@ const auth = new google.auth.GoogleAuth({
 });
 
 const sheets = google.sheets({ version: 'v4', auth });
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+// CORREÇÃO: Utiliza uma variável de ambiente específica para a planilha do cardápio.
+const SPREADSHEET_ID = process.env.MENU_SPREADSHEET_ID;
 
 // Função auxiliar para obter todos os nomes de abas para diagnóstico
 async function getAllSheetNames() {
     try {
+        if (!SPREADSHEET_ID) return ['ERRO: Váriavel de ambiente MENU_SPREADSHEET_ID não configurada.'];
         const response = await sheets.spreadsheets.get({
             spreadsheetId: SPREADSHEET_ID,
         });
         return response.data.sheets.map((s) => s.properties.title);
     } catch (e) {
         console.error("Erro ao buscar nomes das abas:", e.message);
-        return [];
+        return [`ERRO ao acessar planilha: ${e.message}`];
     }
 }
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
+    }
+
+    if (!SPREADSHEET_ID) {
+        return res.status(500).json({ error: 'A variável de ambiente MENU_SPREADSHEET_ID não está configurada no servidor.' });
     }
 
     try {
@@ -37,14 +43,13 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Nome da planilha e ação são obrigatórios.' });
         }
         
-        // DIAGNÓSTICO: Registra o nome da aba recebida e todas as abas encontradas na planilha
         const allSheetNames = await getAllSheetNames();
-        console.log(`[DIAGNÓSTICO] Requisição para a aba: "${sheetName}"`);
-        console.log(`[DIAGNÓSTICO] Abas encontradas na planilha:`, allSheetNames);
+        console.log(`[DIAGNÓSTICO] Requisição para a aba: "${sheetName}" na planilha de cardápio.`);
+        console.log(`[DIAGNÓSTICO] Abas encontradas na planilha de cardápio:`, allSheetNames);
         
         const sheetId = await getSheetIdByName(sheetName);
         if (sheetId === null) {
-            return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada. Verifique os logs do servidor (em tempo real na Vercel) para ver a lista de nomes de abas que o sistema encontrou.` });
+            return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada na sua Planilha de Cardápio. Verifique os logs do servidor para a lista de abas encontradas.` });
         }
         
         const headersResponse = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!1:1` });
@@ -87,7 +92,6 @@ export default async function handler(req, res) {
             case 'delete': {
                 if (!rowIndex) return res.status(400).json({ error: 'Índice da linha é obrigatório.' });
                 
-                // sheetId já foi verificado no início
                 await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SPREADSHEET_ID,
                     requestBody: { requests: [{ deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: rowIndex - 1, endIndex: rowIndex }}}] },
@@ -143,8 +147,6 @@ export default async function handler(req, res) {
              case 'bulk-delete': {
                 if (!rowIndexes || rowIndexes.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios para exclusão em massa.' });
                 
-                // sheetId já foi verificado no início
-                // Ordena os índices em ordem decrescente para evitar problemas de deslocamento
                 const sortedIndexes = rowIndexes.sort((a, b) => b - a);
                 const deleteRequests = sortedIndexes.map(rIndex => ({
                     deleteDimension: {
