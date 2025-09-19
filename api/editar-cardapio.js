@@ -10,7 +10,6 @@ const auth = new google.auth.GoogleAuth({
 });
 
 const sheets = google.sheets({ version: 'v4', auth });
-// CORREÇÃO: Utiliza uma variável de ambiente específica para a planilha do cardápio.
 const SPREADSHEET_ID = process.env.MENU_SPREADSHEET_ID;
 
 // Função auxiliar para obter todos os nomes de abas para diagnóstico
@@ -59,12 +58,17 @@ export default async function handler(req, res) {
         }
         const headers = headersResponse.data.values[0];
 
+        // Função auxiliar para mapear os dados na ordem correta dos cabeçalhos
+        const mapDataToHeaders = (dataObject) => {
+            return headers.map(header => dataObject[header] !== undefined ? dataObject[header] : null);
+        };
+        
         switch (action) {
             case 'update': {
                 if (!rowIndex || !data) return res.status(400).json({ error: 'Índice da linha e dados são obrigatórios.' });
                 
                 const range = `${sheetName}!A${rowIndex}`;
-                const values = [headers.map(header => data[header])];
+                const values = [mapDataToHeaders(data)]; // CORREÇÃO AQUI
 
                 await sheets.spreadsheets.values.update({
                     spreadsheetId: SPREADSHEET_ID,
@@ -78,7 +82,7 @@ export default async function handler(req, res) {
             case 'add': {
                 if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
                 
-                const values = [headers.map(header => data[header])];
+                const values = [mapDataToHeaders(data)]; // CORREÇÃO AQUI
 
                 await sheets.spreadsheets.values.append({
                     spreadsheetId: SPREADSHEET_ID,
@@ -103,35 +107,46 @@ export default async function handler(req, res) {
                 if (!rowIndexes || !data) return res.status(400).json({ error: 'Índices e dados são obrigatórios para atualização em massa.' });
                 
                 const dataToUpdate = [];
-                for (const rIndex of rowIndexes) {
-                    const existingDataResponse = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!A${rIndex}:${rIndex}` });
-                    const existingValues = existingDataResponse.data.values[0] || [];
-                    const updatedValues = [...existingValues];
+                const readRanges = rowIndexes.map(rIndex => `${sheetName}!A${rIndex}:${rIndex}`);
+                const existingDataBatch = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SPREADSHEET_ID, ranges: readRanges });
 
-                    for (const header of headers) {
-                        const headerIndex = headers.indexOf(header);
-                        if (headerIndex === -1) continue;
-
-                        if (data[header] !== undefined) {
-                            updatedValues[headerIndex] = data[header];
+                for (let i = 0; i < rowIndexes.length; i++) {
+                    const rIndex = rowIndexes[i];
+                    const existingValues = existingDataBatch.data.valueRanges[i].values ? existingDataBatch.data.valueRanges[i].values[0] : [];
+                    
+                    const updatedData = {};
+                    headers.forEach((header, idx) => {
+                        updatedData[header] = existingValues[idx] !== undefined ? existingValues[idx] : null;
+                    });
+                    
+                    for (const field in data) {
+                        if (field !== 'priceAdjustment') {
+                             updatedData[field] = data[field];
                         }
+                    }
+                    
+                    if (data.priceAdjustment) {
+                        const { type, value } = data.priceAdjustment;
+                        const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
                         
-                        if (data.priceAdjustment) {
-                            const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
-                            if (priceFields.includes(header)) {
-                                let currentValue = parseFloat(String(existingValues[headerIndex] || '0').replace(',', '.')) || 0;
-                                const { type, value } = data.priceAdjustment;
+                        priceFields.forEach(field => {
+                            if (updatedData[field] !== undefined && updatedData[field] !== null) {
+                                let currentValue = parseFloat(String(updatedData[field] || '0').replace(',', '.')) || 0;
                                 
                                 if (type === 'percent_increase') currentValue *= (1 + value / 100);
                                 else if (type === 'percent_decrease') currentValue *= (1 - value / 100);
                                 else if (type === 'value_increase') currentValue += value;
                                 else if (type === 'value_decrease') currentValue -= value;
 
-                                updatedValues[headerIndex] = Math.max(0, currentValue).toFixed(2).replace('.',',');
+                                updatedData[field] = Math.max(0, currentValue).toFixed(2).replace('.',',');
                             }
-                        }
+                        });
                     }
-                    dataToUpdate.push({ range: `${sheetName}!A${rIndex}`, values: [updatedValues] });
+                    
+                    dataToUpdate.push({
+                        range: `${sheetName}!A${rIndex}`,
+                        values: [mapDataToHeaders(updatedData)] // CORREÇÃO AQUI
+                    });
                 }
 
                 await sheets.spreadsheets.values.batchUpdate({
