@@ -18,19 +18,25 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { sheetName, action, rowIndex, data } = req.body;
+        const { sheetName, action, rowIndex, data, rowIndexes } = req.body;
 
         if (!sheetName || !action) {
             return res.status(400).json({ error: 'Nome da planilha e ação são obrigatórios.' });
         }
+        
+        const headersResponse = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!1:1` });
+        
+        // CORREÇÃO: Verifica se a planilha tem cabeçalhos antes de prosseguir.
+        if (!headersResponse.data.values || headersResponse.data.values.length === 0 || headersResponse.data.values[0].length === 0) {
+            return res.status(400).json({ error: `A planilha "${sheetName}" parece estar vazia ou não tem uma linha de cabeçalho. Por favor, adicione os cabeçalhos para continuar.` });
+        }
+        const headers = headersResponse.data.values[0];
 
         switch (action) {
-            case 'update':
-                if (!rowIndex || !data) {
-                    return res.status(400).json({ error: 'Índice da linha e dados são obrigatórios para atualizar.' });
-                }
+            case 'update': {
+                if (!rowIndex || !data) return res.status(400).json({ error: 'Índice da linha e dados são obrigatórios.' });
+                
                 const range = `${sheetName}!A${rowIndex}`;
-                const headers = (await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!1:1` })).data.values[0];
                 const values = [headers.map(header => data[header])];
 
                 await sheets.spreadsheets.values.update({
@@ -40,47 +46,105 @@ export default async function handler(req, res) {
                     requestBody: { values },
                 });
                 break;
+            }
 
-            case 'add':
-                if (!data) {
-                    return res.status(400).json({ error: 'Dados são obrigatórios para adicionar.' });
-                }
-                const appendHeaders = (await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!1:1` })).data.values[0];
-                const appendValues = [appendHeaders.map(header => data[header])];
+            case 'add': {
+                if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
+                
+                const values = [headers.map(header => data[header])];
 
                 await sheets.spreadsheets.values.append({
                     spreadsheetId: SPREADSHEET_ID,
                     range: `${sheetName}!A:A`,
                     valueInputOption: 'USER_ENTERED',
-                    requestBody: { values: appendValues },
+                    requestBody: { values },
                 });
                 break;
+            }
 
-            case 'delete':
-                if (!rowIndex) {
-                    return res.status(400).json({ error: 'Índice da linha é obrigatório para deletar.' });
-                }
+            case 'delete': {
+                if (!rowIndex) return res.status(400).json({ error: 'Índice da linha é obrigatório.' });
+                
                 const sheetId = await getSheetIdByName(sheetName);
-                if (sheetId === null) {
-                    return res.status(404).json({ error: `Planilha com nome ${sheetName} não encontrada.` });
-                }
+                if (sheetId === null) return res.status(404).json({ error: `Planilha não encontrada: ${sheetName}` });
 
                 await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SPREADSHEET_ID,
-                    requestBody: {
-                        requests: [{
-                            deleteDimension: {
-                                range: {
-                                    sheetId: sheetId,
-                                    dimension: 'ROWS',
-                                    startIndex: rowIndex - 1,
-                                    endIndex: rowIndex,
-                                },
-                            },
-                        }],
-                    },
+                    requestBody: { requests: [{ deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: rowIndex - 1, endIndex: rowIndex }}}] },
                 });
                 break;
+            }
+            
+            case 'bulk-update': {
+                if (!rowIndexes || !data) return res.status(400).json({ error: 'Índices e dados são obrigatórios para atualização em massa.' });
+                
+                const dataToUpdate = [];
+                for (const rIndex of rowIndexes) {
+                    const existingDataResponse = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!A${rIndex}:${rIndex}` });
+                    const existingValues = existingDataResponse.data.values[0] || [];
+                    const updatedValues = [...existingValues];
+
+                    for (const header of headers) {
+                        const headerIndex = headers.indexOf(header);
+                        if (headerIndex === -1) continue;
+
+                        if (data[header] !== undefined) {
+                            updatedValues[headerIndex] = data[header];
+                        }
+                        
+                        if (data.priceAdjustment) {
+                            const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
+                            if (priceFields.includes(header)) {
+                                let currentValue = parseFloat(String(existingValues[headerIndex] || '0').replace(',', '.')) || 0;
+                                const { type, value } = data.priceAdjustment;
+                                
+                                if (type === 'percent_increase') currentValue *= (1 + value / 100);
+                                else if (type === 'percent_decrease') currentValue *= (1 - value / 100);
+                                else if (type === 'value_increase') currentValue += value;
+                                else if (type === 'value_decrease') currentValue -= value;
+
+                                updatedValues[headerIndex] = Math.max(0, currentValue).toFixed(2).replace('.',',');
+                            }
+                        }
+                    }
+                    dataToUpdate.push({ range: `${sheetName}!A${rIndex}`, values: [updatedValues] });
+                }
+
+                await sheets.spreadsheets.values.batchUpdate({
+                    spreadsheetId: SPREADSHEET_ID,
+                    requestBody: {
+                        valueInputOption: 'USER_ENTERED',
+                        data: dataToUpdate
+                    }
+                });
+                break;
+            }
+            
+             case 'bulk-delete': {
+                if (!rowIndexes || rowIndexes.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios para exclusão em massa.' });
+                
+                const sheetId = await getSheetIdByName(sheetName);
+                if (sheetId === null) return res.status(404).json({ error: `Planilha não encontrada: ${sheetName}` });
+
+                // Ordena os índices em ordem decrescente para evitar problemas de deslocamento
+                const sortedIndexes = rowIndexes.sort((a, b) => b - a);
+                const deleteRequests = sortedIndexes.map(rIndex => ({
+                    deleteDimension: {
+                        range: {
+                            sheetId,
+                            dimension: 'ROWS',
+                            startIndex: rIndex - 1,
+                            endIndex: rIndex
+                        }
+                    }
+                }));
+
+                await sheets.spreadsheets.batchUpdate({
+                    spreadsheetId: SPREADSHEET_ID,
+                    requestBody: { requests: deleteRequests }
+                });
+                break;
+            }
 
             default:
                 return res.status(400).json({ error: 'Ação inválida.' });
@@ -103,3 +167,4 @@ async function getSheetIdByName(sheetName) {
     );
     return sheet ? sheet.properties.sheetId : null;
 }
+
