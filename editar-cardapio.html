@@ -541,7 +541,6 @@
             const form = document.getElementById('edit-item-form');
             form.className = 'grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4';
 
-            // Populando a aba "Detalhes do Item"
             const headers = Object.keys(fullData[title][0] || {});
             const fieldOrder = [
                 'id', 'name', 'description', 'category', 'basePrice', 'price',
@@ -554,8 +553,9 @@
             const sortedHeaders = headers.sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
             
             sortedHeaders.forEach(header => {
-                // CORREÇÃO: Pula o campo 'available' da aba de detalhes de forma explícita
-                if (header === 'available') {
+                // CORREÇÃO: Campos de disponibilidade são ignorados aqui
+                const availabilityFields = ['available', 'acceptsExtras', 'allowHalf'];
+                if (availabilityFields.includes(header)) {
                     return; 
                 }
 
