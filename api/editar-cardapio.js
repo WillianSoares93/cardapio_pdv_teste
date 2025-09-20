@@ -83,6 +83,15 @@ export default async function handler(req, res) {
             return sheetHeaders.includes(key) ? key : undefined;
         };
 
+        const formatValueForSheet = (header, value) => {
+            if (header && (header.includes('(sim/não)') || header.includes('(sim/nao)'))) {
+                if (typeof value === 'boolean') {
+                    return value ? 'Sim' : 'Não';
+                }
+            }
+            return value;
+        };
+
 
         switch (action) {
             case 'update': {
@@ -93,7 +102,8 @@ export default async function handler(req, res) {
                     Object.keys(data).forEach(key => {
                         const header = getHeaderInSheet(key);
                         if (header) {
-                            row.set(header, data[key]);
+                            const valueToSet = formatValueForSheet(header, data[key]);
+                            row.set(header, valueToSet);
                         }
                     });
                     await row.save();
@@ -107,7 +117,8 @@ export default async function handler(req, res) {
                 Object.keys(data).forEach(key => {
                     const header = getHeaderInSheet(key);
                     if (header) {
-                       newRowData[header] = data[key];
+                       const valueToSet = formatValueForSheet(header, data[key]);
+                       newRowData[header] = valueToSet;
                     }
                 });
                 await sheet.addRow(newRowData);
@@ -133,7 +144,8 @@ export default async function handler(req, res) {
                             if (field !== 'priceAdjustment') {
                                 const header = getHeaderInSheet(field);
                                 if (header) {
-                                    row.set(header, data[field]);
+                                    const valueToSet = formatValueForSheet(header, data[field]);
+                                    row.set(header, valueToSet);
                                 }
                             }
                         }
