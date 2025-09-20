@@ -550,15 +550,14 @@
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
             
-            const sortedHeaders = headers.sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
+            // CORREÇÃO: Cria uma lista de campos que NÃO devem estar na aba de detalhes.
+            const availabilityFieldsToExclude = ['available', 'acceptsExtras', 'allowHalf'];
             
-            sortedHeaders.forEach(header => {
-                // CORREÇÃO: Campos de disponibilidade são ignorados aqui
-                const availabilityFields = ['available', 'acceptsExtras', 'allowHalf'];
-                if (availabilityFields.includes(header)) {
-                    return; 
-                }
+            const detailHeaders = headers.filter(h => !availabilityFieldsToExclude.includes(h));
 
+            const sortedDetailHeaders = detailHeaders.sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
+            
+            sortedDetailHeaders.forEach(header => {
                 const value = itemData[header];
                 const container = document.createElement('div');
                 let inputHtml = '';
