@@ -536,6 +536,13 @@
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
 
+            // Calcula o próximo ID disponível para novos itens
+            let nextId = null;
+            if (!isEditing) {
+                const allIds = fullData[title].map(item => parseInt(item.id)).filter(id => !isNaN(id));
+                nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
+            }
+
             detailFields.forEach(header => {
                 if (!headers.includes(header)) return;
 
@@ -543,8 +550,15 @@
                 let containerClass = 'md:col-span-2';
                 let fieldHTML = '';
                 const isBoolean = ['isPizza', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired'].includes(header);
-
-                if (isBoolean) {
+                
+                // Trata o campo de ID de forma especial
+                if (header === 'id') {
+                    const idValue = isEditing ? value : nextId;
+                    fieldHTML = `
+                        <label for="form-input-id" class="block text-sm font-medium text-gray-700">ID</label>
+                        <input type="text" id="form-input-id" value="${idValue || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed" readonly title="O ID é gerado automaticamente e não pode ser editado.">
+                    `;
+                } else if (isBoolean) {
                     const isChecked = value === true || String(value).toLowerCase() === 'sim';
                     containerClass = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
                     fieldHTML = `
