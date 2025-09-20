@@ -523,7 +523,6 @@
             document.getElementById('delete-item-btn').style.display = isEditing ? 'block' : 'none';
             const modalBody = document.getElementById('modal-body-content');
 
-            // Estrutura de Abas
             modalBody.innerHTML = `
                 <div class="border-b border-gray-200">
                     <nav id="modal-tabs" class="-mb-px flex space-x-4">
@@ -552,11 +551,14 @@
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
             
-            const detailHeaders = headers
-                .filter(h => h !== 'available') 
-                .sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
+            const sortedHeaders = headers.sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
+            
+            sortedHeaders.forEach(header => {
+                // CORREÇÃO: Pula o campo 'available' da aba de detalhes de forma explícita
+                if (header === 'available') {
+                    return; 
+                }
 
-            detailHeaders.forEach(header => {
                 const value = itemData[header];
                 const container = document.createElement('div');
                 let inputHtml = '';
