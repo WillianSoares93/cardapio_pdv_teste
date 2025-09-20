@@ -12,6 +12,38 @@ const auth = new JWT({
 // Utiliza a variável de ambiente específica para a planilha do cardápio.
 const SPREADSHEET_ID = process.env.MENU_SPREADSHEET_ID;
 
+// Mapa para traduzir chaves de objeto JS de volta para os cabeçalhos da planilha
+const keyToHeaderMap = {
+    'id': ['id item (único)', 'id promocao', 'id intem'],
+    'name': ['nome do item', 'nome da promocao', 'ingredientes', 'adicionais'],
+    'description': ['descrição'],
+    'price4Slices': ['preço 4 fatias'],
+    'price6Slices': ['preço 6 fatias'],
+    'basePrice': ['preço 8 fatias'],
+    'price10Slices': ['preço 10 fatias'],
+    'category': ['categoria'],
+    'isPizza': ['é pizza? (sim/não)'],
+    'isCustomizable': ['é montável? (sim/não)'],
+    'available': ['disponível (sim/não)', 'disponível'],
+    'imageUrl': ['imagem'],
+    'acceptsExtras': ['Aceita Adicionais?'],
+    'allowHalf': ['Permite Meia-a-meia?'],
+    'promoPrice': ['preco promocional'],
+    'itemId': ['id item aplicavel'],
+    'active': ['ativo (sim/nao)'],
+    'neighborhood': ['bairros'],
+    'deliveryFee': ['valor frete'],
+    'price': ['preço'],
+    'isSingleChoice': ['seleção única'],
+    'isRequired': ['é obrigatório?(sim/não)'],
+    'limit': ['limite', 'limite adicionais'],
+    'ingredientLimit': ['limite ingrediente'],
+    'categoryLimit': ['limite categoria'],
+    'data': ['dados'],
+    'value': ['valor']
+};
+
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
@@ -39,6 +71,18 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada na sua Planilha de Cardápio.` });
         }
 
+        const sheetHeaders = sheet.headerValues;
+
+        // Função auxiliar para encontrar o cabeçalho correto na planilha
+        const getHeaderInSheet = (key) => {
+            const possibleHeaders = keyToHeaderMap[key];
+            if (possibleHeaders) {
+                return possibleHeaders.find(h => sheetHeaders.includes(h));
+            }
+            return sheetHeaders.includes(key) ? key : undefined;
+        };
+
+
         switch (action) {
             case 'update': {
                 if (!rowIndex || !data) return res.status(400).json({ error: 'Índice da linha e dados são obrigatórios.' });
@@ -46,7 +90,10 @@ export default async function handler(req, res) {
                 const row = rows[rowIndex - 2]; // rowIndex (1-based, com cabeçalho) para array (0-based)
                 if (row) {
                     Object.keys(data).forEach(key => {
-                        row.set(key, data[key]);
+                        const header = getHeaderInSheet(key);
+                        if (header) {
+                            row.set(header, data[key]);
+                        }
                     });
                     await row.save();
                 }
@@ -55,7 +102,14 @@ export default async function handler(req, res) {
 
             case 'add': {
                 if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
-                await sheet.addRow(data);
+                const newRowData = {};
+                Object.keys(data).forEach(key => {
+                    const header = getHeaderInSheet(key);
+                    if (header) {
+                       newRowData[header] = data[key];
+                    }
+                });
+                await sheet.addRow(newRowData);
                 break;
             }
 
@@ -76,7 +130,10 @@ export default async function handler(req, res) {
                     if (row) {
                         for (const field in data) {
                             if (field !== 'priceAdjustment') {
-                                row.set(field, data[field]);
+                                const header = getHeaderInSheet(field);
+                                if (header) {
+                                    row.set(header, data[field]);
+                                }
                             }
                         }
                         
@@ -84,17 +141,17 @@ export default async function handler(req, res) {
                             const { type, value } = data.priceAdjustment;
                             const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
                             
-                            priceFields.forEach(field => {
-                                const headerExists = sheet.headerValues.includes(field);
-                                if (headerExists) {
-                                    let currentValue = parseFloat(String(row.get(field) || '0').replace(',', '.')) || 0;
+                            priceFields.forEach(fieldKey => {
+                                const header = getHeaderInSheet(fieldKey);
+                                if (header) {
+                                    let currentValue = parseFloat(String(row.get(header) || '0').replace(',', '.')) || 0;
                                     
                                     if (type === 'percent_increase') currentValue *= (1 + value / 100);
                                     else if (type === 'percent_decrease') currentValue *= (1 - value / 100);
                                     else if (type === 'value_increase') currentValue += value;
                                     else if (type === 'value_decrease') currentValue -= value;
 
-                                    row.set(field, Math.max(0, currentValue).toFixed(2).replace('.',','));
+                                    row.set(header, Math.max(0, currentValue).toFixed(2).replace('.',','));
                                 }
                             });
                         }
@@ -130,4 +187,3 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
 }
-
