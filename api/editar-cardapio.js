@@ -83,16 +83,10 @@ export default async function handler(req, res) {
         const sheetHeaders = sheet.headerValues;
         console.log("[LOG] Cabeçalhos encontrados na planilha:", sheetHeaders);
 
-
-        const getHeaderInSheet = (key) => {
-            const possibleHeaders = keyToHeaderMap[key];
-            return possibleHeaders ? possibleHeaders.find(h => sheetHeaders.includes(h)) : undefined;
-        };
-
         const priceKeys = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
 
         const formatValueForSheet = (key, header, value) => {
-            if (header && (header.includes('(sim/não)') || header.includes('(sim/nao)'))) {
+            if (header && (header.toLowerCase().includes('(sim/não)') || header.toLowerCase().includes('(sim/nao)'))) {
                 if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
                 if (value === 'true') return 'Sim';
                 if (value === 'false') return 'Não';
@@ -109,8 +103,8 @@ export default async function handler(req, res) {
             case 'add': {
                 if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
                 const newRowData = sheetHeaders.map(header => {
-                    const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].includes(header));
-                    const value = key ? formatValueForSheet(key, header, data[key]) : '';
+                    const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].some(h => h.toLowerCase() === header.toLowerCase()));
+                    const value = (key && data.hasOwnProperty(key)) ? formatValueForSheet(key, header, data[key]) : '';
                     return value === null || value === undefined ? '' : value;
                 });
 
@@ -132,8 +126,13 @@ export default async function handler(req, res) {
                 if (rowToUpdate) {
                     console.log(`[LOG][UPDATE] Atualizando linha ${rowIndex}. Dados originais:`, rowToUpdate.toObject());
                     const updatedRowData = sheetHeaders.map(header => {
-                        const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].includes(header));
-                        let value = data.hasOwnProperty(key) ? formatValueForSheet(key, header, data[key]) : rowToUpdate.get(header);
+                        const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].some(h => h.toLowerCase() === header.toLowerCase()));
+                        let value;
+                        if (key && data.hasOwnProperty(key)) {
+                           value = formatValueForSheet(key, header, data[key]);
+                        } else {
+                           value = rowToUpdate.get(header);
+                        }
                         return value === null || value === undefined ? '' : value;
                     });
                     
@@ -165,9 +164,11 @@ export default async function handler(req, res) {
                         
                         for (const field in data) {
                             if (field !== 'priceAdjustment') {
-                                const header = getHeaderInSheet(field);
-                                if (header) {
-                                    updatedRowData.set(header, formatValueForSheet(field, header, data[field]));
+                                const headerInSheet = Object.keys(row.toObject()).find(h => 
+                                    keyToHeaderMap[field]?.some(kh => kh.toLowerCase() === h.toLowerCase())
+                                );
+                                if (headerInSheet) {
+                                    updatedRowData.set(headerInSheet, formatValueForSheet(field, headerInSheet, data[field]));
                                 }
                             }
                         }
@@ -175,14 +176,16 @@ export default async function handler(req, res) {
                         if (data.priceAdjustment) {
                             const { type, value } = data.priceAdjustment;
                             priceKeys.forEach(fieldKey => {
-                                const header = getHeaderInSheet(fieldKey);
-                                if (header) {
-                                    let currentValue = parseFloat(String(updatedRowData.get(header) || '0').replace(',', '.')) || 0;
+                                const headerInSheet = Object.keys(row.toObject()).find(h => 
+                                    keyToHeaderMap[fieldKey]?.some(kh => kh.toLowerCase() === h.toLowerCase())
+                                );
+                                if (headerInSheet) {
+                                    let currentValue = parseFloat(String(updatedRowData.get(headerInSheet) || '0').replace(',', '.')) || 0;
                                     if (type === 'percent_increase') currentValue *= (1 + value / 100);
                                     else if (type === 'percent_decrease') currentValue *= (1 - value / 100);
                                     else if (type === 'value_increase') currentValue += value;
                                     else if (type === 'value_decrease') currentValue -= value;
-                                    updatedRowData.set(header, Math.max(0, currentValue).toFixed(2).replace('.', ','));
+                                    updatedRowData.set(headerInSheet, Math.max(0, currentValue).toFixed(2).replace('.', ','));
                                 }
                             });
                         }
