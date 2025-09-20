@@ -49,11 +49,14 @@ const keyToHeaderMap = {
 
 
 export default async function handler(req, res) {
+    console.log("--- [LOG] Início da API editar-cardapio ---");
+
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
     if (!SPREADSHEET_ID) {
+        console.error("[ERRO] A variável de ambiente MENU_SPREADSHEET_ID não está configurada.");
         return res.status(500).json({ error: 'A variável de ambiente MENU_SPREADSHEET_ID não está configurada no servidor.' });
     }
 
@@ -61,14 +64,16 @@ export default async function handler(req, res) {
     const doc = new GoogleSpreadsheet(SPREADSHEET_ID, auth);
 
     try {
-        await doc.loadInfo(); // Carrega as informações da planilha
+        await doc.loadInfo();
 
         const { sheetName, action, rowIndex, data, rowIndexes } = req.body;
+        console.log("[LOG] Corpo da requisição recebida:", req.body);
         
         if (!sheetName || !action) {
             return res.status(400).json({ error: 'Nome da planilha e ação são obrigatórios.' });
         }
         
+        console.log(`[LOG] Planilha alvo: "${sheetName}", Ação: "${action}"`);
         const sheet = doc.sheetsByTitle[sheetName];
         if (!sheet) {
             return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada.` });
@@ -76,6 +81,8 @@ export default async function handler(req, res) {
 
         await sheet.loadHeaderRow();
         const sheetHeaders = sheet.headerValues;
+        console.log("[LOG] Cabeçalhos encontrados na planilha:", sheetHeaders);
+
 
         const getHeaderInSheet = (key) => {
             const possibleHeaders = keyToHeaderMap[key];
@@ -103,16 +110,18 @@ export default async function handler(req, res) {
                 if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
                 const newRowData = sheetHeaders.map(header => {
                     const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].includes(header));
-                    // Garante que o valor nunca seja nulo ou indefinido
                     const value = key ? formatValueForSheet(key, header, data[key]) : '';
                     return value === null || value === undefined ? '' : value;
                 });
-                await sheets.spreadsheets.values.append({
+
+                console.log("[LOG][ADD] Adicionando nova linha com dados:", newRowData);
+                const result = await sheets.spreadsheets.values.append({
                     spreadsheetId: SPREADSHEET_ID,
                     range: sheetName,
                     valueInputOption: 'USER_ENTERED',
                     resource: { values: [newRowData] },
                 });
+                console.log("[LOG][ADD] Resposta da API do Google:", result.status, result.statusText);
                 break;
             }
 
@@ -121,18 +130,23 @@ export default async function handler(req, res) {
                 const rows = await sheet.getRows();
                 const rowToUpdate = rows[rowIndex - 2];
                 if (rowToUpdate) {
+                    console.log(`[LOG][UPDATE] Atualizando linha ${rowIndex}. Dados originais:`, rowToUpdate.toObject());
                     const updatedRowData = sheetHeaders.map(header => {
                         const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].includes(header));
                         let value = data.hasOwnProperty(key) ? formatValueForSheet(key, header, data[key]) : rowToUpdate.get(header);
-                        // CORREÇÃO: Garante que nenhum valor indefinido ou nulo seja enviado
                         return value === null || value === undefined ? '' : value;
                     });
-                    await sheets.spreadsheets.values.update({
+                    
+                    console.log("[LOG][UPDATE] Dados formatados para envio:", updatedRowData);
+                    const result = await sheets.spreadsheets.values.update({
                         spreadsheetId: SPREADSHEET_ID,
                         range: `${sheetName}!A${rowIndex}`,
                         valueInputOption: 'USER_ENTERED',
                         resource: { values: [updatedRowData] },
                     });
+                    console.log("[LOG][UPDATE] Resposta da API do Google:", result.status, result.statusText);
+                } else {
+                    console.warn(`[AVISO][UPDATE] Linha ${rowIndex} não encontrada para atualização.`);
                 }
                 break;
             }
@@ -142,12 +156,13 @@ export default async function handler(req, res) {
                 const rows = await sheet.getRows();
                 const dataForUpdate = [];
 
+                console.log(`[LOG][BULK-UPDATE] Atualizando ${rowIndexes.length} linhas.`);
+
                 for (const rIndex of rowIndexes) {
                     const row = rows[rIndex - 2];
                     if (row) {
                         const updatedRowData = new Map(row.toObject());
                         
-                        // Aplica as alterações
                         for (const field in data) {
                             if (field !== 'priceAdjustment') {
                                 const header = getHeaderInSheet(field);
@@ -157,7 +172,6 @@ export default async function handler(req, res) {
                             }
                         }
 
-                        // Aplica ajuste de preço
                         if (data.priceAdjustment) {
                             const { type, value } = data.priceAdjustment;
                             priceKeys.forEach(fieldKey => {
@@ -175,9 +189,10 @@ export default async function handler(req, res) {
                         
                         const finalRowValues = sheetHeaders.map(h => {
                             const val = updatedRowData.get(h);
-                            // CORREÇÃO: Garante que nenhum valor indefinido ou nulo seja enviado
                             return val === null || val === undefined ? '' : val;
                         });
+
+                        console.log(`[LOG][BULK-UPDATE] Dados finais para linha ${rIndex}:`, finalRowValues);
 
                         dataForUpdate.push({
                             range: `${sheetName}!A${rIndex}`,
@@ -186,13 +201,15 @@ export default async function handler(req, res) {
                     }
                 }
                 
-                await sheets.spreadsheets.values.batchUpdate({
+                console.log("[LOG][BULK-UPDATE] Objeto 'dataForUpdate' final a ser enviado:", JSON.stringify(dataForUpdate, null, 2));
+                const result = await sheets.spreadsheets.values.batchUpdate({
                     spreadsheetId: SPREADSHEET_ID,
                     resource: {
                         valueInputOption: 'USER_ENTERED',
                         data: dataForUpdate,
                     },
                 });
+                console.log("[LOG][BULK-UPDATE] Resposta da API do Google:", result.status, result.statusText);
                 break;
             }
 
@@ -201,6 +218,7 @@ export default async function handler(req, res) {
                 const indexesToDelete = action === 'delete' ? [rowIndex] : rowIndexes;
                 if (!indexesToDelete || indexesToDelete.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios.' });
                 
+                console.log(`[LOG][DELETE] Excluindo linhas: ${indexesToDelete.join(', ')}`);
                 const sortedIndexes = indexesToDelete.sort((a, b) => b - a);
                 const deleteRequests = sortedIndexes.map(rIndex => ({
                     deleteDimension: {
@@ -213,10 +231,11 @@ export default async function handler(req, res) {
                     }
                 }));
 
-                await sheets.spreadsheets.batchUpdate({
+                const result = await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SPREADSHEET_ID,
                     resource: { requests: deleteRequests }
                 });
+                console.log("[LOG][DELETE] Resposta da API do Google:", result.status, result.statusText);
                 break;
             }
 
@@ -224,6 +243,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: 'Ação inválida.' });
         }
 
+        console.log("--- [LOG] Fim da API editar-cardapio ---");
         return res.status(200).json({ success: true });
 
     } catch (error) {
