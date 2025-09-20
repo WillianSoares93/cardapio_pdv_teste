@@ -119,7 +119,7 @@ export default async function handler(req, res) {
                             row.set(header, valueToSet);
                         }
                     });
-                    await row.save(); // save() é a melhor abordagem para uma única linha
+                    await sheet.saveUpdatedCells(); // CORREÇÃO: Usando saveUpdatedCells para garantir o salvamento.
                 }
                 break;
             }
