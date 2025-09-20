@@ -542,22 +542,38 @@
                 const value = itemData[header];
                 let containerClass = 'md:col-span-2';
                 let fieldHTML = '';
-                const isBoolean = ['isPizza', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired'].includes(header);
+                const isRadioBoolean = ['isPizza', 'isCustomizable'].includes(header);
+                const isToggleBoolean = ['active', 'isSingleChoice', 'isRequired'].includes(header);
                 
                 if (header === 'id') {
                     const idValue = isEditing ? value : nextId;
                     containerClass = 'md:col-span-1';
                     fieldHTML = `<label for="form-input-id" class="block text-sm font-medium text-gray-700">ID</label>
                                  <input type="text" id="form-input-id" value="${idValue || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed" readonly title="O ID é gerado automaticamente e não pode ser editado.">`;
-                } else if (header === 'isPizza') {
+                } else if (isRadioBoolean) {
                     const isChecked = value === true || String(value).toLowerCase() === 'sim';
-                    containerClass = 'md:col-span-1 flex flex-col justify-end';
-                    fieldHTML = `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border h-full">
-                                    <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
-                                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                        <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
-                                        <label for="form-input-${header}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                    containerClass = header === 'isPizza' ? 'md:col-span-1 flex flex-col justify-end' : 'md:col-span-2';
+                    const innerContainerClass = header === 'isPizza' ? 'p-3 bg-gray-50 rounded-lg border h-full' : 'p-2 bg-gray-50 rounded-lg border h-full';
+                    fieldHTML = `<div class="${innerContainerClass}">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">${getTranslatedHeader(header)}</label>
+                                    <div class="flex items-center space-x-4 pt-1">
+                                        <label class="flex items-center cursor-pointer">
+                                            <input type="radio" name="form-input-${header}" value="true" class="form-radio h-4 w-4 text-indigo-600" ${isChecked ? 'checked' : ''}>
+                                            <span class="ml-2 text-sm text-gray-700">Sim</span>
+                                        </label>
+                                        <label class="flex items-center cursor-pointer">
+                                            <input type="radio" name="form-input-${header}" value="false" class="form-radio h-4 w-4 text-indigo-600" ${!isChecked ? 'checked' : ''}>
+                                            <span class="ml-2 text-sm text-gray-700">Não</span>
+                                        </label>
                                     </div>
+                                 </div>`;
+                } else if (isToggleBoolean) {
+                    const isChecked = value === true || String(value).toLowerCase() === 'sim';
+                    containerClass = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
+                    fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
+                                 <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                     <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
+                                     <label for="form-input-${header}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
                                  </div>`;
                 } else if (header === 'name') {
                     containerClass = 'md:col-span-4';
@@ -567,14 +583,6 @@
                      containerClass = 'md:col-span-2';
                      fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
                                  <textarea id="form-input-${header}" rows="1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
-                } else if (isBoolean) {
-                    const isChecked = value === true || String(value).toLowerCase() === 'sim';
-                    containerClass = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
-                    fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
-                                 <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                     <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
-                                     <label for="form-input-${header}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                                 </div>`;
                 } else if (header === 'imageUrl') {
                     containerClass = 'md:col-span-4';
                     fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
@@ -632,9 +640,9 @@
                 </div>
             `;
 
-            const isPizzaToggle = modalBody.querySelector('#form-input-isPizza');
-            if (isPizzaToggle) {
-                isPizzaToggle.addEventListener('change', updatePizzaPriceFields);
+            const isPizzaRadios = modalBody.querySelectorAll('input[name="form-input-isPizza"]');
+            if (isPizzaRadios.length > 0) {
+                isPizzaRadios.forEach(radio => radio.addEventListener('change', updatePizzaPriceFields));
             }
             updatePizzaPriceFields();
 
@@ -680,10 +688,10 @@
         }
 
         function updatePizzaPriceFields() {
-            const isPizzaToggle = document.getElementById('form-input-isPizza');
-            if (!isPizzaToggle) return;
+            const isPizzaRadioChecked = document.querySelector('input[name="form-input-isPizza"]:checked');
+            if (!isPizzaRadioChecked) return;
 
-            const isPizza = isPizzaToggle.checked;
+            const isPizza = isPizzaRadioChecked.value === 'true';
             const form = document.getElementById('edit-item-form');
 
             const priceFieldsToToggle = ['price10Slices', 'price6Slices', 'price4Slices'];
@@ -702,7 +710,6 @@
                 }
             }
             
-            // Lógica para mostrar/esconder o controle "Permite Meia" na outra aba
             const halfPizzaToggleContainer = document.getElementById('half-pizza-toggle-container');
             if (halfPizzaToggleContainer) {
                 halfPizzaToggleContainer.classList.toggle('hidden', !isPizza);
@@ -800,13 +807,26 @@
         async function handleSave() {
             const form = document.getElementById('edit-item-form');
             const data = {};
-            const inputs = form.querySelectorAll('input, select, textarea');
+            const inputs = form.querySelectorAll('input[type="text"], input[type="number"], select, textarea');
+            const radioGroups = new Set();
+            const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+
             inputs.forEach(input => {
                 const key = input.id.replace('form-input-', '');
-                if (input.type === 'checkbox') {
-                    data[key] = input.checked;
-                } else {
-                    data[key] = input.value;
+                if (key) data[key] = input.value;
+            });
+
+            checkboxes.forEach(checkbox => {
+                const key = checkbox.id.replace('form-input-', '');
+                if(key) data[key] = checkbox.checked;
+            });
+            
+            form.querySelectorAll('input[type="radio"]').forEach(radio => radioGroups.add(radio.name));
+            radioGroups.forEach(name => {
+                const checkedRadio = form.querySelector(`input[name="${name}"]:checked`);
+                if (checkedRadio) {
+                    const key = name.replace('form-input-', '');
+                    data[key] = (checkedRadio.value === 'true');
                 }
             });
 
