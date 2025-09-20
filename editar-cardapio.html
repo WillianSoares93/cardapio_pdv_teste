@@ -169,7 +169,7 @@
     </div>
     
     <script type="module">
-        // Versão com correção do bug de renderização do formulário
+        // Versão com formulário de edição dinâmico
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
@@ -204,7 +204,7 @@
             name: 'Nome',
             description: 'Descrição',
             category: 'Categoria',
-            basePrice: 'Preço Base (8 Fatias)',
+            basePrice: 'Preço 8 Fatias', // Alterado para refletir o caso de pizza
             price4Slices: 'Preço 4 Fatias',
             price6Slices: 'Preço 6 Fatias',
             price10Slices: 'Preço 10 Fatias',
@@ -252,7 +252,6 @@
                 if (!response.ok) throw new Error('Falha ao carregar dados');
                 fullData = await response.json();
                 
-                // Reorganiza os dados recebidos em um formato mais conveniente
                 fullData['Itens do Cardápio'] = fullData.cardapio; delete fullData.cardapio;
                 fullData['Promoções'] = fullData.promocoes; delete fullData.promocoes;
                 fullData['Ingredientes Hambúrguer'] = fullData.ingredientesHamburguer; delete fullData.ingredientesHamburguer;
@@ -347,9 +346,7 @@
                                         <th class="sticky-col px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    <!-- O corpo da tabela será renderizado dinamicamente -->
-                                </tbody>
+                                <tbody class="bg-white divide-y divide-gray-200"></tbody>
                             </table>
                         </div>
                     </div>`;
@@ -427,20 +424,20 @@
         function setupEventListeners() {
             document.getElementById('search-filter').addEventListener('input', applyFilters);
 
-            const tabs = document.querySelectorAll('.tab-btn');
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-                    const panel = document.getElementById(`${tab.dataset.tab}-panel`);
-                    panel.classList.remove('hidden');
+            document.getElementById('editor-tabs').addEventListener('click', (e) => {
+                const tab = e.target.closest('.tab-btn');
+                if(!tab) return;
+                
+                document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+                const panel = document.getElementById(`${tab.dataset.tab}-panel`);
+                panel.classList.remove('hidden');
 
-                    const title = getTitleFromSheetName(tab.dataset.tab);
-                    selectedItems.clear(); // Limpa a seleção ao trocar de aba
-                    renderAdvancedFilters(title);
-                    applyFilters();
-                });
+                const title = getTitleFromSheetName(tab.dataset.tab);
+                selectedItems.clear();
+                renderAdvancedFilters(title);
+                applyFilters();
             });
 
             document.getElementById('tab-panels').addEventListener('click', (e) => {
@@ -523,27 +520,24 @@
             document.getElementById('delete-item-btn').style.display = isEditing ? 'block' : 'none';
             const modalBody = document.getElementById('modal-body-content');
 
-            // --- CORREÇÃO INICIA AQUI ---
-
-            // 1. Construir o HTML para o formulário de detalhes
-            let formHTML = '<form id="edit-item-form" class="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4">';
+            // --- CORREÇÃO E MELHORIA DA LÓGICA DE RENDERIZAÇÃO ---
             const headers = Object.keys(fullData[title][0] || {});
-            const detailFields = [
-                'id', 'name', 'description', 'category', 'basePrice', 'price',
-                'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'deliveryFee',
-                'isPizza', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired',
-                'limit', 'ingredientLimit', 'categoryLimit',
-                'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
+            
+            const fieldOrder = [
+                'id', 'isPizza', 'name', 'description', 'category', 'price10Slices', 
+                'basePrice', 'price6Slices', 'price4Slices', 'promoPrice', 'deliveryFee', 
+                'price', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired', 'limit', 
+                'ingredientLimit', 'categoryLimit', 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
-
-            // Calcula o próximo ID disponível para novos itens
+            
             let nextId = null;
             if (!isEditing) {
                 const allIds = fullData[title].map(item => parseInt(item.id)).filter(id => !isNaN(id));
                 nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
             }
 
-            detailFields.forEach(header => {
+            let formHTML = '<form id="edit-item-form" class="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4">';
+            fieldOrder.forEach(header => {
                 if (!headers.includes(header)) return;
 
                 const value = itemData[header];
@@ -551,38 +545,30 @@
                 let fieldHTML = '';
                 const isBoolean = ['isPizza', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired'].includes(header);
                 
-                // Trata o campo de ID de forma especial
                 if (header === 'id') {
                     const idValue = isEditing ? value : nextId;
-                    fieldHTML = `
-                        <label for="form-input-id" class="block text-sm font-medium text-gray-700">ID</label>
-                        <input type="text" id="form-input-id" value="${idValue || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed" readonly title="O ID é gerado automaticamente e não pode ser editado.">
-                    `;
+                    fieldHTML = `<label for="form-input-id" class="block text-sm font-medium text-gray-700">ID</label>
+                                 <input type="text" id="form-input-id" value="${idValue || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed" readonly title="O ID é gerado automaticamente e não pode ser editado.">`;
                 } else if (isBoolean) {
                     const isChecked = value === true || String(value).toLowerCase() === 'sim';
                     containerClass = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
-                    fieldHTML = `
-                        <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
-                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
-                            <label for="form-input-${header}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                        </div>
-                    `;
+                    fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
+                                 <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                     <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
+                                     <label for="form-input-${header}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                 </div>`;
                 } else if (header === 'description' || header === 'imageUrl') {
                     containerClass = 'md:col-span-4';
-                    const label = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>`;
-                    fieldHTML = `${label}<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
+                    fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
+                                 <textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
                 } else {
-                    containerClass = 'md:col-span-2';
-                    fieldHTML = `
-                        <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
-                        <input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
+                    fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
+                                 <input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
                 }
-                formHTML += `<div class="${containerClass}">${fieldHTML}</div>`;
+                formHTML += `<div class="${containerClass}" data-field-name="${header}">${fieldHTML}</div>`;
             });
             formHTML += '</form>';
-
-            // 2. Construir o HTML para o painel de disponibilidade
+            
             let availabilityHTML = '';
             const itemId = itemData.id;
             if (isEditing && itemId) {
@@ -612,7 +598,6 @@
                 availabilityHTML = `<div class="md:col-span-2 text-center text-gray-500 p-4">Salve o item primeiro para gerenciar a disponibilidade.</div>`;
             }
 
-            // 3. Injetar a estrutura completa no DOM de uma só vez
             modalBody.innerHTML = `
                 <div class="border-b border-gray-200">
                     <nav id="modal-tabs" class="-mb-px flex space-x-4">
@@ -626,7 +611,13 @@
                 </div>
             `;
 
-            // 4. Adicionar os event listeners necessários após a injeção do HTML
+            // Adiciona event listeners após a injeção do HTML
+            const isPizzaToggle = modalBody.querySelector('#form-input-isPizza');
+            if (isPizzaToggle) {
+                isPizzaToggle.addEventListener('change', updatePizzaPriceFields);
+            }
+            updatePizzaPriceFields(); // Chama uma vez para configurar o estado inicial
+
             document.getElementById('modal-tabs').addEventListener('click', (e) => {
                 const btn = e.target.closest('.modal-tab-btn');
                 if (btn) {
@@ -641,7 +632,6 @@
                 modalBody.querySelectorAll('.availability-toggle').forEach(toggle => {
                     toggle.addEventListener('change', handleAvailabilityChange);
                 });
-
                 const visibilityToggle = modalBody.querySelector(`#item-visible-${itemId}`);
                 if (visibilityToggle) {
                     visibilityToggle.addEventListener('change', (e) => {
@@ -655,7 +645,6 @@
                                 toggle.closest('div.flex').classList.toggle('cursor-not-allowed', !isNowVisible);
                             }
                         });
-
                         if (!isNowVisible) {
                             const availableToggle = modalBody.querySelector(`#item-available-${itemId}`);
                             if (availableToggle && availableToggle.checked) {
@@ -666,10 +655,33 @@
                     });
                 }
             }
-            
-            // --- FIM DA CORREÇÃO ---
 
             document.getElementById('edit-item-modal').style.display = 'flex';
+        }
+
+        // Função para mostrar/esconder campos de preço de pizza dinamicamente
+        function updatePizzaPriceFields() {
+            const isPizzaToggle = document.getElementById('form-input-isPizza');
+            if (!isPizzaToggle) return;
+
+            const isPizza = isPizzaToggle.checked;
+            const form = document.getElementById('edit-item-form');
+
+            const priceFieldsToToggle = ['price10Slices', 'price6Slices', 'price4Slices'];
+            priceFieldsToToggle.forEach(fieldName => {
+                const container = form.querySelector(`[data-field-name="${fieldName}"]`);
+                if (container) {
+                    container.classList.toggle('hidden', !isPizza);
+                }
+            });
+
+            const basePriceContainer = form.querySelector(`[data-field-name="basePrice"]`);
+            if (basePriceContainer) {
+                const basePriceLabel = basePriceContainer.querySelector('label');
+                if (basePriceLabel) {
+                    basePriceLabel.textContent = isPizza ? getTranslatedHeader('basePrice') : 'Preço Base';
+                }
+            }
         }
 
         async function handleAvailabilityChange(e) {
