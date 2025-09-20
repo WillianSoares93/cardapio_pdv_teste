@@ -539,25 +539,27 @@
             `;
             
             const form = document.getElementById('edit-item-form');
+            form.innerHTML = ''; // Limpa o formulário para garantir que não haja conteúdo antigo
             form.className = 'grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4';
 
-            const headers = Object.keys(fullData[title][0] || {});
-            const fieldOrder = [
+            // Lista de campos que devem aparecer na aba de detalhes.
+            const detailFields = [
                 'id', 'name', 'description', 'category', 'basePrice', 'price',
                 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'deliveryFee',
                 'isPizza', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired',
                 'limit', 'ingredientLimit', 'categoryLimit',
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
-            
-            // CORREÇÃO: Cria uma lista de campos que NÃO devem estar na aba de detalhes.
-            const availabilityFieldsToExclude = ['available', 'acceptsExtras', 'allowHalf'];
-            
-            const detailHeaders = headers.filter(h => !availabilityFieldsToExclude.includes(h));
 
-            const sortedDetailHeaders = detailHeaders.sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
+            const headers = Object.keys(fullData[title][0] || {});
             
-            sortedDetailHeaders.forEach(header => {
+            // Itera sobre a ordem de campos preferida
+            detailFields.forEach(header => {
+                // Só renderiza o campo se ele existir nos dados da planilha atual
+                if (!headers.includes(header)) {
+                    return;
+                }
+
                 const value = itemData[header];
                 const container = document.createElement('div');
                 let inputHtml = '';
@@ -590,6 +592,7 @@
             
             // Populando a aba "Disponibilidade"
             const availabilityPanel = document.getElementById('availability-panel');
+            availabilityPanel.innerHTML = ''; // Limpa o painel para garantir que não haja conteúdo antigo
             availabilityPanel.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
             const itemId = itemData.id;
 
