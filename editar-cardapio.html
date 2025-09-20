@@ -141,18 +141,21 @@
     </div>
 
 
-    <!-- Modal para Edição/Criação de Itens (NOVO LAYOUT COM ABAS) -->
+    <!-- Modal para Edição/Criação de Itens -->
     <div id="edit-item-modal" class="modal">
         <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl overflow-y-auto">
+            <!-- Cabeçalho do Modal -->
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="modal-title" class="text-xl font-bold text-gray-900">Editar Item</h3>
                 <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
             
+            <!-- Corpo do Modal (com Abas) -->
             <div id="modal-body-content">
-                <!-- O conteúdo com abas será injetado aqui -->
+                <!-- O conteúdo com abas será injetado aqui pelo JavaScript -->
             </div>
 
+            <!-- Rodapé do Modal com Botões de Ação -->
             <div class="flex justify-between items-center mt-6 pt-4 border-t">
                 <button id="delete-item-btn" class="px-4 py-2 bg-red-600 text-white font-bold rounded-md hover:bg-red-700 transition-colors">
                     <i class="fas fa-trash-alt mr-2"></i>Excluir
@@ -166,10 +169,12 @@
     </div>
     
     <script type="module">
+        // Versão com reestruturação para forçar detecção de Git
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
+        // Configuração do Firebase
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
            authDomain: "pizzaria-pdv.firebaseapp.com",
@@ -183,6 +188,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // Variáveis de estado globais
         let fullData = {};
         let currentEditingItem = { sheetName: null, rowIndex: null };
         let selectedItems = new Set();
@@ -192,6 +198,7 @@
         let itemExtrasStatus = {};
         let pizzaHalfStatus = {};
         
+        // Mapeamento para tradução dos nomes das colunas
         const columnTranslations = {
             id: 'ID',
             name: 'Nome',
@@ -245,6 +252,7 @@
                 if (!response.ok) throw new Error('Falha ao carregar dados');
                 fullData = await response.json();
                 
+                // Reorganiza os dados recebidos em um formato mais conveniente
                 fullData['Itens do Cardápio'] = fullData.cardapio; delete fullData.cardapio;
                 fullData['Promoções'] = fullData.promocoes; delete fullData.promocoes;
                 fullData['Ingredientes Hambúrguer'] = fullData.ingredientesHamburguer; delete fullData.ingredientesHamburguer;
@@ -539,13 +547,16 @@
             const fieldOrder = [
                 'id', 'name', 'description', 'category', 'basePrice', 'price',
                 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'deliveryFee',
-                'isPizza', 'isCustomizable', 'available', 'active', 'isSingleChoice', 'isRequired',
+                'isPizza', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired',
                 'limit', 'ingredientLimit', 'categoryLimit',
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
             const sortedHeaders = headers.sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
 
             sortedHeaders.forEach(header => {
+                // CORREÇÃO: Pula o campo 'available' da aba de detalhes
+                if (header === 'available') return; 
+
                 const value = itemData[header];
                 const container = document.createElement('div');
                 let inputHtml = '';
