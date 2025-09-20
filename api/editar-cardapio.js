@@ -83,10 +83,23 @@ export default async function handler(req, res) {
             return sheetHeaders.includes(key) ? key : undefined;
         };
 
-        const formatValueForSheet = (header, value) => {
+        const priceKeys = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
+
+        const formatValueForSheet = (key, header, value) => {
+            // Lida com valores booleanos
             if (header && (header.includes('(sim/não)') || header.includes('(sim/nao)'))) {
                 if (typeof value === 'boolean') {
                     return value ? 'Sim' : 'Não';
+                }
+                 // Lida com strings 'true'/'false' vindas do formulário
+                if (value === 'true') return 'Sim';
+                if (value === 'false') return 'Não';
+            }
+            // Lida com valores de preço
+            if (priceKeys.includes(key)) {
+                const num = parseFloat(String(value).replace(',', '.'));
+                if (!isNaN(num)) {
+                    return num.toFixed(2).replace('.', ',');
                 }
             }
             return value;
@@ -102,7 +115,7 @@ export default async function handler(req, res) {
                     Object.keys(data).forEach(key => {
                         const header = getHeaderInSheet(key);
                         if (header) {
-                            const valueToSet = formatValueForSheet(header, data[key]);
+                            const valueToSet = formatValueForSheet(key, header, data[key]);
                             row.set(header, valueToSet);
                         }
                     });
@@ -117,7 +130,7 @@ export default async function handler(req, res) {
                 Object.keys(data).forEach(key => {
                     const header = getHeaderInSheet(key);
                     if (header) {
-                       const valueToSet = formatValueForSheet(header, data[key]);
+                       const valueToSet = formatValueForSheet(key, header, data[key]);
                        newRowData[header] = valueToSet;
                     }
                 });
@@ -144,7 +157,7 @@ export default async function handler(req, res) {
                             if (field !== 'priceAdjustment') {
                                 const header = getHeaderInSheet(field);
                                 if (header) {
-                                    const valueToSet = formatValueForSheet(header, data[field]);
+                                    const valueToSet = formatValueForSheet(field, header, data[field]);
                                     row.set(header, valueToSet);
                                 }
                             }
@@ -152,9 +165,8 @@ export default async function handler(req, res) {
                         
                         if (data.priceAdjustment) {
                             const { type, value } = data.priceAdjustment;
-                            const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
                             
-                            priceFields.forEach(fieldKey => {
+                            priceKeys.forEach(fieldKey => {
                                 const header = getHeaderInSheet(fieldKey);
                                 if (header) {
                                     let currentValue = parseFloat(String(row.get(header) || '0').replace(',', '.')) || 0;
