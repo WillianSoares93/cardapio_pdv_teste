@@ -103,7 +103,9 @@ export default async function handler(req, res) {
                 if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
                 const newRowData = sheetHeaders.map(header => {
                     const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].includes(header));
-                    return key ? formatValueForSheet(key, header, data[key]) : '';
+                    // Garante que o valor nunca seja nulo ou indefinido
+                    const value = key ? formatValueForSheet(key, header, data[key]) : '';
+                    return value === null || value === undefined ? '' : value;
                 });
                 await sheets.spreadsheets.values.append({
                     spreadsheetId: SPREADSHEET_ID,
@@ -121,7 +123,9 @@ export default async function handler(req, res) {
                 if (rowToUpdate) {
                     const updatedRowData = sheetHeaders.map(header => {
                         const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].includes(header));
-                        return data.hasOwnProperty(key) ? formatValueForSheet(key, header, data[key]) : rowToUpdate.get(header);
+                        let value = data.hasOwnProperty(key) ? formatValueForSheet(key, header, data[key]) : rowToUpdate.get(header);
+                        // CORREÇÃO: Garante que nenhum valor indefinido ou nulo seja enviado
+                        return value === null || value === undefined ? '' : value;
                     });
                     await sheets.spreadsheets.values.update({
                         spreadsheetId: SPREADSHEET_ID,
@@ -169,9 +173,15 @@ export default async function handler(req, res) {
                             });
                         }
                         
+                        const finalRowValues = sheetHeaders.map(h => {
+                            const val = updatedRowData.get(h);
+                            // CORREÇÃO: Garante que nenhum valor indefinido ou nulo seja enviado
+                            return val === null || val === undefined ? '' : val;
+                        });
+
                         dataForUpdate.push({
                             range: `${sheetName}!A${rIndex}`,
-                            values: [sheetHeaders.map(h => updatedRowData.get(h) || '')],
+                            values: [finalRowValues],
                         });
                     }
                 }
