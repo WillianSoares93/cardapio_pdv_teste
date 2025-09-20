@@ -520,7 +520,6 @@
             document.getElementById('delete-item-btn').style.display = isEditing ? 'block' : 'none';
             const modalBody = document.getElementById('modal-body-content');
 
-            // --- CORREÇÃO E MELHORIA DA LÓGICA DE RENDERIZAÇÃO ---
             const headers = Object.keys(fullData[title][0] || {});
             
             const fieldOrder = [
@@ -552,7 +551,7 @@
                                  <input type="text" id="form-input-id" value="${idValue || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed" readonly title="O ID é gerado automaticamente e não pode ser editado.">`;
                 } else if (header === 'isPizza') {
                     const isChecked = value === true || String(value).toLowerCase() === 'sim';
-                    containerClass = 'md:col-span-1 flex flex-col justify-end pb-1';
+                    containerClass = 'md:col-span-1 flex flex-col justify-end';
                     fieldHTML = `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border h-full">
                                     <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
                                     <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
@@ -565,9 +564,9 @@
                      fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
                                  <input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
                 } else if (header === 'description') {
-                     containerClass = 'md:col-span-4';
+                     containerClass = 'md:col-span-2';
                      fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
-                                 <textarea id="form-input-${header}" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
+                                 <textarea id="form-input-${header}" rows="1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
                 } else if (isBoolean) {
                     const isChecked = value === true || String(value).toLowerCase() === 'sim';
                     containerClass = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
