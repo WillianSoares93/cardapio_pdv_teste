@@ -523,26 +523,11 @@
             document.getElementById('delete-item-btn').style.display = isEditing ? 'block' : 'none';
             const modalBody = document.getElementById('modal-body-content');
 
-            modalBody.innerHTML = `
-                <div class="border-b border-gray-200">
-                    <nav id="modal-tabs" class="-mb-px flex space-x-4">
-                        <button class="modal-tab-btn active" data-target="details-panel">Detalhes do Item</button>
-                        <button class="modal-tab-btn" data-target="availability-panel">Disponibilidade</button>
-                    </nav>
-                </div>
-                <div id="modal-tab-content" class="mt-4">
-                    <div id="details-panel">
-                        <form id="edit-item-form"></form>
-                    </div>
-                    <div id="availability-panel" class="hidden"></div>
-                </div>
-            `;
-            
-            const form = document.getElementById('edit-item-form');
-            form.innerHTML = ''; // Limpa o formulário para garantir que não haja conteúdo antigo
-            form.className = 'grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4';
+            // --- CORREÇÃO INICIA AQUI ---
 
-            // Lista de campos que devem aparecer na aba de detalhes.
+            // 1. Construir o HTML para o formulário de detalhes
+            let formHTML = '<form id="edit-item-form" class="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4">';
+            const headers = Object.keys(fullData[title][0] || {});
             const detailFields = [
                 'id', 'name', 'description', 'category', 'basePrice', 'price',
                 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'deliveryFee',
@@ -551,24 +536,18 @@
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
 
-            const headers = Object.keys(fullData[title][0] || {});
-            
-            // Itera sobre a ordem de campos preferida
             detailFields.forEach(header => {
-                // Só renderiza o campo se ele existir nos dados da planilha atual
-                if (!headers.includes(header)) {
-                    return;
-                }
+                if (!headers.includes(header)) return;
 
                 const value = itemData[header];
-                const container = document.createElement('div');
-                let inputHtml = '';
+                let containerClass = 'md:col-span-2';
+                let fieldHTML = '';
                 const isBoolean = ['isPizza', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired'].includes(header);
 
                 if (isBoolean) {
                     const isChecked = value === true || String(value).toLowerCase() === 'sim';
-                    container.className = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
-                    inputHtml = `
+                    containerClass = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
+                    fieldHTML = `
                         <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
                         <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
                             <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
@@ -576,28 +555,24 @@
                         </div>
                     `;
                 } else if (header === 'description' || header === 'imageUrl') {
-                    container.className = 'md:col-span-4';
+                    containerClass = 'md:col-span-4';
                     const label = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>`;
-                    inputHtml = `${label}<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
+                    fieldHTML = `${label}<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
                 } else {
-                    container.className = 'md:col-span-2';
-                    inputHtml = `
+                    containerClass = 'md:col-span-2';
+                    fieldHTML = `
                         <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
                         <input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
                 }
-                
-                container.innerHTML = inputHtml;
-                form.appendChild(container);
+                formHTML += `<div class="${containerClass}">${fieldHTML}</div>`;
             });
-            
-            // Populando a aba "Disponibilidade"
-            const availabilityPanel = document.getElementById('availability-panel');
-            availabilityPanel.innerHTML = ''; // Limpa o painel para garantir que não haja conteúdo antigo
-            availabilityPanel.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
-            const itemId = itemData.id;
+            formHTML += '</form>';
 
+            // 2. Construir o HTML para o painel de disponibilidade
+            let availabilityHTML = '';
+            const itemId = itemData.id;
             if (isEditing && itemId) {
-                const createToggle = (id, type, label, checked, disabled = false) => `
+                const createToggleHTML = (id, type, label, checked, disabled = false) => `
                     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border ${disabled ? 'opacity-50 cursor-not-allowed' : ''}">
                         <label for="${id}" class="block text-sm font-medium text-gray-700">${label}</label>
                         <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
@@ -605,58 +580,80 @@
                             <label for="${id}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
                         </div>
                     </div>`;
-
+                
                 const isVisible = itemVisibility[itemId] !== false;
                 const isAvailable = itemStatus[itemId] !== false;
                 const defaultExtras = itemData.isPizza;
                 const acceptsExtras = itemExtrasStatus[itemId] === undefined ? defaultExtras : itemExtrasStatus[itemId];
 
-                availabilityPanel.innerHTML += createToggle(`item-visible-${itemId}`, 'visible', 'Visível no Cardápio', isVisible);
-                availabilityPanel.innerHTML += createToggle(`item-available-${itemId}`, 'available', 'Disponível para Venda', isAvailable, !isVisible);
-                availabilityPanel.innerHTML += createToggle(`item-extras-${itemId}`, 'extras', 'Aceita Adicionais', acceptsExtras, !isVisible);
+                availabilityHTML += createToggleHTML(`item-visible-${itemId}`, 'visible', 'Visível no Cardápio', isVisible);
+                availabilityHTML += createToggleHTML(`item-available-${itemId}`, 'available', 'Disponível para Venda', isAvailable, !isVisible);
+                availabilityHTML += createToggleHTML(`item-extras-${itemId}`, 'extras', 'Aceita Adicionais', acceptsExtras, !isVisible);
 
                 if (itemData.isPizza) {
                     const allowsHalf = pizzaHalfStatus[itemId] !== false;
-                    availabilityPanel.innerHTML += createToggle(`item-half-${itemId}`, 'half', 'Permite Meia-a-meia', allowsHalf, !isVisible);
+                    availabilityHTML += createToggleHTML(`item-half-${itemId}`, 'half', 'Permite Meia-a-meia', allowsHalf, !isVisible);
                 }
-                
-                availabilityPanel.querySelectorAll('.availability-toggle').forEach(toggle => {
-                    toggle.addEventListener('change', handleAvailabilityChange);
-                });
-
-                document.getElementById(`item-visible-${itemId}`).addEventListener('change', (e) => {
-                    const isNowVisible = e.target.checked;
-                    const relatedToggles = ['item-available', 'item-extras', 'item-half'];
-                    relatedToggles.forEach(idPrefix => {
-                        const toggle = document.getElementById(`${idPrefix}-${itemId}`);
-                        if (toggle) {
-                            toggle.disabled = !isNowVisible;
-                            toggle.closest('div.flex').classList.toggle('opacity-50', !isNowVisible);
-                            toggle.closest('div.flex').classList.toggle('cursor-not-allowed', !isNowVisible);
-                        }
-                    });
-
-                    if (!isNowVisible && document.getElementById(`item-available-${itemId}`).checked) {
-                        const availableToggle = document.getElementById(`item-available-${itemId}`);
-                        availableToggle.checked = false;
-                        availableToggle.dispatchEvent(new Event('change'));
-                    }
-                });
-
             } else {
-                availabilityPanel.innerHTML = `<div class="md:col-span-2 text-center text-gray-500 p-4">Salve o item primeiro para gerenciar a disponibilidade.</div>`;
+                availabilityHTML = `<div class="md:col-span-2 text-center text-gray-500 p-4">Salve o item primeiro para gerenciar a disponibilidade.</div>`;
             }
 
-            // Lógica das abas do modal
+            // 3. Injetar a estrutura completa no DOM de uma só vez
+            modalBody.innerHTML = `
+                <div class="border-b border-gray-200">
+                    <nav id="modal-tabs" class="-mb-px flex space-x-4">
+                        <button class="modal-tab-btn active" data-target="details-panel">Detalhes do Item</button>
+                        <button class="modal-tab-btn" data-target="availability-panel">Disponibilidade</button>
+                    </nav>
+                </div>
+                <div id="modal-tab-content" class="mt-4">
+                    <div id="details-panel">${formHTML}</div>
+                    <div id="availability-panel" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">${availabilityHTML}</div>
+                </div>
+            `;
+
+            // 4. Adicionar os event listeners necessários após a injeção do HTML
             document.getElementById('modal-tabs').addEventListener('click', (e) => {
                 const btn = e.target.closest('.modal-tab-btn');
                 if (btn) {
-                    document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+                    modalBody.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    document.querySelectorAll('#modal-tab-content > div').forEach(p => p.classList.add('hidden'));
-                    document.getElementById(btn.dataset.target).classList.remove('hidden');
+                    modalBody.querySelectorAll('#modal-tab-content > div').forEach(p => p.classList.add('hidden'));
+                    modalBody.querySelector(`#${btn.dataset.target}`).classList.remove('hidden');
                 }
             });
+
+            if (isEditing && itemId) {
+                modalBody.querySelectorAll('.availability-toggle').forEach(toggle => {
+                    toggle.addEventListener('change', handleAvailabilityChange);
+                });
+
+                const visibilityToggle = modalBody.querySelector(`#item-visible-${itemId}`);
+                if (visibilityToggle) {
+                    visibilityToggle.addEventListener('change', (e) => {
+                        const isNowVisible = e.target.checked;
+                        const relatedToggles = ['item-available', 'item-extras', 'item-half'];
+                        relatedToggles.forEach(idPrefix => {
+                            const toggle = modalBody.querySelector(`#${idPrefix}-${itemId}`);
+                            if (toggle) {
+                                toggle.disabled = !isNowVisible;
+                                toggle.closest('div.flex').classList.toggle('opacity-50', !isNowVisible);
+                                toggle.closest('div.flex').classList.toggle('cursor-not-allowed', !isNowVisible);
+                            }
+                        });
+
+                        if (!isNowVisible) {
+                            const availableToggle = modalBody.querySelector(`#item-available-${itemId}`);
+                            if (availableToggle && availableToggle.checked) {
+                                availableToggle.checked = false;
+                                availableToggle.dispatchEvent(new Event('change'));
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // --- FIM DA CORREÇÃO ---
 
             document.getElementById('edit-item-modal').style.display = 'flex';
         }
