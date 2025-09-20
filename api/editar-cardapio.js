@@ -71,6 +71,7 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada na sua Planilha de Cardápio.` });
         }
 
+        await sheet.loadHeaderRow(); // Carrega a linha de cabeçalho da aba específica
         const sheetHeaders = sheet.headerValues;
 
         // Função auxiliar para encontrar o cabeçalho correto na planilha
@@ -187,3 +188,4 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
 }
+
