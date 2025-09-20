@@ -608,10 +608,13 @@
                 availabilityHTML += createToggleHTML(`item-available-${itemId}`, 'available', 'Disponível para Venda', isAvailable, !isVisible);
                 availabilityHTML += createToggleHTML(`item-extras-${itemId}`, 'extras', 'Aceita Adicionais', acceptsExtras, !isVisible);
 
-                if (itemData.isPizza) {
-                    const allowsHalf = pizzaHalfStatus[itemId] !== false;
-                    availabilityHTML += createToggleHTML(`item-half-${itemId}`, 'half', 'Permite Meia-a-meia', allowsHalf, !isVisible);
-                }
+                // Lógica condicional para o toggle "Permite Meia-a-meia"
+                const isCurrentlyPizza = itemData.isPizza === true || String(itemData.isPizza).toLowerCase() === 'sim';
+                const allowsHalf = pizzaHalfStatus[itemId] !== false;
+                availabilityHTML += `<div id="half-pizza-toggle-container" class="${isCurrentlyPizza ? '' : 'hidden'}">
+                                        ${createToggleHTML(`item-half-${itemId}`, 'half', 'Permite Meia-a-meia', allowsHalf, !isVisible)}
+                                     </div>`;
+
             } else {
                 availabilityHTML = `<div class="md:col-span-2 text-center text-gray-500 p-4">Salve o item primeiro para gerenciar a disponibilidade.</div>`;
             }
@@ -697,6 +700,12 @@
                 if (basePriceLabel) {
                     basePriceLabel.textContent = isPizza ? getTranslatedHeader('basePrice') : 'Preço Base';
                 }
+            }
+            
+            // Lógica para mostrar/esconder o controle "Permite Meia" na outra aba
+            const halfPizzaToggleContainer = document.getElementById('half-pizza-toggle-container');
+            if (halfPizzaToggleContainer) {
+                halfPizzaToggleContainer.classList.toggle('hidden', !isPizza);
             }
         }
 
