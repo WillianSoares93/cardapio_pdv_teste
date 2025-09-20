@@ -41,16 +41,23 @@
             background-color: #f9fafb; /* bg-gray-50 for header */
             z-index: 10;
         }
-
         .sticky-col-body {
             position: sticky;
             right: 0;
             background-color: #ffffff; /* bg-white for body */
             z-index: 10;
         }
-
         .sticky-col, .sticky-col-body {
             border-left: 1px solid #e5e7eb; /* border-gray-200 */
+        }
+        /* Estilos para o Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #4f46e5; /* indigo-600 */
+            transform: translateX(100%);
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #4f46e5; /* indigo-600 */
         }
     </style>
 </head>
@@ -124,15 +131,15 @@
     </div>
 
 
-    <!-- Modal para Edição/Criação de Itens -->
+    <!-- Modal para Edição/Criação de Itens (NOVO LAYOUT) -->
     <div id="edit-item-modal" class="modal">
-        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl overflow-y-auto">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl overflow-y-auto">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="modal-title" class="text-xl font-bold text-gray-900">Editar Item</h3>
-                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600">&times;</button>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
-            <form id="edit-item-form" class="mt-4 space-y-4">
-                <!-- Campos do formulário serão gerados aqui -->
+            <form id="edit-item-form">
+                <!-- Conteúdo do formulário gerado dinamicamente com grid -->
             </form>
             <div class="flex justify-between items-center mt-6 pt-4 border-t">
                 <button id="delete-item-btn" class="px-4 py-2 bg-red-600 text-white font-bold rounded-md hover:bg-red-700 transition-colors">
@@ -470,32 +477,64 @@
         }
 
         function openEditModal(title, itemData, isEditing) {
-            document.getElementById('modal-title').textContent = isEditing ? `Editar ${title}` : `Adicionar Novo em ${title}`;
+            document.getElementById('modal-title').textContent = isEditing ? `Editar Item - ${title}` : `Adicionar Novo em ${title}`;
             document.getElementById('delete-item-btn').style.display = isEditing ? 'block' : 'none';
             const form = document.getElementById('edit-item-form');
-            form.innerHTML = '';
-            
-            const headers = Object.keys(fullData[title][0] || {});
-            headers.forEach(header => {
-                const value = itemData[header];
-                let inputHtml = '';
-                if (typeof value === 'boolean') {
-                    inputHtml = `
-                        <select id="form-input-${header}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                            <option value="true" ${value === true ? 'selected' : ''}>Sim</option>
-                            <option value="false" ${!value ? 'selected' : ''}>Não</option>
-                        </select>`;
-                } else if (String(value || '').length > 100 || String(value || '').includes('\n')) {
-                    inputHtml = `<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">${value || ''}</textarea>`;
-                } else {
-                    inputHtml = `<input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">`;
-                }
+            form.innerHTML = ''; // Limpa o formulário
 
-                form.innerHTML += `
-                    <div>
+            // Adiciona classes de grid ao formulário
+            form.className = 'mt-4 grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4';
+
+            const headers = Object.keys(fullData[title][0] || {});
+
+            // Define uma ordem lógica e agrupamentos para os campos
+            const fieldOrder = [
+                'id', 'name', 'description', 'category', 'basePrice', 'price',
+                'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'deliveryFee',
+                'isPizza', 'isCustomizable', 'available', 'active', 'isSingleChoice', 'isRequired',
+                'limit', 'ingredientLimit', 'categoryLimit',
+                'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
+            ];
+            
+            const sortedHeaders = headers.sort((a, b) => {
+                const indexA = fieldOrder.indexOf(a);
+                const indexB = fieldOrder.indexOf(b);
+                return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+            });
+
+            sortedHeaders.forEach(header => {
+                const value = itemData[header];
+                const container = document.createElement('div');
+                let inputHtml = '';
+                const isBoolean = typeof value === 'boolean' || ['isPizza', 'isCustomizable', 'available', 'active', 'isSingleChoice', 'isRequired'].includes(header);
+
+                if (isBoolean) {
+                    const isChecked = value === true || value === 'Sim';
+                    container.className = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
+                    inputHtml = `
                         <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
-                        ${inputHtml}
-                    </div>`;
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
+                            <label for="form-input-${header}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    `;
+                } else if (header === 'description' || header === 'imageUrl') {
+                    container.className = 'md:col-span-4'; // Ocupa a largura total
+                    const label = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>`;
+                    if (String(value || '').length > 80) {
+                        inputHtml = `${label}<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
+                    } else {
+                        inputHtml = `${label}<input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
+                    }
+                } else {
+                    container.className = 'md:col-span-2'; // Ocupa metade da largura
+                    inputHtml = `
+                        <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
+                        <input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
+                }
+                
+                container.innerHTML = inputHtml;
+                form.appendChild(container);
             });
 
             document.getElementById('edit-item-modal').style.display = 'flex';
@@ -575,8 +614,8 @@
             const inputs = form.querySelectorAll('input, select, textarea');
             inputs.forEach(input => {
                 const key = input.id.replace('form-input-', '');
-                if (input.tagName === 'SELECT') {
-                    data[key] = input.value === 'true';
+                if (input.type === 'checkbox') {
+                    data[key] = input.checked;
                 } else {
                     data[key] = input.value;
                 }
@@ -693,4 +732,3 @@
     </script>
 </body>
 </html>
-
