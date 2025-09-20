@@ -1,260 +1,258 @@
 // /api/editar-cardapio.js
-import { GoogleSpreadsheet } from 'google-spreadsheet';
+import { google } from 'googleapis';
 import { JWT } from 'google-auth-library';
-import { google } from 'googleapis'; // Usando a biblioteca oficial do Google
 
-// Utiliza o mesmo método de autenticação das outras APIs que já funcionam
+// --- CONFIGURAÇÃO DE LOGS ---
+const log = (message, ...args) => console.log(`[LOG] ${new Date().toISOString()} - ${message}`, ...args);
+
+// --- AUTENTICAÇÃO E CONFIGURAÇÃO DA PLANILHA ---
 const auth = new JWT({
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
-
-// Cliente da API do Google Sheets
 const sheets = google.sheets({ version: 'v4', auth });
-
-// Utiliza a variável de ambiente específica para a planilha do cardápio.
 const SPREADSHEET_ID = process.env.MENU_SPREADSHEET_ID;
 
-// Mapa para traduzir chaves de objeto JS de volta para os cabeçalhos da planilha
-const keyToHeaderMap = {
-    'id': ['id item (único)', 'id promocao', 'id intem'],
-    'name': ['nome do item', 'nome da promocao', 'ingredientes', 'adicionais'],
-    'description': ['descrição'],
-    'price4Slices': ['preço 4 fatias'],
-    'price6Slices': ['preço 6 fatias'],
-    'basePrice': ['preço 8 fatias'],
-    'price10Slices': ['preço 10 fatias'],
-    'category': ['categoria'],
-    'isPizza': ['é pizza? (sim/não)'],
-    'isCustomizable': ['é montável? (sim/não)'],
-    'available': ['disponível (sim/não)', 'disponível'],
-    'imageUrl': ['imagem'],
-    'acceptsExtras': ['Aceita Adicionais?'],
-    'allowHalf': ['Permite Meia-a-meia?'],
-    'promoPrice': ['preco promocional'],
-    'itemId': ['id item aplicavel'],
-    'active': ['ativo (sim/nao)'],
-    'neighborhood': ['bairros'],
-    'deliveryFee': ['valor frete'],
-    'price': ['preço'],
-    'isSingleChoice': ['seleção única'],
-    'isRequired': ['é obrigatório?(sim/não)'],
-    'limit': ['limite', 'limite adicionais'],
-    'ingredientLimit': ['limite ingrediente'],
-    'categoryLimit': ['limite categoria'],
-    'data': ['dados'],
-    'value': ['valor']
+// --- MAPA DE TRADUÇÃO DE CAMPOS ---
+const columnTranslationsToSheet = {
+    id: 'ID Item (único)',
+    name: 'Nome do Item',
+    description: 'Descrição',
+    price10Slices: 'Preço 10 fatias',
+    basePrice: 'Preço 8 fatias',
+    price6Slices: 'Preço 6 fatias',
+    price4Slices: 'Preço 4 fatias',
+    category: 'Categoria',
+    isPizza: 'É Pizza? (SIM/NÃO)',
+    isCustomizable: 'É Montável? (SIM/NÃO)',
+    available: 'Disponível (SIM/NÃO)',
+    imageUrl: 'Imagem',
+    promoPrice: 'Preco Promocional',
+    itemId: 'ID Item Aplicavel',
+    active: 'Ativo (SIM/NAO)',
+    neighborhood: 'Bairros',
+    deliveryFee: 'Valor Frete',
+    price: 'Preço',
+    isSingleChoice: 'Seleção Única',
+    limit: 'Limite',
+    ingredientLimit: 'limite ingrediente',
+    isRequired: 'É Obrigatório?(SIM/NÃO)',
+    data: 'Dados',
+    value: 'Valor'
 };
 
 
+// --- FUNÇÃO PRINCIPAL DO HANDLER ---
 export default async function handler(req, res) {
-    console.log("--- [LOG] Início da API editar-cardapio ---");
-
+    log('--- Início da API editar-cardapio ---');
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
     if (!SPREADSHEET_ID) {
-        console.error("[ERRO] A variável de ambiente MENU_SPREADSHEET_ID não está configurada.");
-        return res.status(500).json({ error: 'A variável de ambiente MENU_SPREADSHEET_ID não está configurada no servidor.' });
+        return res.status(500).json({ error: 'A variável de ambiente MENU_SPREADSHEET_ID não está configurada.' });
     }
 
-    // Usaremos a biblioteca antiga apenas para conveniência de leitura de dados
-    const doc = new GoogleSpreadsheet(SPREADSHEET_ID, auth);
-
     try {
-        await doc.loadInfo();
-
         const { sheetName, action, rowIndex, data, rowIndexes } = req.body;
-        console.log("[LOG] Corpo da requisição recebida:", req.body);
+        log('Corpo da requisição recebida:', req.body);
         
         if (!sheetName || !action) {
             return res.status(400).json({ error: 'Nome da planilha e ação são obrigatórios.' });
         }
         
-        console.log(`[LOG] Planilha alvo: "${sheetName}", Ação: "${action}"`);
-        const sheet = doc.sheetsByTitle[sheetName];
+        const sheetMetadata = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+        const sheet = sheetMetadata.data.sheets.find(s => s.properties.title.toLowerCase() === sheetName.toLowerCase());
+
         if (!sheet) {
             return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada.` });
         }
+        log(`Planilha alvo: "${sheet.properties.title}", Ação: "${action}"`);
 
-        await sheet.loadHeaderRow();
-        const sheetHeaders = sheet.headerValues;
-        console.log("[LOG] Cabeçalhos encontrados na planilha:", sheetHeaders);
+        const rangeData = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheet.properties.title}!A1:Z1` });
+        const headers = rangeData.data.values[0];
+        log('Cabeçalhos encontrados na planilha:', headers);
 
-        const priceKeys = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
+        if (action === 'update') {
+            if (!rowIndex || !data) return res.status(400).json({ error: 'Índice da linha e dados são obrigatórios.' });
+            log('[UPDATE] Atualizando linha', rowIndex, '. Dados recebidos:', data);
 
-        const formatValueForSheet = (key, header, value) => {
-            if (header && (header.toLowerCase().includes('(sim/não)') || header.toLowerCase().includes('(sim/nao)'))) {
-                if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
-                if (value === 'true') return 'Sim';
-                if (value === 'false') return 'Não';
-            }
-            if (priceKeys.includes(key)) {
-                const num = parseFloat(String(value).replace(',', '.'));
-                return !isNaN(num) ? num.toFixed(2).replace('.', ',') : value;
-            }
-            return value;
-        };
-
-
-        switch (action) {
-            case 'add': {
-                if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
-                const newRowData = sheetHeaders.map(header => {
-                    const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].some(h => h.toLowerCase() === header.toLowerCase()));
-                    const value = (key && data.hasOwnProperty(key)) ? formatValueForSheet(key, header, data[key]) : '';
-                    return value === null || value === undefined ? '' : value;
-                });
-
-                console.log("[LOG][ADD] Adicionando nova linha com dados:", newRowData);
-                const result = await sheets.spreadsheets.values.append({
-                    spreadsheetId: SPREADSHEET_ID,
-                    range: sheetName,
-                    valueInputOption: 'USER_ENTERED',
-                    resource: { values: [newRowData] },
-                });
-                console.log("[LOG][ADD] Resposta da API do Google:", result.status, result.statusText);
-                break;
-            }
-
-            case 'update': {
-                if (!rowIndex || !data) return res.status(400).json({ error: 'Índice da linha e dados são obrigatórios.' });
-                const rows = await sheet.getRows();
-                const rowToUpdate = rows[rowIndex - 2];
-                if (rowToUpdate) {
-                    console.log(`[LOG][UPDATE] Atualizando linha ${rowIndex}. Dados originais:`, rowToUpdate.toObject());
-                    const updatedRowData = sheetHeaders.map(header => {
-                        const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].some(h => h.toLowerCase() === header.toLowerCase()));
-                        let value;
-                        if (key && data.hasOwnProperty(key)) {
-                           value = formatValueForSheet(key, header, data[key]);
-                        } else {
-                           value = rowToUpdate.get(header);
-                        }
-                        return value === null || value === undefined ? '' : value;
-                    });
-                    
-                    console.log("[LOG][UPDATE] Dados formatados para envio:", updatedRowData);
-                    const result = await sheets.spreadsheets.values.update({
-                        spreadsheetId: SPREADSHEET_ID,
-                        range: `${sheetName}!A${rowIndex}`,
-                        valueInputOption: 'USER_ENTERED',
-                        resource: { values: [updatedRowData] },
-                    });
-                    console.log("[LOG][UPDATE] Resposta da API do Google:", result.status, result.statusText);
-                } else {
-                    console.warn(`[AVISO][UPDATE] Linha ${rowIndex} não encontrada para atualização.`);
-                }
-                break;
-            }
+            const originalRowDataResponse = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheet.properties.title}!A${rowIndex}:Z${rowIndex}` });
+            const originalRowData = originalRowDataResponse.data.values ? originalRowDataResponse.data.values[0] : [];
+            log('[UPDATE] Dados originais da linha:', originalRowData);
             
-            case 'bulk-update': {
-                if (!rowIndexes || !data) return res.status(400).json({ error: 'Índices e dados são obrigatórios.' });
-                const rows = await sheet.getRows();
-                const dataForUpdate = [];
+            const newRowData = headers.map((header, index) => {
+                const lowerCaseHeader = header.toLowerCase();
+                const translatedKey = Object.keys(columnTranslationsToSheet).find(key => columnTranslationsToSheet[key].toLowerCase() === lowerCaseHeader);
 
-                console.log(`[LOG][BULK-UPDATE] Atualizando ${rowIndexes.length} linhas.`);
+                if (translatedKey && data.hasOwnProperty(translatedKey)) {
+                    let value = data[translatedKey];
+                    // Formatação de Booleans
+                    if (typeof value === 'boolean') {
+                        return value ? 'SIM' : 'NÃO';
+                    }
+                    // Formatação de Preços
+                    const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
+                    if (priceFields.includes(translatedKey) && (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))) {
+                        const numberValue = parseFloat(String(value).replace(',', '.'));
+                        return isNaN(numberValue) ? '' : numberValue.toFixed(2).replace('.', ',');
+                    }
+                    return value;
+                }
+                return originalRowData[index] || '';
+            });
+            
+            log('[UPDATE] Dados formatados para envio:', newRowData);
 
-                for (const rIndex of rowIndexes) {
-                    const row = rows[rIndex - 2];
-                    if (row) {
-                        const updatedRowData = new Map(row.toObject());
-                        
-                        for (const field in data) {
-                            if (field !== 'priceAdjustment') {
-                                const headerInSheet = Object.keys(row.toObject()).find(h => 
-                                    keyToHeaderMap[field]?.some(kh => kh.toLowerCase() === h.toLowerCase())
-                                );
-                                if (headerInSheet) {
-                                    updatedRowData.set(headerInSheet, formatValueForSheet(field, headerInSheet, data[field]));
-                                }
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: SPREADSHEET_ID,
+                range: `${sheet.properties.title}!A${rowIndex}:${String.fromCharCode(65 + headers.length - 1)}${rowIndex}`,
+                valueInputOption: 'USER_ENTERED',
+                resource: { values: [newRowData] },
+            });
+            log('[UPDATE] Resposta da API do Google: 200 OK');
+
+        } else if (action === 'add') {
+            if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
+             log('[ADD] Adicionando nova linha com dados:', data);
+
+            const newRowData = headers.map(header => {
+                const lowerCaseHeader = header.toLowerCase();
+                const translatedKey = Object.keys(columnTranslationsToSheet).find(key => columnTranslationsToSheet[key].toLowerCase() === lowerCaseHeader);
+                let value = translatedKey ? data[translatedKey] : '';
+                
+                 if (typeof value === 'boolean') {
+                    return value ? 'SIM' : 'NÃO';
+                }
+                
+                const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
+                if (priceFields.includes(translatedKey) && (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))) {
+                     const numberValue = parseFloat(String(value).replace(',', '.'));
+                     return isNaN(numberValue) ? '' : numberValue.toFixed(2).replace('.', ',');
+                }
+                return value || '';
+            });
+            log('[ADD] Dados formatados para envio:', newRowData);
+
+            await sheets.spreadsheets.values.append({
+                spreadsheetId: SPREADSHEET_ID,
+                range: `${sheet.properties.title}!A:A`,
+                valueInputOption: 'USER_ENTERED',
+                resource: { values: [newRowData] },
+            });
+            log('[ADD] Resposta da API do Google: 200 OK');
+
+        } else if (action === 'delete') {
+            if (!rowIndex) return res.status(400).json({ error: 'Índice da linha é obrigatório.' });
+            log('[DELETE] Deletando linha:', rowIndex);
+
+            await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: SPREADSHEET_ID,
+                resource: {
+                    requests: [{
+                        deleteDimension: {
+                            range: {
+                                sheetId: sheet.properties.sheetId,
+                                dimension: 'ROWS',
+                                startIndex: rowIndex - 1, // API é 0-indexed, rowIndex é 1-indexed
+                                endIndex: rowIndex
                             }
                         }
+                    }]
+                }
+            });
+            log('[DELETE] Resposta da API do Google: 200 OK - Linha deletada');
 
-                        if (data.priceAdjustment) {
-                            const { type, value } = data.priceAdjustment;
-                            priceKeys.forEach(fieldKey => {
-                                const headerInSheet = Object.keys(row.toObject()).find(h => 
-                                    keyToHeaderMap[fieldKey]?.some(kh => kh.toLowerCase() === h.toLowerCase())
-                                );
-                                if (headerInSheet) {
-                                    let currentValue = parseFloat(String(updatedRowData.get(headerInSheet) || '0').replace(',', '.')) || 0;
-                                    if (type === 'percent_increase') currentValue *= (1 + value / 100);
-                                    else if (type === 'percent_decrease') currentValue *= (1 - value / 100);
-                                    else if (type === 'value_increase') currentValue += value;
-                                    else if (type === 'value_decrease') currentValue -= value;
-                                    updatedRowData.set(headerInSheet, Math.max(0, currentValue).toFixed(2).replace('.', ','));
-                                }
-                            });
-                        }
-                        
-                        const finalRowValues = sheetHeaders.map(h => {
-                            const val = updatedRowData.get(h);
-                            return val === null || val === undefined ? '' : val;
-                        });
+        } else if (action === 'bulk-delete') {
+            if (!rowIndexes || rowIndexes.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios.' });
+            log('[BULK-DELETE] Deletando linhas:', rowIndexes);
+            
+            // Ordena os índices em ordem decrescente para evitar problemas com o deslocamento das linhas
+            const sortedRowIndexes = rowIndexes.sort((a, b) => b - a);
 
-                        console.log(`[LOG][BULK-UPDATE] Dados finais para linha ${rIndex}:`, finalRowValues);
-
-                        dataForUpdate.push({
-                            range: `${sheetName}!A${rIndex}`,
-                            values: [finalRowValues],
-                        });
+            const requests = sortedRowIndexes.map(index => ({
+                deleteDimension: {
+                    range: {
+                        sheetId: sheet.properties.sheetId,
+                        dimension: 'ROWS',
+                        startIndex: index - 1,
+                        endIndex: index
                     }
                 }
-                
-                console.log("[LOG][BULK-UPDATE] Objeto 'dataForUpdate' final a ser enviado:", JSON.stringify(dataForUpdate, null, 2));
-                const result = await sheets.spreadsheets.values.batchUpdate({
-                    spreadsheetId: SPREADSHEET_ID,
-                    resource: {
-                        valueInputOption: 'USER_ENTERED',
-                        data: dataForUpdate,
-                    },
-                });
-                console.log("[LOG][BULK-UPDATE] Resposta da API do Google:", result.status, result.statusText);
-                break;
-            }
+            }));
 
-            case 'delete':
-            case 'bulk-delete': {
-                const indexesToDelete = action === 'delete' ? [rowIndex] : rowIndexes;
-                if (!indexesToDelete || indexesToDelete.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios.' });
+            await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: SPREADSHEET_ID,
+                resource: { requests }
+            });
+            log('[BULK-DELETE] Resposta da API do Google: 200 OK - Linhas deletadas');
+            
+        } else if (action === 'bulk-update') {
+            // A lógica de bulk-update existente parece correta, mantendo-a
+            if (!rowIndexes || !data) return res.status(400).json({ error: 'Índices e dados são obrigatórios.' });
+            log('[BULK-UPDATE] Atualizando linhas:', rowIndexes, 'com dados:', data);
+
+            const allRowsResponse = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheet.properties.title}!A2:Z` });
+            const allRows = allRowsResponse.data.values || [];
+            
+            const updatedRowsData = [];
+            
+            for (const rIndex of rowIndexes) {
+                const originalRow = allRows[rIndex - 2] ? [...allRows[rIndex - 2]] : new Array(headers.length).fill('');
                 
-                console.log(`[LOG][DELETE] Excluindo linhas: ${indexesToDelete.join(', ')}`);
-                const sortedIndexes = indexesToDelete.sort((a, b) => b - a);
-                const deleteRequests = sortedIndexes.map(rIndex => ({
-                    deleteDimension: {
-                        range: {
-                            sheetId: sheet.sheetId,
-                            dimension: 'ROWS',
-                            startIndex: rIndex - 1,
-                            endIndex: rIndex
-                        }
+                let newRow = headers.map((header, i) => {
+                    const lowerCaseHeader = header.toLowerCase();
+                    const translatedKey = Object.keys(columnTranslationsToSheet).find(key => columnTranslationsToSheet[key].toLowerCase() === lowerCaseHeader);
+                    
+                    if (translatedKey && data.hasOwnProperty(translatedKey)) {
+                         let value = data[translatedKey];
+                         if (typeof value === 'boolean') return value ? 'SIM' : 'NÃO';
+                         return value;
                     }
-                }));
-
-                const result = await sheets.spreadsheets.batchUpdate({
-                    spreadsheetId: SPREADSHEET_ID,
-                    resource: { requests: deleteRequests }
+                    return originalRow[i] || '';
                 });
-                console.log("[LOG][DELETE] Resposta da API do Google:", result.status, result.statusText);
-                break;
-            }
 
-            default:
-                return res.status(400).json({ error: 'Ação inválida.' });
+                if (data.priceAdjustment) {
+                    const { type, value } = data.priceAdjustment;
+                    headers.forEach((header, i) => {
+                        const priceFields = ['Preço 10 fatias', 'Preço 8 fatias', 'Preço 6 fatias', 'Preço 4 fatias', 'Preco Promocional', 'Preço', 'Valor Frete'];
+                        if (priceFields.includes(header)) {
+                             let currentValue = parseFloat(String(newRow[i] || '0').replace(',', '.')) || 0;
+                            if (type === 'percent_increase') currentValue *= (1 + value / 100);
+                            else if (type === 'percent_decrease') currentValue *= (1 - value / 100);
+                            else if (type === 'value_increase') currentValue += value;
+                            else if (type === 'value_decrease') currentValue -= value;
+                            newRow[i] = Math.max(0, currentValue).toFixed(2).replace('.', ',');
+                        }
+                    });
+                }
+                 updatedRowsData.push({
+                    range: `${sheet.properties.title}!A${rIndex}:${String.fromCharCode(65 + headers.length - 1)}${rIndex}`,
+                    values: [newRow.map(val => val === null || val === undefined ? '' : val)]
+                });
+            }
+             log('[BULK-UPDATE] Dados prontos para batchUpdate:', updatedRowsData);
+
+            await sheets.spreadsheets.values.batchUpdate({
+                spreadsheetId: SPREADSHEET_ID,
+                resource: {
+                    valueInputOption: 'USER_ENTERED',
+                    data: updatedRowsData
+                }
+            });
+             log('[BULK-UPDATE] Resposta da API do Google: 200 OK');
+        } else {
+            return res.status(400).json({ error: 'Ação inválida.' });
         }
 
-        console.log("--- [LOG] Fim da API editar-cardapio ---");
-        return res.status(200).json({ success: true });
+        res.status(200).json({ success: true });
 
     } catch (error) {
         console.error('Erro na API editar-cardapio:', error);
-        if (error.response && error.response.status === 403) {
-            return res.status(403).json({ error: 'Permissão negada. Verifique se o e-mail da conta de serviço tem permissão de "Editor" na sua planilha.' });
-        }
         return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
+    } finally {
+        log('--- Fim da API editar-cardapio ---');
     }
 }
 
