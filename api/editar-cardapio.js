@@ -119,7 +119,7 @@ export default async function handler(req, res) {
                             row.set(header, valueToSet);
                         }
                     });
-                    await row.save();
+                    await row.save(); // save() é a melhor abordagem para uma única linha
                 }
                 break;
             }
@@ -180,9 +180,10 @@ export default async function handler(req, res) {
                                 }
                             });
                         }
-                        await row.save();
+                        // Não salva aqui, deixa para o batch no final
                     }
                 }
+                await sheet.saveUpdatedCells(); // Salva todas as células modificadas de uma vez
                 break;
             }
             
