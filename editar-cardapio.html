@@ -59,6 +59,16 @@
         .toggle-checkbox:checked + .toggle-label {
             background-color: #4f46e5; /* indigo-600 */
         }
+        .modal-tab-btn {
+            padding: 8px 16px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease-in-out;
+        }
+        .modal-tab-btn.active {
+            border-color: #4f46e5; /* indigo-600 */
+            color: #4f46e5;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -131,16 +141,18 @@
     </div>
 
 
-    <!-- Modal para Edição/Criação de Itens (NOVO LAYOUT) -->
+    <!-- Modal para Edição/Criação de Itens (NOVO LAYOUT COM ABAS) -->
     <div id="edit-item-modal" class="modal">
         <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl overflow-y-auto">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="modal-title" class="text-xl font-bold text-gray-900">Editar Item</h3>
                 <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
-            <form id="edit-item-form">
-                <!-- Conteúdo do formulário gerado dinamicamente com grid -->
-            </form>
+            
+            <div id="modal-body-content">
+                <!-- O conteúdo com abas será injetado aqui -->
+            </div>
+
             <div class="flex justify-between items-center mt-6 pt-4 border-t">
                 <button id="delete-item-btn" class="px-4 py-2 bg-red-600 text-white font-bold rounded-md hover:bg-red-700 transition-colors">
                     <i class="fas fa-trash-alt mr-2"></i>Excluir
@@ -156,6 +168,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -168,10 +181,16 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
 
         let fullData = {};
         let currentEditingItem = { sheetName: null, rowIndex: null };
         let selectedItems = new Set();
+        
+        let itemStatus = {};
+        let itemVisibility = {};
+        let itemExtrasStatus = {};
+        let pizzaHalfStatus = {};
         
         const columnTranslations = {
             id: 'ID',
@@ -238,6 +257,7 @@
 
                 renderTabsAndPanels();
                 setupEventListeners();
+                listenToStatusChanges();
 
             } catch (error) {
                 console.error("Erro ao inicializar:", error);
@@ -245,6 +265,21 @@
             }
         }
         
+        function listenToStatusChanges() {
+            onSnapshot(doc(db, "config", "item_status"), (doc) => {
+                itemStatus = doc.exists() ? doc.data() : {};
+            });
+            onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
+                itemVisibility = doc.exists() ? doc.data() : {};
+            });
+            onSnapshot(doc(db, "config", "item_extras_status"), (doc) => {
+                itemExtrasStatus = doc.exists() ? doc.data() : {};
+            });
+            onSnapshot(doc(db, "config", "pizza_half_status"), (doc) => {
+                pizzaHalfStatus = doc.exists() ? doc.data() : {};
+            });
+        }
+
         function getSheetNameFromTitle(title) {
             const map = {
                 'Itens do Cardápio': 'cardapio',
@@ -458,7 +493,6 @@
             const sheetName = activeTab.dataset.tab;
             const bulkContainer = document.getElementById(`bulk-actions-container-${sheetName}`);
             
-            // Sincroniza os checkboxes visíveis com o estado da seleção
             const panel = document.getElementById(`${sheetName}-panel`);
             panel.querySelectorAll('.row-checkbox').forEach(cb => {
                 const index = parseInt(cb.dataset.index);
@@ -477,17 +511,31 @@
         }
 
         function openEditModal(title, itemData, isEditing) {
-            document.getElementById('modal-title').textContent = isEditing ? `Editar Item - ${title}` : `Adicionar Novo em ${title}`;
+            document.getElementById('modal-title').textContent = isEditing ? `Editar Item - ${itemData.name || title}` : `Adicionar Novo em ${title}`;
             document.getElementById('delete-item-btn').style.display = isEditing ? 'block' : 'none';
+            const modalBody = document.getElementById('modal-body-content');
+
+            // Estrutura de Abas
+            modalBody.innerHTML = `
+                <div class="border-b border-gray-200">
+                    <nav id="modal-tabs" class="-mb-px flex space-x-4">
+                        <button class="modal-tab-btn active" data-target="details-panel">Detalhes do Item</button>
+                        <button class="modal-tab-btn" data-target="availability-panel">Disponibilidade</button>
+                    </nav>
+                </div>
+                <div id="modal-tab-content" class="mt-4">
+                    <div id="details-panel">
+                        <form id="edit-item-form"></form>
+                    </div>
+                    <div id="availability-panel" class="hidden"></div>
+                </div>
+            `;
+            
             const form = document.getElementById('edit-item-form');
-            form.innerHTML = ''; // Limpa o formulário
+            form.className = 'grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4';
 
-            // Adiciona classes de grid ao formulário
-            form.className = 'mt-4 grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4';
-
+            // Populando a aba "Detalhes do Item"
             const headers = Object.keys(fullData[title][0] || {});
-
-            // Define uma ordem lógica e agrupamentos para os campos
             const fieldOrder = [
                 'id', 'name', 'description', 'category', 'basePrice', 'price',
                 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'deliveryFee',
@@ -495,21 +543,16 @@
                 'limit', 'ingredientLimit', 'categoryLimit',
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
-            
-            const sortedHeaders = headers.sort((a, b) => {
-                const indexA = fieldOrder.indexOf(a);
-                const indexB = fieldOrder.indexOf(b);
-                return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
-            });
+            const sortedHeaders = headers.sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
 
             sortedHeaders.forEach(header => {
                 const value = itemData[header];
                 const container = document.createElement('div');
                 let inputHtml = '';
-                const isBoolean = typeof value === 'boolean' || ['isPizza', 'isCustomizable', 'available', 'active', 'isSingleChoice', 'isRequired'].includes(header);
+                const isBoolean = ['isPizza', 'isCustomizable', 'active', 'isSingleChoice', 'isRequired'].includes(header);
 
                 if (isBoolean) {
-                    const isChecked = value === true || value === 'Sim';
+                    const isChecked = value === true || String(value).toLowerCase() === 'sim';
                     container.className = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
                     inputHtml = `
                         <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
@@ -519,15 +562,11 @@
                         </div>
                     `;
                 } else if (header === 'description' || header === 'imageUrl') {
-                    container.className = 'md:col-span-4'; // Ocupa a largura total
+                    container.className = 'md:col-span-4';
                     const label = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>`;
-                    if (String(value || '').length > 80) {
-                        inputHtml = `${label}<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
-                    } else {
-                        inputHtml = `${label}<input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
-                    }
+                    inputHtml = `${label}<textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
                 } else {
-                    container.className = 'md:col-span-2'; // Ocupa metade da largura
+                    container.className = 'md:col-span-2';
                     inputHtml = `
                         <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
                         <input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
@@ -536,8 +575,98 @@
                 container.innerHTML = inputHtml;
                 form.appendChild(container);
             });
+            
+            // Populando a aba "Disponibilidade"
+            const availabilityPanel = document.getElementById('availability-panel');
+            availabilityPanel.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+            const itemId = itemData.id;
+
+            if (isEditing && itemId) {
+                const createToggle = (id, type, label, checked, disabled = false) => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border ${disabled ? 'opacity-50 cursor-not-allowed' : ''}">
+                        <label for="${id}" class="block text-sm font-medium text-gray-700">${label}</label>
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" id="${id}" data-type="${type}" class="toggle-checkbox availability-toggle absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}/>
+                            <label for="${id}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </div>`;
+
+                const isVisible = itemVisibility[itemId] !== false;
+                const isAvailable = itemStatus[itemId] !== false;
+                const defaultExtras = itemData.isPizza;
+                const acceptsExtras = itemExtrasStatus[itemId] === undefined ? defaultExtras : itemExtrasStatus[itemId];
+
+                availabilityPanel.innerHTML += createToggle(`item-visible-${itemId}`, 'visible', 'Visível no Cardápio', isVisible);
+                availabilityPanel.innerHTML += createToggle(`item-available-${itemId}`, 'available', 'Disponível para Venda', isAvailable, !isVisible);
+                availabilityPanel.innerHTML += createToggle(`item-extras-${itemId}`, 'extras', 'Aceita Adicionais', acceptsExtras, !isVisible);
+
+                if (itemData.isPizza) {
+                    const allowsHalf = pizzaHalfStatus[itemId] !== false;
+                    availabilityPanel.innerHTML += createToggle(`item-half-${itemId}`, 'half', 'Permite Meia-a-meia', allowsHalf, !isVisible);
+                }
+                
+                availabilityPanel.querySelectorAll('.availability-toggle').forEach(toggle => {
+                    toggle.addEventListener('change', handleAvailabilityChange);
+                });
+
+                document.getElementById(`item-visible-${itemId}`).addEventListener('change', (e) => {
+                    const isNowVisible = e.target.checked;
+                    const relatedToggles = ['item-available', 'item-extras', 'item-half'];
+                    relatedToggles.forEach(idPrefix => {
+                        const toggle = document.getElementById(`${idPrefix}-${itemId}`);
+                        if (toggle) {
+                            toggle.disabled = !isNowVisible;
+                            toggle.closest('div.flex').classList.toggle('opacity-50', !isNowVisible);
+                            toggle.closest('div.flex').classList.toggle('cursor-not-allowed', !isNowVisible);
+                        }
+                    });
+
+                    if (!isNowVisible && document.getElementById(`item-available-${itemId}`).checked) {
+                        const availableToggle = document.getElementById(`item-available-${itemId}`);
+                        availableToggle.checked = false;
+                        availableToggle.dispatchEvent(new Event('change'));
+                    }
+                });
+
+            } else {
+                availabilityPanel.innerHTML = `<div class="md:col-span-2 text-center text-gray-500 p-4">Salve o item primeiro para gerenciar a disponibilidade.</div>`;
+            }
+
+            // Lógica das abas do modal
+            document.getElementById('modal-tabs').addEventListener('click', (e) => {
+                const btn = e.target.closest('.modal-tab-btn');
+                if (btn) {
+                    document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.querySelectorAll('#modal-tab-content > div').forEach(p => p.classList.add('hidden'));
+                    document.getElementById(btn.dataset.target).classList.remove('hidden');
+                }
+            });
 
             document.getElementById('edit-item-modal').style.display = 'flex';
+        }
+
+        async function handleAvailabilityChange(e) {
+            const toggle = e.target;
+            const itemId = toggle.id.split('-')[2];
+            const type = toggle.dataset.type;
+            const isChecked = toggle.checked;
+            const docNameMap = {
+                'visible': 'item_visibility',
+                'available': 'item_status',
+                'extras': 'item_extras_status',
+                'half': 'pizza_half_status'
+            };
+            const docName = docNameMap[type];
+            if (!docName) return;
+
+            try {
+                await setDoc(doc(db, "config", docName), { [itemId]: isChecked }, { merge: true });
+            } catch (error) {
+                console.error(`Erro ao atualizar status '${type}' para item '${itemId}':`, error);
+                alert('Falha ao atualizar o status de disponibilidade. Verifique o console.');
+                toggle.checked = !isChecked; // Reverte a UI em caso de erro
+            }
         }
 
         function openBulkEditModal() {
@@ -550,7 +679,6 @@
             const commonFields = ['category', 'available', 'active'];
             const priceFields = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
 
-            // Adiciona campos comuns se existirem no cabeçalho
             commonFields.forEach(field => {
                 if(headers.includes(field)){
                      fieldsContainer.innerHTML += `
@@ -566,7 +694,6 @@
                 }
             });
 
-            // Adiciona ferramenta de ajuste de preço
             const hasPriceField = headers.some(h => priceFields.includes(h));
             if(hasPriceField) {
                  fieldsContainer.innerHTML += `
@@ -591,7 +718,6 @@
                  `;
             }
 
-            // Habilita/desabilita campos
             fieldsContainer.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 checkbox.addEventListener('change', (e) => {
                     const select = fieldsContainer.querySelector(`#${e.target.id.replace('checkbox', 'select')}`);
@@ -637,10 +763,8 @@
             const title = getTitleFromSheetName(activeTab.dataset.tab);
             const sheetName = activeTab.dataset.tab;
             
-            const updates = [];
             const fieldsToUpdate = {};
             
-            // Coleta campos de checkbox/select
             document.querySelectorAll('#bulk-edit-fields input[type="checkbox"]:checked').forEach(checkbox => {
                 const field = checkbox.id.replace('bulk-checkbox-', '');
                 const select = document.getElementById(`bulk-select-${field}`);
@@ -649,7 +773,6 @@
                 }
             });
 
-            // Coleta e calcula ajustes de preço
             const adjustmentValueEl = document.getElementById('bulk-price-adjustment-value');
             if (adjustmentValueEl && adjustmentValueEl.value) {
                 const value = parseFloat(adjustmentValueEl.value);
@@ -732,3 +855,4 @@
     </script>
 </body>
 </html>
+
