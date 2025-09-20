@@ -551,12 +551,12 @@
                 'limit', 'ingredientLimit', 'categoryLimit',
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
-            const sortedHeaders = headers.sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
+            
+            const sortedHeaders = headers
+                .filter(h => h !== 'available') // Filtra o campo 'available' ANTES de iterar
+                .sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
 
             sortedHeaders.forEach(header => {
-                // CORREÇÃO: Pula o campo 'available' da aba de detalhes
-                if (header === 'available') return; 
-
                 const value = itemData[header];
                 const container = document.createElement('div');
                 let inputHtml = '';
