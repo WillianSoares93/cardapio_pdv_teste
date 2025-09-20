@@ -547,8 +547,27 @@
                 
                 if (header === 'id') {
                     const idValue = isEditing ? value : nextId;
+                    containerClass = 'md:col-span-1';
                     fieldHTML = `<label for="form-input-id" class="block text-sm font-medium text-gray-700">ID</label>
                                  <input type="text" id="form-input-id" value="${idValue || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed" readonly title="O ID é gerado automaticamente e não pode ser editado.">`;
+                } else if (header === 'isPizza') {
+                    const isChecked = value === true || String(value).toLowerCase() === 'sim';
+                    containerClass = 'md:col-span-1 flex flex-col justify-end pb-1';
+                    fieldHTML = `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border h-full">
+                                    <label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
+                                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                        <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
+                                        <label for="form-input-${header}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                 </div>`;
+                } else if (header === 'name') {
+                    containerClass = 'md:col-span-4';
+                     fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
+                                 <input type="text" id="form-input-${header}" value="${value || ''}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">`;
+                } else if (header === 'description') {
+                     containerClass = 'md:col-span-4';
+                     fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
+                                 <textarea id="form-input-${header}" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
                 } else if (isBoolean) {
                     const isChecked = value === true || String(value).toLowerCase() === 'sim';
                     containerClass = 'md:col-span-2 flex items-center justify-between p-3 bg-gray-50 rounded-lg border';
@@ -557,7 +576,7 @@
                                      <input type="checkbox" id="form-input-${header}" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${isChecked ? 'checked' : ''}/>
                                      <label for="form-input-${header}" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
                                  </div>`;
-                } else if (header === 'description' || header === 'imageUrl') {
+                } else if (header === 'imageUrl') {
                     containerClass = 'md:col-span-4';
                     fieldHTML = `<label for="form-input-${header}" class="block text-sm font-medium text-gray-700">${getTranslatedHeader(header)}</label>
                                  <textarea id="form-input-${header}" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">${value || ''}</textarea>`;
@@ -611,12 +630,11 @@
                 </div>
             `;
 
-            // Adiciona event listeners após a injeção do HTML
             const isPizzaToggle = modalBody.querySelector('#form-input-isPizza');
             if (isPizzaToggle) {
                 isPizzaToggle.addEventListener('change', updatePizzaPriceFields);
             }
-            updatePizzaPriceFields(); // Chama uma vez para configurar o estado inicial
+            updatePizzaPriceFields();
 
             document.getElementById('modal-tabs').addEventListener('click', (e) => {
                 const btn = e.target.closest('.modal-tab-btn');
@@ -659,7 +677,6 @@
             document.getElementById('edit-item-modal').style.display = 'flex';
         }
 
-        // Função para mostrar/esconder campos de preço de pizza dinamicamente
         function updatePizzaPriceFields() {
             const isPizzaToggle = document.getElementById('form-input-isPizza');
             if (!isPizzaToggle) return;
@@ -703,7 +720,7 @@
             } catch (error) {
                 console.error(`Erro ao atualizar status '${type}' para item '${itemId}':`, error);
                 alert('Falha ao atualizar o status de disponibilidade. Verifique o console.');
-                toggle.checked = !isChecked; // Reverte a UI em caso de erro
+                toggle.checked = !isChecked;
             }
         }
 
