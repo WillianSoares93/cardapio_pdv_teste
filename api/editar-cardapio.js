@@ -1,6 +1,7 @@
 // /api/editar-cardapio.js
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
+import { google } from 'googleapis'; // Usando a biblioteca oficial do Google
 
 // Utiliza o mesmo método de autenticação das outras APIs que já funcionam
 const auth = new JWT({
@@ -8,6 +9,9 @@ const auth = new JWT({
     key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
+
+// Cliente da API do Google Sheets
+const sheets = google.sheets({ version: 'v4', auth });
 
 // Utiliza a variável de ambiente específica para a planilha do cardápio.
 const SPREADSHEET_ID = process.env.MENU_SPREADSHEET_ID;
@@ -53,6 +57,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'A variável de ambiente MENU_SPREADSHEET_ID não está configurada no servidor.' });
     }
 
+    // Usaremos a biblioteca antiga apenas para conveniência de leitura de dados
     const doc = new GoogleSpreadsheet(SPREADSHEET_ID, auth);
 
     try {
@@ -66,135 +71,142 @@ export default async function handler(req, res) {
         
         const sheet = doc.sheetsByTitle[sheetName];
         if (!sheet) {
-            const allSheetNames = Object.keys(doc.sheetsByTitle);
-            console.log(`[DIAGNÓSTICO] Aba "${sheetName}" não encontrada. Abas disponíveis:`, allSheetNames);
-            return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada na sua Planilha de Cardápio.` });
+            return res.status(404).json({ error: `A planilha (aba) com o nome "${sheetName}" não foi encontrada.` });
         }
 
-        await sheet.loadHeaderRow(); // Carrega a linha de cabeçalho da aba específica
+        await sheet.loadHeaderRow();
         const sheetHeaders = sheet.headerValues;
 
-        // Função auxiliar para encontrar o cabeçalho correto na planilha
         const getHeaderInSheet = (key) => {
             const possibleHeaders = keyToHeaderMap[key];
-            if (possibleHeaders) {
-                return possibleHeaders.find(h => sheetHeaders.includes(h));
-            }
-            return sheetHeaders.includes(key) ? key : undefined;
+            return possibleHeaders ? possibleHeaders.find(h => sheetHeaders.includes(h)) : undefined;
         };
 
         const priceKeys = ['basePrice', 'price4Slices', 'price6Slices', 'price10Slices', 'promoPrice', 'price', 'deliveryFee'];
 
         const formatValueForSheet = (key, header, value) => {
-            // Lida com valores booleanos
             if (header && (header.includes('(sim/não)') || header.includes('(sim/nao)'))) {
-                if (typeof value === 'boolean') {
-                    return value ? 'Sim' : 'Não';
-                }
-                 // Lida com strings 'true'/'false' vindas do formulário
+                if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
                 if (value === 'true') return 'Sim';
                 if (value === 'false') return 'Não';
             }
-            // Lida com valores de preço
             if (priceKeys.includes(key)) {
                 const num = parseFloat(String(value).replace(',', '.'));
-                if (!isNaN(num)) {
-                    return num.toFixed(2).replace('.', ',');
-                }
+                return !isNaN(num) ? num.toFixed(2).replace('.', ',') : value;
             }
             return value;
         };
 
 
         switch (action) {
+            case 'add': {
+                if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
+                const newRowData = sheetHeaders.map(header => {
+                    const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].includes(header));
+                    return key ? formatValueForSheet(key, header, data[key]) : '';
+                });
+                await sheets.spreadsheets.values.append({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: sheetName,
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values: [newRowData] },
+                });
+                break;
+            }
+
             case 'update': {
                 if (!rowIndex || !data) return res.status(400).json({ error: 'Índice da linha e dados são obrigatórios.' });
                 const rows = await sheet.getRows();
-                const row = rows[rowIndex - 2]; // rowIndex (1-based, com cabeçalho) para array (0-based)
-                if (row) {
-                    Object.keys(data).forEach(key => {
-                        const header = getHeaderInSheet(key);
-                        if (header) {
-                            const valueToSet = formatValueForSheet(key, header, data[key]);
-                            row.set(header, valueToSet);
-                        }
+                const rowToUpdate = rows[rowIndex - 2];
+                if (rowToUpdate) {
+                    const updatedRowData = sheetHeaders.map(header => {
+                        const key = Object.keys(keyToHeaderMap).find(k => keyToHeaderMap[k].includes(header));
+                        return data.hasOwnProperty(key) ? formatValueForSheet(key, header, data[key]) : rowToUpdate.get(header);
                     });
-                    await sheet.saveUpdatedCells(); // CORREÇÃO: Usando saveUpdatedCells para garantir o salvamento.
+                    await sheets.spreadsheets.values.update({
+                        spreadsheetId: SPREADSHEET_ID,
+                        range: `${sheetName}!A${rowIndex}`,
+                        valueInputOption: 'USER_ENTERED',
+                        resource: { values: [updatedRowData] },
+                    });
                 }
-                break;
-            }
-
-            case 'add': {
-                if (!data) return res.status(400).json({ error: 'Dados são obrigatórios.' });
-                const newRowData = {};
-                Object.keys(data).forEach(key => {
-                    const header = getHeaderInSheet(key);
-                    if (header) {
-                       const valueToSet = formatValueForSheet(key, header, data[key]);
-                       newRowData[header] = valueToSet;
-                    }
-                });
-                await sheet.addRow(newRowData);
-                break;
-            }
-
-            case 'delete': {
-                if (!rowIndex) return res.status(400).json({ error: 'Índice da linha é obrigatório.' });
-                const rows = await sheet.getRows();
-                const row = rows[rowIndex - 2];
-                if (row) await row.delete();
                 break;
             }
             
             case 'bulk-update': {
                 if (!rowIndexes || !data) return res.status(400).json({ error: 'Índices e dados são obrigatórios.' });
                 const rows = await sheet.getRows();
-                
+                const dataForUpdate = [];
+
                 for (const rIndex of rowIndexes) {
                     const row = rows[rIndex - 2];
                     if (row) {
+                        const updatedRowData = new Map(row.toObject());
+                        
+                        // Aplica as alterações
                         for (const field in data) {
                             if (field !== 'priceAdjustment') {
                                 const header = getHeaderInSheet(field);
                                 if (header) {
-                                    const valueToSet = formatValueForSheet(field, header, data[field]);
-                                    row.set(header, valueToSet);
+                                    updatedRowData.set(header, formatValueForSheet(field, header, data[field]));
                                 }
                             }
                         }
-                        
+
+                        // Aplica ajuste de preço
                         if (data.priceAdjustment) {
                             const { type, value } = data.priceAdjustment;
-                            
                             priceKeys.forEach(fieldKey => {
                                 const header = getHeaderInSheet(fieldKey);
                                 if (header) {
-                                    let currentValue = parseFloat(String(row.get(header) || '0').replace(',', '.')) || 0;
-                                    
+                                    let currentValue = parseFloat(String(updatedRowData.get(header) || '0').replace(',', '.')) || 0;
                                     if (type === 'percent_increase') currentValue *= (1 + value / 100);
                                     else if (type === 'percent_decrease') currentValue *= (1 - value / 100);
                                     else if (type === 'value_increase') currentValue += value;
                                     else if (type === 'value_decrease') currentValue -= value;
-
-                                    row.set(header, Math.max(0, currentValue).toFixed(2).replace('.',','));
+                                    updatedRowData.set(header, Math.max(0, currentValue).toFixed(2).replace('.', ','));
                                 }
                             });
                         }
-                        // Não salva aqui, deixa para o batch no final
+                        
+                        dataForUpdate.push({
+                            range: `${sheetName}!A${rIndex}`,
+                            values: [sheetHeaders.map(h => updatedRowData.get(h) || '')],
+                        });
                     }
                 }
-                await sheet.saveUpdatedCells(); // Salva todas as células modificadas de uma vez
+                
+                await sheets.spreadsheets.values.batchUpdate({
+                    spreadsheetId: SPREADSHEET_ID,
+                    resource: {
+                        valueInputOption: 'USER_ENTERED',
+                        data: dataForUpdate,
+                    },
+                });
                 break;
             }
-            
-             case 'bulk-delete': {
-                if (!rowIndexes || rowIndexes.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios.' });
-                const rows = await sheet.getRows();
-                const sortedIndexes = rowIndexes.sort((a, b) => b - a); // Ordem decrescente
-                for (const rIndex of sortedIndexes) {
-                    const row = rows[rIndex - 2];
-                    if (row) await row.delete();
-                }
+
+            case 'delete':
+            case 'bulk-delete': {
+                const indexesToDelete = action === 'delete' ? [rowIndex] : rowIndexes;
+                if (!indexesToDelete || indexesToDelete.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios.' });
+                
+                const sortedIndexes = indexesToDelete.sort((a, b) => b - a);
+                const deleteRequests = sortedIndexes.map(rIndex => ({
+                    deleteDimension: {
+                        range: {
+                            sheetId: sheet.sheetId,
+                            dimension: 'ROWS',
+                            startIndex: rIndex - 1,
+                            endIndex: rIndex
+                        }
+                    }
+                }));
+
+                await sheets.spreadsheets.batchUpdate({
+                    spreadsheetId: SPREADSHEET_ID,
+                    resource: { requests: deleteRequests }
+                });
                 break;
             }
 
@@ -206,9 +218,8 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('Erro na API editar-cardapio:', error);
-        // Retorna uma mensagem de erro mais específica se for um erro de permissão
         if (error.response && error.response.status === 403) {
-            return res.status(403).json({ error: 'Permissão negada. Verifique se o e-mail da conta de serviço tem permissão de "Editor" na sua planilha de cardápio.' });
+            return res.status(403).json({ error: 'Permissão negada. Verifique se o e-mail da conta de serviço tem permissão de "Editor" na sua planilha.' });
         }
         return res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
