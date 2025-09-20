@@ -169,7 +169,7 @@
     </div>
     
     <script type="module">
-        // Versão com reestruturação para forçar detecção de Git
+        // Versão com correção do bug de renderização do formulário
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
@@ -552,11 +552,11 @@
                 'imageUrl', 'itemId', 'neighborhood', 'data', 'value'
             ];
             
-            const sortedHeaders = headers
-                .filter(h => h !== 'available') // Filtra o campo 'available' ANTES de iterar
+            const detailHeaders = headers
+                .filter(h => h !== 'available') 
                 .sort((a, b) => (fieldOrder.indexOf(a) === -1 ? Infinity : fieldOrder.indexOf(a)) - (fieldOrder.indexOf(b) === -1 ? Infinity : fieldOrder.indexOf(b)));
 
-            sortedHeaders.forEach(header => {
+            detailHeaders.forEach(header => {
                 const value = itemData[header];
                 const container = document.createElement('div');
                 let inputHtml = '';
