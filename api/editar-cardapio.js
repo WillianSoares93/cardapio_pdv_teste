@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { sheetName, action, rowIndex, data, rowIndexes } = req.body;
+        const { sheetName, action, rowIndex, data, rowIndexes, itemId, itemIds } = req.body;
         log('Corpo da requisição recebida:', req.body);
         
         if (!sheetName || !action) {
