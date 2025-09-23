@@ -70,9 +70,16 @@ export default async function handler(req, res) {
         }
         log(`Planilha alvo: "${sheet.properties.title}", Ação: "${action}"`);
 
-        const rangeData = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheet.properties.title}!A1:Z1` });
-        const headers = rangeData.data.values[0];
+        const rangeData = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheet.properties.title}!A1:Z` });
+        const allRows = rangeData.data.values || [];
+        const headers = allRows[0];
         log('Cabeçalhos encontrados na planilha:', headers);
+        
+        // Função auxiliar para encontrar o índice da coluna de ID
+        const findIdColumnIndex = (hdrs) => {
+            const idHeaderName = columnTranslationsToSheet.id.toLowerCase();
+            return hdrs.findIndex(h => h.toLowerCase() === idHeaderName);
+        };
 
         if (action === 'update') {
             if (!rowIndex || !data) return res.status(400).json({ error: 'Índice da linha e dados são obrigatórios.' });
@@ -144,8 +151,21 @@ export default async function handler(req, res) {
             log('[ADD] Resposta da API do Google: 200 OK');
 
         } else if (action === 'delete') {
-            if (!rowIndex) return res.status(400).json({ error: 'Índice da linha é obrigatório.' });
-            log('[DELETE] Deletando linha:', rowIndex);
+            if (!itemId) return res.status(400).json({ error: 'ID do item é obrigatório.' });
+            
+            const idColumnIndex = findIdColumnIndex(headers);
+            if (idColumnIndex === -1) {
+                return res.status(500).json({ error: `Coluna de ID '${columnTranslationsToSheet.id}' não encontrada na planilha.` });
+            }
+
+            const rowToDelete = allRows.findIndex((row, index) => index > 0 && row[idColumnIndex] == itemId);
+
+            if (rowToDelete === -1) {
+                return res.status(404).json({ error: `Item com ID ${itemId} não encontrado.` });
+            }
+            
+            const rowIndexToDelete = rowToDelete + 1; // +1 porque findIndex é 0-based
+            log('[DELETE] Encontrado item com ID', itemId, 'na linha', rowIndexToDelete);
 
             await sheets.spreadsheets.batchUpdate({
                 spreadsheetId: SPREADSHEET_ID,
@@ -155,8 +175,8 @@ export default async function handler(req, res) {
                             range: {
                                 sheetId: sheet.properties.sheetId,
                                 dimension: 'ROWS',
-                                startIndex: rowIndex - 1, // API é 0-indexed, rowIndex é 1-indexed
-                                endIndex: rowIndex
+                                startIndex: rowIndexToDelete - 1,
+                                endIndex: rowIndexToDelete
                             }
                         }
                     }]
@@ -165,11 +185,28 @@ export default async function handler(req, res) {
             log('[DELETE] Resposta da API do Google: 200 OK - Linha deletada');
 
         } else if (action === 'bulk-delete') {
-            if (!rowIndexes || rowIndexes.length === 0) return res.status(400).json({ error: 'Índices são obrigatórios.' });
-            log('[BULK-DELETE] Deletando linhas:', rowIndexes);
+            if (!itemIds || itemIds.length === 0) return res.status(400).json({ error: 'IDs dos itens são obrigatórios.' });
+            log('[BULK-DELETE] Deletando itens com IDs:', itemIds);
             
-            // Ordena os índices em ordem decrescente para evitar problemas com o deslocamento das linhas
-            const sortedRowIndexes = rowIndexes.sort((a, b) => b - a);
+            const idColumnIndex = findIdColumnIndex(headers);
+            if (idColumnIndex === -1) {
+                return res.status(500).json({ error: `Coluna de ID '${columnTranslationsToSheet.id}' não encontrada na planilha.` });
+            }
+
+            const rowIndexesToDelete = [];
+            itemIds.forEach(idToFind => {
+                const rowIndex = allRows.findIndex((row, index) => index > 0 && row[idColumnIndex] == idToFind);
+                if (rowIndex !== -1) {
+                    rowIndexesToDelete.push(rowIndex + 1); // +1 para ser 1-based
+                }
+            });
+
+            if (rowIndexesToDelete.length === 0) {
+                 return res.status(404).json({ error: `Nenhum dos IDs fornecidos foi encontrado.` });
+            }
+
+            log('[BULK-DELETE] Linhas a serem deletadas:', rowIndexesToDelete);
+            const sortedRowIndexes = rowIndexesToDelete.sort((a, b) => b - a);
 
             const requests = sortedRowIndexes.map(index => ({
                 deleteDimension: {
@@ -189,17 +226,13 @@ export default async function handler(req, res) {
             log('[BULK-DELETE] Resposta da API do Google: 200 OK - Linhas deletadas');
             
         } else if (action === 'bulk-update') {
-            // A lógica de bulk-update existente parece correta, mantendo-a
             if (!rowIndexes || !data) return res.status(400).json({ error: 'Índices e dados são obrigatórios.' });
             log('[BULK-UPDATE] Atualizando linhas:', rowIndexes, 'com dados:', data);
-
-            const allRowsResponse = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheet.properties.title}!A2:Z` });
-            const allRows = allRowsResponse.data.values || [];
             
             const updatedRowsData = [];
             
             for (const rIndex of rowIndexes) {
-                const originalRow = allRows[rIndex - 2] ? [...allRows[rIndex - 2]] : new Array(headers.length).fill('');
+                const originalRow = allRows[rIndex - 1] ? [...allRows[rIndex - 1]] : new Array(headers.length).fill('');
                 
                 let newRow = headers.map((header, i) => {
                     const lowerCaseHeader = header.toLowerCase();
