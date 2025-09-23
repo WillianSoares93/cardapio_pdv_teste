@@ -190,7 +190,7 @@
 
         // Variáveis de estado globais
         let fullData = {};
-        let currentEditingItem = { sheetName: null, rowIndex: null };
+        let currentEditingItem = { sheetName: null, rowIndex: null, itemData: null };
         let selectedItems = new Set();
         
         let itemStatus = {};
@@ -443,7 +443,7 @@
             document.getElementById('tab-panels').addEventListener('click', (e) => {
                  if (e.target.matches('.add-new-btn')) {
                     const { sheet, title } = e.target.dataset;
-                    currentEditingItem = { sheetName: sheet, rowIndex: null, isNew: true };
+                    currentEditingItem = { sheetName: sheet, rowIndex: null, isNew: true, itemData: {} };
                     openEditModal(title, {}, false);
                 } else if (e.target.matches('.edit-btn')) {
                     const { sheet, title, index } = e.target.dataset;
@@ -451,7 +451,8 @@
                     currentEditingItem = {
                         sheetName: getSheetNameFromTitle(title),
                         rowIndex: parseInt(index) + 2,
-                        isNew: false
+                        isNew: false,
+                        itemData: itemData // Armazena os dados completos do item
                     };
                     openEditModal(title, itemData, true);
                 } else if (e.target.matches('.select-all-checkbox')) {
@@ -807,20 +808,18 @@
         async function handleSave() {
             const form = document.getElementById('edit-item-form');
             const data = {};
-            const inputs = form.querySelectorAll('input[type="text"], input[type="number"], select, textarea');
-            const radioGroups = new Set();
-            const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-
-            inputs.forEach(input => {
+            // Coleta dados de inputs de texto e textareas
+            form.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(input => {
                 const key = input.id.replace('form-input-', '');
                 if (key) data[key] = input.value;
             });
-
-            checkboxes.forEach(checkbox => {
+            // Coleta dados de checkboxes (toggles)
+            form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 const key = checkbox.id.replace('form-input-', '');
                 if(key) data[key] = checkbox.checked;
             });
-            
+            // Coleta dados de radio buttons
+            const radioGroups = new Set();
             form.querySelectorAll('input[type="radio"]').forEach(radio => radioGroups.add(radio.name));
             radioGroups.forEach(name => {
                 const checkedRadio = form.querySelector(`input[name="${name}"]:checked`);
@@ -883,7 +882,7 @@
                 const body = {
                     sheetName: currentEditingItem.sheetName,
                     action: 'delete',
-                    rowIndex: currentEditingItem.rowIndex
+                    itemId: currentEditingItem.itemData.id
                 };
                 await sendUpdateRequest(body);
             }
@@ -892,11 +891,14 @@
         async function handleBulkDelete() {
             if (confirm(`Tem certeza que deseja excluir os ${selectedItems.size} itens selecionados? Esta ação não pode ser desfeita.`)) {
                 const activeTab = document.querySelector('.tab-btn.active');
+                const title = getTitleFromSheetName(activeTab.dataset.tab);
                 const sheetName = activeTab.dataset.tab;
+                const itemIds = Array.from(selectedItems).map(index => fullData[title][index].id);
+
                 const body = {
                     sheetName,
                     action: 'bulk-delete',
-                    rowIndexes: Array.from(selectedItems).map(i => i + 2)
+                    itemIds: itemIds
                 };
                 await sendUpdateRequest(body, true);
             }
