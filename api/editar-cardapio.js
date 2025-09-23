@@ -151,7 +151,7 @@ export default async function handler(req, res) {
             log('[ADD] Resposta da API do Google: 200 OK');
 
         } else if (action === 'delete') {
-            if (!itemId) return res.status(400).json({ error: 'ID do item é obrigatório.' });
+            if (!itemId) return res.status(400).json({ error: 'ID do item (itemId) não foi recebido. O frontend parece estar desatualizado.' });
             
             const idColumnIndex = findIdColumnIndex(headers);
             if (idColumnIndex === -1) {
@@ -185,7 +185,7 @@ export default async function handler(req, res) {
             log('[DELETE] Resposta da API do Google: 200 OK - Linha deletada');
 
         } else if (action === 'bulk-delete') {
-            if (!itemIds || itemIds.length === 0) return res.status(400).json({ error: 'IDs dos itens são obrigatórios.' });
+            if (!itemIds || itemIds.length === 0) return res.status(400).json({ error: 'Lista de IDs (itemIds) não foi recebida. O frontend parece estar desatualizado.' });
             log('[BULK-DELETE] Deletando itens com IDs:', itemIds);
             
             const idColumnIndex = findIdColumnIndex(headers);
