@@ -829,8 +829,8 @@
         async function handleArchiveOrder(orderId) {
             const archiveBtn = document.querySelector(`.archive-btn[data-id="${orderId}"]`);
             if (archiveBtn && archiveBtn.disabled) return;
-            
-            if(archiveBtn) {
+
+            if (archiveBtn) {
                 archiveBtn.disabled = true;
                 archiveBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
             }
@@ -842,15 +842,23 @@
                     body: JSON.stringify({ orderId: orderId })
                 });
 
+                // **INÍCIO DA CORREÇÃO**
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Falha ao arquivar o pedido no servidor.');
+                    const errorText = await response.text();
+                    throw new Error(`O servidor respondeu com um erro: ${errorText}`);
                 }
-                // O onSnapshot cuidará de remover o card da tela.
+
+                // Tenta processar como JSON apenas se a resposta for OK
+                const result = await response.json(); 
+                if (!result.success) {
+                    throw new Error(result.error || 'Falha ao arquivar o pedido no servidor.');
+                }
+                // **FIM DA CORREÇÃO**
+
             } catch (error) {
                 console.error("Erro ao arquivar pedido:", error);
                 alert("Não foi possível arquivar o pedido: " + error.message);
-                if(archiveBtn){
+                if (archiveBtn) {
                     archiveBtn.disabled = false;
                     archiveBtn.innerHTML = `<i class="fas fa-check-circle"></i>`;
                 }
@@ -1630,4 +1638,3 @@
     </script>
 </body>
 </html>
-
