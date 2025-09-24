@@ -84,7 +84,9 @@ export default async function handler(req, res) {
         // Adiciona a linha na planilha de histórico
         await sheets.spreadsheets.values.append({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${SHEET_NAME}!A:A`,
+            // **CORREÇÃO**: Simplificado para usar apenas o nome da planilha,
+            // deixando a API encontrar a próxima linha vazia automaticamente.
+            range: SHEET_NAME,
             valueInputOption: 'USER_ENTERED',
             resource: {
                 values: [rowData],
