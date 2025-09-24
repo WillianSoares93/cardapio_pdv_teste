@@ -120,7 +120,7 @@
         </div>
     </div>
 
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <main id="main-content" class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <!-- Abas Principais -->
         <div class="border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
             <nav id="main-tabs" class="flex -mb-px" aria-label="Tabs">
@@ -139,20 +139,20 @@
         <!-- Conteúdo das Abas -->
         <div id="tab-content-delivery" class="tab-content">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
-                <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
             </div>
         </div>
 
         <div id="tab-content-retirada" class="tab-content hidden">
              <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
-                <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
             </div>
         </div>
 
@@ -177,7 +177,7 @@
                         <div class="p-4 border-b border-gray-300">
                             <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
                         </div>
-                        <div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-22rem)]">
+                        <div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-22rem)]">
                             <!-- Cards de mesas fechadas aqui -->
                         </div>
                     </div>
@@ -597,11 +597,27 @@
             initializeMesas();
 
             // Lógica de Drag and Drop
-            const pdvColumns = document.querySelectorAll('.overflow-y-auto[id^="col-"]');
-            
-            pdvColumns.forEach(col => col.classList.add('pdv-column'));
+            const mainContent = document.getElementById('main-content');
+            mainContent.addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.order-card');
+                if (card) {
+                    draggedItemId = card.dataset.id;
+                    setTimeout(() => card.classList.add('dragging'), 0);
+                }
+            });
 
+            mainContent.addEventListener('dragend', (e) => {
+                const card = e.target.closest('.order-card');
+                if (card) {
+                    card.classList.remove('dragging');
+                }
+                draggedItemId = null;
+            });
+
+            const pdvColumns = document.querySelectorAll('.pdv-column');
+            
             pdvColumns.forEach(column => {
+                column.parentElement.classList.add('pdv-column-container');
                 column.addEventListener('dragover', (e) => {
                     e.preventDefault();
                     column.parentElement.classList.add('drag-over');
@@ -806,15 +822,6 @@
                     </div>
                 </div>
             `;
-            
-            card.addEventListener('dragstart', (e) => {
-                draggedItemId = e.target.dataset.id;
-                setTimeout(() => e.target.classList.add('dragging'), 0);
-            });
-            card.addEventListener('dragend', (e) => {
-                e.target.classList.remove('dragging');
-                draggedItemId = null;
-            });
             
             return card;
         }
@@ -1607,14 +1614,12 @@
         function setupCustomAlertModal() {
             const modal = document.getElementById('custom-alert-modal');
             const okBtn = document.getElementById('ok-alert-modal');
-            const closeBtn = document.getElementById('close-manage-table-modal');
-
+            
             const closeModal = () => modal.style.display = 'none';
 
             modal.addEventListener('click', (e) => {
-                if (e.target === modal) closeModal();
+                if (e.target === modal || e.target.closest('#ok-alert-modal')) closeModal();
             });
-            okBtn.addEventListener('click', closeModal);
         }
         
         function showCustomAlert(message) {
