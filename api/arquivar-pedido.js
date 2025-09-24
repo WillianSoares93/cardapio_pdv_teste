@@ -1,37 +1,25 @@
 // /api/arquivar-pedido.js
 import { google } from 'googleapis';
 import { JWT } from 'google-auth-library';
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+// Alterado: Usa o SDK padrão do Firebase, não o Admin
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
-// --- INICIALIZAÇÃO SEGURA DO FIREBASE ADMIN ---
-let firebaseAdminInitialized = false;
-let firebaseAdminError = null;
+// Configuração padrão do Firebase (usada no lado do cliente)
+const firebaseConfig = {
+  apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+  authDomain: "pizzaria-pdv.firebaseapp.com",
+  projectId: "pizzaria-pdv",
+  storageBucket: "pizzaria-pdv.firebasestorage.app",
+  messagingSenderId: "304171744691",
+  appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+};
 
-// Garante que o app do Firebase Admin seja inicializado apenas uma vez.
-// Esta é a forma correta para ambientes serverless como a Vercel.
-if (!getApps().length) {
-    try {
-        // **VERIFICAÇÃO CRÍTICA**: Confirma se a variável de ambiente existe.
-        if (!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
-            throw new Error('A variável de ambiente FIREBASE_SERVICE_ACCOUNT_BASE64 não está configurada no servidor.');
-        }
-        const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf-8'));
-        initializeApp({
-            credential: cert(serviceAccount)
-        });
-        firebaseAdminInitialized = true;
-    } catch (e) {
-        // Armazena o erro de inicialização para ser reportado na resposta da API.
-        console.error("Falha crítica ao inicializar o Firebase Admin SDK:", e);
-        firebaseAdminError = e.message;
-    }
-} else {
-    firebaseAdminInitialized = true;
-}
+// Inicialização padrão do Firebase
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-
-// Autenticação com Google Sheets
+// Autenticação com Google Sheets (permanece igual)
 const auth = new JWT({
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
@@ -43,14 +31,6 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_NAME = 'historico_pedidos';
 
 export default async function handler(req, res) {
-    // **NOVO**: Verifica se a inicialização do Firebase falhou antes de prosseguir.
-    if (!firebaseAdminInitialized) {
-        return res.status(500).json({ error: 'Erro de configuração do servidor.', details: firebaseAdminError || 'O Firebase Admin SDK não pôde ser inicializado.' });
-    }
-    
-    // Obtém a instância do DB somente se a inicialização foi bem-sucedida.
-    const db = getFirestore();
-
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
@@ -61,16 +41,17 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'orderId é obrigatório.' });
         }
 
-        const orderRef = db.collection('pedidos').doc(orderId);
-        const doc = await orderRef.get();
+        // Usa as funções do SDK padrão para ler o documento
+        const orderRef = doc(db, 'pedidos', orderId);
+        const docSnap = await getDoc(orderRef);
 
-        if (!doc.exists) {
+        if (!docSnap.exists()) {
             return res.status(404).json({ error: 'Pedido não encontrado.' });
         }
 
-        const orderData = doc.data();
+        const orderData = docSnap.data();
 
-        // --- CORREÇÃO: Validação e formatação segura dos dados ---
+        // Formatação dos dados para a planilha (permanece igual)
         const itemsString = (orderData.itens || []).map(item => {
             let itemDetails = `${item.quantity || 1}x ${item.name || 'Item desconhecido'}`;
             if (item.extras && item.extras.length > 0) {
@@ -99,7 +80,6 @@ export default async function handler(req, res) {
             createdAt,
             'Finalizado'
         ];
-        // --- FIM DA CORREÇÃO ---
 
         // Adiciona a linha na planilha de histórico
         await sheets.spreadsheets.values.append({
@@ -111,13 +91,14 @@ export default async function handler(req, res) {
             },
         });
 
-        // Deleta o pedido do Firestore
-        await orderRef.delete();
+        // **REMOVIDO**: A lógica para apagar o pedido foi movida para o frontend.
+        // await orderRef.delete();
 
-        res.status(200).json({ success: true, message: `Pedido ${orderId} arquivado com sucesso.` });
+        res.status(200).json({ success: true, message: `Pedido ${orderId} arquivado na planilha com sucesso.` });
 
     } catch (error) {
-        console.error('Erro ao arquivar pedido:', error);
+        console.error('Erro ao arquivar pedido na planilha:', error);
         res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
 }
+
