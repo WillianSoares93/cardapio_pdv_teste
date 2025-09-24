@@ -1,23 +1,35 @@
 // /api/arquivar-pedido.js
 import { google } from 'googleapis';
 import { JWT } from 'google-auth-library';
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Garante que o app do Firebase Admin seja inicializado apenas uma vez
-if (!process.env.FIREBASE_ADMIN_INITIALIZED) {
+// --- INICIALIZAÇÃO SEGURA DO FIREBASE ADMIN ---
+let firebaseAdminInitialized = false;
+let firebaseAdminError = null;
+
+// Garante que o app do Firebase Admin seja inicializado apenas uma vez.
+// Esta é a forma correta para ambientes serverless como a Vercel.
+if (!getApps().length) {
     try {
+        // **VERIFICAÇÃO CRÍTICA**: Confirma se a variável de ambiente existe.
+        if (!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+            throw new Error('A variável de ambiente FIREBASE_SERVICE_ACCOUNT_BASE64 não está configurada no servidor.');
+        }
         const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf-8'));
         initializeApp({
             credential: cert(serviceAccount)
         });
-        process.env.FIREBASE_ADMIN_INITIALIZED = 'true';
+        firebaseAdminInitialized = true;
     } catch (e) {
-        console.error("Falha ao inicializar o Firebase Admin SDK:", e);
+        // Armazena o erro de inicialização para ser reportado na resposta da API.
+        console.error("Falha crítica ao inicializar o Firebase Admin SDK:", e);
+        firebaseAdminError = e.message;
     }
+} else {
+    firebaseAdminInitialized = true;
 }
 
-const db = getFirestore();
 
 // Autenticação com Google Sheets
 const auth = new JWT({
@@ -31,6 +43,14 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_NAME = 'historico_pedidos';
 
 export default async function handler(req, res) {
+    // **NOVO**: Verifica se a inicialização do Firebase falhou antes de prosseguir.
+    if (!firebaseAdminInitialized) {
+        return res.status(500).json({ error: 'Erro de configuração do servidor.', details: firebaseAdminError || 'O Firebase Admin SDK não pôde ser inicializado.' });
+    }
+    
+    // Obtém a instância do DB somente se a inicialização foi bem-sucedida.
+    const db = getFirestore();
+
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
@@ -101,4 +121,3 @@ export default async function handler(req, res) {
         res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
 }
-
