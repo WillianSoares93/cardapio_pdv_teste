@@ -139,20 +139,20 @@
         <!-- Conteúdo das Abas -->
         <div id="tab-content-delivery" class="tab-content">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
-                <div id="col-delivery-novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-pronto" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
             </div>
         </div>
 
         <div id="tab-content-retirada" class="tab-content hidden">
              <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
-                <div id="col-retirada-novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-pronto" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+                <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
             </div>
         </div>
 
@@ -173,7 +173,7 @@
                     </div>
                 </div>
                 <div class="lg:col-span-1">
-                     <div id="col-mesas-fechado" class="bg-gray-100 rounded-lg shadow h-full">
+                     <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow h-full">
                         <div class="p-4 border-b border-gray-300">
                             <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
                         </div>
@@ -604,39 +604,19 @@
             pdvColumns.forEach(column => {
                 column.addEventListener('dragover', (e) => {
                     e.preventDefault();
-                    column.classList.add('drag-over');
+                    column.parentElement.classList.add('drag-over');
                 });
 
-                column.addEventListener('dragleave', () => column.classList.remove('drag-over'));
+                column.addEventListener('dragleave', () => column.parentElement.classList.remove('drag-over'));
 
                 column.addEventListener('drop', (e) => {
                     e.preventDefault();
-                    column.classList.remove('drag-over');
+                    column.parentElement.classList.remove('drag-over');
 
                     if (!draggedItemId) return;
                     
-                    const columnElement = e.target.closest('[id^="col-"]');
-                    const statusParts = columnElement.id.split('-').slice(1); // e.g., ['delivery', 'novo'] or ['retirada', 'preparo']
-                    let newStatus = '';
-                    
-                    if (statusParts[0] === 'delivery') {
-                         switch(statusParts[1]){
-                            case 'novo': newStatus = 'Novo'; break;
-                            case 'preparo': newStatus = 'Em Preparo'; break;
-                            case 'pronto': newStatus = 'Pronto para Entrega'; break;
-                            case 'entrega': newStatus = 'Saiu para Entrega'; break;
-                            case 'entregue': newStatus = 'Entregue'; break;
-                         }
-                    } else if (statusParts[0] === 'retirada') {
-                         switch(statusParts[1]){
-                            case 'novo': newStatus = 'Novo'; break;
-                            case 'preparo': newStatus = 'Em Preparo'; break;
-                            case 'pronto': newStatus = 'Pronto para Retirada'; break;
-                            case 'entregue': newStatus = 'Entregue'; break;
-                         }
-                    } else if (statusParts[0] === 'mesas') {
-                        if(statusParts[1] === 'fechado') newStatus = 'Fechado';
-                    }
+                    const columnElement = e.target.closest('[data-status]');
+                    const newStatus = columnElement.dataset.status;
 
                     if (newStatus) {
                         updateOrderStatus(draggedItemId, newStatus);
@@ -1645,6 +1625,4 @@
     </script>
 </body>
 </html>
-" in the document pdv.html.
-I'm asking you to do the following: ainda não consigo troca o card de coluna arrastando
 
