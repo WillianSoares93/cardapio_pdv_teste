@@ -333,6 +333,17 @@
         </div>
     </div>
 
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert-modal" class="modal">
+      <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
+        <h3 class="text-lg font-bold text-gray-900 mb-4">Atenção</h3>
+        <p id="custom-alert-message" class="text-sm text-gray-600 mb-6">Message goes here.</p>
+        <div class="flex justify-end">
+            <button id="ok-alert-modal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">OK</button>
+        </div>
+      </div>
+    </div>
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -443,18 +454,18 @@
         const mesasGrid = document.getElementById('mesas-grid');
         const NUMERO_DE_MESAS = 12;
 
-        const colDeliveryNovo = document.getElementById('col-delivery-novo');
-        const colDeliveryPreparo = document.getElementById('col-delivery-preparo');
-        const colDeliveryPronto = document.getElementById('col-delivery-pronto');
-        const colDeliveryEntrega = document.getElementById('col-delivery-entrega');
-        const colDeliveryEntregue = document.getElementById('col-delivery-entregue');
+        const colDeliveryNovo = document.getElementById('col-delivery-novo').querySelector('.overflow-y-auto');
+        const colDeliveryPreparo = document.getElementById('col-delivery-preparo').querySelector('.overflow-y-auto');
+        const colDeliveryPronto = document.getElementById('col-delivery-pronto').querySelector('.overflow-y-auto');
+        const colDeliveryEntrega = document.getElementById('col-delivery-entrega').querySelector('.overflow-y-auto');
+        const colDeliveryEntregue = document.getElementById('col-delivery-entregue').querySelector('.overflow-y-auto');
 
-        const colRetiradaNovo = document.getElementById('col-retirada-novo');
-        const colRetiradaPreparo = document.getElementById('col-retirada-preparo');
-        const colRetiradaPronto = document.getElementById('col-retirada-pronto');
-        const colRetiradaEntregue = document.getElementById('col-retirada-entregue');
+        const colRetiradaNovo = document.getElementById('col-retirada-novo').querySelector('.overflow-y-auto');
+        const colRetiradaPreparo = document.getElementById('col-retirada-preparo').querySelector('.overflow-y-auto');
+        const colRetiradaPronto = document.getElementById('col-retirada-pronto').querySelector('.overflow-y-auto');
+        const colRetiradaEntregue = document.getElementById('col-retirada-entregue').querySelector('.overflow-y-auto');
 
-        const colMesasFechado = document.getElementById('col-mesas-fechado');
+        const colMesasFechado = document.getElementById('col-mesas-fechado').querySelector('.overflow-y-auto');
         
         const connectionStatus = document.getElementById('connection-status');
         const editOrderModal = document.getElementById('edit-order-modal');
@@ -471,6 +482,7 @@
         
         let orderIdToDelete = null;
         let deliveryFeesData = [];
+        let draggedItemId = null;
 
         const joinTablesBtn = document.getElementById('join-tables-btn');
         const joiningControls = document.getElementById('joining-controls');
@@ -559,6 +571,7 @@
             loadDeliveryFees();
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             let audioResumed = false;
+            setupCustomAlertModal();
 
             document.body.addEventListener('click', () => {
                 if (!audioResumed && audioContext.state === 'suspended') {
@@ -584,26 +597,9 @@
             initializeMesas();
 
             // Lógica de Drag and Drop
-            let draggedItemId = null;
             const pdvColumns = document.querySelectorAll('.overflow-y-auto[id^="col-"]');
             
             pdvColumns.forEach(col => col.classList.add('pdv-column'));
-
-            document.querySelector('main').addEventListener('dragstart', (e) => {
-                const card = e.target.closest('.order-card');
-                if (card) {
-                    draggedItemId = card.dataset.id;
-                    setTimeout(() => card.classList.add('dragging'), 0);
-                }
-            });
-
-            document.querySelector('main').addEventListener('dragend', (e) => {
-                const card = e.target.closest('.order-card');
-                if (card) {
-                    card.classList.remove('dragging');
-                }
-                draggedItemId = null;
-            });
 
             pdvColumns.forEach(column => {
                 column.addEventListener('dragover', (e) => {
@@ -619,22 +615,27 @@
 
                     if (!draggedItemId) return;
                     
-                    const columnId = column.id;
-                    const parts = columnId.split('-');
-                    const typePart = parts[1];
-                    const statusPart = parts[2];
-
-                    let newStatus = null;
-                    if (typePart !== 'mesas') {
-                        switch(statusPart) {
+                    const columnElement = e.target.closest('[id^="col-"]');
+                    const statusParts = columnElement.id.split('-').slice(1); // e.g., ['delivery', 'novo'] or ['retirada', 'preparo']
+                    let newStatus = '';
+                    
+                    if (statusParts[0] === 'delivery') {
+                         switch(statusParts[1]){
                             case 'novo': newStatus = 'Novo'; break;
                             case 'preparo': newStatus = 'Em Preparo'; break;
-                            case 'pronto':
-                                newStatus = typePart === 'retirada' ? 'Pronto para Retirada' : 'Pronto para Entrega';
-                                break;
+                            case 'pronto': newStatus = 'Pronto para Entrega'; break;
                             case 'entrega': newStatus = 'Saiu para Entrega'; break;
                             case 'entregue': newStatus = 'Entregue'; break;
-                        }
+                         }
+                    } else if (statusParts[0] === 'retirada') {
+                         switch(statusParts[1]){
+                            case 'novo': newStatus = 'Novo'; break;
+                            case 'preparo': newStatus = 'Em Preparo'; break;
+                            case 'pronto': newStatus = 'Pronto para Retirada'; break;
+                            case 'entregue': newStatus = 'Entregue'; break;
+                         }
+                    } else if (statusParts[0] === 'mesas') {
+                        if(statusParts[1] === 'fechado') newStatus = 'Fechado';
                     }
 
                     if (newStatus) {
@@ -677,7 +678,7 @@
                             primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
                             primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
                             primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
-                            primaryTableEl.dataset.status = 'ocupada';
+                            primaryTableEl.dataset.status = 'juntada';
                             primaryTableEl.dataset.orderId = order.id;
                             processedTables.add(primaryTableNumber);
 
@@ -825,6 +826,16 @@
                     </div>
                 </div>
             `;
+            
+            card.addEventListener('dragstart', (e) => {
+                draggedItemId = e.target.dataset.id;
+                setTimeout(() => e.target.classList.add('dragging'), 0);
+            });
+            card.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+                draggedItemId = null;
+            });
+            
             return card;
         }
 
@@ -1211,30 +1222,9 @@
 
         async function openCloseCashModal() {
             if (!currentCashRegister) {
-                 showCustomAlert("Nenhum caixa aberto para fechar.");
+                showCustomAlert("Nenhum caixa aberto para fechar.");
                 return;
             }
-
-            // --- VERIFICAÇÃO DE PEDIDOS PENDENTES ---
-            const pendingDeliveryColumns = [
-                'col-delivery-novo', 'col-delivery-preparo', 'col-delivery-pronto', 'col-delivery-entrega',
-                'col-retirada-novo', 'col-retirada-preparo', 'col-retirada-pronto'
-            ];
-            const hasPendingDeliveryOrders = pendingDeliveryColumns.some(colId => {
-                const column = document.getElementById(colId);
-                return column && column.querySelector('.order-card');
-            });
-            
-            const hasPendingTableOrders = Array.from(document.querySelectorAll('#mesas-grid .mesa-item')).some(mesa => 
-                mesa.dataset.status === 'ocupada' || mesa.dataset.status === 'juntada'
-            );
-
-            if (hasPendingDeliveryOrders || hasPendingTableOrders) {
-                showCustomAlert('Não é possível fechar o caixa. Ainda existem pedidos ou mesas em aberto. Finalize todos os pedidos antes de continuar.');
-                return;
-            }
-            // --- FIM DA VERIFICAÇÃO ---
-
 
             try {
                 const deliveredOrdersQuery = query(collection(db, "pedidos"), where("status", "in", ["Entregue", "Fechado"]));
@@ -1378,7 +1368,28 @@
         });
 
         closeCashForm.addEventListener('submit', async (e) => {
-             e.preventDefault();
+            e.preventDefault();
+
+            // --- NOVA VERIFICAÇÃO DE PEDIDOS PENDENTES ---
+            const pendingDeliveryColumns = [
+                'col-delivery-novo', 'col-delivery-preparo', 'col-delivery-pronto', 'col-delivery-entrega',
+                'col-retirada-novo', 'col-retirada-preparo', 'col-retirada-pronto'
+            ];
+            const hasPendingDeliveryOrders = pendingDeliveryColumns.some(colId => {
+                const column = document.getElementById(colId);
+                return column && column.querySelector('.order-card');
+            });
+            
+            const hasPendingTableOrders = Array.from(document.querySelectorAll('#mesas-grid .mesa-item')).some(mesa => 
+                mesa.dataset.status === 'ocupada' || mesa.dataset.status === 'juntada'
+            );
+
+            if (hasPendingDeliveryOrders || hasPendingTableOrders) {
+                showCustomAlert('Não é possível fechar o caixa. Ainda existem pedidos ou mesas em aberto. Finalize todos os pedidos antes de continuar.');
+                return; // Impede o fechamento
+            }
+            // --- FIM DA NOVA VERIFICAÇÃO ---
+
             const finalValue = parseFloat(finalValueInput.value);
             if (isNaN(finalValue) || finalValue < 0) {
                 alert("Por favor, insira um valor válido.");
@@ -1612,6 +1623,24 @@
                 confirmBtn.textContent = 'Confirmar Sangria';
             }
         });
+        
+        function setupCustomAlertModal() {
+            const modal = document.getElementById('custom-alert-modal');
+            const okBtn = document.getElementById('ok-alert-modal');
+            const closeBtn = document.getElementById('close-manage-table-modal');
+
+            const closeModal = () => modal.style.display = 'none';
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+            okBtn.addEventListener('click', closeModal);
+        }
+        
+        function showCustomAlert(message) {
+            document.getElementById('custom-alert-message').textContent = message;
+            document.getElementById('custom-alert-modal').style.display = 'flex';
+        }
 
     </script>
 </body>
