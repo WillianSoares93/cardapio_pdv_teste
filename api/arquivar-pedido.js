@@ -6,11 +6,15 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 // Garante que o app do Firebase Admin seja inicializado apenas uma vez
 if (!process.env.FIREBASE_ADMIN_INITIALIZED) {
-    const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf-8'));
-    initializeApp({
-        credential: cert(serviceAccount)
-    });
-    process.env.FIREBASE_ADMIN_INITIALIZED = 'true';
+    try {
+        const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf-8'));
+        initializeApp({
+            credential: cert(serviceAccount)
+        });
+        process.env.FIREBASE_ADMIN_INITIALIZED = 'true';
+    } catch (e) {
+        console.error("Falha ao inicializar o Firebase Admin SDK:", e);
+    }
 }
 
 const db = getFirestore();
@@ -46,9 +50,9 @@ export default async function handler(req, res) {
 
         const orderData = doc.data();
 
-        // Formata os itens para uma única string
-        const itemsString = orderData.itens.map(item => {
-            let itemDetails = `${item.quantity || 1}x ${item.name}`;
+        // --- CORREÇÃO: Validação e formatação segura dos dados ---
+        const itemsString = (orderData.itens || []).map(item => {
+            let itemDetails = `${item.quantity || 1}x ${item.name || 'Item desconhecido'}`;
             if (item.extras && item.extras.length > 0) {
                 const extrasString = item.extras.map(e => `+${e.name}`).join(' ');
                 itemDetails += ` (${extrasString})`;
@@ -56,18 +60,26 @@ export default async function handler(req, res) {
             return itemDetails;
         }).join('; ');
 
-        // Prepara a linha para a planilha
+        const clientName = orderData.endereco?.clientName || '';
+        const street = orderData.endereco?.rua || '';
+        const number = orderData.endereco?.numero || '';
+        const neighborhood = orderData.endereco?.bairro || '';
+        const payment = orderData.pagamento || {};
+        const total = orderData.total?.finalTotal || 0;
+        const createdAt = orderData.criadoEm?.seconds ? new Date(orderData.criadoEm.seconds * 1000).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR');
+
         const rowData = [
             orderData.orderNumber || '',
-            orderData.endereco.clientName || `Mesa ${orderData.endereco.clientName.replace(/\D/g, '')}` || '',
-            orderData.endereco.rua && orderData.endereco.rua !== "Mesa" ? `${orderData.endereco.rua}, ${orderData.endereco.numero}` : '',
-            orderData.endereco.bairro || '',
+            clientName,
+            street && street !== "Mesa" ? `${street}, ${number}` : (clientName.startsWith('Mesa') ? 'Consumo no Local' : ''),
+            neighborhood,
             itemsString,
-            (orderData.total.finalTotal || 0).toFixed(2).replace('.', ','),
-            typeof orderData.pagamento === 'object' ? orderData.pagamento.method : orderData.pagamento || '',
-            new Date(orderData.criadoEm.seconds * 1000).toLocaleString('pt-BR'),
+            total.toFixed(2).replace('.', ','),
+            typeof payment === 'object' ? payment.method : payment,
+            createdAt,
             'Finalizado'
         ];
+        // --- FIM DA CORREÇÃO ---
 
         // Adiciona a linha na planilha de histórico
         await sheets.spreadsheets.values.append({
@@ -89,3 +101,4 @@ export default async function handler(req, res) {
         res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
 }
+
