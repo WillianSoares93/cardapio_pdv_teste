@@ -826,39 +826,47 @@
             return card;
         }
 
+        // **CORREÇÃO**: Lógica de arquivamento movida para o frontend
         async function handleArchiveOrder(orderId) {
             const archiveBtn = document.querySelector(`.archive-btn[data-id="${orderId}"]`);
             if (archiveBtn && archiveBtn.disabled) return;
-
-            if (archiveBtn) {
+            
+            if(archiveBtn) {
                 archiveBtn.disabled = true;
                 archiveBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
             }
 
             try {
+                // Etapa 1: Chamar a API para fazer o backup do pedido na planilha
                 const response = await fetch('/api/arquivar-pedido', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ orderId: orderId })
                 });
 
-                // **INÍCIO DA CORREÇÃO**
+                // **CORREÇÃO**: Tratamento de erro robusto
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`O servidor respondeu com um erro: ${errorText}`);
+                    let errorMsg = `O servidor respondeu com um erro: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = `O servidor respondeu com um erro: ${JSON.stringify(errorData)}`;
+                    } catch (e) {
+                        // Se a resposta não for JSON, usa o texto puro
+                        errorMsg = `O servidor respondeu com um erro: ${await response.text()}`;
+                    }
+                    throw new Error(errorMsg);
                 }
 
-                // Tenta processar como JSON apenas se a resposta for OK
-                const result = await response.json(); 
-                if (!result.success) {
-                    throw new Error(result.error || 'Falha ao arquivar o pedido no servidor.');
-                }
-                // **FIM DA CORREÇÃO**
+                // Etapa 2: Se o backup na planilha foi bem-sucedido, apagar do Firebase
+                const orderRef = doc(db, "pedidos", orderId);
+                await deleteDoc(orderRef);
+                
+                // O onSnapshot do Firebase cuidará de remover o card da tela automaticamente.
 
             } catch (error) {
                 console.error("Erro ao arquivar pedido:", error);
-                alert("Não foi possível arquivar o pedido: " + error.message);
-                if (archiveBtn) {
+                alert("Não foi possível arquivar o pedido: " + error.message); // Exibe a mensagem de erro detalhada
+                if(archiveBtn){
                     archiveBtn.disabled = false;
                     archiveBtn.innerHTML = `<i class="fas fa-check-circle"></i>`;
                 }
@@ -1638,3 +1646,4 @@
     </script>
 </body>
 </html>
+
