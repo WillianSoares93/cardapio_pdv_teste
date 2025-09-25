@@ -89,20 +89,7 @@
             background-color: rgba(0, 0, 0, 0.05);
             border: 2px dashed #9ca3af;
         }
-        /* Animação para novos pedidos */
-        @keyframes flash-attention {
-            0%, 100% { 
-                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-                outline: 2px solid transparent; 
-            }
-            50% { 
-                box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
-                outline: 2px solid #ef4444; /* red-500 */
-            }
-        }
-        .new-order-highlight {
-            animation: flash-attention 1.5s ease-in-out infinite;
-        }
+        
         /* Animação para o sino de notificação */
         @keyframes ring-bell {
             0%, 100% { transform: rotate(0); }
@@ -110,7 +97,21 @@
             20%, 40%, 60%, 80% { transform: rotate(15deg); }
         }
         .notification-bell-ringing {
-            animation: ring-bell 1s ease-in-out;
+            animation: ring-bell 1.5s ease-in-out infinite;
+        }
+        /* Estilo para o ícone "Novo" */
+        .new-order-tag {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            font-size: 0.75rem; /* 12px */
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
         }
     </style>
 </head>
@@ -671,10 +672,11 @@
             initializeMesas();
 
             // Lógica de Drag and Drop
-            const mainContent = document.getElementById('main-content');
             mainContent.addEventListener('dragstart', (e) => {
                 const card = e.target.closest('.order-card');
                 if (card) {
+                    const newTag = card.querySelector('.new-order-tag');
+                    if (newTag) newTag.remove();
                     draggedItemId = card.dataset.id;
                     setTimeout(() => card.classList.add('dragging'), 0);
                 }
@@ -737,7 +739,9 @@
                             const notificationDiv = document.getElementById(`${orderType}-notification`);
                             if (notificationDiv) {
                                 const bell = notificationDiv.querySelector('.fa-bell');
-                                if (bell) {
+                                // Apenas adiciona a animação se a aba não estiver ativa
+                                const tabButton = document.querySelector(`.main-tab-btn[data-tab="${orderType}"]`);
+                                if (bell && !tabButton.classList.contains('active')) {
                                     bell.classList.add('notification-bell-ringing');
                                 }
                             }
@@ -842,17 +846,22 @@
 
         function createOrderCard(order, id) {
             const card = document.createElement('div');
-            card.className = 'order-card bg-white rounded-lg shadow-md border-l-4';
+            card.className = 'order-card bg-white rounded-lg shadow-md border-l-4 relative';
             card.setAttribute('draggable', 'true');
             card.dataset.id = id;
             
+            const orderType = identifyOrderType(order);
+            let newTagHtml = '';
+            if (order.status === 'Novo' && orderType !== 'mesa') {
+                newTagHtml = '<div class="new-order-tag animate-pulse">Novo</div>';
+            }
+
             let itemsHtml = order.itens.map(item => `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`).join('');
 
             const timestamp = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).toLocaleTimeString('pt-BR') : 'agora';
 
             let buttonHtml = '';
             let finalStep = false;
-            const orderType = identifyOrderType(order);
             
             if (order.status === 'Novo') {
                 card.classList.add('border-red-500');
@@ -891,6 +900,7 @@
             let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
             
             card.innerHTML = `
+                ${newTagHtml}
                 <div class="card-header flex justify-between items-start cursor-pointer p-4">
                     <div>
                         <h3 class="font-bold">Pedido #${id.substring(0, 5)}</h3>
@@ -1396,6 +1406,14 @@
         }
 
         document.querySelector('main').addEventListener('click', function(e) {
+            const card = e.target.closest('.order-card');
+            if (card) {
+                const newTag = card.querySelector('.new-order-tag');
+                if (newTag) {
+                    newTag.remove();
+                }
+            }
+            
             const moveBtn = e.target.closest('.move-btn');
             const manageBtn = e.target.closest('.manage-btn');
             const printBtn = e.target.closest('.print-btn');
