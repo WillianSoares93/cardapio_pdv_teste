@@ -1,11 +1,11 @@
 // /api/arquivar-pedido.js
 import { google } from 'googleapis';
 import { JWT } from 'google-auth-library';
-// Alterado: Usa o SDK padrão do Firebase, não o Admin
+// Lógica restaurada para usar o SDK padrão do Firebase, não o Admin.
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 
-// Configuração padrão do Firebase (usada no lado do cliente)
+// Configuração padrão do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
   authDomain: "pizzaria-pdv.firebaseapp.com",
@@ -15,11 +15,10 @@ const firebaseConfig = {
   appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
 };
 
-// Inicialização padrão do Firebase
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Autenticação com Google Sheets (permanece igual)
+// Autenticação com Google Sheets
 const auth = new JWT({
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
@@ -27,10 +26,10 @@ const auth = new JWT({
 });
 
 const sheets = google.sheets({ version: 'v4', auth });
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID; 
-// **CORREÇÃO**: Apontando para a planilha correta usada pelos relatórios.
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_NAME = 'encerrados';
 
+// --- FUNÇÃO PRINCIPAL ---
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
@@ -42,7 +41,6 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'orderId é obrigatório.' });
         }
 
-        // Usa as funções do SDK padrão para ler o documento
         const orderRef = doc(db, 'pedidos', orderId);
         const docSnap = await getDoc(orderRef);
 
@@ -52,7 +50,7 @@ export default async function handler(req, res) {
 
         const orderData = docSnap.data();
 
-        // **CORREÇÃO**: Reestruturação dos dados para corresponder ao formato da planilha de histórico.
+        // Formatação dos dados para a planilha
         const getOrderType = (endereco) => {
             if (!endereco || !endereco.rua) return 'N/A';
             if (endereco.rua === 'Mesa') return 'Mesa';
@@ -90,22 +88,21 @@ export default async function handler(req, res) {
         const orderType = getOrderType(orderData.endereco);
         const observations = orderData.observacao || '';
 
-        // Estrutura de 11 colunas para corresponder à api/historico.js
         const rowData = [
-            orderId, // id
-            createdAt, // date
-            orderId.substring(0, 5).toUpperCase(), // shortId
-            orderType, // type
-            clientDataString, // clientData
-            itemsString, // items
-            subtotal.toFixed(2).replace('.', ','), // subtotal
-            deliveryFee.toFixed(2).replace('.', ','), // deliveryFee
-            total.toFixed(2).replace('.', ','), // total
-            typeof payment === 'object' ? payment.method : payment, // payment
-            observations // observations
+            orderId,
+            createdAt,
+            orderId.substring(0, 5).toUpperCase(),
+            orderType,
+            clientDataString,
+            itemsString,
+            subtotal.toFixed(2).replace('.', ','),
+            deliveryFee.toFixed(2).replace('.', ','),
+            total.toFixed(2).replace('.', ','),
+            typeof payment === 'object' ? payment.method : payment,
+            observations
         ];
 
-        // Adiciona a linha na planilha de histórico
+        // 1. Adiciona a linha na planilha de histórico
         await sheets.spreadsheets.values.append({
             spreadsheetId: SPREADSHEET_ID,
             range: `${SHEET_NAME}!A1`,
@@ -115,10 +112,11 @@ export default async function handler(req, res) {
             },
         });
 
-        res.status(200).json({ success: true, message: `Pedido ${orderId} arquivado na planilha com sucesso.` });
+        // 2. Retorna sucesso para o frontend, que fará a exclusão.
+        res.status(200).json({ success: true, message: `Pedido ${orderId} arquivado na planilha. Exclusão será feita pelo cliente.` });
 
     } catch (error) {
-        console.error('Erro ao arquivar pedido na planilha:', error);
+        console.error('Erro ao arquivar pedido:', error);
         res.status(500).json({ error: 'Erro interno no servidor.', details: error.message });
     }
 }
