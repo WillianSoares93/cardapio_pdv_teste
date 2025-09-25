@@ -90,18 +90,18 @@
             border: 2px dashed #9ca3af;
         }
         /* Animação para novos pedidos */
-        @keyframes pulse-red {
-            0%, 100% {
-                transform: scale(1);
-                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+        @keyframes flash-attention {
+            0%, 100% { 
+                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+                outline: 2px solid transparent; 
             }
-            50% {
-                transform: scale(1.02);
-                box-shadow: 0 0 8px 8px rgba(239, 68, 68, 0);
+            50% { 
+                box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+                outline: 2px solid #ef4444; /* red-500 */
             }
         }
         .new-order-highlight {
-            animation: pulse-red 2s infinite;
+            animation: flash-attention 1.5s ease-in-out infinite;
         }
     </style>
 </head>
