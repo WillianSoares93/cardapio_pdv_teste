@@ -113,6 +113,16 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             z-index: 10;
         }
+        /* Estilos do Cronômetro */
+        .timer-container {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .timer-green { background-color: #dcfce7; color: #166534; } /* green-100 / green-800 */
+        .timer-yellow { background-color: #fef9c3; color: #854d0e; } /* yellow-100 / yellow-800 */
+        .timer-red { background-color: #fee2e2; color: #991b1b; } /* red-100 / red-900 */
     </style>
 </head>
 <body class="bg-gray-100">
@@ -837,7 +847,45 @@
                 document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
                 document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
             });
+             // Iniciar a atualização dos cronômetros
+            setInterval(updateTimers, 1000);
         }
+
+        function updateTimers() {
+            const now = new Date();
+            document.querySelectorAll('.order-card').forEach(card => {
+                const totalTimerEl = card.querySelector('.total-timer-value');
+                const statusTimerEl = card.querySelector('.status-timer-value');
+                if (totalTimerEl && statusTimerEl) {
+                    const createdAt = new Date(parseInt(totalTimerEl.dataset.createdAt));
+                    const statusChangedAt = new Date(parseInt(statusTimerEl.dataset.statusChangedAt));
+
+                    const totalDiff = Math.floor((now - createdAt) / 1000);
+                    const statusDiff = Math.floor((now - statusChangedAt) / 1000);
+
+                    totalTimerEl.textContent = formatTime(totalDiff);
+                    statusTimerEl.textContent = formatTime(statusDiff);
+                    
+                    // Atualizar a cor do cronômetro da etapa
+                    const statusTimerContainer = statusTimerEl.parentElement;
+                    statusTimerContainer.classList.remove('timer-green', 'timer-yellow', 'timer-red');
+                    if (statusDiff < 300) { // Menos de 5 minutos
+                        statusTimerContainer.classList.add('timer-green');
+                    } else if (statusDiff < 600) { // Menos de 10 minutos
+                        statusTimerContainer.classList.add('timer-yellow');
+                    } else { // 10 minutos ou mais
+                        statusTimerContainer.classList.add('timer-red');
+                    }
+                }
+            });
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
 
         function identifyOrderType(orderData) {
             if (orderData.endereco && orderData.endereco.rua === "Retirada no Balcão") return 'retirada';
@@ -859,7 +907,8 @@
 
             let itemsHtml = order.itens.map(item => `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`).join('');
 
-            const timestamp = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).toLocaleTimeString('pt-BR') : 'agora';
+            const createdAtTimestamp = order.criadoEm ? order.criadoEm.toMillis() : Date.now();
+            const statusChangedAtTimestamp = order.statusChangedAt ? order.statusChangedAt.toMillis() : createdAtTimestamp;
 
             let buttonHtml = '';
             let finalStep = false;
@@ -909,11 +958,19 @@
                     </div>
                     <span class="font-bold text-lg">R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</span>
                 </div>
+                 <div class="px-4 pb-2 flex justify-between items-center space-x-2">
+                    <div class="timer-container timer-green">
+                        <i class="far fa-clock"></i> Total: <span class="total-timer-value" data-created-at="${createdAtTimestamp}">00:00</span>
+                    </div>
+                    <div class="timer-container timer-green">
+                        <i class="fas fa-hourglass-start"></i> Na Etapa: <span class="status-timer-value" data-status-changed-at="${statusChangedAtTimestamp}">00:00</span>
+                    </div>
+                </div>
                 <div class="details-container">
                     <div class="px-4 pb-4">
-                        <div class="mt-4 pt-4 border-t">
+                        <div class="mt-2 pt-2 border-t">
                             <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-medium text-gray-500">${timestamp}</span>
+                                <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
                                 <div class="flex items-center space-x-2">
                                     <button data-id="${id}" data-type="kitchen" class="print-btn text-gray-500"><i class="fas fa-utensils"></i></button>
                                     <button data-id="${id}" data-type="client" class="print-btn text-gray-500"><i class="fas fa-receipt"></i></button>
@@ -1076,7 +1133,10 @@
         
         async function updateOrderStatus(id, newStatus) {
             const orderRef = doc(db, "pedidos", id);
-            await updateDoc(orderRef, { status: newStatus });
+            await updateDoc(orderRef, { 
+                status: newStatus,
+                statusChangedAt: serverTimestamp() // Atualiza o timestamp da mudança de status
+            });
         }
         
         function printOrder(id, type) {
