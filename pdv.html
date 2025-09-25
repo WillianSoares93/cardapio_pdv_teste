@@ -487,6 +487,7 @@
             }
         });
         
+        const mainContent = document.getElementById('main-content');
         const mainTabs = document.getElementById('main-tabs');
         const tabContents = document.querySelectorAll('.tab-content');
         const mesasGrid = document.getElementById('mesas-grid');
@@ -649,14 +650,15 @@
 
                 const deliveryCounter = deliveryNotification.querySelector('span');
                 const retiradaCounter = retiradaNotification.querySelector('span');
+                const deliveryBell = deliveryNotification.querySelector('.fa-bell');
+                const retiradaBell = retiradaNotification.querySelector('.fa-bell');
 
                 if (deliveryCount > 0) {
                     deliveryCounter.textContent = deliveryCount;
                     deliveryNotification.classList.remove('hidden');
                 } else {
                     deliveryNotification.classList.add('hidden');
-                    const bell = deliveryNotification.querySelector('.fa-bell');
-                    if (bell) bell.classList.remove('notification-bell-ringing');
+                    if (deliveryBell) deliveryBell.classList.remove('notification-bell-ringing');
                 }
 
                 if (retiradaCount > 0) {
@@ -664,8 +666,7 @@
                     retiradaNotification.classList.remove('hidden');
                 } else {
                     retiradaNotification.classList.add('hidden');
-                    const bell = retiradaNotification.querySelector('.fa-bell');
-                    if (bell) bell.classList.remove('notification-bell-ringing');
+                    if(retiradaBell) retiradaBell.classList.remove('notification-bell-ringing');
                 }
             }
             
