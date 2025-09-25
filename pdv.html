@@ -89,6 +89,20 @@
             background-color: rgba(0, 0, 0, 0.05);
             border: 2px dashed #9ca3af;
         }
+        /* Animação para novos pedidos */
+        @keyframes pulse-red {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+            }
+            50% {
+                transform: scale(1.02);
+                box-shadow: 0 0 8px 8px rgba(239, 68, 68, 0);
+            }
+        }
+        .new-order-highlight {
+            animation: pulse-red 2s infinite;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -654,9 +668,13 @@
                 let totalRevenueToday = 0;
                 const today = new Date().setHours(0, 0, 0, 0);
 
+                const newOrderIds = new Set();
                 snapshot.docChanges().forEach((change) => {
-                    if (change.type === "added" && change.doc.data().status === 'Novo' && identifyOrderType(change.doc.data()) !== 'mesa') {
-                        playNotificationSound();
+                    if (change.type === "added") {
+                        newOrderIds.add(change.doc.id);
+                        if (change.doc.data().status === 'Novo' && identifyOrderType(change.doc.data()) !== 'mesa') {
+                            playNotificationSound();
+                        }
                     }
                 });
 
@@ -696,6 +714,14 @@
                     if(orderDate === today) {
                         totalOrdersToday++;
                         totalRevenueToday += order.total.finalTotal;
+                    }
+
+                    // Aplica a animação para novos pedidos
+                    if (newOrderIds.has(orderId) && order.status === 'Novo') {
+                        card.classList.add('new-order-highlight');
+                        setTimeout(() => {
+                            card.classList.remove('new-order-highlight');
+                        }, 15000); // Remove o destaque após 15 segundos
                     }
 
                     const tipoPedido = identifyOrderType(order);
