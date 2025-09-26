@@ -860,8 +860,8 @@
                     const createdAt = new Date(parseInt(totalTimerEl.dataset.createdAt));
                     const statusChangedAt = new Date(parseInt(statusTimerEl.dataset.statusChangedAt));
 
-                    const totalDiff = Math.floor((now - createdAt) / 1000);
-                    const statusDiff = Math.floor((now - statusChangedAt) / 1000);
+                    const totalDiff = Math.max(0, Math.floor((now - createdAt) / 1000));
+                    const statusDiff = Math.max(0, Math.floor((now - statusChangedAt) / 1000));
 
                     totalTimerEl.textContent = formatTime(totalDiff);
                     statusTimerEl.textContent = formatTime(statusDiff);
