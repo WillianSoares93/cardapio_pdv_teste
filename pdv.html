@@ -414,6 +414,7 @@
         // --- LÓGICA DE AUTENTICAÇÃO E CAIXA ---
         let currentCashRegister = null;
         let detailedReportData = {}; 
+        let timerIntervalId = null;
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -847,8 +848,9 @@
                 document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
                 document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
             });
-             // Iniciar a atualização dos cronômetros
-            setInterval(updateTimers, 1000);
+            // Iniciar a atualização dos cronômetros
+            if (timerIntervalId) clearInterval(timerIntervalId);
+            timerIntervalId = setInterval(updateTimers, 1000);
         }
 
         function updateTimers() {
