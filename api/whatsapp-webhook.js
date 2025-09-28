@@ -1,10 +1,11 @@
 // Arquivo: /api/whatsapp-webhook.js
-// VERSÃO FINAL: Utiliza a API Generative Language global com o modelo gemini-pro para máxima compatibilidade.
+// VERSÃO FINAL: Utiliza o endpoint oficial do Vertex AI com o modelo gemini-1.5-pro-latest.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import fetch from 'node-fetch';
 import { SpeechClient } from '@google-cloud/speech';
+import { GoogleAuth } from 'google-auth-library';
 
 // --- CONFIGURAÇÃO ---
 const firebaseConfig = {
@@ -23,9 +24,11 @@ const {
     WHATSAPP_API_TOKEN,
     WHATSAPP_VERIFY_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
-    GEMINI_API_KEY, // Usaremos esta chave diretamente
     GOOGLE_CREDENTIALS_BASE64,
 } = process.env;
+
+const GOOGLE_PROJECT_ID = firebaseConfig.projectId;
+const GOOGLE_CLOUD_REGION = 'us-central1';
 
 let speechClientInstance = null;
 
@@ -99,8 +102,8 @@ export default async function handler(req, res) {
 
             conversationState.history.push({ role: 'user', content: userMessage });
 
-            console.log("[LOG] Chamando a API do Gemini...");
-            const responseFromAI = await callGeminiAPI(userMessage, systemData, conversationState);
+            console.log("[LOG] Chamando a API do Gemini via Vertex AI...");
+            const responseFromAI = await callVertexAIGemini(userMessage, systemData, conversationState);
             console.log("[LOG] Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
 
             conversationState.history.push({ role: 'assistant', content: JSON.stringify(responseFromAI) });
@@ -129,10 +132,20 @@ export default async function handler(req, res) {
 }
 
 // --- FUNÇÃO DE CHAMADA À API (CORRIGIDA) ---
-async function callGeminiAPI(userMessage, systemData, conversationState) {
-    // --- CORREÇÃO FINAL APLICADA AQUI ---
-    // Usando a API Generative Language com o modelo gemini-pro e a chave de API.
-    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+async function callVertexAIGemini(userMessage, systemData, conversationState) {
+    if (!GOOGLE_CREDENTIALS_BASE64) {
+        throw new Error("Credenciais do Google Cloud (GOOGLE_CREDENTIALS_BASE64) não estão configuradas na Vercel.");
+    }
+    const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
+    const credentials = JSON.parse(credentialsJson);
+
+    const auth = new GoogleAuth({
+        credentials,
+        scopes: 'https://www.googleapis.com/auth/cloud-platform'
+    });
+
+    const client = await auth.getClient();
+    const accessToken = (await client.getAccessToken()).token;
 
     const { availableMenu, allIngredients, promptTemplate } = systemData;
 
@@ -150,10 +163,17 @@ async function callGeminiAPI(userMessage, systemData, conversationState) {
         .replace(/\${ESTADO_PEDIDO}/g, JSON.stringify(conversationState.itens || []))
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
+    // --- CORREÇÃO FINAL APLICADA AQUI ---
+    const modelId = "gemini-1.0-pro";
+    const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:streamGenerateContent`;
+
     try {
-        const response = await fetch(geminiURL, {
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: {
@@ -164,24 +184,25 @@ async function callGeminiAPI(userMessage, systemData, conversationState) {
 
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error("Erro da API do Gemini (corpo da resposta):", errorBody);
-            throw new Error(`Erro na API do Gemini: ${response.status}. Verifique se a sua GEMINI_API_KEY é válida e se a API 'Generative Language' está ativa.`);
+            console.error("Erro da API Vertex AI (corpo da resposta):", errorBody);
+            throw new Error(`Erro na API Vertex AI: ${response.status}. Verifique se a API "Vertex AI" está ATIVA no seu projeto Google Cloud e se o faturamento está configurado.`);
         }
 
         const data = await response.json();
         
-        if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-             throw new Error("Resposta inesperada ou vazia da API do Gemini.");
+        if (!data[0]?.candidates?.[0]?.content?.parts?.[0]?.text) {
+             throw new Error("Resposta inesperada ou vazia da API Vertex AI.");
         }
 
-        const jsonString = data.candidates[0].content.parts[0].text;
+        const jsonString = data[0].candidates[0].content.parts[0].text;
         return JSON.parse(jsonString);
 
     } catch (error) {
-        console.error("Erro ao chamar ou processar a resposta do Gemini:", error);
+        console.error("Erro ao chamar ou processar a resposta do Vertex AI Gemini:", error);
         return { action: "ANSWER_QUESTION", answer: 'Desculpe, tive um problema para processar sua solicitação. Pode tentar de outra forma?' };
     }
 }
+
 
 // --- DEMAIS FUNÇÕES (permanecem as mesmas) ---
 // ... (código anterior omitido por brevidade) ...
