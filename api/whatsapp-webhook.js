@@ -1,5 +1,7 @@
 // Arquivo: /api/whatsapp-webhook.js
-// VERSÃO FINAL: Utiliza o endpoint oficial do Vertex AI com autenticação explícita.
+// Este arquivo agora é o coração do seu bot. Ele recebe as mensagens do WhatsApp,
+// busca o cardápio e as regras do seu sistema em tempo real, e usa o Gemini para
+// entender e processar os pedidos dos clientes.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -20,18 +22,21 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// As variáveis de ambiente devem ser configuradas no painel da Vercel
 const {
     WHATSAPP_API_TOKEN,
     WHATSAPP_VERIFY_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
     GOOGLE_CREDENTIALS_BASE64,
+    // GEMINI_API_KEY não é mais usado para a chamada principal.
 } = process.env;
 
 const GOOGLE_PROJECT_ID = firebaseConfig.projectId;
-const GOOGLE_CLOUD_REGION = 'us-central1';
+const GOOGLE_CLOUD_REGION = 'us-central1'; // Região padrão para Vertex AI
 
 let speechClientInstance = null;
 
+// Inicializa o cliente do Google Speech API de forma segura
 function getSpeechClient() {
     if (speechClientInstance) return speechClientInstance;
     console.log("[LOG] Tentando inicializar o cliente Google Speech...");
@@ -52,10 +57,12 @@ function getSpeechClient() {
     }
 }
 
+
 // --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
 export default async function handler(req, res) {
     console.log("--- INÍCIO DA EXECUÇÃO DO WEBHOOK ---");
 
+    // Verificação do Webhook (GET) - Necessário para a configuração inicial na Meta
     if (req.method === 'GET') {
         const mode = req.query['hub.mode'];
         const token = req.query['hub.verify_token'];
@@ -69,6 +76,7 @@ export default async function handler(req, res) {
         }
     }
 
+    // Processamento de Mensagens (POST)
     if (req.method === 'POST') {
         const body = req.body;
         if (!body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
@@ -82,6 +90,7 @@ export default async function handler(req, res) {
         await markMessageAsRead(messageData.id);
 
         try {
+            // Processa a mensagem do usuário (texto ou áudio)
             let userMessage = await getUserMessage(messageData, userPhoneNumber);
             if (userMessage === null) {
                 console.log("[LOG] Mensagem não processável. Encerrando fluxo.");
@@ -89,10 +98,11 @@ export default async function handler(req, res) {
             }
             console.log(`[LOG] Mensagem do usuário: "${userMessage}"`);
 
+            // Busca o estado da conversa e os dados do sistema (cardápio, prompt) em paralelo
             console.log("[LOG] Carregando estado da conversa e dados do sistema...");
             const [conversationState, systemData] = await Promise.all([
                 getConversationState(userPhoneNumber),
-                getSystemData(req)
+                getSystemData(req) // Passa o 'req' para construir a URL da API interna
             ]);
 
             if (!systemData.availableMenu || !systemData.promptTemplate) {
@@ -100,14 +110,18 @@ export default async function handler(req, res) {
             }
             console.log("[LOG] Dados carregados com sucesso.");
 
+            // Adiciona a nova mensagem ao histórico
             conversationState.history.push({ role: 'user', content: userMessage });
 
+            // Envia para o Gemini
             console.log("[LOG] Chamando a API do Gemini via Vertex AI...");
             const responseFromAI = await callVertexAIGemini(userMessage, systemData, conversationState);
             console.log("[LOG] Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
 
+            // Adiciona a resposta da IA ao histórico
             conversationState.history.push({ role: 'assistant', content: JSON.stringify(responseFromAI) });
 
+            // Age com base na resposta da IA
             if (responseFromAI.action === "PROCESS_ORDER") {
                 console.log("[LOG] Ação da IA: PROCESS_ORDER");
                 await processOrderAction(userPhoneNumber, responseFromAI, conversationState);
@@ -132,10 +146,9 @@ export default async function handler(req, res) {
 }
 
 
-// --- FUNÇÃO DE CHAMADA À API (CORRIGIDA) ---
+// --- FUNÇÃO DE CHAMADA À API (ATUALIZADA) ---
 
 async function callVertexAIGemini(userMessage, systemData, conversationState) {
-    // --- INÍCIO DA CORREÇÃO ---
     // Garante que as credenciais da variável de ambiente sejam usadas para autenticação.
     if (!GOOGLE_CREDENTIALS_BASE64) {
         throw new Error("Credenciais do Google Cloud (GOOGLE_CREDENTIALS_BASE64) não estão configuradas na Vercel.");
@@ -147,7 +160,6 @@ async function callVertexAIGemini(userMessage, systemData, conversationState) {
         credentials,
         scopes: 'https://www.googleapis.com/auth/cloud-platform'
     });
-    // --- FIM DA CORREÇÃO ---
 
     const client = await auth.getClient();
     const accessToken = (await client.getAccessToken()).token;
