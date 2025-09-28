@@ -1,1827 +1,392 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDV - Sâmia Pizzaria</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png" type="image/png">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-        body {
-            font-family: 'Roboto', sans-serif;
-            visibility: hidden;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: auto;
-            padding: 20px;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 500px;
-        }
-        #pdv-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 999;
-            display: none;
-        }
-        .details-container {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.4s ease-in-out;
-        }
-        .order-card.expanded .details-container {
-            max-height: 1500px;
-        }
-        .main-tab-btn {
-            transition: all 0.2s ease-in-out;
-        }
-        .main-tab-btn.active {
-            border-bottom-color: #ef4444; /* red-500 */
-            color: #ef4444;
-            background-color: #fef2f2; /* red-50 */
-        }
-        .mesa-item {
-            transition: all 0.2s ease-in-out;
-            aspect-ratio: 1 / 1;
-        }
-        .mesa-item:hover:not(.joining-mode) {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-        .mesa-status-livre { background-color: #dcfce7; border-color: #22c55e; color: #166534; }
-        .mesa-status-ocupada { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; }
-        .mesa-status-juntada { background-color: #e0e7ff; border-color: #4f46e5; color: #3730a3; }
-        .mesa-item.selected-for-join {
-            outline: 4px solid #3b82f6;
-            outline-offset: 2px;
-            transform: scale(1.05);
-        }
-        .joining-mode .mesa-item.mesa-status-livre { cursor: pointer; }
-        .joining-mode .mesa-item:not(.mesa-status-livre) { cursor: not-allowed; opacity: 0.5; }
+// Arquivo: /api/whatsapp-webhook.js
+// Este arquivo é o coração do seu bot. Ele recebe as mensagens do WhatsApp,
+// busca o cardápio e as regras do seu sistema em tempo real, e usa o Gemini para
+// entender e processar os pedidos dos clientes.
 
-        /* Estilos para Drag and Drop */
-        .order-card.dragging {
-            opacity: 0.5;
-            transform: scale(1.05);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import fetch from 'node-fetch';
+import { SpeechClient } from '@google-cloud/speech';
+
+// --- CONFIGURAÇÃO ---
+const firebaseConfig = {
+    apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+    authDomain: "pizzaria-pdv.firebaseapp.com",
+    projectId: "pizzaria-pdv",
+    storageBucket: "pizzaria-pdv.firebasestorage.app",
+    messagingSenderId: "304171744691",
+    appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+};
+
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const {
+    WHATSAPP_API_TOKEN,
+    WHATSAPP_VERIFY_TOKEN,
+    WHATSAPP_PHONE_NUMBER_ID,
+    GEMINI_API_KEY,
+    GOOGLE_CREDENTIALS_BASE64
+} = process.env;
+
+let speechClientInstance = null;
+
+function getSpeechClient() {
+    if (speechClientInstance) return speechClientInstance;
+    console.log("[LOG] Tentando inicializar o cliente Google Speech...");
+    if (GOOGLE_CREDENTIALS_BASE64) {
+        try {
+            const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
+            const credentials = JSON.parse(credentialsJson);
+            speechClientInstance = new SpeechClient({ credentials });
+            console.log("[LOG] Cliente Google Speech inicializado com sucesso.");
+            return speechClientInstance;
+        } catch (e) {
+            console.error("[ERRO CRÍTICO] Falha ao processar as credenciais do Google Cloud:", e);
+            return null;
         }
-        .pdv-column-container.drag-over {
-            background-color: rgba(0, 0, 0, 0.05);
-            border: 2px dashed #9ca3af;
+    } else {
+        console.warn("[AVISO] Variável de ambiente GOOGLE_CREDENTIALS_BASE64 não encontrada. Transcrição de áudio estará desativada.");
+        return null;
+    }
+}
+
+// --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
+export default async function handler(req, res) {
+    console.log("--- INÍCIO DA EXECUÇÃO DO WEBHOOK ---");
+
+    if (req.method === 'GET') {
+        const mode = req.query['hub.mode'];
+        const token = req.query['hub.verify_token'];
+        const challenge = req.query['hub.challenge'];
+        if (mode === 'subscribe' && token === WHATSAPP_VERIFY_TOKEN) {
+            console.log("Verificação do Webhook BEM-SUCEDIDA.");
+            return res.status(200).send(challenge);
+        } else {
+            console.error("Falha na verificação do Webhook: Token ou modo inválido.");
+            return res.status(403).send('Forbidden');
+        }
+    }
+
+    if (req.method === 'POST') {
+        const body = req.body;
+        if (!body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
+            console.log("Webhook recebido, mas sem dados de mensagem. Ignorando.");
+            return res.status(200).send('EVENT_RECEIVED');
+        }
+
+        const messageData = body.entry[0].changes[0].value.messages[0];
+        const userPhoneNumber = messageData.from;
+        console.log(`[LOG] Processando mensagem de: ${userPhoneNumber}`);
+        await markMessageAsRead(messageData.id);
+
+        try {
+            let userMessage = await getUserMessage(messageData, userPhoneNumber);
+            if (userMessage === null) {
+                console.log("[LOG] Mensagem não processável. Encerrando fluxo.");
+                return res.status(200).send('EVENT_RECEIVED');
+            }
+            console.log(`[LOG] Mensagem do usuário: "${userMessage}"`);
+
+            console.log("[LOG] Carregando estado da conversa e dados do sistema...");
+            const [conversationState, systemData] = await Promise.all([
+                getConversationState(userPhoneNumber),
+                getSystemData(req)
+            ]);
+
+            if (!systemData.availableMenu || !systemData.promptTemplate) {
+                 throw new Error('Não foi possível carregar os dados do sistema (cardápio ou prompt).');
+            }
+            console.log("[LOG] Dados carregados com sucesso.");
+
+            conversationState.history.push({ role: 'user', content: userMessage });
+            
+            console.log("[LOG] Chamando a API do Gemini...");
+            const responseFromAI = await callGeminiAPI(userMessage, systemData, conversationState);
+            console.log("[LOG] Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
+            
+            conversationState.history.push({ role: 'assistant', content: JSON.stringify(responseFromAI) });
+
+            if (responseFromAI.action === "PROCESS_ORDER") {
+                console.log("[LOG] Ação da IA: PROCESS_ORDER");
+                await processOrderAction(userPhoneNumber, responseFromAI, conversationState);
+            } else if (responseFromAI.action === "ANSWER_QUESTION") {
+                console.log("[LOG] Ação da IA: ANSWER_QUESTION");
+                await saveConversationState(userPhoneNumber, conversationState);
+                await sendWhatsAppMessage(userPhoneNumber, responseFromAI.answer);
+            } else {
+                await sendWhatsAppMessage(userPhoneNumber, "Desculpe, não entendi. Pode repetir, por favor?");
+            }
+
+        } catch (error) {
+            console.error('[ERRO CRÍTICO NO HANDLER]', error);
+            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, ocorreu um erro inesperado no nosso sistema. A equipe já foi notificada.');
+        }
+
+        console.log("--- FIM DA EXECUÇÃO DO WEBHOOK ---");
+        return res.status(200).send('EVENT_RECEIVED');
+    }
+
+    return res.status(405).send('Method Not Allowed');
+}
+
+// ... (O resto das funções auxiliares como getUserMessage, getConversationState, etc., permanecem as mesmas)
+
+async function callGeminiAPI(userMessage, systemData, conversationState) {
+    // --- CORREÇÃO FINAL: Usando a combinação mais estável de API e modelo ---
+    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+
+    const { availableMenu, allIngredients, promptTemplate } = systemData;
+
+    const simplifiedMenu = availableMenu.map(item => ({
+        name: item.name, category: item.category, description: item.description,
+        prices: item.isPizza
+            ? { '4 fatias': item.price4Slices, '6 fatias': item.price6Slices, '8 fatias': item.basePrice, '10 fatias': item.price10Slices }
+            : { 'padrão': item.basePrice }
+    }));
+
+    const prompt = promptTemplate
+        .replace(/\${CARDAPIO}/g, JSON.stringify(simplifiedMenu))
+        .replace(/\${INGREDIENTES}/g, JSON.stringify(allIngredients))
+        .replace(/\${HISTORICO}/g, JSON.stringify(conversationState.history.slice(-6)))
+        .replace(/\${ESTADO_PEDIDO}/g, JSON.stringify(conversationState.itens || []))
+        .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
+
+    try {
+        const response = await fetch(geminiURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error("Erro da API do Gemini (corpo da resposta):", errorBody);
+            throw new Error(`Erro na API do Gemini: ${response.status}. Verifique se sua nova API Key está correta na Vercel e se a "Generative Language API" está ATIVADA no seu projeto Google Cloud.`);
         }
         
-        /* Animação para o sino de notificação */
-        @keyframes ring-bell {
-            0%, 100% { transform: rotate(0); }
-            10%, 30%, 50%, 70%, 90% { transform: rotate(-15deg); }
-            20%, 40%, 60%, 80% { transform: rotate(15deg); }
+        const data = await response.json();
+
+        if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+             throw new Error("Resposta inesperada ou vazia da API do Gemini.");
         }
-        .notification-bell-ringing {
-            animation: ring-bell 1.5s ease-in-out infinite;
+        
+        const jsonString = data.candidates[0].content.parts[0].text;
+        const cleanedJsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanedJsonString);
+
+    } catch (error) {
+        console.error("Erro ao chamar ou processar a resposta do Gemini:", error);
+        return { action: "ANSWER_QUESTION", answer: 'Desculpe, tive um problema para processar sua solicitação. Pode tentar de outra forma?' };
+    }
+}
+
+
+// O restante do arquivo (funções de transcrição, envio de mensagem, etc.) permanece igual
+// ... (código anterior omitido por brevidade) ...
+
+// --- FUNÇÕES DE LÓGICA PRINCIPAL ---
+
+async function getUserMessage(messageData, userPhoneNumber) {
+    if (messageData.type === 'text') {
+        return messageData.text.body.trim();
+    }
+    if (messageData.type === 'audio') {
+        await sendWhatsAppMessage(userPhoneNumber, 'Ok, processando seu áudio...');
+        const mediaId = messageData.audio.id;
+
+        const transcription = await transcribeWithGoogle(mediaId);
+        if (!transcription) {
+            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, não consegui entender o áudio. Pode tentar de novo ou enviar por texto?');
+            return null;
         }
-        /* Estilo para o ícone "Novo" */
-        .new-order-tag {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background-color: #ef4444; /* red-500 */
-            color: white;
-            font-size: 0.75rem; /* 12px */
-            font-weight: bold;
-            padding: 2px 8px;
-            border-radius: 9999px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            z-index: 10;
-        }
-        /* Estilos do Cronômetro */
-        .timer-container {
-            font-size: 0.75rem;
-            font-weight: 500;
-            padding: 4px 8px;
-            border-radius: 6px;
-        }
-        .timer-green { background-color: #dcfce7; color: #166534; } /* green-100 / green-800 */
-        .timer-yellow { background-color: #fef9c3; color: #854d0e; } /* yellow-100 / yellow-800 */
-        .timer-red { background-color: #fee2e2; color: #991b1b; } /* red-100 / red-900 */
-    </style>
-</head>
-<body class="bg-gray-100">
+        return transcription;
+    }
+    await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, no momento só consigo processar pedidos por texto ou áudio.');
+    return null;
+}
 
-    <div id="pdv-overlay"></div>
+async function getConversationState(phoneNumber) {
+    const stateRef = doc(db, 'pedidos_pendentes_whatsapp', phoneNumber);
+    const docSnap = await getDoc(stateRef);
+    // Retorna o estado salvo ou um estado inicial vazio
+    return docSnap.exists() ? docSnap.data() : { history: [], itens: [], subtotal: 0, endereco: null, pagamento: null };
+}
 
-    <header class="bg-white shadow-md">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
-            <div class="flex items-center space-x-2">
-                <a href="atendente.html" target="_blank" class="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700">Lançar Pedido</a>
-                <button id="close-cash-register-btn" class="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700">Ver Caixa</button>
-                <a href="gerenciar.html" target="_blank" class="px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</a>
-                <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">Sair</button>
-                <div id="connection-status" class="text-sm font-medium text-gray-500">
-                    <i class="fas fa-circle text-red-500 mr-2"></i>Conectando...
-                </div>
-            </div>
-        </div>
-    </header>
+async function saveConversationState(phoneNumber, state) {
+    // Limita o histórico para as últimas 10 trocas para não sobrecarregar
+    if (state.history.length > 20) {
+        state.history = state.history.slice(-20);
+    }
+    const stateRef = doc(db, 'pedidos_pendentes_whatsapp', phoneNumber);
+    await setDoc(stateRef, state);
+}
 
-    <div class="bg-gray-800 text-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center py-4">
-                <div><h3 class="text-sm font-medium text-gray-400">PEDIDOS HOJE</h3><p id="stats-total-orders" class="text-2xl font-bold">0</p></div>
-                <div><h3 class="text-sm font-medium text-gray-400">FATURAMENTO TOTAL</h3><p id="stats-total-revenue" class="text-2xl font-bold">R$ 0,00</p></div>
-                <div><h3 class="text-sm font-medium text-gray-400">TICKET MÉDIO</h3><p id="stats-avg-ticket" class="text-2xl font-bold">R$ 0,00</p></div>
-            </div>
-        </div>
-    </div>
+async function getSystemData(req) {
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const apiUrl = `${protocol}://${host}/api/menu`;
 
-    <main id="main-content" class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <!-- Abas Principais -->
-        <div class="border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
-            <nav id="main-tabs" class="flex -mb-px" aria-label="Tabs">
-                <button class="main-tab-btn active w-1/3 py-4 px-1 text-center border-b-4 font-medium text-lg relative" data-tab="delivery">
-                    <div class="flex justify-center items-center">
-                        <i class="fas fa-motorcycle mr-2"></i>
-                        <span>Delivery</span>
-                        <div id="delivery-notification" class="ml-2 flex items-center space-x-1 hidden">
-                            <i class="fas fa-bell text-yellow-500"></i>
-                            <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                        </div>
-                    </div>
-                </button>
-                <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg relative" data-tab="retirada">
-                    <div class="flex justify-center items-center">
-                        <i class="fas fa-shopping-bag mr-2"></i>
-                        <span>Retirada</span>
-                        <div id="retirada-notification" class="ml-2 flex items-center space-x-1 hidden">
-                            <i class="fas fa-bell text-yellow-500"></i>
-                            <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                        </div>
-                    </div>
-                </button>
-                <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg" data-tab="mesas">
-                    <i class="fas fa-utensils mr-2"></i> Mesas
-                </button>
-            </nav>
-        </div>
+    console.log(`[LOG] Buscando dados do sistema em: ${apiUrl}`);
 
-        <!-- Conteúdo das Abas -->
-        <div id="tab-content-delivery" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
-                <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-            </div>
-        </div>
+    const [menuData, promptData] = await Promise.all([
+        fetch(apiUrl).then(res => res.json()),
+        getActivePrompt()
+    ]);
 
-        <div id="tab-content-retirada" class="tab-content hidden">
-             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
-                <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-            </div>
-        </div>
+    return {
+        availableMenu: menuData.cardapio,
+        allIngredients: menuData.ingredientesHamburguer,
+        promptTemplate: promptData.promptTemplate
+    };
+}
 
-        <div id="tab-content-mesas" class="tab-content hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-                <div class="lg:col-span-2">
-                    <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
-                        <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
-                            <i class="fas fa-link mr-2"></i>Agrupar Mesas
-                        </button>
-                        <div id="joining-controls" class="hidden space-x-2">
-                            <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
-                            <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
-                        </div>
-                    </div>
-                    <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-4">
-                        <!-- As mesas serão inseridas aqui pelo JavaScript -->
-                    </div>
-                </div>
-                <div class="lg:col-span-1">
-                     <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow h-full">
-                        <div class="p-4 border-b border-gray-300">
-                            <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
-                        </div>
-                        <div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-22rem)]">
-                            <!-- Cards de mesas fechadas aqui -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
+async function processOrderAction(userPhoneNumber, aiResponse, conversationState) {
+    console.log("[LOG] Processando ação de pedido...");
 
-    <!-- Modal Abrir Caixa -->
-    <div id="open-cash-modal" class="modal">
-        <div class="modal-content">
-            <div id="pending-cash-alert" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-                <p class="font-bold">Caixa Pendente</p>
-                <p id="pending-cash-message">Existe um caixa do dia anterior que não foi fechado. Por favor, feche o caixa anterior antes de continuar.</p>
-            </div>
-            <h3 id="open-cash-title" class="text-lg font-bold text-gray-900 mb-4">Abrir Caixa</h3>
-            <p id="open-cash-instructions" class="text-sm text-gray-600 mb-4">Para iniciar as operações, por favor, informe o valor inicial do caixa (fundo de troco).</p>
-            <form id="open-cash-form">
-                <div class="mb-4">
-                    <label for="initial-value" class="block text-sm font-medium text-gray-700 mb-1">Valor Inicial (R$)</label>
-                    <input type="number" id="initial-value" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: 50,00">
-                </div>
-                <button type="submit" id="open-cash-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">Abrir Caixa</button>
-            </form>
-            <div id="resolve-pending-cash-container" class="hidden mt-4">
-                <button type="button" id="resolve-pending-cash-btn" class="w-full bg-yellow-500 text-white font-bold py-2 px-4 rounded-md hover:bg-yellow-600">
-                    Resolver Pendência (Fechar Caixa Anterior)
-                </button>
-            </div>
-        </div>
-    </div>
+    // Atualiza o estado da conversa com os dados extraídos pela IA
+    if (aiResponse.itens && aiResponse.itens.length > 0) {
+        conversationState.itens.push(...aiResponse.itens);
+    }
+    if (aiResponse.address) {
+        conversationState.endereco = { rua: aiResponse.address }; // Simplificado, pode ser expandido
+    }
+    if (aiResponse.paymentMethod) {
+        conversationState.pagamento = aiResponse.paymentMethod;
+    }
 
-    <!-- Modal Fechar Caixa -->
-    <div id="close-cash-modal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-900">Fechamento de Caixa</h3>
-                <button id="print-cash-closure-btn" class="text-gray-600 hover:text-gray-800">
-                    <i class="fas fa-print text-xl"></i>
-                </button>
-            </div>
-            <div class="space-y-2 text-sm">
-                <div class="flex justify-between"><span class="text-gray-600">Valor Inicial:</span> <span id="summary-initial" class="font-medium">R$ 0,00</span></div>
-                <hr class="my-2">
-                <h4 class="font-bold text-gray-700 text-md">Vendas por Tipo</h4>
-                <div class="flex justify-between pl-2"><span class="text-gray-600">Delivery:</span> <span id="summary-delivery" class="font-medium">R$ 0,00</span></div>
-                <div class="flex justify-between pl-2"><span class="text-gray-600">Retirada:</span> <span id="summary-retirada" class="font-medium">R$ 0,00</span></div>
-                <div class="flex justify-between pl-2"><span class="text-gray-600">Mesas:</span> <span id="summary-mesas" class="font-medium">R$ 0,00</span></div>
-                <div class="flex justify-between pl-2"><span class="text-gray-600">Taxas de Entrega:</span> <span id="summary-delivery-fees" class="font-medium">R$ 0,00</span></div>
-                <hr class="my-2">
-                <h4 class="font-bold text-gray-700 text-md">Vendas por Pagamento</h4>
-                <div class="flex justify-between pl-2"><span class="text-gray-600">Dinheiro:</span> <span id="summary-cash" class="font-medium">R$ 0,00</span></div>
-                <div class="flex justify-between pl-2"><span class="text-gray-600">Cartão:</span> <span id="summary-card" class="font-medium">R$ 0,00</span></div>
-                <div class="flex justify-between pl-2"><span class="text-gray-600">Pix:</span> <span id="summary-pix" class="font-medium">R$ 0,00</span></div>
-                <hr class="my-2">
-                <div class="flex justify-between font-bold"><span class="text-gray-800">Total de Vendas:</span> <span id="summary-total-sales" class="text-gray-800">R$ 0,00</span></div>
-                <div class="flex justify-between text-red-600"><span class="font-medium">Total Sangrias:</span> <span id="summary-sangrias" class="font-medium">- R$ 0,00</span></div>
-                <hr class="my-2">
-                <div class="flex justify-between font-bold"><span class="text-blue-700">Valor Esperado em Caixa:</span> <span id="summary-expected" class="text-blue-700">R$ 0,00</span></div>
-            </div>
-            <form id="close-cash-form" class="mt-6">
-                <div class="mb-4">
-                    <label for="final-value" class="block text-sm font-medium text-gray-700 mb-1">Valor Contado em Caixa (R$)</label>
-                    <input type="number" id="final-value" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Digite o valor contado">
-                </div>
-                <div id="summary-difference-section" class="text-center p-2 rounded-md mb-4 hidden">
-                    <span id="summary-difference" class="font-bold"></span>
-                </div>
-                <div class="flex justify-end space-x-4">
-                    <button type="button" id="register-sangria-btn" class="px-4 py-2 bg-orange-500 text-white font-bold rounded-md hover:bg-orange-600">Registrar Sangria</button>
-                    <button type="button" id="cancel-close-cash-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" id="confirm-close-cash-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Confirmar Fechamento</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- MODAL DE GERENCIAMENTO DE MESA -->
-    <div id="manage-table-modal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4 pb-4 border-b">
-                <h2 id="manage-table-title" class="text-xl font-bold">Gerenciar Mesa</h2>
-                <button id="close-manage-table-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            <div id="manage-table-body" class="space-y-4">
-                <div class="max-h-60 overflow-y-auto p-2 border rounded-md bg-gray-50">
-                    <h4 class="font-bold mb-2">Itens Consumidos:</h4>
-                    <ul id="table-order-items-list" class="text-sm space-y-1"></ul>
-                </div>
-                <div class="text-right font-bold text-lg">
-                    Total: <span id="table-order-total">R$ 0,00</span>
-                </div>
-                <div class="grid grid-cols-2 gap-4 pt-4 border-t">
-                    <button id="print-partial-btn" class="p-3 bg-blue-500 text-white rounded-md hover:bg-blue-600">Imprimir Parcial</button>
-                    <button id="transfer-table-btn" class="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">Transferir Mesa</button>
-                    <button id="close-account-btn" class="col-span-2 p-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-bold text-lg">Fechar Conta</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal para Transferir Mesa -->
-    <div id="transfer-table-modal" class="modal">
-        <div class="modal-content">
-            <h3 class="text-lg font-bold mb-4">Transferir para qual mesa livre?</h3>
-            <select id="free-tables-select" class="w-full p-2 border rounded-md"></select>
-            <div class="flex justify-end gap-4 mt-4">
-                <button id="cancel-transfer-btn" class="px-4 py-2 bg-gray-300 rounded-md">Cancelar</button>
-                <button id="confirm-transfer-btn" class="px-4 py-2 bg-blue-500 text-white rounded-md">Confirmar</button>
-            </div>
-        </div>
-    </div>
+    conversationState.subtotal = conversationState.itens.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    <div id="edit-order-modal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">Gerenciar Pedido</h2>
-                <button id="close-edit-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            <div id="edit-modal-body" class="space-y-4"></div>
-        </div>
-    </div>
+    let nextStepMessage = '';
 
-    <div id="delete-confirm-modal" class="modal">
-        <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Confirmar Exclusão</h3>
-            <p class="text-sm text-gray-600 mb-6">Tem certeza que deseja excluir este pedido? Esta ação não pode ser desfeita.</p>
-            <div class="flex justify-end space-x-4">
-                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Sim, Excluir</button>
-            </div>
-        </div>
-    </div>
+    // Verifica o que falta para finalizar o pedido
+    if (!conversationState.itens || conversationState.itens.length === 0) {
+        nextStepMessage = "Não entendi quais itens você gostaria de pedir. Poderia me dizer?";
+    } else if (!conversationState.endereco) {
+        nextStepMessage = `Ótimo, seu pedido até agora tem ${conversationState.itens.length} item(ns), totalizando ${conversationState.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}. Qual o seu endereço para entrega?`;
+    } else if (!conversationState.pagamento) {
+        nextStepMessage = `Endereço anotado! Qual será a forma de pagamento? (Dinheiro, Cartão ou Pix)`;
+    } else {
+        // Todas as informações foram coletadas, finaliza o pedido
+        console.log("[LOG] Todas as informações foram coletadas. Finalizando o pedido...");
+        await finalizeOrder(userPhoneNumber, conversationState);
+        return;
+    }
 
-    <!-- Modal para Registrar Sangria -->
-    <div id="sangria-modal" class="modal">
-        <div class="modal-content">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Registrar Sangria de Caixa</h3>
-            <form id="sangria-form">
-                <div class="mb-4">
-                    <label for="sangria-amount" class="block text-sm font-medium text-gray-700 mb-1">Valor da Retirada (R$)</label>
-                    <input type="number" id="sangria-amount" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: 20,00">
-                </div>
-                <div class="mb-4">
-                    <label for="sangria-reason" class="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
-                    <input type="text" id="sangria-reason" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: Pagamento de fornecedor">
-                </div>
-                <div class="flex justify-end space-x-4">
-                    <button type="button" id="cancel-sangria-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" id="confirm-sangria-btn" class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">Confirmar Sangria</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    // Se a IA gerou uma pergunta de esclarecimento, usa ela
+    if (aiResponse.clarification_question) {
+        nextStepMessage = aiResponse.clarification_question;
+    }
 
-    <!-- Custom Alert Modal -->
-    <div id="custom-alert-modal" class="modal">
-      <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
-        <h3 class="text-lg font-bold text-gray-900 mb-4">Atenção</h3>
-        <p id="custom-alert-message" class="text-sm text-gray-600 mb-6">Message goes here.</p>
-        <div class="flex justify-end">
-            <button id="ok-alert-modal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">OK</button>
-        </div>
-      </div>
-    </div>
+    console.log(`[LOG] Salvando estado e enviando próxima mensagem: "${nextStepMessage}"`);
+    await saveConversationState(userPhoneNumber, conversationState);
+    await sendWhatsAppMessage(userPhoneNumber, nextStepMessage);
+}
+
+async function finalizeOrder(userPhoneNumber, conversationState) {
+    const finalOrder = {
+        itens: conversationState.itens,
+        endereco: {
+            clientName: `Cliente WhatsApp ${userPhoneNumber.slice(-4)}`,
+            telefone: userPhoneNumber,
+            ...conversationState.endereco
+        },
+        total: {
+            subtotal: conversationState.subtotal,
+            deliveryFee: 0, // A ser calculado pela API de taxas ou no PDV
+            discount: 0,
+            finalTotal: conversationState.subtotal // Temporário, a ser recalculado no PDV
+        },
+        pagamento: conversationState.pagamento,
+        status: 'Novo', // O pedido entra direto no PDV como 'Novo'
+        criadoEm: serverTimestamp()
+    };
+
+    console.log("[LOG] Salvando pedido final no Firestore...");
+    await addDoc(collection(db, "pedidos"), finalOrder);
+
+    console.log("[LOG] Apagando pedido pendente...");
+    await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
+
+    console.log("[LOG] Enviando mensagem de confirmação final...");
+    await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
+}
 
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, getDoc, updateDoc, query, orderBy, where, writeBatch, getDocs, limit, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+// --- FUNÇÕES DE TRANSCRIÇÃO DE ÁUDIO ---
 
-        const firebaseConfig = {
-           apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
-           authDomain: "pizzaria-pdv.firebaseapp.com",
-           projectId: "pizzaria-pdv",
-           storageBucket: "pizzaria-pdv.firebasestorage.app",
-           messagingSenderId: "304171744691",
-           appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+async function transcribeWithGoogle(mediaId) {
+    const speechClient = getSpeechClient();
+    if (!speechClient) return null;
+
+    try {
+        const audioBuffer = await downloadWhatsAppMedia(mediaId);
+        const request = {
+            audio: { content: audioBuffer.toString('base64') },
+            config: { encoding: 'OGG_OPUS', sampleRateHertz: 16000, languageCode: 'pt-BR' },
         };
+        const [response] = await speechClient.recognize(request);
+        return response.results.map(r => r.alternatives[0].transcript).join('\n');
+    } catch (error) {
+        console.error("Erro na transcrição com Google:", error);
+        return null;
+    }
+}
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+// --- FUNÇÕES DE COMUNICAÇÃO COM APIS EXTERNAS ---
 
-        // --- LÓGICA DE AUTENTICAÇÃO E CAIXA ---
-        let currentCashRegister = null;
-        let detailedReportData = {}; 
-        let timerIntervalId = null;
+async function downloadWhatsAppMedia(mediaId) {
+    const mediaUrlResponse = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {
+        headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
+    });
+    if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL da mídia da Meta');
+    const { url } = await mediaUrlResponse.json();
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                document.body.style.visibility = 'visible';
-                checkCashRegisterStatus();
-            } else {
-                window.location.href = `login.html?redirect=pdv.html`;
-            }
+    const audioResponse = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
+    });
+    if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio da Meta');
+    return audioResponse.buffer();
+}
+
+async function getActivePrompt() {
+    console.log("[LOG] Buscando prompt ativo no Firestore...");
+    const promptRef = doc(db, "config", "bot_prompt_active");
+    const docSnap = await getDoc(promptRef);
+    if (docSnap.exists() && docSnap.data().template) {
+        console.log("[LOG] Prompt ativo encontrado no Firestore.");
+        return { promptTemplate: docSnap.data().template };
+    }
+    throw new Error("Prompt da IA não encontrado no Firestore. Configure-o na página 'memoria.html'.");
+}
+
+async function sendWhatsAppMessage(to, text) {
+    const whatsappURL = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    console.log(`[LOG] Enviando mensagem para ${to}: "${text}"`);
+    try {
+        await fetch(whatsappURL, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messaging_product: 'whatsapp', to, text: { body: text } })
         });
+        console.log("[LOG] Mensagem enviada com sucesso.");
+    } catch (error) {
+        console.error('Erro detalhado ao enviar mensagem pelo WhatsApp:', error);
+    }
+}
 
-        const logoutBtn = document.getElementById('logout-btn');
-        logoutBtn.addEventListener('click', () => signOut(auth));
-        
-        const openCashModal = document.getElementById('open-cash-modal');
-        const openCashForm = document.getElementById('open-cash-form');
-        const pdvOverlay = document.getElementById('pdv-overlay');
-        const resolvePendingContainer = document.getElementById('resolve-pending-cash-container');
-        const resolvePendingBtn = document.getElementById('resolve-pending-cash-btn');
-
-        async function checkCashRegisterStatus() {
-            const q = query(collection(db, "caixas"), where("status", "==", "aberto"), limit(1));
-            const querySnapshot = await getDocs(q);
-            
-            if (querySnapshot.empty) {
-                document.getElementById('pending-cash-alert').classList.add('hidden');
-                document.getElementById('open-cash-title').textContent = 'Abrir Caixa';
-                openCashForm.style.display = 'block';
-                resolvePendingContainer.classList.add('hidden');
-                document.getElementById('open-cash-instructions').style.display = 'block';
-
-                pdvOverlay.style.display = 'block';
-                openCashModal.style.display = 'flex';
-            } else {
-                const cashDoc = querySnapshot.docs[0];
-                currentCashRegister = { id: cashDoc.id, ...cashDoc.data() };
-
-                const openDate = currentCashRegister.dataAbertura.toDate();
-                const today = new Date();
-                
-                const isOpenDateFromYesterday = openDate.setHours(0,0,0,0) < today.setHours(0,0,0,0);
-
-                if (isOpenDateFromYesterday) {
-                    const formattedDate = openDate.toLocaleDateString('pt-BR');
-                    document.getElementById('pending-cash-message').textContent = `Existe um caixa do dia ${formattedDate} que não foi fechado. Por favor, feche o caixa para poder continuar.`;
-                    document.getElementById('pending-cash-alert').classList.remove('hidden');
-                    document.getElementById('open-cash-title').textContent = 'Resolver Caixa Pendente';
-                    
-                    openCashForm.style.display = 'none';
-                    resolvePendingContainer.classList.remove('hidden');
-                    document.getElementById('open-cash-instructions').style.display = 'none';
-                    
-                    pdvOverlay.style.display = 'block';
-                    openCashModal.style.display = 'flex';
-                } else {
-                    pdvOverlay.style.display = 'none';
-                    openCashModal.style.display = 'none';
-                    initializePDV();
-                }
-            }
-        }
-
-        openCashForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const initialValue = parseFloat(document.getElementById('initial-value').value);
-            if (isNaN(initialValue) || initialValue < 0) {
-                alert("Por favor, insira um valor inicial válido.");
-                return;
-            }
-
-            try {
-                await addDoc(collection(db, "caixas"), {
-                    dataAbertura: serverTimestamp(),
-                    usuarioAbertura: auth.currentUser.email,
-                    valorInicial: initialValue,
-                    status: 'aberto'
-                });
-                checkCashRegisterStatus();
-            } catch (error) {
-                console.error("Erro ao abrir o caixa:", error);
-                alert("Não foi possível abrir o caixa. Tente novamente.");
-            }
+async function markMessageAsRead(messageId) {
+    const whatsappURL = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    try {
+        await fetch(whatsappURL, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: messageId })
         });
-        
-        const mainContent = document.getElementById('main-content');
-        const mainTabs = document.getElementById('main-tabs');
-        const tabContents = document.querySelectorAll('.tab-content');
-        const mesasGrid = document.getElementById('mesas-grid');
-        const NUMERO_DE_MESAS = 12;
-
-        const colDeliveryNovo = document.getElementById('col-delivery-novo').querySelector('.overflow-y-auto');
-        const colDeliveryPreparo = document.getElementById('col-delivery-preparo').querySelector('.overflow-y-auto');
-        const colDeliveryPronto = document.getElementById('col-delivery-pronto').querySelector('.overflow-y-auto');
-        const colDeliveryEntrega = document.getElementById('col-delivery-entrega').querySelector('.overflow-y-auto');
-        const colDeliveryEntregue = document.getElementById('col-delivery-entregue').querySelector('.overflow-y-auto');
-
-        const colRetiradaNovo = document.getElementById('col-retirada-novo').querySelector('.overflow-y-auto');
-        const colRetiradaPreparo = document.getElementById('col-retirada-preparo').querySelector('.overflow-y-auto');
-        const colRetiradaPronto = document.getElementById('col-retirada-pronto').querySelector('.overflow-y-auto');
-        const colRetiradaEntregue = document.getElementById('col-retirada-entregue').querySelector('.overflow-y-auto');
-
-        const colMesasFechado = document.getElementById('col-mesas-fechado').querySelector('.overflow-y-auto');
-        
-        const connectionStatus = document.getElementById('connection-status');
-        const editOrderModal = document.getElementById('edit-order-modal');
-        const editModalBody = document.getElementById('edit-modal-body');
-        const closeEditModalBtn = document.getElementById('close-edit-modal');
-        const deleteConfirmModal = document.getElementById('delete-confirm-modal');
-        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
-        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
-        const closeCashRegisterBtn = document.getElementById('close-cash-register-btn');
-        const closeCashModal = document.getElementById('close-cash-modal');
-        const closeCashForm = document.getElementById('close-cash-form');
-        const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn');
-        const finalValueInput = document.getElementById('final-value');
-        
-        let orderIdToDelete = null;
-        let deliveryFeesData = [];
-        let draggedItemId = null;
-
-        const joinTablesBtn = document.getElementById('join-tables-btn');
-        const joiningControls = document.getElementById('joining-controls');
-        const confirmJoinBtn = document.getElementById('confirm-join-btn');
-        const cancelJoinBtn = document.getElementById('cancel-join-btn');
-        let isJoiningTables = false;
-        let selectedTablesForJoining = [];
-
-        const manageTableModal = document.getElementById('manage-table-modal');
-        const closeManageTableModalBtn = document.getElementById('close-manage-table-modal');
-        const transferTableModal = document.getElementById('transfer-table-modal');
-        let currentManagingOrderId = null;
-        let currentManagingOrderData = null;
-
-        mainTabs.addEventListener('click', (e) => {
-            const tabButton = e.target.closest('.main-tab-btn');
-            if (!tabButton) return;
-
-            mainTabs.querySelector('.active').classList.remove('active');
-            tabButton.classList.add('active');
-
-            tabContents.forEach(content => content.classList.add('hidden'));
-            const tabName = tabButton.dataset.tab;
-            document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
-            
-            // Remove a animação do sino ao clicar na aba
-            const notificationDiv = document.getElementById(`${tabName}-notification`);
-            if (notificationDiv) {
-                const bell = notificationDiv.querySelector('.fa-bell');
-                if (bell) {
-                    bell.classList.remove('notification-bell-ringing');
-                }
-            }
-        });
-
-        function initializeMesas() {
-            mesasGrid.innerHTML = '';
-            for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
-                const mesaEl = document.createElement('div');
-                mesaEl.id = `mesa-${i}`;
-                mesaEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-livre';
-                mesaEl.dataset.status = 'livre';
-                mesaEl.dataset.number = i;
-                mesaEl.style.gridColumn = '';
-                mesaEl.innerHTML = `
-                    <span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span>
-                    <span class="text-sm font-medium mt-2">Livre</span>
-                `;
-                mesaEl.addEventListener('click', () => handleMesaClick(i));
-                mesasGrid.appendChild(mesaEl);
-            }
-        }
-
-        function handleMesaClick(numeroMesa) {
-            const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
-            if (!mesaEl) return;
-            const status = mesaEl.dataset.status;
-            
-            if (isJoiningTables) {
-                if (status === 'livre') {
-                    const index = selectedTablesForJoining.indexOf(numeroMesa);
-                    if (index > -1) {
-                        selectedTablesForJoining.splice(index, 1);
-                        mesaEl.classList.remove('selected-for-join');
-                    } else {
-                        selectedTablesForJoining.push(numeroMesa);
-                        mesaEl.classList.add('selected-for-join');
-                    }
-                }
-                return;
-            }
-
-            if (status === 'livre') {
-                window.open(`atendente.html?mesa=${numeroMesa}`, '_blank');
-            } else {
-                const orderId = mesaEl.dataset.orderId;
-                if (orderId) {
-                    openManageTableModal(orderId);
-                }
-            }
-        }
-        
-        async function loadDeliveryFees() {
-            if (deliveryFeesData.length > 0) return;
-            try {
-                const response = await fetch('/api/menu');
-                const data = await response.json();
-                deliveryFeesData = data.deliveryFees;
-            } catch (error) {
-                console.error("Erro ao carregar dados de entrega:", error);
-            }
-        }
-
-        function initializePDV() {
-            loadDeliveryFees();
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            let audioResumed = false;
-            setupCustomAlertModal();
-
-            document.body.addEventListener('click', () => {
-                if (!audioResumed && audioContext.state === 'suspended') {
-                    audioContext.resume();
-                    audioResumed = true;
-                }
-            }, { once: true });
-
-            function playNotificationSound() {
-                if (audioContext.state !== 'running') return;
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1);
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 1);
-            }
-            
-            function updateTabCounters(deliveryCount, retiradaCount) {
-                const deliveryNotification = document.getElementById('delivery-notification');
-                const retiradaNotification = document.getElementById('retirada-notification');
-                
-                if (!deliveryNotification || !retiradaNotification) return;
-
-                const deliveryCounter = deliveryNotification.querySelector('span');
-                const retiradaCounter = retiradaNotification.querySelector('span');
-                const deliveryBell = deliveryNotification.querySelector('.fa-bell');
-                const retiradaBell = retiradaNotification.querySelector('.fa-bell');
-
-                if (deliveryCount > 0) {
-                    deliveryCounter.textContent = deliveryCount;
-                    deliveryNotification.classList.remove('hidden');
-                } else {
-                    deliveryNotification.classList.add('hidden');
-                    if (deliveryBell) deliveryBell.classList.remove('notification-bell-ringing');
-                }
-
-                if (retiradaCount > 0) {
-                    retiradaCounter.textContent = retiradaCount;
-                    retiradaNotification.classList.remove('hidden');
-                } else {
-                    retiradaNotification.classList.add('hidden');
-                    if(retiradaBell) retiradaBell.classList.remove('notification-bell-ringing');
-                }
-            }
-            
-            initializeMesas();
-
-            // Lógica de Drag and Drop
-            mainContent.addEventListener('dragstart', (e) => {
-                const card = e.target.closest('.order-card');
-                if (card) {
-                    const newTag = card.querySelector('.new-order-tag');
-                    if (newTag) newTag.remove();
-                    draggedItemId = card.dataset.id;
-                    setTimeout(() => card.classList.add('dragging'), 0);
-                }
-            });
-
-            mainContent.addEventListener('dragend', (e) => {
-                const card = e.target.closest('.order-card');
-                if (card) {
-                    card.classList.remove('dragging');
-                }
-                draggedItemId = null;
-            });
-
-            const pdvColumns = document.querySelectorAll('.pdv-column');
-            
-            pdvColumns.forEach(column => {
-                column.parentElement.classList.add('pdv-column-container');
-                column.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    column.parentElement.classList.add('drag-over');
-                });
-
-                column.addEventListener('dragleave', () => column.parentElement.classList.remove('drag-over'));
-
-                column.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    column.parentElement.classList.remove('drag-over');
-
-                    if (!draggedItemId) return;
-                    
-                    const columnElement = e.target.closest('[data-status]');
-                    const newStatus = columnElement.dataset.status;
-
-                    if (newStatus) {
-                        updateOrderStatus(draggedItemId, newStatus);
-                    }
-                });
-            });
-
-
-            const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
-
-            onSnapshot(q, (snapshot) => {
-                connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
-                
-                [colDeliveryNovo, colDeliveryPreparo, colDeliveryPronto, colDeliveryEntrega, colDeliveryEntregue, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto, colRetiradaEntregue, colMesasFechado]
-                 .forEach(col => col.innerHTML = '');
-                initializeMesas();
-
-                let totalOrdersToday = 0;
-                let totalRevenueToday = 0;
-                const today = new Date().setHours(0, 0, 0, 0);
-
-                snapshot.docChanges().forEach((change) => {
-                    if (change.type === "added") {
-                        const orderData = change.doc.data();
-                        const orderType = identifyOrderType(orderData);
-                        if (orderData.status === 'Novo' && orderType !== 'mesa') {
-                            playNotificationSound();
-                            const notificationDiv = document.getElementById(`${orderType}-notification`);
-                            if (notificationDiv) {
-                                const bell = notificationDiv.querySelector('.fa-bell');
-                                // Apenas adiciona a animação se a aba não estiver ativa
-                                const tabButton = document.querySelector(`.main-tab-btn[data-tab="${orderType}"]`);
-                                if (bell && !tabButton.classList.contains('active')) {
-                                    bell.classList.add('notification-bell-ringing');
-                                }
-                            }
-                        }
-                    }
-                });
-
-                const processedTables = new Set();
-                const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // --- LÓGICA DE ATUALIZAÇÃO DOS CONTADORES NAS ABAS ---
-                let newDeliveryCount = 0;
-                let newRetiradaCount = 0;
-                activeOrders.forEach(order => {
-                    if (order.status === 'Novo') {
-                        const orderType = identifyOrderType(order);
-                        if (orderType === 'delivery') newDeliveryCount++;
-                        if (orderType === 'retirada') newRetiradaCount++;
-                    }
-                });
-                updateTabCounters(newDeliveryCount, newRetiradaCount);
-
-                activeOrders.filter(order => order.grupoMesas && order.grupoMesas.length > 1 && order.status !== 'Finalizado' && order.status !== 'Fechado')
-                    .forEach(order => {
-                        const sortedGroup = [...order.grupoMesas].sort((a, b) => a - b);
-                        const primaryTableNumber = sortedGroup[0];
-                        
-                        const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
-                        if (primaryTableEl) {
-                            primaryTableEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-juntada';
-                            primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
-                            primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
-                            primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
-                            primaryTableEl.dataset.status = 'juntada';
-                            primaryTableEl.dataset.orderId = order.id;
-                            processedTables.add(primaryTableNumber);
-
-                            for (let i = 1; i < sortedGroup.length; i++) {
-                                const secondaryTableNumber = sortedGroup[i];
-                                const secondaryTableEl = document.getElementById(`mesa-${secondaryTableNumber}`);
-                                if (secondaryTableEl) secondaryTableEl.classList.add('hidden');
-                                processedTables.add(secondaryTableNumber);
-                            }
-                        }
-                    });
-
-                activeOrders.forEach(order => {
-                    const orderId = order.id;
-                    if (order.status === 'Finalizado' || order.status === 'Arquivado') return;
-
-                    const card = createOrderCard(order, orderId);
-                    const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
-                    if(orderDate === today) {
-                        totalOrdersToday++;
-                        totalRevenueToday += order.total.finalTotal;
-                    }
-
-                    const tipoPedido = identifyOrderType(order);
-
-                    if (tipoPedido === 'delivery') {
-                        if (order.status === 'Novo') colDeliveryNovo.appendChild(card);
-                        else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
-                        else if (order.status === 'Pronto para Entrega') colDeliveryPronto.appendChild(card);
-                        else if (order.status === 'Saiu para Entrega') colDeliveryEntrega.appendChild(card);
-                        else if (order.status === 'Entregue') colDeliveryEntregue.appendChild(card);
-                    } else if (tipoPedido === 'retirada') {
-                        if (order.status === 'Novo') colRetiradaNovo.appendChild(card);
-                        else if (order.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
-                        else if (order.status === 'Pronto para Retirada') colRetiradaPronto.appendChild(card);
-                        else if (order.status === 'Entregue') colRetiradaEntregue.appendChild(card);
-                    } else if (tipoPedido === 'mesa') {
-                        if (order.status === 'Fechado') {
-                            colMesasFechado.appendChild(card);
-                        } else if (!order.grupoMesas) {
-                            const clientName = order.endereco.clientName || "";
-                            const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
-                            if (numeroMesa && !processedTables.has(numeroMesa)) {
-                                const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
-                                if (mesaEl) {
-                                    mesaEl.classList.remove('mesa-status-livre');
-                                    mesaEl.classList.add('mesa-status-ocupada');
-                                    mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
-                                    mesaEl.dataset.status = 'ocupada';
-                                    mesaEl.dataset.orderId = orderId;
-                                    processedTables.add(numeroMesa);
-                                }
-                            }
-                        }
-                    }
-                });
-                document.getElementById('stats-total-orders').textContent = totalOrdersToday;
-                document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
-                document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
-            });
-            // Iniciar a atualização dos cronômetros
-            if (timerIntervalId) clearInterval(timerIntervalId);
-            timerIntervalId = setInterval(updateTimers, 1000);
-        }
-
-        function updateTimers() {
-            const now = new Date();
-            document.querySelectorAll('.order-card').forEach(card => {
-                const totalTimerEl = card.querySelector('.total-timer-value');
-                const statusTimerEl = card.querySelector('.status-timer-value');
-                if (totalTimerEl && statusTimerEl) {
-                    const createdAt = new Date(parseInt(totalTimerEl.dataset.createdAt));
-                    const statusChangedAt = new Date(parseInt(statusTimerEl.dataset.statusChangedAt));
-
-                    const totalDiff = Math.max(0, Math.floor((now - createdAt) / 1000));
-                    const statusDiff = Math.max(0, Math.floor((now - statusChangedAt) / 1000));
-
-                    totalTimerEl.textContent = formatTime(totalDiff);
-                    statusTimerEl.textContent = formatTime(statusDiff);
-                    
-                    // Atualizar a cor do cronômetro da etapa
-                    const statusTimerContainer = statusTimerEl.parentElement;
-                    statusTimerContainer.classList.remove('timer-green', 'timer-yellow', 'timer-red');
-                    if (statusDiff < 300) { // Menos de 5 minutos
-                        statusTimerContainer.classList.add('timer-green');
-                    } else if (statusDiff < 600) { // Menos de 10 minutos
-                        statusTimerContainer.classList.add('timer-yellow');
-                    } else { // 10 minutos ou mais
-                        statusTimerContainer.classList.add('timer-red');
-                    }
-                }
-            });
-        }
-
-        function formatTime(seconds) {
-            const m = Math.floor(seconds / 60);
-            const s = seconds % 60;
-            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        }
-
-
-        function identifyOrderType(orderData) {
-            if (orderData.endereco && orderData.endereco.rua === "Retirada no Balcão") return 'retirada';
-            if (orderData.endereco && orderData.endereco.rua === "Mesa") return 'mesa';
-            return 'delivery';
-        }
-
-        function createOrderCard(order, id) {
-            const card = document.createElement('div');
-            card.className = 'order-card bg-white rounded-lg shadow-md border-l-4 relative';
-            card.setAttribute('draggable', 'true');
-            card.dataset.id = id;
-            
-            const orderType = identifyOrderType(order);
-            let newTagHtml = '';
-            if (order.status === 'Novo' && orderType !== 'mesa') {
-                newTagHtml = '<div class="new-order-tag animate-pulse">Novo</div>';
-            }
-
-            let itemsHtml = order.itens.map(item => `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`).join('');
-
-            const createdAtTimestamp = order.criadoEm ? order.criadoEm.toMillis() : Date.now();
-            const statusChangedAtTimestamp = order.statusChangedAt ? order.statusChangedAt.toMillis() : createdAtTimestamp;
-
-            let buttonHtml = '';
-            let finalStep = false;
-            
-            if (order.status === 'Novo') {
-                card.classList.add('border-red-500');
-                buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600">Iniciar Preparo</button>`;
-            } else if (order.status === 'Em Preparo') {
-                card.classList.add('border-yellow-500');
-                const nextStatus = orderType === 'retirada' ? 'Pronto para Retirada' : 'Pronto para Entrega';
-                buttonHtml = `<button data-id="${id}" data-status="${nextStatus}" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto</button>`;
-            } else if (order.status === 'Pronto para Entrega') {
-                card.classList.add('border-green-500');
-                buttonHtml = `<button data-id="${id}" data-status="Saiu para Entrega" class="move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Saiu p/ Entrega</button>`;
-            } else if (order.status === 'Saiu para Entrega') {
-                card.classList.add('border-blue-500');
-                buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
-            } else if (order.status === 'Pronto para Retirada') {
-                card.classList.add('border-green-500');
-                buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
-            } else if (order.status === 'Entregue' || order.status === 'Fechado') {
-                card.classList.add('border-gray-400');
-                finalStep = true;
-            }
-
-            let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
-            
-            let paymentText = 'Não definido';
-            if (order.pagamento) {
-                if (typeof order.pagamento === 'object' && order.pagamento.method) {
-                    paymentText = `${order.pagamento.method}`;
-                    if (order.pagamento.trocoPara) {
-                        paymentText += ` (Troco p/ R$ ${parseFloat(order.pagamento.trocoPara).toFixed(2).replace('.', ',')})`;
-                    }
-                } else {
-                    paymentText = order.pagamento;
-                }
-            }
-            let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
-            
-            card.innerHTML = `
-                ${newTagHtml}
-                <div class="card-header flex justify-between items-start cursor-pointer p-4">
-                    <div>
-                        <h3 class="font-bold">Pedido #${id.substring(0, 5)}</h3>
-                        <p class="text-sm font-medium">${order.endereco.clientName}</p>
-                    </div>
-                    <span class="font-bold text-lg">R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</span>
-                </div>
-                 <div class="px-4 pb-2 flex justify-between items-center space-x-2">
-                    <div class="timer-container timer-green">
-                        <i class="far fa-clock"></i> Total: <span class="total-timer-value" data-created-at="${createdAtTimestamp}">00:00</span>
-                    </div>
-                    <div class="timer-container timer-green">
-                        <i class="fas fa-hourglass-start"></i> Na Etapa: <span class="status-timer-value" data-status-changed-at="${statusChangedAtTimestamp}">00:00</span>
-                    </div>
-                </div>
-                <div class="details-container">
-                    <div class="px-4 pb-4">
-                        <div class="mt-2 pt-2 border-t">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
-                                <div class="flex items-center space-x-2">
-                                    <button data-id="${id}" data-type="kitchen" class="print-btn text-gray-500"><i class="fas fa-utensils"></i></button>
-                                    <button data-id="${id}" data-type="client" class="print-btn text-gray-500"><i class="fas fa-receipt"></i></button>
-                                    <button class="archive-btn text-green-500 hover:text-green-700 ${!finalStep ? 'opacity-50 cursor-not-allowed' : ''}" data-id="${id}" ${!finalStep ? 'disabled' : ''} title="Finalizar e Arquivar Pedido"><i class="fas fa-check-circle"></i></button>
-                                    <button data-id="${id}" class="manage-btn text-blue-500"><i class="fas fa-edit"></i></button>
-                                </div>
-                            </div>
-                            <p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
-                            <ul class="border-t border-b py-2 my-2 space-y-1">${itemsHtml}</ul>
-                            ${observationHtml}
-                            ${paymentHtml}
-                            ${buttonHtml}
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            return card;
-        }
-
-        // **CORREÇÃO**: Lógica de arquivamento movida para o frontend
-        async function handleArchiveOrder(orderId) {
-            const archiveBtn = document.querySelector(`.archive-btn[data-id="${orderId}"]`);
-            if (archiveBtn && archiveBtn.disabled) return;
-            
-            if(archiveBtn) {
-                archiveBtn.disabled = true;
-                archiveBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
-            }
-
-            try {
-                // Etapa 1: Chamar a API para fazer o backup do pedido na planilha
-                const response = await fetch('/api/arquivar-pedido', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId: orderId })
-                });
-
-                // **CORREÇÃO**: Tratamento de erro robusto
-                if (!response.ok) {
-                    let errorMsg = `O servidor respondeu com um erro: ${response.statusText}`;
-                    try {
-                        const errorData = await response.json();
-                        errorMsg = `O servidor respondeu com um erro: ${JSON.stringify(errorData)}`;
-                    } catch (e) {
-                        // Se a resposta não for JSON, usa o texto puro
-                        errorMsg = `O servidor respondeu com um erro: ${await response.text()}`;
-                    }
-                    throw new Error(errorMsg);
-                }
-
-                // Etapa 2: Se o backup na planilha foi bem-sucedido, apagar do Firebase
-                const orderRef = doc(db, "pedidos", orderId);
-                await deleteDoc(orderRef);
-                
-                // O onSnapshot do Firebase cuidará de remover o card da tela automaticamente.
-
-            } catch (error) {
-                console.error("Erro ao arquivar pedido:", error);
-                alert("Não foi possível arquivar o pedido: " + error.message); // Exibe a mensagem de erro detalhada
-                if(archiveBtn){
-                    archiveBtn.disabled = false;
-                    archiveBtn.innerHTML = `<i class="fas fa-check-circle"></i>`;
-                }
-            }
-        }
-
-        async function openManageTableModal(orderId) {
-            currentManagingOrderId = orderId;
-            const orderRef = doc(db, "pedidos", orderId);
-            const docSnap = await getDoc(orderRef);
-
-            if (docSnap.exists()) {
-                currentManagingOrderData = docSnap.data();
-                document.getElementById('manage-table-title').textContent = `Gerenciar ${currentManagingOrderData.endereco.clientName}`;
-                const itemsList = document.getElementById('table-order-items-list');
-                itemsList.innerHTML = currentManagingOrderData.itens.map(item => `<li>${item.name} - R$ ${parseFloat(item.price || 0).toFixed(2).replace(',',',')}</li>`).join('');
-                document.getElementById('table-order-total').textContent = `R$ ${parseFloat(currentManagingOrderData.total.finalTotal || 0).toFixed(2).replace('.',',')}`;
-                manageTableModal.style.display = 'flex';
-            }
-        }
-
-        async function openEditModal(id) {
-            await loadDeliveryFees();
-            const orderRef = doc(db, "pedidos", id);
-            const docSnap = await getDoc(orderRef);
-
-            if (docSnap.exists()) {
-                const order = docSnap.data();
-                editModalBody.innerHTML = `
-                    <input type="hidden" id="edit-order-id" value="${id}">
-                    <div>
-                        <label for="edit-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
-                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
-                    </div>
-                    <div>
-                        <label for="edit-telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
-                        <input type="tel" id="edit-telefone" value="${order.endereco.telefone || ''}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
-                    </div>
-                    <div>
-                        <label for="edit-rua" class="block text-sm font-medium text-gray-700">Rua</label>
-                        <input type="text" id="edit-rua" value="${order.endereco.rua}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
-                    </div>
-                     <div>
-                        <label for="edit-numero" class="block text-sm font-medium text-gray-700">Número</label>
-                        <input type="text" id="edit-numero" value="${order.endereco.numero}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
-                    </div>
-                    <div>
-                        <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
-                        <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm"></select>
-                    </div>
-                    <div class="mt-4 flex justify-between">
-                        <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
-                        <button id="delete-order-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">Excluir Pedido</button>
-                    </div>
-                `;
-
-                const bairroSelect = document.getElementById('edit-bairro');
-                bairroSelect.innerHTML = '<option value="">Selecione um bairro</option>';
-                deliveryFeesData.forEach(fee => {
-                    const option = document.createElement('option');
-                    option.value = fee.neighborhood;
-                    option.textContent = `${fee.neighborhood} (R$ ${parseFloat(fee.deliveryFee || 0).toFixed(2).replace('.', ',')})`;
-                    if (fee.neighborhood === order.endereco.bairro) {
-                        option.selected = true;
-                    }
-                    bairroSelect.appendChild(option);
-                });
-
-                editOrderModal.style.display = 'flex';
-            }
-        }
-
-        async function saveOrderChanges() {
-            const id = document.getElementById('edit-order-id').value;
-            const orderRef = doc(db, "pedidos", id);
-            await updateDoc(orderRef, {
-                "endereco.clientName": document.getElementById('edit-clientName').value,
-                "endereco.telefone": document.getElementById('edit-telefone').value,
-                "endereco.rua": document.getElementById('edit-rua').value,
-                "endereco.numero": document.getElementById('edit-numero').value,
-                "endereco.bairro": document.getElementById('edit-bairro').value
-            });
-            editOrderModal.style.display = 'none';
-        }
-
-        function showDeleteConfirmation() {
-            orderIdToDelete = document.getElementById('edit-order-id').value;
-            deleteConfirmModal.style.display = 'flex';
-        }
-
-        async function executeDelete() {
-            if (orderIdToDelete) {
-                await deleteDoc(doc(db, "pedidos", orderIdToDelete));
-                editOrderModal.style.display = 'none';
-                deleteConfirmModal.style.display = 'none';
-                orderIdToDelete = null;
-            }
-        }
-        
-        async function updateOrderStatus(id, newStatus) {
-            const orderRef = doc(db, "pedidos", id);
-            await updateDoc(orderRef, { 
-                status: newStatus,
-                statusChangedAt: serverTimestamp() // Atualiza o timestamp da mudança de status
-            });
-        }
-        
-        function printOrder(id, type) {
-            const orderRef = doc(db, "pedidos", id);
-            getDoc(orderRef).then(docSnap => {
-                if (docSnap.exists()) {
-                    const order = docSnap.data();
-
-                    // --- INÍCIO DA LÓGICA DE IMPRESSÃO OTIMIZADA ---
-                    const styles = `
-                        <style>
-                            @media print {
-                                @page { margin: 0; size: 80mm auto; }
-                                body {
-                                    width: 80mm;
-                                    margin: 0;
-                                    padding: 5mm;
-                                    font-family: 'Courier New', Courier, monospace;
-                                    font-size: 10pt;
-                                    color: #000;
-                                    background-color: #fff;
-                                }
-                                * {
-                                    font-family: 'Courier New', Courier, monospace;
-                                    font-size: 10pt;
-                                }
-                                h1 { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 5px;}
-                                h2 { font-size: 12pt; font-weight: bold; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px dashed #000; padding-bottom: 2px;}
-                                p { margin: 2px 0; }
-                                ul { list-style: none; padding: 0; margin: 0; }
-                                li { margin-bottom: 2px; }
-                                .item-line { display: flex; justify-content: space-between; }
-                                .item-details { padding-left: 15px; font-size: 9pt; color: #333; }
-                                hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
-                                .text-right { text-align: right; }
-                                .font-bold { font-weight: bold; }
-                            }
-                        </style>
-                    `;
-
-                    let printContent = '';
-                    const itemsByCategory = order.itens.reduce((acc, item) => {
-                        const category = item.category || 'Outros';
-                        if (!acc[category]) acc[category] = [];
-                        acc[category].push(item);
-                        return acc;
-                    }, {});
-
-                    if (type === 'kitchen') {
-                        let kitchenHtml = '';
-                        for (const category in itemsByCategory) {
-                            kitchenHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
-                            kitchenHtml += itemsByCategory[category].map(item => {
-                                let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
-                                if (item.extras && item.extras.length > 0) {
-                                    // CORRIGIDO: Adiciona quantidade e garante que cada extra esteja em uma nova linha.
-                                    itemString += `<ul>${item.extras.map(extra => {
-                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
-                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
-                                    }).join('')}</ul>`;
-                                }
-                                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                     // CORRIGIDO: Adiciona quantidade e garante que cada ingrediente esteja em uma nova linha.
-                                     itemString += `<ul>${item.ingredients.map(ing => {
-                                         const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
-                                         return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
-                                     }).join('')}</ul>`;
-                                }
-                                return itemString;
-                            }).join('');
-                            kitchenHtml += '</ul>';
-                        }
-                        
-                        printContent = `
-                            <h1>COMANDA COZINHA</h1>
-                            <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
-                            <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
-                            ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
-                            <hr>
-                            ${kitchenHtml}
-                            ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
-                        `;
-                    } else { // type === 'client'
-                        let clientItemsHtml = '';
-                        for (const category in itemsByCategory) {
-                             clientItemsHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
-                             clientItemsHtml += itemsByCategory[category].map(item => {
-                                let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
-                                if (item.extras && item.extras.length > 0) {
-                                    itemString += `<ul>${item.extras.map(extra => {
-                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
-                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
-                                    }).join('')}</ul>`;
-                                }
-                                // CORREÇÃO AQUI: Adiciona os ingredientes do hambúrguer na comanda do cliente.
-                                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                     itemString += `<ul>${item.ingredients.map(ing => {
-                                         const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
-                                         return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
-                                     }).join('')}</ul>`;
-                                }
-                                return itemString;
-                            }).join('');
-                            clientItemsHtml += '</ul>';
-                        }
-                        
-                        let paymentDetailsHtml = '';
-                        if (order.pagamento) {
-                            let paymentText = '', changeText = '';
-                            if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
-                                paymentText = 'Dinheiro';
-                                const trocoTotal = (parseFloat(order.pagamento.trocoPara || 0) - parseFloat(order.total.finalTotal || 0));
-                                changeText = `<p class="text-right">Troco p/: R$ ${parseFloat(order.pagamento.trocoPara || 0).toFixed(2).replace('.', ',')}</p>
-                                            <p class="text-right">Troco: R$ ${trocoTotal.toFixed(2).replace('.', ',')}</p>`;
-                            } else {
-                                paymentText = order.pagamento;
-                            }
-                            paymentDetailsHtml = `<hr><p><strong>Pagamento: ${paymentText}</strong></p>${changeText}`;
-                        }
-
-                        printContent = `
-                            <h1>Sâmia Pizzaria</h1>
-                            <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
-                            <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
-                             ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
-                            <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
-                            <hr>
-                            ${clientItemsHtml}
-                            <hr>
-                            <div class="text-right">
-                                <p>Subtotal: R$ ${parseFloat(order.total.subtotal || 0).toFixed(2).replace('.', ',')}</p>
-                                ${order.total.discount > 0 ? `<p>Desconto: -R$ ${parseFloat(order.total.discount || 0).toFixed(2).replace('.', ',')}</p>` : ''}
-                                <p>Taxa Entrega: R$ ${parseFloat(order.total.deliveryFee || 0).toFixed(2).replace('.', ',')}</p>
-                                <p class="font-bold">Total: R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</p>
-                            </div>
-                             ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
-                             ${paymentDetailsHtml}
-                        `;
-                    }
-                    
-                    let printFrame = document.getElementById('print-frame');
-                    if (!printFrame) {
-                        printFrame = document.createElement('iframe');
-                        printFrame.id = 'print-frame';
-                        printFrame.style.position = 'absolute';
-                        printFrame.style.width = '0';
-                        printFrame.style.height = '0';
-                        printFrame.style.border = '0';
-                        document.body.appendChild(printFrame);
-                    }
-
-                    const frameDoc = printFrame.contentWindow.document;
-                    frameDoc.open();
-                    frameDoc.write(styles + printContent);
-                    frameDoc.close();
-                    
-                    setTimeout(() => {
-                        printFrame.contentWindow.focus();
-                        printFrame.contentWindow.print();
-                    }, 100);
-                    
-                    // --- FIM DA LÓGICA DE IMPRESSÃO OTIMIZADA ---
-                }
-            });
-        }
-        
-        function printCashClosure() {
-            // Gather data from the modal
-            const initialValue = document.getElementById('summary-initial').textContent;
-            const totalDelivery = document.getElementById('summary-delivery').textContent;
-            const totalRetirada = document.getElementById('summary-retirada').textContent;
-            const totalMesas = document.getElementById('summary-mesas').textContent;
-            const totalDeliveryFees = document.getElementById('summary-delivery-fees').textContent;
-            const totalCash = document.getElementById('summary-cash').textContent;
-            const totalCard = document.getElementById('summary-card').textContent;
-            const totalPix = document.getElementById('summary-pix').textContent;
-            const totalSales = document.getElementById('summary-total-sales').textContent;
-            const totalSangrias = document.getElementById('summary-sangrias').textContent;
-            const expectedInCash = document.getElementById('summary-expected').textContent;
-            const finalValue = document.getElementById('final-value').value;
-            const differenceText = document.getElementById('summary-difference').textContent;
-
-            const styles = `
-                <style>
-                    @media print {
-                        @page { margin: 0; size: 80mm auto; }
-                        body {
-                            width: 80mm;
-                            margin: 0;
-                            padding: 5mm;
-                            font-family: 'Courier New', Courier, monospace;
-                            font-size: 10pt;
-                            color: #000;
-                        }
-                        * {
-                            font-family: 'Courier New', Courier, monospace;
-                            font-size: 10pt;
-                        }
-                        h1 { font-size: 14pt; text-align: center; margin-bottom: 5px; }
-                        h2 { font-size: 11pt; font-weight: bold; margin-top: 10px; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 2px;}
-                        p { margin: 2px 0; display: flex; justify-content: space-between; }
-                        hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
-                        .font-bold { font-weight: bold; }
-                    }
-                </style>
-            `;
-
-            const printContent = `
-                <h1>Fechamento de Caixa</h1>
-                <p><span>Data:</span> <span>${new Date().toLocaleString('pt-BR')}</span></p>
-                <hr>
-                <h2>Resumo de Vendas</h2>
-                <p><span>Vendas Delivery:</span> <span>${totalDelivery}</span></p>
-                <p><span>Vendas Retirada:</span> <span>${totalRetirada}</span></p>
-                <p><span>Vendas Mesas:</span> <span>${totalMesas}</span></p>
-                <p><span>Taxas de Entrega:</span> <span>${totalDeliveryFees}</span></p>
-                <hr>
-                <p class="font-bold"><span>Total de Vendas:</span> <span>${totalSales}</span></p>
-                <hr>
-                <h2>Pagamentos</h2>
-                <p><span>Dinheiro:</span> <span>${totalCash}</span></p>
-                <p><span>Cartão:</span> <span>${totalCard}</span></p>
-                <p><span>Pix:</span> <span>${totalPix}</span></p>
-                <hr>
-                <h2>Resumo do Caixa</h2>
-                <p><span>Valor Inicial:</span> <span>${initialValue}</span></p>
-                <p><span>Total Sangrias:</span> <span>${totalSangrias}</span></p>
-                <p><span>Valor Esperado:</span> <span>${expectedInCash}</span></p>
-                <p><span>Valor Contado:</span> <span>R$ ${parseFloat(finalValue || 0).toFixed(2).replace('.', ',')}</span></p>
-                <p class="font-bold"><span>Diferença:</span> <span>${differenceText || 'N/A'}</span></p>
-            `;
-
-            let printFrame = document.getElementById('print-frame');
-            if (!printFrame) {
-                printFrame = document.createElement('iframe');
-                printFrame.id = 'print-frame';
-                printFrame.style.position = 'absolute';
-                printFrame.style.width = '0';
-                printFrame.style.height = '0';
-                printFrame.style.border = '0';
-                document.body.appendChild(printFrame);
-            }
-
-            const frameDoc = printFrame.contentWindow.document;
-            frameDoc.open();
-            frameDoc.write(styles + printContent);
-            frameDoc.close();
-            
-            setTimeout(() => {
-                printFrame.contentWindow.focus();
-                printFrame.contentWindow.print();
-            }, 100);
-        }
-
-        async function openCloseCashModal() {
-            if (!currentCashRegister) {
-                showCustomAlert("Nenhum caixa aberto para fechar.");
-                return;
-            }
-
-            try {
-                const deliveredOrdersQuery = query(collection(db, "pedidos"), where("status", "in", ["Entregue", "Fechado"]));
-                const querySnapshot = await getDocs(deliveredOrdersQuery);
-
-                let totalCash = 0, totalCard = 0, totalPix = 0;
-                let totalDelivery = 0, totalRetirada = 0, totalMesas = 0, totalDeliveryFees = 0;
-                
-                const openingTime = currentCashRegister.dataAbertura.toDate();
-
-                const updatedCashRegisterSnap = await getDoc(doc(db, "caixas", currentCashRegister.id));
-                const updatedCashRegisterData = updatedCashRegisterSnap.data();
-                const sangrias = updatedCashRegisterData.sangrias || [];
-                const totalSangrias = sangrias.reduce((sum, s) => sum + s.amount, 0);
-
-                querySnapshot.forEach(doc => {
-                    const order = doc.data();
-                    const orderDate = order.criadoEm ? order.criadoEm.toDate() : new Date();
-
-                    if (orderDate >= openingTime) {
-                        const finalTotal = parseFloat(order.total.finalTotal || 0);
-                        const subtotal = parseFloat(order.total.subtotal || 0);
-                        const discount = parseFloat(order.total.discount || 0);
-                        const payment = order.pagamento;
-                        
-                        if ((typeof payment === 'object' && payment.method === 'Dinheiro') || payment === 'Dinheiro') {
-                            totalCash += finalTotal;
-                        } else if (payment === 'Cartão de Crédito/Débito') {
-                            totalCard += finalTotal;
-                        } else if (payment === 'Pix') {
-                            totalPix += finalTotal;
-                        }
-                        
-                        const orderType = identifyOrderType(order);
-                        if (orderType === 'delivery') {
-                            totalDelivery += (subtotal - discount);
-                            totalDeliveryFees += parseFloat(order.total.deliveryFee || 0);
-                        } else if (orderType === 'retirada') {
-                            totalRetirada += finalTotal;
-                        } else if (orderType === 'mesa') {
-                            totalMesas += finalTotal;
-                        }
-                    }
-                });
-
-                const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
-                const expectedInCash = currentCashRegister.valorInicial + totalSales - totalSangrias;
-                const sangriaDetails = sangrias.map(s => `${s.reason}: R$${s.amount.toFixed(2).replace('.',',')}`).join('; ');
-                
-                detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales, totalSangrias, sangriaDetails };
-
-                document.getElementById('summary-initial').textContent = `R$ ${parseFloat(currentCashRegister.valorInicial || 0).toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-retirada').textContent = `R$ ${totalRetirada.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-mesas').textContent = `R$ ${totalMesas.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-delivery-fees').textContent = `R$ ${totalDeliveryFees.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-cash').textContent = `R$ ${totalCash.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-card').textContent = `R$ ${totalCard.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-sangrias').textContent = `- R$ ${totalSangrias.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
-
-                closeCashModal.style.display = 'flex';
-            } catch (error) {
-                console.error("Erro ao abrir modal de fechamento de caixa:", error);
-                alert("Falha ao calcular totais do caixa: " + error.message);
-            }
-        }
-
-        document.querySelector('main').addEventListener('click', function(e) {
-            const card = e.target.closest('.order-card');
-            if (card) {
-                const newTag = card.querySelector('.new-order-tag');
-                if (newTag) {
-                    newTag.remove();
-                }
-            }
-            
-            const moveBtn = e.target.closest('.move-btn');
-            const manageBtn = e.target.closest('.manage-btn');
-            const printBtn = e.target.closest('.print-btn');
-            const archiveBtn = e.target.closest('.archive-btn');
-            const cardHeader = e.target.closest('.card-header');
-
-            if (moveBtn) updateOrderStatus(moveBtn.dataset.id, moveBtn.dataset.status);
-            if (manageBtn) openEditModal(manageBtn.dataset.id);
-            if (printBtn) printOrder(printBtn.dataset.id, printBtn.dataset.type);
-            if (archiveBtn) handleArchiveOrder(archiveBtn.dataset.id);
-            if (cardHeader && !e.target.closest('button, a')) {
-                cardHeader.closest('.order-card').classList.toggle('expanded');
-            }
-        });
-
-        closeEditModalBtn.addEventListener('click', () => editOrderModal.style.display = 'none');
-        editModalBody.addEventListener('click', (e) => {
-            if (e.target.id === 'save-changes-btn') saveOrderChanges();
-            if (e.target.id === 'delete-order-btn') showDeleteConfirmation();
-        });
-        cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.style.display = 'none');
-        confirmDeleteBtn.addEventListener('click', executeDelete);
-        
-        document.getElementById('close-account-btn').addEventListener('click', async () => {
-            if(currentManagingOrderId) {
-                await updateOrderStatus(currentManagingOrderId, 'Fechado');
-                alert("Conta fechada com sucesso!");
-                manageTableModal.style.display = 'none';
-            }
-        });
-
-        resolvePendingBtn.addEventListener('click', () => {
-            openCashModal.style.display = 'none';
-            openCloseCashModal();
-        });
-
-        closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
-        cancelCloseCashBtn.addEventListener('click', () => closeCashModal.style.display = 'none');
-        document.getElementById('print-cash-closure-btn').addEventListener('click', printCashClosure);
-
-        finalValueInput.addEventListener('input', () => {
-            const finalValue = parseFloat(finalValueInput.value);
-            const expectedValueText = document.getElementById('summary-expected').textContent;
-            if (!expectedValueText) return;
-
-            const expectedValue = parseFloat(expectedValueText.replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
-
-            const differenceSection = document.getElementById('summary-difference-section');
-            const differenceEl = document.getElementById('summary-difference');
-
-            if (isNaN(finalValue)) {
-                differenceSection.classList.add('hidden');
-                return;
-            }
-
-            const difference = finalValue - expectedValue;
-
-            differenceSection.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-gray-100', 'text-gray-800');
-
-            if (difference > 0) {
-                differenceSection.classList.add('bg-green-100', 'text-green-800');
-                differenceEl.textContent = `SOBRA: R$ ${difference.toFixed(2).replace('.', ',')}`;
-            } else if (difference < 0) {
-                differenceSection.classList.add('bg-red-100', 'text-red-800');
-                differenceEl.textContent = `FALTA: R$ ${Math.abs(difference).toFixed(2).replace('.', ',')}`;
-            } else {
-                differenceSection.classList.add('bg-gray-100', 'text-gray-800');
-                differenceEl.textContent = 'VALORES BATEM: R$ 0,00';
-            }
-        });
-
-        closeCashForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            // --- NOVA VERIFICAÇÃO DE PEDIDOS PENDENTES ---
-            const pendingDeliveryColumns = [
-                'col-delivery-novo', 'col-delivery-preparo', 'col-delivery-pronto', 'col-delivery-entrega',
-                'col-retirada-novo', 'col-retirada-preparo', 'col-retirada-pronto'
-            ];
-            const hasPendingDeliveryOrders = pendingDeliveryColumns.some(colId => {
-                const column = document.getElementById(colId);
-                return column && column.querySelector('.order-card');
-            });
-            
-            const hasPendingTableOrders = Array.from(document.querySelectorAll('#mesas-grid .mesa-item')).some(mesa => 
-                mesa.dataset.status === 'ocupada' || mesa.dataset.status === 'juntada'
-            );
-
-            if (hasPendingDeliveryOrders || hasPendingTableOrders) {
-                showCustomAlert('Não é possível fechar o caixa. Ainda existem pedidos ou mesas em aberto. Finalize todos os pedidos antes de continuar.');
-                return; // Impede o fechamento
-            }
-            // --- FIM DA NOVA VERIFICAÇÃO ---
-
-            const finalValue = parseFloat(finalValueInput.value);
-            if (isNaN(finalValue) || finalValue < 0) {
-                alert("Por favor, insira um valor válido.");
-                return;
-            }
-            
-            const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
-            const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
-            
-            try {
-                const dataToSaveInFirestore = {
-                    status: 'fechado',
-                    dataFechamento: serverTimestamp(),
-                    usuarioFechamento: auth.currentUser.email,
-                    valorFinalContado: finalValue,
-                    diferenca: finalValue - expectedValue,
-                    totalVendas: detailedReportData.totalSales,
-                    totalVendasDelivery: detailedReportData.totalDelivery,
-                    totalVendasRetirada: detailedReportData.totalRetirada,
-                    totalVendasMesas: detailedReportData.totalMesas,
-                    totalTaxasEntrega: detailedReportData.totalDeliveryFees,
-                    totalDinheiro: detailedReportData.totalCash,
-                    totalCartao: detailedReportData.totalCard,
-                    totalPix: detailedReportData.totalPix,
-                    totalSangrias: detailedReportData.totalSangrias,
-                };
-                
-                await updateDoc(cashRegisterRef, dataToSaveInFirestore);
-                alert("Caixa fechado com sucesso!");
-
-                // Arquiva todos os pedidos finalizados
-                const confirmCloseBtn = document.getElementById('confirm-close-cash-btn');
-                confirmCloseBtn.disabled = true;
-                confirmCloseBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Arquivando Pedidos...';
-
-                try {
-                    const ordersToArchiveQuery = query(collection(db, "pedidos"), where("status", "in", ["Entregue", "Fechado"]));
-                    const querySnapshot = await getDocs(ordersToArchiveQuery);
-                    
-                    const archivePromises = [];
-                    querySnapshot.forEach((doc) => {
-                        archivePromises.push(handleArchiveOrder(doc.id));
-                    });
-
-                    await Promise.all(archivePromises);
-                } catch (archiveError) {
-                    console.error("Ocorreu um erro ao tentar arquivar os pedidos automaticamente:", archiveError);
-                    alert("O caixa foi fechado, mas ocorreu um erro ao arquivar os pedidos. Verifique o console.");
-                } finally {
-                     confirmCloseBtn.disabled = false;
-                     confirmCloseBtn.textContent = 'Confirmar Fechamento';
-                }
-                
-                // Prepara os dados COMPLETOS para arquivamento na planilha
-                const dataToArchive = {
-                    ...detailedReportData,
-                    id: currentCashRegister.id,
-                    dataAbertura: currentCashRegister.dataAbertura.toDate(),
-                    usuarioAbertura: currentCashRegister.usuarioAbertura,
-                    valorInicial: currentCashRegister.valorInicial,
-                    usuarioFechamento: auth.currentUser.email,
-                    valorFinalContado: finalValue,
-                    diferenca: finalValue - expectedValue,
-                    sangrias: detailedReportData.sangriaDetails // Garante que os detalhes da sangria estão aqui
-                };
-
-                // Chama a API para arquivar os dados com o objeto correto
-                fetch('/api/arquivar-fechamento', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cashRegisterData: dataToArchive })
-                }).then(res => res.json()).then(data => {
-                    if (data.success) {
-                        console.log("Fechamento de caixa arquivado na planilha com sucesso.");
-                    } else {
-                        console.error("Falha ao arquivar fechamento na planilha:", data.error);
-                        alert("O caixa foi fechado no sistema, mas houve uma falha ao salvar na planilha. Verifique o console de logs.");
-                    }
-                }).catch(err => {
-                    console.error("Erro de rede ao arquivar fechamento:", err);
-                     alert("O caixa foi fechado no sistema, mas houve uma falha de rede ao salvar na planilha.");
-                });
-
-                closeCashModal.style.display = 'none';
-                closeCashForm.reset();
-                document.getElementById('summary-difference-section').classList.add('hidden');
-                checkCashRegisterStatus();
-
-            } catch (error) {
-                console.error("Erro ao fechar o caixa:", error);
-                alert("Não foi possível fechar o caixa. Tente novamente.");
-            }
-        });
-        
-        joinTablesBtn.addEventListener('click', () => toggleJoinMode(true));
-        cancelJoinBtn.addEventListener('click', () => toggleJoinMode(false));
-        confirmJoinBtn.addEventListener('click', () => {
-            if (selectedTablesForJoining.length < 2) {
-                alert("Selecione pelo menos duas mesas para juntar.");
-                return;
-            }
-            const sortedTables = selectedTablesForJoining.sort((a, b) => a - b);
-            const tablesParam = sortedTables.join(',');
-            
-            window.open(`atendente.html?grupo=${tablesParam}`, '_blank');
-            
-            toggleJoinMode(false);
-        });
-
-        closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
-        document.getElementById('print-partial-btn').addEventListener('click', () => {
-            if(currentManagingOrderId) printOrder(currentManagingOrderId, 'client');
-        });
-        document.getElementById('transfer-table-btn').addEventListener('click', () => {
-             const freeTablesSelect = document.getElementById('free-tables-select');
-            freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
-            const freeTables = [];
-            document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
-                freeTables.push(mesaEl.dataset.number);
-                const option = document.createElement('option');
-                option.value = mesaEl.dataset.number;
-                option.textContent = `Mesa ${mesaEl.dataset.number}`;
-                freeTablesSelect.appendChild(option);
-            });
-
-            if (freeTables.length === 0) {
-                alert("Nenhuma mesa livre para transferir.");
-                return;
-            }
-            transferTableModal.style.display = 'flex';
-        });
-
-        document.getElementById('cancel-transfer-btn').addEventListener('click', () => {
-            transferTableModal.style.display = 'none';
-        });
-
-        document.getElementById('confirm-transfer-btn').addEventListener('click', async () => {
-            const newTableNumber = document.getElementById('free-tables-select').value;
-            if (!newTableNumber) {
-                alert("Por favor, selecione uma mesa para a transferência.");
-                return;
-            }
-
-            if (currentManagingOrderId && currentManagingOrderData) {
-                const newClientName = `Mesa ${newTableNumber}`;
-                const newOrderData = {
-                    ...currentManagingOrderData,
-                    "endereco.clientName": newClientName,
-                    grupoMesas: null // Remove o grupo se houver
-                };
-
-                // Cria um novo pedido para a nova mesa
-                const newOrderRef = await addDoc(collection(db, "pedidos"), newOrderData);
-                
-                // Finaliza o pedido antigo
-                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
-
-                alert(`Pedido transferido com sucesso para a ${newClientName}`);
-                transferTableModal.style.display = 'none';
-                manageTableModal.style.display = 'none';
-            }
-        });
-
-        // --- LÓGICA DA SANGRIA ---
-        const sangriaModal = document.getElementById('sangria-modal');
-        const sangriaForm = document.getElementById('sangria-form');
-
-        // O botão agora está dentro do modal de fechamento
-        document.getElementById('close-cash-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'register-sangria-btn') {
-                 if (!currentCashRegister) {
-                    alert("É necessário ter um caixa aberto para registrar uma sangria.");
-                    return;
-                }
-                sangriaForm.reset();
-                sangriaModal.style.display = 'flex';
-            }
-        });
-
-        document.getElementById('cancel-sangria-btn').addEventListener('click', () => {
-            sangriaModal.style.display = 'none';
-        });
-
-        sangriaForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const amount = parseFloat(document.getElementById('sangria-amount').value);
-            const reason = document.getElementById('sangria-reason').value.trim();
-
-            if (isNaN(amount) || amount <= 0) {
-                alert("Por favor, insira um valor válido para a sangria.");
-                return;
-            }
-            if (!reason) {
-                alert("O motivo da sangria é obrigatório.");
-                return;
-            }
-
-            const confirmBtn = document.getElementById('confirm-sangria-btn');
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = 'Registrando...';
-
-            try {
-                const response = await fetch('/api/registrar-sangria', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        amount,
-                        reason,
-                        userEmail: auth.currentUser.email,
-                        cashRegisterId: currentCashRegister.id
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Falha ao registrar sangria.');
-                }
-
-                alert("Sangria registrada com sucesso!");
-                sangriaModal.style.display = 'none';
-                // Atualiza a visualização do caixa se estiver aberta
-                if (closeCashModal.style.display === 'flex') {
-                    openCloseCashModal();
-                }
-
-            } catch (error) {
-                console.error("Erro ao registrar sangria:", error);
-                alert(`Erro: ${error.message}`);
-            } finally {
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = 'Confirmar Sangria';
-            }
-        });
-        
-        function setupCustomAlertModal() {
-            const modal = document.getElementById('custom-alert-modal');
-            const okBtn = document.getElementById('ok-alert-modal');
-            
-            const closeModal = () => modal.style.display = 'none';
-
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal || e.target.closest('#ok-alert-modal')) closeModal();
-            });
-        }
-        
-        function showCustomAlert(message) {
-            document.getElementById('custom-alert-message').textContent = message;
-            document.getElementById('custom-alert-modal').style.display = 'flex';
-        }
-
-    </script>
-</body>
-</html>
+    } catch (error) {
+        console.warn('Não foi possível marcar a mensagem como lida:', error);
+    }
+}
 
