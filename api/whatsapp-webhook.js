@@ -322,8 +322,11 @@ async function getActivePrompt() {
 }
 
 async function callGeminiAPI(userMessage, systemData, conversationState) {
+    // --- CORREÇÃO APLICADA AQUI ---
+    // Alterado o nome do modelo para 'gemini-pro', que é estável e compatível.
+    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+    
     const { availableMenu, allIngredients, promptTemplate } = systemData;
-    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
     const simplifiedMenu = availableMenu.map(item => ({
         name: item.name, category: item.category, description: item.description,
@@ -390,3 +393,4 @@ async function markMessageAsRead(messageId) {
         console.warn('Não foi possível marcar a mensagem como lida:', error);
     }
 }
+
