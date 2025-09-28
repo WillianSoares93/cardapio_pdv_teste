@@ -274,7 +274,7 @@ async function finalizeOrder(userPhoneNumber, conversationState) {
 }
 
 
-// --- FUNÇÕES DE TRANSCRIção DE ÁUDIO ---
+// --- FUNÇÕES DE TRANSCRIÇÃO DE ÁUDIO ---
 
 async function transcribeWithGoogle(mediaId) {
     const speechClient = getSpeechClient();
@@ -323,8 +323,8 @@ async function getActivePrompt() {
 
 async function callGeminiAPI(userMessage, systemData, conversationState) {
     // --- CORREÇÃO APLICADA AQUI ---
-    // Alterada a URL da API para a versão estável v1
-    const geminiURL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+    // Alterada a URL da API para usar a versão v1beta com o modelo gemini-1.0-pro, a combinação mais estável.
+    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${GEMINI_API_KEY}`;
 
     const { availableMenu, allIngredients, promptTemplate } = systemData;
 
