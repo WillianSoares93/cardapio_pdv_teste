@@ -1,5 +1,5 @@
 // Arquivo: /api/whatsapp-webhook.js
-// VERSÃO FINAL: Utiliza o endpoint oficial do Vertex AI com o modelo gemini-1.5-pro-latest.
+// VERSÃO FINAL: Utiliza o endpoint oficial do Vertex AI com o modelo gemini-1.0-pro para máxima compatibilidade.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -163,8 +163,8 @@ async function callVertexAIGemini(userMessage, systemData, conversationState) {
         .replace(/\${ESTADO_PEDIDO}/g, JSON.stringify(conversationState.itens || []))
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
-    // --- CORREÇÃO APLICADA AQUI ---
-    const modelId = "gemini-1.5-pro-latest";
+    // --- CORREÇÃO FINAL APLICADA AQUI ---
+    const modelId = "gemini-1.0-pro";
     const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:streamGenerateContent`;
 
     try {
