@@ -24,9 +24,14 @@
     <header class="bg-white shadow-md">
         <div class="max-w-5xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
             <h1 class="text-2xl font-bold text-gray-800">Gerenciar Memória da IA</h1>
-            <a href="pdv.html" class="px-4 py-2 bg-gray-600 text-white text-sm font-bold rounded-md hover:bg-gray-700 transition-colors">
-                <i class="fas fa-arrow-left mr-2"></i>Voltar ao PDV
-            </a>
+            <div class="flex items-center space-x-4">
+                <a href="pdv.html" class="px-4 py-2 bg-gray-600 text-white text-sm font-bold rounded-md hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Voltar ao PDV
+                </a>
+                <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                </button>
+            </div>
         </div>
     </header>
 
@@ -35,7 +40,7 @@
             <div class="mb-4">
                 <h2 class="text-xl font-semibold text-gray-800">Editor de Prompt do Atendente Virtual</h2>
                 <p class="text-sm text-gray-600 mt-1">
-                    Abaixo está o "cérebro" da IA. Edite as instruções com cuidado. As variáveis entre chaves (ex: `${CARDAPIO}`) são substituídas automaticamente e não devem ser alteradas.
+                    Abaixo está o "cérebro" da IA. Edite as instruções com cuidado. As variáveis entre chaves (ex: `${CARDAPIO}`) são substituídas automaticamente pelo sistema e **não devem ser alteradas**.
                 </p>
             </div>
             
@@ -57,7 +62,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -77,6 +82,9 @@
         const promptNameInput = document.getElementById('prompt-name');
         const savePromptBtn = document.getElementById('save-prompt-btn');
         const feedbackMessage = document.getElementById('feedback-message');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        logoutBtn.addEventListener('click', () => signOut(auth));
 
         const defaultPrompt = `Você é um atendente de pizzaria inteligente, amigável e conversacional. Sua principal tarefa é analisar a conversa de um cliente e extrair as informações do pedido de forma estruturada.
 
@@ -159,4 +167,3 @@ Analise a mensagem do cliente com base em todo o contexto fornecido. Sua respost
     </script>
 </body>
 </html>
-
