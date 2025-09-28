@@ -1,5 +1,5 @@
 // Arquivo: /api/whatsapp-webhook.js
-// VERSÃO ATUALIZADA: Utiliza o endpoint oficial do Vertex AI para maior estabilidade.
+// VERSÃO FINAL: Utiliza o endpoint oficial do Vertex AI com autenticação explícita.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -25,11 +25,10 @@ const {
     WHATSAPP_VERIFY_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
     GOOGLE_CREDENTIALS_BASE64,
-    // GEMINI_API_KEY não é mais usado para a chamada principal.
 } = process.env;
 
 const GOOGLE_PROJECT_ID = firebaseConfig.projectId;
-const GOOGLE_CLOUD_REGION = 'us-central1'; // Região padrão para Vertex AI
+const GOOGLE_CLOUD_REGION = 'us-central1';
 
 let speechClientInstance = null;
 
@@ -133,12 +132,23 @@ export default async function handler(req, res) {
 }
 
 
-// --- NOVA FUNÇÃO DE CHAMADA À API ---
+// --- FUNÇÃO DE CHAMADA À API (CORRIGIDA) ---
 
 async function callVertexAIGemini(userMessage, systemData, conversationState) {
+    // --- INÍCIO DA CORREÇÃO ---
+    // Garante que as credenciais da variável de ambiente sejam usadas para autenticação.
+    if (!GOOGLE_CREDENTIALS_BASE64) {
+        throw new Error("Credenciais do Google Cloud (GOOGLE_CREDENTIALS_BASE64) não estão configuradas na Vercel.");
+    }
+    const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
+    const credentials = JSON.parse(credentialsJson);
+
     const auth = new GoogleAuth({
+        credentials,
         scopes: 'https://www.googleapis.com/auth/cloud-platform'
     });
+    // --- FIM DA CORREÇÃO ---
+
     const client = await auth.getClient();
     const accessToken = (await client.getAccessToken()).token;
 
