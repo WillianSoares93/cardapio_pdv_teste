@@ -1,12 +1,11 @@
 // Arquivo: /api/whatsapp-webhook.js
-// Este arquivo é o coração do seu bot. Ele recebe as mensagens do WhatsApp,
-// busca o cardápio e as regras do seu sistema em tempo real, e usa o Gemini para
-// entender e processar os pedidos dos clientes.
+// VERSÃO ATUALIZADA: Utiliza o endpoint oficial do Vertex AI para maior estabilidade.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import fetch from 'node-fetch';
 import { SpeechClient } from '@google-cloud/speech';
+import { GoogleAuth } from 'google-auth-library';
 
 // --- CONFIGURAÇÃO ---
 const firebaseConfig = {
@@ -25,9 +24,12 @@ const {
     WHATSAPP_API_TOKEN,
     WHATSAPP_VERIFY_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
-    GEMINI_API_KEY,
-    GOOGLE_CREDENTIALS_BASE64
+    GOOGLE_CREDENTIALS_BASE64,
+    // GEMINI_API_KEY não é mais usado para a chamada principal.
 } = process.env;
+
+const GOOGLE_PROJECT_ID = firebaseConfig.projectId;
+const GOOGLE_CLOUD_REGION = 'us-central1'; // Região padrão para Vertex AI
 
 let speechClientInstance = null;
 
@@ -100,11 +102,11 @@ export default async function handler(req, res) {
             console.log("[LOG] Dados carregados com sucesso.");
 
             conversationState.history.push({ role: 'user', content: userMessage });
-            
-            console.log("[LOG] Chamando a API do Gemini...");
-            const responseFromAI = await callGeminiAPI(userMessage, systemData, conversationState);
+
+            console.log("[LOG] Chamando a API do Gemini via Vertex AI...");
+            const responseFromAI = await callVertexAIGemini(userMessage, systemData, conversationState);
             console.log("[LOG] Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
-            
+
             conversationState.history.push({ role: 'assistant', content: JSON.stringify(responseFromAI) });
 
             if (responseFromAI.action === "PROCESS_ORDER") {
@@ -130,11 +132,15 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
 }
 
-// ... (O resto das funções auxiliares como getUserMessage, getConversationState, etc., permanecem as mesmas)
 
-async function callGeminiAPI(userMessage, systemData, conversationState) {
-    // --- CORREÇÃO FINAL: Usando a combinação mais estável de API e modelo ---
-    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+// --- NOVA FUNÇÃO DE CHAMADA À API ---
+
+async function callVertexAIGemini(userMessage, systemData, conversationState) {
+    const auth = new GoogleAuth({
+        scopes: 'https://www.googleapis.com/auth/cloud-platform'
+    });
+    const client = await auth.getClient();
+    const accessToken = (await client.getAccessToken()).token;
 
     const { availableMenu, allIngredients, promptTemplate } = systemData;
 
@@ -152,42 +158,46 @@ async function callGeminiAPI(userMessage, systemData, conversationState) {
         .replace(/\${ESTADO_PEDIDO}/g, JSON.stringify(conversationState.itens || []))
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
+    const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/gemini-1.5-flash-001:streamGenerateContent`;
+
     try {
-        const response = await fetch(geminiURL, {
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                }
             })
         });
 
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error("Erro da API do Gemini (corpo da resposta):", errorBody);
-            throw new Error(`Erro na API do Gemini: ${response.status}. Verifique se sua nova API Key está correta na Vercel e se a "Generative Language API" está ATIVADA no seu projeto Google Cloud.`);
+            console.error("Erro da API Vertex AI (corpo da resposta):", errorBody);
+            throw new Error(`Erro na API Vertex AI: ${response.status}. Verifique se a API "Vertex AI" está ATIVA no seu projeto Google Cloud e se o faturamento está configurado.`);
         }
-        
-        const data = await response.json();
 
-        if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-             throw new Error("Resposta inesperada ou vazia da API do Gemini.");
-        }
+        const data = await response.json();
         
-        const jsonString = data.candidates[0].content.parts[0].text;
-        const cleanedJsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanedJsonString);
+        if (!data[0]?.candidates?.[0]?.content?.parts?.[0]?.text) {
+             throw new Error("Resposta inesperada ou vazia da API Vertex AI.");
+        }
+
+        const jsonString = data[0].candidates[0].content.parts[0].text;
+        return JSON.parse(jsonString);
 
     } catch (error) {
-        console.error("Erro ao chamar ou processar a resposta do Gemini:", error);
+        console.error("Erro ao chamar ou processar a resposta do Vertex AI Gemini:", error);
         return { action: "ANSWER_QUESTION", answer: 'Desculpe, tive um problema para processar sua solicitação. Pode tentar de outra forma?' };
     }
 }
 
 
-// O restante do arquivo (funções de transcrição, envio de mensagem, etc.) permanece igual
-// ... (código anterior omitido por brevidade) ...
-
-// --- FUNÇÕES DE LÓGICA PRINCIPAL ---
+// --- DEMAIS FUNÇÕES (permanecem as mesmas) ---
 
 async function getUserMessage(messageData, userPhoneNumber) {
     if (messageData.type === 'text') {
@@ -196,7 +206,6 @@ async function getUserMessage(messageData, userPhoneNumber) {
     if (messageData.type === 'audio') {
         await sendWhatsAppMessage(userPhoneNumber, 'Ok, processando seu áudio...');
         const mediaId = messageData.audio.id;
-
         const transcription = await transcribeWithGoogle(mediaId);
         if (!transcription) {
             await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, não consegui entender o áudio. Pode tentar de novo ou enviar por texto?');
@@ -211,12 +220,10 @@ async function getUserMessage(messageData, userPhoneNumber) {
 async function getConversationState(phoneNumber) {
     const stateRef = doc(db, 'pedidos_pendentes_whatsapp', phoneNumber);
     const docSnap = await getDoc(stateRef);
-    // Retorna o estado salvo ou um estado inicial vazio
     return docSnap.exists() ? docSnap.data() : { history: [], itens: [], subtotal: 0, endereco: null, pagamento: null };
 }
 
 async function saveConversationState(phoneNumber, state) {
-    // Limita o histórico para as últimas 10 trocas para não sobrecarregar
     if (state.history.length > 20) {
         state.history = state.history.slice(-20);
     }
@@ -228,14 +235,11 @@ async function getSystemData(req) {
     const protocol = req.headers['x-forwarded-proto'] || 'http';
     const host = req.headers.host;
     const apiUrl = `${protocol}://${host}/api/menu`;
-
     console.log(`[LOG] Buscando dados do sistema em: ${apiUrl}`);
-
     const [menuData, promptData] = await Promise.all([
         fetch(apiUrl).then(res => res.json()),
         getActivePrompt()
     ]);
-
     return {
         availableMenu: menuData.cardapio,
         allIngredients: menuData.ingredientesHamburguer,
@@ -245,23 +249,17 @@ async function getSystemData(req) {
 
 async function processOrderAction(userPhoneNumber, aiResponse, conversationState) {
     console.log("[LOG] Processando ação de pedido...");
-
-    // Atualiza o estado da conversa com os dados extraídos pela IA
     if (aiResponse.itens && aiResponse.itens.length > 0) {
         conversationState.itens.push(...aiResponse.itens);
     }
     if (aiResponse.address) {
-        conversationState.endereco = { rua: aiResponse.address }; // Simplificado, pode ser expandido
+        conversationState.endereco = { rua: aiResponse.address };
     }
     if (aiResponse.paymentMethod) {
         conversationState.pagamento = aiResponse.paymentMethod;
     }
-
     conversationState.subtotal = conversationState.itens.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
     let nextStepMessage = '';
-
-    // Verifica o que falta para finalizar o pedido
     if (!conversationState.itens || conversationState.itens.length === 0) {
         nextStepMessage = "Não entendi quais itens você gostaria de pedir. Poderia me dizer?";
     } else if (!conversationState.endereco) {
@@ -269,17 +267,13 @@ async function processOrderAction(userPhoneNumber, aiResponse, conversationState
     } else if (!conversationState.pagamento) {
         nextStepMessage = `Endereço anotado! Qual será a forma de pagamento? (Dinheiro, Cartão ou Pix)`;
     } else {
-        // Todas as informações foram coletadas, finaliza o pedido
         console.log("[LOG] Todas as informações foram coletadas. Finalizando o pedido...");
         await finalizeOrder(userPhoneNumber, conversationState);
         return;
     }
-
-    // Se a IA gerou uma pergunta de esclarecimento, usa ela
     if (aiResponse.clarification_question) {
         nextStepMessage = aiResponse.clarification_question;
     }
-
     console.log(`[LOG] Salvando estado e enviando próxima mensagem: "${nextStepMessage}"`);
     await saveConversationState(userPhoneNumber, conversationState);
     await sendWhatsAppMessage(userPhoneNumber, nextStepMessage);
@@ -295,32 +289,25 @@ async function finalizeOrder(userPhoneNumber, conversationState) {
         },
         total: {
             subtotal: conversationState.subtotal,
-            deliveryFee: 0, // A ser calculado pela API de taxas ou no PDV
+            deliveryFee: 0,
             discount: 0,
-            finalTotal: conversationState.subtotal // Temporário, a ser recalculado no PDV
+            finalTotal: conversationState.subtotal
         },
         pagamento: conversationState.pagamento,
-        status: 'Novo', // O pedido entra direto no PDV como 'Novo'
+        status: 'Novo',
         criadoEm: serverTimestamp()
     };
-
     console.log("[LOG] Salvando pedido final no Firestore...");
     await addDoc(collection(db, "pedidos"), finalOrder);
-
     console.log("[LOG] Apagando pedido pendente...");
     await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-
     console.log("[LOG] Enviando mensagem de confirmação final...");
     await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
 }
 
-
-// --- FUNÇÕES DE TRANSCRIÇÃO DE ÁUDIO ---
-
 async function transcribeWithGoogle(mediaId) {
     const speechClient = getSpeechClient();
     if (!speechClient) return null;
-
     try {
         const audioBuffer = await downloadWhatsAppMedia(mediaId);
         const request = {
@@ -335,15 +322,12 @@ async function transcribeWithGoogle(mediaId) {
     }
 }
 
-// --- FUNÇÕES DE COMUNICAÇÃO COM APIS EXTERNAS ---
-
 async function downloadWhatsAppMedia(mediaId) {
     const mediaUrlResponse = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {
         headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
     });
     if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL da mídia da Meta');
     const { url } = await mediaUrlResponse.json();
-
     const audioResponse = await fetch(url, {
         headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
     });
