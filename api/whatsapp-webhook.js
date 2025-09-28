@@ -1,10 +1,12 @@
-// /api/whatsapp-webhook.js
+// Arquivo: /api/whatsapp-webhook.js
+// Este arquivo agora é o coração do seu bot. Ele recebe as mensagens do WhatsApp,
+// busca o cardápio e as regras do seu sistema em tempo real, e usa o Gemini para
+// entender e processar os pedidos dos clientes.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import fetch from 'node-fetch';
 import { SpeechClient } from '@google-cloud/speech';
-import FormData from 'form-data';
 
 // --- CONFIGURAÇÃO ---
 const firebaseConfig = {
@@ -19,17 +21,22 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const { WHATSAPP_API_TOKEN, WHATSAPP_VERIFY_TOKEN, WHATSAPP_PHONE_NUMBER_ID, GEMINI_API_KEY, GOOGLE_CREDENTIALS_BASE64, OPENAI_API_KEY } = process.env;
+// As variáveis de ambiente devem ser configuradas no painel da Vercel
+const { 
+    WHATSAPP_API_TOKEN, 
+    WHATSAPP_VERIFY_TOKEN, 
+    WHATSAPP_PHONE_NUMBER_ID, 
+    GEMINI_API_KEY, 
+    GOOGLE_CREDENTIALS_BASE64 
+} = process.env;
 
-// V6.1 Update: Inicialização segura e "preguiçosa" do cliente Speech
 let speechClientInstance = null;
 
+// Inicializa o cliente do Google Speech API de forma segura
 function getSpeechClient() {
-    if (speechClientInstance) {
-        return speechClientInstance;
-    }
+    if (speechClientInstance) return speechClientInstance;
 
-    console.log("[LOG] A tentar inicializar o cliente Google Speech...");
+    console.log("[LOG] Tentando inicializar o cliente Google Speech...");
     if (GOOGLE_CREDENTIALS_BASE64) {
         try {
             const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
@@ -39,11 +46,11 @@ function getSpeechClient() {
             return speechClientInstance;
         } catch (e) {
             console.error("[ERRO CRÍTICO] Falha ao processar as credenciais do Google Cloud:", e);
-            throw new Error("As credenciais do Google Cloud não puderam ser processadas.");
+            return null;
         }
     } else {
-        console.error("[ERRO CRÍTICO] Variável de ambiente GOOGLE_CREDENTIALS_BASE64 não encontrada.");
-        throw new Error("Credenciais do Google Cloud não configuradas.");
+        console.warn("[AVISO] Variável de ambiente GOOGLE_CREDENTIALS_BASE64 não encontrada. Transcrição de áudio estará desativada.");
+        return null;
     }
 }
 
@@ -52,9 +59,8 @@ function getSpeechClient() {
 export default async function handler(req, res) {
     console.log("--- INÍCIO DA EXECUÇÃO DO WEBHOOK ---");
 
-    // Verificação do Webhook (GET)
+    // Verificação do Webhook (GET) - Necessário para a configuração inicial na Meta
     if (req.method === 'GET') {
-        console.log("Recebida requisição GET para verificação.");
         const mode = req.query['hub.mode'];
         const token = req.query['hub.verify_token'];
         const challenge = req.query['hub.challenge'];
@@ -69,7 +75,6 @@ export default async function handler(req, res) {
 
     // Processamento de Mensagens (POST)
     if (req.method === 'POST') {
-        console.log("Recebida requisição POST com dados da mensagem.");
         const body = req.body;
         if (!body.entry || !body.entry[0].changes || !body.entry[0].changes[0].value.messages) {
             console.log("Webhook recebido, mas sem dados de mensagem. Ignorando.");
@@ -79,37 +84,44 @@ export default async function handler(req, res) {
         const messageData = body.entry[0].changes[0].value.messages[0];
         const userPhoneNumber = messageData.from;
         
-        console.log(`[LOG] A processar mensagem de: ${userPhoneNumber}`);
-
-        const systemDataPromise = getSystemData();
+        console.log(`[LOG] Processando mensagem de: ${userPhoneNumber}`);
+        
+        // Marca a mensagem como lida para o usuário saber que o bot está processando
+        await markMessageAsRead(messageData.id);
 
         try {
+            // Processa a mensagem do usuário (texto ou áudio)
             let userMessage = await getUserMessage(messageData, userPhoneNumber);
             if (userMessage === null) {
-                console.log("[LOG] Mensagem não processável ou falha na transcrição. A encerrar o fluxo.");
+                console.log("[LOG] Mensagem não processável. Encerrando fluxo.");
                 return res.status(200).send('EVENT_RECEIVED');
             }
-             console.log(`[LOG] Mensagem do utilizador: "${userMessage}"`);
+            console.log(`[LOG] Mensagem do usuário: "${userMessage}"`);
 
-            console.log("[LOG] A carregar estado da conversa e dados do sistema...");
-            const [conversationState, { availableMenu, allIngredients, promptTemplate }] = await Promise.all([
+            // Busca o estado da conversa e os dados do sistema (cardápio, prompt) em paralelo
+            console.log("[LOG] Carregando estado da conversa e dados do sistema...");
+            const [conversationState, systemData] = await Promise.all([
                 getConversationState(userPhoneNumber),
-                systemDataPromise
+                getSystemData(req) // Passa o 'req' para construir a URL da API interna
             ]);
             
-            if (!availableMenu || !promptTemplate) {
+            if (!systemData.availableMenu || !systemData.promptTemplate) {
                  throw new Error('Não foi possível carregar os dados do sistema (cardápio ou prompt).');
             }
-            console.log("[LOG] Estado da conversa e dados do sistema carregados com sucesso.");
+            console.log("[LOG] Dados carregados com sucesso.");
 
-            conversationState.history.push({ role: 'user', message: userMessage });
+            // Adiciona a nova mensagem ao histórico
+            conversationState.history.push({ role: 'user', content: userMessage });
 
-            console.log("[LOG] A chamar a API do Gemini...");
-            const responseFromAI = await callGeminiAPI(userMessage, availableMenu, allIngredients, conversationState, promptTemplate);
+            // Envia para o Gemini
+            console.log("[LOG] Chamando a API do Gemini...");
+            const responseFromAI = await callGeminiAPI(userMessage, systemData, conversationState);
             console.log("[LOG] Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
             
-            conversationState.history.push({ role: 'assistant', message: JSON.stringify(responseFromAI) });
+            // Adiciona a resposta da IA ao histórico
+            conversationState.history.push({ role: 'assistant', content: JSON.stringify(responseFromAI) });
             
+            // Age com base na resposta da IA
             if (responseFromAI.action === "PROCESS_ORDER") {
                 console.log("[LOG] Ação da IA: PROCESS_ORDER");
                 await processOrderAction(userPhoneNumber, responseFromAI, conversationState);
@@ -118,13 +130,13 @@ export default async function handler(req, res) {
                 await saveConversationState(userPhoneNumber, conversationState);
                 await sendWhatsAppMessage(userPhoneNumber, responseFromAI.answer);
             } else {
-                 console.log("[LOG] Ação da IA desconhecida ou em falta. A enviar resposta padrão.");
+                 console.log("[LOG] Ação da IA desconhecida. Enviando resposta padrão.");
                 await sendWhatsAppMessage(userPhoneNumber, "Desculpe, não entendi. Pode repetir, por favor?");
             }
 
         } catch (error) {
             console.error('[ERRO CRÍTICO NO HANDLER]', error);
-            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, ocorreu um erro inesperado. A nossa equipa já foi notificada. Por favor, tente novamente mais tarde.');
+            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, ocorreu um erro inesperado no nosso sistema. A equipe já foi notificada. Por favor, tente novamente mais tarde.');
         }
 
         console.log("--- FIM DA EXECUÇÃO DO WEBHOOK ---");
@@ -134,25 +146,19 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
 }
 
-
-// --- FUNÇÕES AUXILIARES DO FLUXO PRINCIPAL ---
+// --- FUNÇÕES DE LÓGICA PRINCIPAL ---
 
 async function getUserMessage(messageData, userPhoneNumber) {
     if (messageData.type === 'text') {
         return messageData.text.body.trim();
     }
     if (messageData.type === 'audio') {
-        await sendWhatsAppMessage(userPhoneNumber, 'Ok, a processar o seu áudio...');
+        await sendWhatsAppMessage(userPhoneNumber, 'Ok, processando seu áudio...');
         const mediaId = messageData.audio.id;
         
-        let transcription = await transcribeWithGoogle(mediaId);
-        if (!transcription && OPENAI_API_KEY) {
-            console.log("Transcrição com Google falhou, a tentar com OpenAI...");
-            transcription = await transcribeWithOpenAI(mediaId);
-        }
-
+        const transcription = await transcribeWithGoogle(mediaId);
         if (!transcription) {
-            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, não consegui entender o áudio. Pode tentar novamente ou enviar por texto?');
+            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, não consegui entender o áudio. Pode tentar de novo ou enviar por texto?');
             return null;
         }
         return transcription;
@@ -164,33 +170,49 @@ async function getUserMessage(messageData, userPhoneNumber) {
 async function getConversationState(phoneNumber) {
     const stateRef = doc(db, 'pedidos_pendentes_whatsapp', phoneNumber);
     const docSnap = await getDoc(stateRef);
-    return docSnap.exists() ? docSnap.data() : { history: [], itens: [], subtotal: 0 };
+    // Retorna o estado salvo ou um estado inicial vazio
+    return docSnap.exists() ? docSnap.data() : { history: [], itens: [], subtotal: 0, endereco: null, pagamento: null };
 }
 
 async function saveConversationState(phoneNumber, state) {
+    // Limita o histórico para as últimas 10 trocas para não sobrecarregar
+    if (state.history.length > 20) {
+        state.history = state.history.slice(-20);
+    }
     const stateRef = doc(db, 'pedidos_pendentes_whatsapp', phoneNumber);
     await setDoc(stateRef, state);
 }
 
-async function getSystemData() {
-    console.log("[LOG] A executar getSystemData (Promise.all)...");
+async function getSystemData(req) {
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const apiUrl = `${protocol}://${host}/api/menu`;
+    
+    console.log(`[LOG] Buscando dados do sistema em: ${apiUrl}`);
+    
     const [menuData, promptData] = await Promise.all([
-        getAvailableMenu(),
+        fetch(apiUrl).then(res => res.json()),
         getActivePrompt()
     ]);
-     console.log("[LOG] getSystemData concluído.");
-    return { ...menuData, ...promptData };
+
+    return {
+        availableMenu: menuData.cardapio,
+        allIngredients: menuData.ingredientesHamburguer,
+        promptTemplate: promptData.promptTemplate
+    };
 }
 
 async function processOrderAction(userPhoneNumber, aiResponse, conversationState) {
-    console.log("[LOG] A entrar em processOrderAction...");
+    console.log("[LOG] Processando ação de pedido...");
+    
+    // Atualiza o estado da conversa com os dados extraídos pela IA
     if (aiResponse.itens && aiResponse.itens.length > 0) {
         conversationState.itens.push(...aiResponse.itens);
     }
     if (aiResponse.address) {
-        conversationState.endereco = { rua: aiResponse.address };
+        conversationState.endereco = { rua: aiResponse.address }; // Simplificado, pode ser expandido
     }
-     if (aiResponse.paymentMethod) {
+    if (aiResponse.paymentMethod) {
         conversationState.pagamento = aiResponse.paymentMethod;
     }
 
@@ -198,6 +220,7 @@ async function processOrderAction(userPhoneNumber, aiResponse, conversationState
 
     let nextStepMessage = '';
 
+    // Verifica o que falta para finalizar o pedido
     if (!conversationState.itens || conversationState.itens.length === 0) {
         nextStepMessage = "Não entendi quais itens você gostaria de pedir. Poderia me dizer?";
     } else if (!conversationState.endereco) {
@@ -205,16 +228,18 @@ async function processOrderAction(userPhoneNumber, aiResponse, conversationState
     } else if (!conversationState.pagamento) {
         nextStepMessage = `Endereço anotado! Qual será a forma de pagamento? (Dinheiro, Cartão ou Pix)`;
     } else {
-        console.log("[LOG] Todas as informações recolhidas. A finalizar o pedido...");
+        // Todas as informações foram coletadas, finaliza o pedido
+        console.log("[LOG] Todas as informações foram coletadas. Finalizando o pedido...");
         await finalizeOrder(userPhoneNumber, conversationState);
         return;
     }
     
+    // Se a IA gerou uma pergunta de esclarecimento, usa ela
     if (aiResponse.clarification_question) {
         nextStepMessage = aiResponse.clarification_question;
     }
     
-    console.log(`[LOG] A guardar estado e a enviar próxima mensagem: "${nextStepMessage}"`);
+    console.log(`[LOG] Salvando estado e enviando próxima mensagem: "${nextStepMessage}"`);
     await saveConversationState(userPhoneNumber, conversationState);
     await sendWhatsAppMessage(userPhoneNumber, nextStepMessage);
 }
@@ -229,28 +254,30 @@ async function finalizeOrder(userPhoneNumber, conversationState) {
         },
         total: {
             subtotal: conversationState.subtotal,
-            deliveryFee: 0,
+            deliveryFee: 0, // A ser calculado pela API de taxas ou no PDV
             discount: 0,
-            finalTotal: conversationState.subtotal
+            finalTotal: conversationState.subtotal // Temporário, a ser recalculado no PDV
         },
         pagamento: conversationState.pagamento,
-        status: 'Novo',
+        status: 'Novo', // O pedido entra direto no PDV como 'Novo'
         criadoEm: serverTimestamp()
     };
     
-    console.log("[LOG] A guardar pedido final no Firestore...");
+    console.log("[LOG] Salvando pedido final no Firestore...");
     await addDoc(collection(db, "pedidos"), finalOrder);
-    console.log("[LOG] A apagar pedido pendente...");
+    
+    console.log("[LOG] Apagando pedido pendente...");
     await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-    console.log("[LOG] A enviar mensagem de confirmação final...");
+    
+    console.log("[LOG] Enviando mensagem de confirmação final...");
     await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
 }
 
 
-// --- FUNÇÕES DE TRANSCRIÇÃO ---
+// --- FUNÇÕES DE TRANSCRIÇÃO DE ÁUDIO ---
 
 async function transcribeWithGoogle(mediaId) {
-    const speechClient = getSpeechClient(); // V6.1 Update: Inicializa o cliente aqui
+    const speechClient = getSpeechClient();
     if (!speechClient) return null;
 
     try {
@@ -267,35 +294,13 @@ async function transcribeWithGoogle(mediaId) {
     }
 }
 
-async function transcribeWithOpenAI(mediaId) {
-    try {
-        const audioBuffer = await downloadWhatsAppMedia(mediaId);
-        const formData = new FormData();
-        formData.append('file', audioBuffer, { filename: 'audio.ogg', contentType: 'audio/ogg' });
-        formData.append('model', 'whisper-1');
-
-        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-            body: formData
-        });
-        if (!response.ok) throw new Error(`Falha na API OpenAI: ${await response.text()}`);
-        const data = await response.json();
-        return data.text;
-    } catch (error) {
-        console.error("Erro na transcrição com OpenAI:", error);
-        return null;
-    }
-}
-
-
-// --- FUNÇÕES DE DADOS E API ---
+// --- FUNÇÕES DE COMUNICAÇÃO COM APIS EXTERNAS ---
 
 async function downloadWhatsAppMedia(mediaId) {
-    const mediaUrlResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
+    const mediaUrlResponse = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {
         headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` }
     });
-    if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL do média da Meta');
+    if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL da mídia da Meta');
     const { url } = await mediaUrlResponse.json();
 
     const audioResponse = await fetch(url, {
@@ -305,62 +310,23 @@ async function downloadWhatsAppMedia(mediaId) {
     return audioResponse.buffer();
 }
 
-async function getAvailableMenu() {
-    try {
-        console.log("[LOG] A buscar /api/menu...");
-        const response = await fetch(`https://cardapiopdv.vercel.app/api/menu`);
-        if (!response.ok) throw new Error('API do Menu retornou status não-OK');
-        
-        const fullMenu = await response.json();
-        console.log("[LOG] /api/menu obtido com sucesso. A buscar estados no Firestore...");
-
-        const [itemStatusSnap, itemVisibilitySnap, ingredientStatusSnap, ingredientVisibilitySnap] = await Promise.all([
-            getDoc(doc(db, "config", "item_status")),
-            getDoc(doc(db, "config", "item_visibility")),
-            getDoc(doc(db, "config", "ingredient_status")),
-            getDoc(doc(db, "config", "ingredient_visibility"))
-        ]);
-        console.log("[LOG] Estados do Firestore obtidos. A filtrar o cardápio...");
-
-        const unavailableItems = itemStatusSnap.exists() ? itemStatusSnap.data() : {};
-        const hiddenItems = itemVisibilitySnap.exists() ? itemVisibilitySnap.data() : {};
-        const unavailableIngredients = ingredientStatusSnap.exists() ? ingredientStatusSnap.data() : {};
-        const hiddenIngredients = ingredientVisibilitySnap.exists() ? ingredientVisibilitySnap.data() : {};
-
-        const availableMenu = fullMenu.cardapio.filter(item =>
-            !unavailableItems[item.id] && !hiddenItems[item.id]
-        );
-        
-        const allIngredients = fullMenu.ingredientesHamburguer
-            .filter(ing => !unavailableIngredients[ing.id] && !hiddenIngredients[ing.id]);
-        
-        console.log(`[LOG] Cardápio filtrado. Itens disponíveis: ${availableMenu.length}. Ingredientes disponíveis: ${allIngredients.length}.`);
-        return { availableMenu, allIngredients };
-    } catch (error) {
-        console.error('Erro ao buscar ou filtrar o cardápio:', error);
-        return { availableMenu: null, allIngredients: null };
-    }
-}
-
 async function getActivePrompt() {
-    console.log("[LOG] A buscar prompt ativo no Firestore...");
+    console.log("[LOG] Buscando prompt ativo no Firestore...");
     const promptRef = doc(db, "config", "bot_prompt_active");
     const docSnap = await getDoc(promptRef);
     if (docSnap.exists() && docSnap.data().template) {
         console.log("[LOG] Prompt ativo encontrado no Firestore.");
         return { promptTemplate: docSnap.data().template };
     }
-    console.log("[LOG] Nenhum prompt ativo encontrado no Firestore. A usar fallback.");
-    // Fallback se o documento não existir
-    return { promptTemplate: `Você é um atendente. Analise a mensagem: "\${MENSAGEM_CLIENTE}" e o cardápio: \${CARDAPIO}. Retorne JSON: { "action": "PROCESS_ORDER", "itens": [...] }` };
+    throw new Error("Prompt da IA não encontrado no Firestore. Configure-o na página 'memoria.html'.");
 }
 
-async function callGeminiAPI(userMessage, menu, ingredients, conversationState, promptTemplate) {
+async function callGeminiAPI(userMessage, systemData, conversationState) {
+    const { availableMenu, allIngredients, promptTemplate } = systemData;
     const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
-    const simplifiedMenu = menu.map(item => ({
+    const simplifiedMenu = availableMenu.map(item => ({
         name: item.name, category: item.category, description: item.description,
-        isPromotional: item.category === 'Promocionais', isCustomizable: item.isCustomizable,
         prices: item.isPizza
             ? { '4 fatias': item.price4Slices, '6 fatias': item.price6Slices, '8 fatias': item.basePrice, '10 fatias': item.price10Slices }
             : { 'padrão': item.basePrice }
@@ -368,8 +334,8 @@ async function callGeminiAPI(userMessage, menu, ingredients, conversationState, 
 
     const prompt = promptTemplate
         .replace(/\${CARDAPIO}/g, JSON.stringify(simplifiedMenu))
-        .replace(/\${INGREDIENTES}/g, JSON.stringify(ingredients))
-        .replace(/\${HISTORICO}/g, JSON.stringify(conversationState.history.slice(-4)))
+        .replace(/\${INGREDIENTES}/g, JSON.stringify(allIngredients))
+        .replace(/\${HISTORICO}/g, JSON.stringify(conversationState.history.slice(-6)))
         .replace(/\${ESTADO_PEDIDO}/g, JSON.stringify(conversationState.itens || []))
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
@@ -392,19 +358,19 @@ async function callGeminiAPI(userMessage, menu, ingredients, conversationState, 
         const cleanedJsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(cleanedJsonString);
     } catch (error) {
-        console.error("Erro ao chamar a API do Gemini:", error);
-        return { action: "ANSWER_QUESTION", answer: 'Desculpe, tive um problema para entender o que disse. Pode tentar de outra forma?' };
+        console.error("Erro ao chamar ou processar a resposta do Gemini:", error);
+        return { action: "ANSWER_QUESTION", answer: 'Desculpe, tive um problema para processar sua solicitação. Pode tentar de outra forma?' };
     }
 }
 
 async function sendWhatsAppMessage(to, text) {
-    const whatsappURL = `https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
-    console.log(`[LOG] A enviar mensagem para ${to}: "${text}"`);
+    const whatsappURL = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    console.log(`[LOG] Enviando mensagem para ${to}: "${text}"`);
     try {
         await fetch(whatsappURL, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messaging_product: 'whatsapp', to: to, text: { body: text } })
+            body: JSON.stringify({ messaging_product: 'whatsapp', to, text: { body: text } })
         });
         console.log("[LOG] Mensagem enviada com sucesso.");
     } catch (error) {
@@ -412,3 +378,15 @@ async function sendWhatsAppMessage(to, text) {
     }
 }
 
+async function markMessageAsRead(messageId) {
+    const whatsappURL = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    try {
+        await fetch(whatsappURL, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: messageId })
+        });
+    } catch (error) {
+        console.warn('Não foi possível marcar a mensagem como lida:', error);
+    }
+}
