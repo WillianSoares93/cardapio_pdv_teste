@@ -22,12 +22,12 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // As variáveis de ambiente devem ser configuradas no painel da Vercel
-const { 
-    WHATSAPP_API_TOKEN, 
-    WHATSAPP_VERIFY_TOKEN, 
-    WHATSAPP_PHONE_NUMBER_ID, 
-    GEMINI_API_KEY, 
-    GOOGLE_CREDENTIALS_BASE64 
+const {
+    WHATSAPP_API_TOKEN,
+    WHATSAPP_VERIFY_TOKEN,
+    WHATSAPP_PHONE_NUMBER_ID,
+    GEMINI_API_KEY,
+    GOOGLE_CREDENTIALS_BASE64
 } = process.env;
 
 let speechClientInstance = null;
@@ -83,9 +83,9 @@ export default async function handler(req, res) {
 
         const messageData = body.entry[0].changes[0].value.messages[0];
         const userPhoneNumber = messageData.from;
-        
+
         console.log(`[LOG] Processando mensagem de: ${userPhoneNumber}`);
-        
+
         // Marca a mensagem como lida para o usuário saber que o bot está processando
         await markMessageAsRead(messageData.id);
 
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
                 getConversationState(userPhoneNumber),
                 getSystemData(req) // Passa o 'req' para construir a URL da API interna
             ]);
-            
+
             if (!systemData.availableMenu || !systemData.promptTemplate) {
                  throw new Error('Não foi possível carregar os dados do sistema (cardápio ou prompt).');
             }
@@ -117,10 +117,10 @@ export default async function handler(req, res) {
             console.log("[LOG] Chamando a API do Gemini...");
             const responseFromAI = await callGeminiAPI(userMessage, systemData, conversationState);
             console.log("[LOG] Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
-            
+
             // Adiciona a resposta da IA ao histórico
             conversationState.history.push({ role: 'assistant', content: JSON.stringify(responseFromAI) });
-            
+
             // Age com base na resposta da IA
             if (responseFromAI.action === "PROCESS_ORDER") {
                 console.log("[LOG] Ação da IA: PROCESS_ORDER");
@@ -155,7 +155,7 @@ async function getUserMessage(messageData, userPhoneNumber) {
     if (messageData.type === 'audio') {
         await sendWhatsAppMessage(userPhoneNumber, 'Ok, processando seu áudio...');
         const mediaId = messageData.audio.id;
-        
+
         const transcription = await transcribeWithGoogle(mediaId);
         if (!transcription) {
             await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, não consegui entender o áudio. Pode tentar de novo ou enviar por texto?');
@@ -187,9 +187,9 @@ async function getSystemData(req) {
     const protocol = req.headers['x-forwarded-proto'] || 'http';
     const host = req.headers.host;
     const apiUrl = `${protocol}://${host}/api/menu`;
-    
+
     console.log(`[LOG] Buscando dados do sistema em: ${apiUrl}`);
-    
+
     const [menuData, promptData] = await Promise.all([
         fetch(apiUrl).then(res => res.json()),
         getActivePrompt()
@@ -204,7 +204,7 @@ async function getSystemData(req) {
 
 async function processOrderAction(userPhoneNumber, aiResponse, conversationState) {
     console.log("[LOG] Processando ação de pedido...");
-    
+
     // Atualiza o estado da conversa com os dados extraídos pela IA
     if (aiResponse.itens && aiResponse.itens.length > 0) {
         conversationState.itens.push(...aiResponse.itens);
@@ -233,12 +233,12 @@ async function processOrderAction(userPhoneNumber, aiResponse, conversationState
         await finalizeOrder(userPhoneNumber, conversationState);
         return;
     }
-    
+
     // Se a IA gerou uma pergunta de esclarecimento, usa ela
     if (aiResponse.clarification_question) {
         nextStepMessage = aiResponse.clarification_question;
     }
-    
+
     console.log(`[LOG] Salvando estado e enviando próxima mensagem: "${nextStepMessage}"`);
     await saveConversationState(userPhoneNumber, conversationState);
     await sendWhatsAppMessage(userPhoneNumber, nextStepMessage);
@@ -262,19 +262,19 @@ async function finalizeOrder(userPhoneNumber, conversationState) {
         status: 'Novo', // O pedido entra direto no PDV como 'Novo'
         criadoEm: serverTimestamp()
     };
-    
+
     console.log("[LOG] Salvando pedido final no Firestore...");
     await addDoc(collection(db, "pedidos"), finalOrder);
-    
+
     console.log("[LOG] Apagando pedido pendente...");
     await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-    
+
     console.log("[LOG] Enviando mensagem de confirmação final...");
     await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
 }
 
 
-// --- FUNÇÕES DE TRANSCRIÇÃO DE ÁUDIO ---
+// --- FUNÇÕES DE TRANSCRIção DE ÁUDIO ---
 
 async function transcribeWithGoogle(mediaId) {
     const speechClient = getSpeechClient();
@@ -323,11 +323,11 @@ async function getActivePrompt() {
 
 async function callGeminiAPI(userMessage, systemData, conversationState) {
     // --- CORREÇÃO APLICADA AQUI ---
-    // Alterado o nome do modelo para 'gemini-pro', que é estável e compatível.
-    const geminiURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
-    
+    // Alterada a URL da API para a versão estável v1
+    const geminiURL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+
     const { availableMenu, allIngredients, promptTemplate } = systemData;
-    
+
     const simplifiedMenu = availableMenu.map(item => ({
         name: item.name, category: item.category, description: item.description,
         prices: item.isPizza
@@ -353,7 +353,7 @@ async function callGeminiAPI(userMessage, systemData, conversationState) {
             throw new Error(`Erro na API do Gemini: ${response.status}`);
         }
         const data = await response.json();
-        
+
         if (!data.candidates || !data.candidates[0].content || !data.candidates[0].content.parts[0].text) {
              throw new Error("Resposta inesperada ou vazia da API do Gemini.");
         }
