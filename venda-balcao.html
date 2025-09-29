@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venda Balcão - Sâmia Pizzaria</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png" type="image/png">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #e5e7eb;
+            visibility: hidden;
+        }
+        .main-grid {
+            grid-template-columns: 350px 1fr 200px;
+            gap: 1rem;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 1rem;
+        }
+        .product-card {
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            text-align: center;
+            background-color: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-color: #3b82f6;
+        }
+        .product-card img {
+            max-height: 60px;
+            object-fit: contain;
+            margin: 0 auto;
+        }
+        .category-btn {
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            color: #374151;
+            transition: all 0.2s ease-in-out;
+        }
+        .category-btn.active, .category-btn:hover {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <header class="bg-white shadow-sm z-10">
+        <div class="max-w-full mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-800">VENDA BALCÃO</h1>
+            <div class="flex items-center space-x-4">
+                <span id="current-user" class="text-sm font-medium text-gray-600"></span>
+                <a href="pdv.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">PAINEL PDV</a>
+                <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">SAIR</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow main-grid p-4">
+        <!-- Coluna da Esquerda: Pedido -->
+        <section class="bg-white rounded-lg shadow-md flex flex-col">
+            <div class="p-4 border-b">
+                <label for="client-name" class="text-sm font-medium">Cliente Padrão</label>
+                <input type="text" id="client-name" class="w-full p-2 border rounded-md mt-1" value="Cliente Balcão">
+            </div>
+            <div class="flex-grow overflow-y-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="p-2 text-left font-medium text-gray-600">Produto</th>
+                            <th class="p-2 text-center font-medium text-gray-600 w-20">Qtd</th>
+                            <th class="p-2 text-right font-medium text-gray-600 w-24">Subtotal</th>
+                            <th class="p-2 w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-items-table">
+                        <!-- Itens do pedido serão inseridos aqui -->
+                    </tbody>
+                </table>
+                 <div id="empty-cart-message" class="text-center text-gray-500 p-10">
+                    <i class="fas fa-shopping-cart fa-3x mb-4"></i>
+                    <p>Carrinho Vazio</p>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50">
+                <div class="flex justify-between items-center text-xl font-bold">
+                    <span>VALOR A PAGAR</span>
+                    <span id="total-value">R$ 0,00</span>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-4">
+                    <button id="cancel-order-btn" class="w-full py-3 bg-red-600 text-white font-bold rounded-md hover:bg-red-700">Cancelar</button>
+                    <button id="finalize-order-btn" class="w-full py-3 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Finalizar</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Coluna do Meio: Produtos -->
+        <section id="product-display" class="bg-white rounded-lg shadow-md flex flex-col p-4 overflow-hidden">
+             <div class="mb-4">
+                <input type="text" id="search-product" placeholder="Buscar produto..." class="w-full p-2 border rounded-md">
+            </div>
+            <div class="product-grid flex-grow overflow-y-auto" id="product-grid">
+                <!-- Cards de produtos serão inseridos aqui -->
+            </div>
+        </section>
+
+        <!-- Coluna da Direita: Categorias -->
+        <section id="category-list" class="bg-white rounded-lg shadow-md flex flex-col p-4 space-y-2 overflow-y-auto">
+            <!-- Botões de categoria serão inseridos aqui -->
+        </section>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+           apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
+           authDomain: "pizzaria-pdv.firebaseapp.com",
+           projectId: "pizzaria-pdv",
+           storageBucket: "pizzaria-pdv.firebasestorage.app",
+           messagingSenderId: "304171744691",
+           appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let fullMenu = [];
+        let order = [];
+        let currentUserEmail = '';
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.body.style.visibility = 'visible';
+                currentUserEmail = user.email;
+                document.getElementById('current-user').textContent = currentUserEmail;
+                initializeAppLogic();
+            } else {
+                window.location.href = 'login.html?redirect=venda-balcao.html';
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+        async function initializeAppLogic() {
+            await fetchMenu();
+            renderCategories();
+            renderProducts();
+            setupEventListeners();
+        }
+
+        async function fetchMenu() {
+            try {
+                const response = await fetch('/api/menu');
+                const data = await response.json();
+                fullMenu = data.cardapio.filter(item => !item.isPizza && !item.isCustomizable); // Filtra apenas itens de venda direta
+            } catch (error) {
+                console.error("Erro ao buscar cardápio:", error);
+                alert("Não foi possível carregar o cardápio.");
+            }
+        }
+        
+        function renderCategories() {
+            const categoryContainer = document.getElementById('category-list');
+            const categories = ['Todos', ...new Set(fullMenu.map(item => item.category))];
+            
+            categoryContainer.innerHTML = categories.map((cat, index) => `
+                <button class="category-btn w-full p-3 text-sm font-medium rounded-md ${index === 0 ? 'active' : ''}" data-category="${cat}">
+                    ${cat}
+                </button>
+            `).join('');
+
+            categoryContainer.querySelectorAll('.category-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    categoryContainer.querySelector('.active').classList.remove('active');
+                    btn.classList.add('active');
+                    renderProducts();
+                });
+            });
+        }
+
+        function renderProducts() {
+            const productGrid = document.getElementById('product-grid');
+            const activeCategory = document.querySelector('#category-list .active').dataset.category;
+            const searchTerm = document.getElementById('search-product').value.toLowerCase();
+
+            const filteredMenu = fullMenu.filter(item => {
+                const categoryMatch = activeCategory === 'Todos' || item.category === activeCategory;
+                const searchMatch = !searchTerm || item.name.toLowerCase().includes(searchTerm);
+                return categoryMatch && searchMatch;
+            });
+
+            productGrid.innerHTML = filteredMenu.map(item => `
+                <div class="product-card" data-item-id="${item.id}">
+                    <span class="text-xs font-bold text-gray-800">${item.name}</span>
+                    <img src="${item.imageUrl || 'https://placehold.co/100x60/d1d5db/374151?text=S%C3%A2mia'}" alt="${item.name}" class="my-2">
+                    <span class="text-sm font-bold text-blue-600">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</span>
+                </div>
+            `).join('');
+
+             productGrid.querySelectorAll('.product-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const itemId = card.dataset.itemId;
+                    const product = fullMenu.find(p => p.id === itemId);
+                    if (product) {
+                        addToOrder(product);
+                    }
+                });
+            });
+        }
+        
+        function addToOrder(product) {
+            const existingItem = order.find(item => item.id === product.id);
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                order.push({
+                    id: product.id,
+                    name: product.name,
+                    price: product.basePrice,
+                    quantity: 1,
+                    category: product.category
+                });
+            }
+            updateOrderDisplay();
+        }
+
+        function updateOrderDisplay() {
+            const tableBody = document.getElementById('order-items-table');
+            const totalValueEl = document.getElementById('total-value');
+            const emptyCartMsg = document.getElementById('empty-cart-message');
+            let total = 0;
+
+            if (order.length === 0) {
+                tableBody.innerHTML = '';
+                emptyCartMsg.style.display = 'block';
+            } else {
+                emptyCartMsg.style.display = 'none';
+                tableBody.innerHTML = order.map((item, index) => {
+                    const subtotal = item.price * item.quantity;
+                    total += subtotal;
+                    return `
+                        <tr class="border-b">
+                            <td class="p-2">${item.name}</td>
+                            <td class="p-2 text-center">${item.quantity}</td>
+                            <td class="p-2 text-right font-medium">R$ ${subtotal.toFixed(2).replace('.',',')}</td>
+                            <td class="p-2 text-center">
+                                <button class="remove-item-btn text-red-500 hover:text-red-700" data-index="${index}">&times;</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            totalValueEl.textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
+
+            document.querySelectorAll('.remove-item-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = parseInt(btn.dataset.index);
+                    order.splice(index, 1);
+                    updateOrderDisplay();
+                });
+            });
+        }
+        
+        function setupEventListeners() {
+            document.getElementById('search-product').addEventListener('input', renderProducts);
+            document.getElementById('cancel-order-btn').addEventListener('click', () => {
+                if (confirm('Deseja cancelar o pedido atual?')) {
+                    order = [];
+                    updateOrderDisplay();
+                }
+            });
+            document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrder);
+        }
+
+        async function finalizeOrder() {
+            if(order.length === 0) {
+                alert("O carrinho está vazio.");
+                return;
+            }
+
+            const clientName = document.getElementById('client-name').value || 'Cliente Balcão';
+            const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            const newOrder = {
+                itens: order,
+                endereco: {
+                    clientName: clientName,
+                    rua: "Retirada no Balcão",
+                    bairro: "BALCÃO"
+                },
+                total: {
+                    subtotal: total,
+                    finalTotal: total,
+                    deliveryFee: 0,
+                    discount: 0,
+                },
+                pagamento: 'A Definir', // Ou adicionar um modal de pagamento
+                status: 'Entregue', // Pedidos de balcão já são considerados entregues
+                criadoEm: serverTimestamp(),
+                observacao: `Venda de balcão por ${currentUserEmail}`
+            };
+
+            try {
+                await addDoc(collection(db, "pedidos"), newOrder);
+                alert(`Pedido para ${clientName} finalizado com sucesso!`);
+                order = [];
+                updateOrderDisplay();
+            } catch (error) {
+                console.error("Erro ao finalizar pedido:", error);
+                alert("Falha ao finalizar o pedido. Tente novamente.");
+            }
+        }
+
+    </script>
+</body>
+</html>
