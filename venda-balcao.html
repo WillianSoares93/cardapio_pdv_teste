@@ -469,7 +469,30 @@
         
         function handleProductSelection(product) {
             if (isSelectingHalfPizza) {
-                 // Lógica para selecionar a segunda metade
+                if (!product.isPizza) {
+                    alert('Por favor, escolha uma pizza para a segunda metade.');
+                    return;
+                }
+                const priceKey = firstHalfPizza.selectedSize.priceKey;
+                const secondHalfPrice = product[priceKey] / 2;
+                const combinedPrice = firstHalfPizza.price + secondHalfPrice;
+
+                const combinedName = `${firstHalfPizza.selectedSize.label}: Meia ${firstHalfPizza.name} & Meia ${product.name}`;
+
+                addToOrder({
+                    ...product,
+                    id: `${firstHalfPizza.id}+${product.id}-${firstHalfPizza.selectedSize.slices}`,
+                    name: combinedName,
+                    price: combinedPrice,
+                    type: 'split',
+                    firstHalfData: firstHalfPizza,
+                    secondHalfData: { ...product, price: secondHalfPrice, selectedSize: firstHalfPizza.selectedSize }
+                });
+
+                isSelectingHalfPizza = false;
+                firstHalfPizza = null;
+                document.getElementById('product-display').classList.remove('half-pizza-selection-active');
+
             } else {
                 if (product.isPizza) {
                     openPizzaOptionsModal(product);
@@ -494,7 +517,8 @@
             }
         }
 
-        // Lógica completa de Pizza
+        // --- Lógica de Modals (Pizza, Burger, Extras) ---
+
         function openPizzaOptionsModal(pizza) {
             document.getElementById('modal-pizza-name').textContent = pizza.name;
             const sizeContainer = document.getElementById('pizza-size-options');
@@ -548,22 +572,110 @@
             document.getElementById('pizza-option-modal').style.display = 'flex';
         }
         
-        // Lógica completa do Burger Builder
         function openBurgerBuilderModal(burger) {
-            // ... (implementação completa)
+            const modal = document.getElementById('burger-builder-modal');
+            modal.dataset.burgerId = burger.id;
+            const ingredientsContainer = modal.querySelector('#burger-ingredients-container');
+            ingredientsContainer.innerHTML = '';
+
+            for (const categoryName in allIngredients) {
+                const ingredients = allIngredients[categoryName].filter(ing => ingredientVisibility[ing.id] !== false);
+                 if (ingredients.length === 0) continue;
+                
+                let categoryHtml = `<div class="mb-4"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)}</h4>`;
+                
+                ingredients.forEach(ing => {
+                    const isUnavailable = ingredientStatus[ing.id] === false;
+                    const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
+                    categoryHtml += `
+                        <div class="ingredient-option ${isUnavailable ? 'opacity-50' : ''}">
+                             <div class="flex-grow">
+                                <span class="ml-2">${ing.name}</span>
+                            </div>
+                           <div class="flex items-center space-x-2">
+                                <span class="font-medium text-sm">${priceDisplay}</span>
+                                <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}">
+                                    <button type="button" class="quantity-btn minus-btn" ${isUnavailable ? 'disabled' : ''}>-</button>
+                                    <span class="quantity-display font-bold text-base w-6 text-center">0</span>
+                                    <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                categoryHtml += `</div>`;
+                ingredientsContainer.innerHTML += categoryHtml;
+            }
+            
+            updateBurgerPrice();
+            modal.style.display = 'flex';
+
+            ingredientsContainer.querySelectorAll('.quantity-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const display = e.target.parentElement.querySelector('.quantity-display');
+                    let quantity = parseInt(display.textContent);
+                    if(e.target.classList.contains('plus-btn')) {
+                        quantity++;
+                    } else if (quantity > 0) {
+                        quantity--;
+                    }
+                    display.textContent = quantity;
+                    updateBurgerPrice();
+                });
+            });
         }
         
         function updateBurgerPrice() {
-            // ... (implementação completa)
+            const modal = document.getElementById('burger-builder-modal');
+            const burgerId = modal.dataset.burgerId;
+            const burger = allItems.find(item => item.id === burgerId);
+            let total = burger.basePrice;
+
+            modal.querySelectorAll('.quantity-display').forEach(display => {
+                const quantity = parseInt(display.textContent);
+                if (quantity > 0) {
+                    const container = display.parentElement;
+                    total += quantity * parseFloat(container.dataset.price);
+                }
+            });
+            
+            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
         }
 
         function addCustomBurgerToOrder() {
-            // ... (implementação completa)
+            const modal = document.getElementById('burger-builder-modal');
+            const burgerId = modal.dataset.burgerId;
+            const burger = allItems.find(item => item.id === burgerId);
+            const selectedIngredients = [];
+            let ingredientsPrice = 0;
+
+            modal.querySelectorAll('.quantity-display').forEach(display => {
+                const quantity = parseInt(display.textContent);
+                if (quantity > 0) {
+                     const container = display.closest('[data-ingredient-id]');
+                     const ingredientName = container.parentElement.parentElement.querySelector('.flex-grow span').textContent;
+                     const price = parseFloat(container.dataset.price);
+                     selectedIngredients.push({ name: `${ingredientName} (x${quantity})`, price: price * quantity});
+                     ingredientsPrice += price * quantity;
+                }
+            });
+            
+            const finalPrice = burger.basePrice + ingredientsPrice;
+            
+            addToOrder({
+                ...burger,
+                id: `${burger.id}-${Date.now()}`,
+                name: `Hambúrguer Montável`,
+                price: finalPrice,
+                ingredients: selectedIngredients,
+                type: 'custom_burger'
+            });
+
+            modal.style.display = 'none';
         }
 
-        // Lógica completa dos Adicionais de Pizza
         function openPizzaExtrasBuilderModal(uniqueId) {
-            // ... (implementação completa)
+             // Lógica para abrir e popular o modal de adicionais
         }
 
         function updateOrderDisplay() {
