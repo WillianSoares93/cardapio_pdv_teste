@@ -153,6 +153,10 @@
             background-color: #fef9c3; /* yellow-100 */
             border: 2px dashed #f59e0b; /* yellow-500 */
         }
+        .scope-button.active {
+            background-color: #3b82f6;
+            color: white;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -294,7 +298,6 @@
         </div>
     </div>
 
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
@@ -325,6 +328,7 @@
 
         let isSelectingHalfPizza = false;
         let firstHalfPizza = null;
+        let currentPizzaExtrasState = {};
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -340,7 +344,7 @@
         document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
         async function initializeAppLogic() {
-            listenToStatusChanges(); // Começa a ouvir os status antes de carregar o menu
+            listenToStatusChanges();
             await fetchMenu();
             renderCategories();
             renderProducts();
@@ -365,13 +369,7 @@
                 
                 const promotionsWithCategory = (data.promocoes || []).map(promo => {
                     const originalItem = data.cardapio.find(item => item.id === promo.itemId);
-                    return {
-                        ...promo,
-                        category: originalItem ? originalItem.category : 'Promoções', 
-                        isPizza: originalItem ? originalItem.isPizza : false,
-                        isCustomizable: false,
-                        basePrice: promo.promoPrice
-                    };
+                    return { ...promo, category: originalItem ? originalItem.category : 'Promoções', isPizza: originalItem ? originalItem.isPizza : false, isCustomizable: false, basePrice: promo.promoPrice };
                 });
                 
                 allItems = [...(data.cardapio || []), ...promotionsWithCategory];
@@ -471,7 +469,7 @@
         
         function handleProductSelection(product) {
             if(isSelectingHalfPizza){
-                // Lógica para selecionar a segunda metade da pizza
+                // Implementar lógica de seleção da segunda metade
             } else {
                  if (product.isPizza) {
                     openPizzaOptionsModal(product);
@@ -479,40 +477,153 @@
                     openBurgerBuilderModal(product);
                 }
                 else {
-                    addToOrder({ ...product, price: product.basePrice });
+                    addToOrder({ ...product, price: product.basePrice, type: 'full' });
                 }
             }
         }
         
         function addToOrder(product) {
-            // Lógica para adicionar adicionais, se aplicável
-            const acceptsExtras = itemExtrasStatus[product.id] === undefined ? product.isPizza : itemExtrasStatus[product.id];
+            const uniqueId = product.uniqueId || `${product.id}-${Date.now()}`;
+            const itemWithId = { ...product, uniqueId };
             
-            if(acceptsExtras && (product.type === 'full' || product.type === 'split')){
-                 // Implementar lógica do modal "Deseja adicionais?"
-            }
-
-            const existingItem = order.find(item => item.id === product.id);
-            if (existingItem) {
-                existingItem.quantity++;
-            } else {
-                order.push({
-                    id: product.id,
-                    name: product.name,
-                    price: product.price,
-                    quantity: 1,
-                    category: product.category,
-                    ingredients: product.ingredients, // Para o hambúrguer montável
-                    extras: []
-                });
-            }
+            order.push(itemWithId);
             updateOrderDisplay();
+            
+            const acceptsExtras = itemExtrasStatus[product.id] === undefined ? product.isPizza : itemExtrasStatus[product.id];
+            if(acceptsExtras && (product.type === 'full' || product.type === 'split')){
+                 setTimeout(() => openPizzaExtrasBuilderModal(uniqueId), 100);
+            }
         }
 
-        // ... [Restante do código JS para Modals de Pizza, Hambúrguer, Adicionais, e Finalização do Pedido] ...
-        // Este código será muito similar ao do index.html e atendente.html, adaptado para as variáveis locais.
-        // Por brevidade, vou focar em garantir que a estrutura esteja correta.
+        function openPizzaOptionsModal(pizza) {
+            document.getElementById('modal-pizza-name').textContent = pizza.name;
+            const sizeContainer = document.getElementById('pizza-size-options');
+            sizeContainer.innerHTML = '';
+
+            const sizes = [
+                { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
+                { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
+                { slices: 8, label: '8 Fatias', priceKey: 'basePrice' },
+                { slices: 10, label: '10 Fatias', priceKey: 'price10Slices' }
+            ];
+
+            sizes.forEach(size => {
+                if (pizza[size.priceKey] > 0) {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'p-3 border rounded-lg flex justify-between items-center';
+                    optionDiv.innerHTML = `
+                        <div>
+                            <span class="font-bold">${size.label}</span>
+                            <span class="text-gray-600 ml-2">R$ ${pizza[size.priceKey].toFixed(2).replace('.', ',')}</span>
+                        </div>
+                        <div class="flex gap-2">
+                           <button class="add-full-pizza-btn px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button>
+                           <button class="add-half-pizza-btn px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Meia</button>
+                        </div>
+                    `;
+                    optionDiv.querySelector('.add-full-pizza-btn').addEventListener('click', () => {
+                         addToOrder({
+                            ...pizza,
+                            id: `${pizza.id}-${size.slices}`,
+                            name: `${pizza.name} (${size.label})`,
+                            price: pizza[size.priceKey],
+                            type: 'full'
+                        });
+                        document.getElementById('pizza-option-modal').style.display = 'none';
+                    });
+
+                    optionDiv.querySelector('.add-half-pizza-btn').addEventListener('click', () => {
+                        // Iniciar lógica de meia pizza
+                    });
+
+                    sizeContainer.appendChild(optionDiv);
+                }
+            });
+
+            document.getElementById('pizza-option-modal').style.display = 'flex';
+        }
+
+        function openBurgerBuilderModal(burger) {
+            const modal = document.getElementById('burger-builder-modal');
+            modal.dataset.burgerId = burger.id;
+            const ingredientsContainer = modal.querySelector('#burger-ingredients-container');
+            ingredientsContainer.innerHTML = '';
+
+            for (const categoryName in allIngredients) {
+                const ingredients = allIngredients[categoryName].filter(ing => ingredientVisibility[ing.id] !== false);
+                 if (ingredients.length === 0) continue;
+                
+                let categoryHtml = `<div class="mb-4"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)}</h4>`;
+                
+                ingredients.forEach(ing => {
+                    const isUnavailable = ingredientStatus[ing.id] === false;
+                    const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
+                    categoryHtml += `
+                        <label class="ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''}">
+                            <div>
+                                <input type="checkbox" class="form-checkbox ingredient-checkbox" data-price="${ing.price}" value="${ing.name}" ${isUnavailable ? 'disabled' : ''}>
+                                <span class="ml-2">${ing.name}</span>
+                            </div>
+                            <span class="font-medium text-sm">${priceDisplay}</span>
+                        </label>
+                    `;
+                });
+                categoryHtml += `</div>`;
+                ingredientsContainer.innerHTML += categoryHtml;
+            }
+            
+            updateBurgerPrice();
+            modal.style.display = 'flex';
+
+            ingredientsContainer.querySelectorAll('.ingredient-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                     checkbox.closest('.ingredient-option').classList.toggle('selected-ingredient', checkbox.checked);
+                    updateBurgerPrice()
+                });
+            });
+        }
         
+        function updateBurgerPrice() {
+            const modal = document.getElementById('burger-builder-modal');
+            const burgerId = modal.dataset.burgerId;
+            const burger = allItems.find(item => item.id === burgerId);
+            let total = burger.basePrice;
+
+            modal.querySelectorAll('.ingredient-checkbox:checked').forEach(checkbox => {
+                total += parseFloat(checkbox.dataset.price);
+            });
+            
+            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
+        }
+        
+        function addCustomBurgerToOrder() {
+            const modal = document.getElementById('burger-builder-modal');
+            const burgerId = modal.dataset.burgerId;
+            const burger = allItems.find(item => item.id === burgerId);
+            const selectedIngredients = [];
+            let ingredientsPrice = 0;
+
+            modal.querySelectorAll('.ingredient-checkbox:checked').forEach(checkbox => {
+                selectedIngredients.push({ name: checkbox.value, price: parseFloat(checkbox.dataset.price) });
+                ingredientsPrice += parseFloat(checkbox.dataset.price);
+            });
+            
+            const finalPrice = burger.basePrice + ingredientsPrice;
+            const ingredientNames = selectedIngredients.map(i => i.name).join(', ');
+
+            const newBurger = {
+                id: `${burger.id}-${Date.now()}`,
+                name: `${burger.name}${ingredientNames ? ` com ${ingredientNames}` : ''}`,
+                price: finalPrice,
+                category: burger.category,
+                ingredients: selectedIngredients,
+                type: 'custom_burger'
+            };
+            
+            addToOrder(newBurger);
+            modal.style.display = 'none';
+        }
+
         function updateOrderDisplay() {
             const tableBody = document.getElementById('order-items-table');
             const totalValueEl = document.getElementById('total-value');
@@ -530,13 +641,14 @@
                     const subtotal = item.price * item.quantity;
                     total += subtotal;
                     totalItems += item.quantity;
-                    let ingredientsHtml = '';
-                    if (item.ingredients && item.ingredients.length > 0) {
-                        ingredientsHtml = `<ul class="text-xs text-gray-500 pl-4 list-disc">${item.ingredients.map(ing => `<li>${ing.name}</li>`).join('')}</ul>`;
+                    let detailsHtml = '';
+                    if ((item.ingredients && item.ingredients.length > 0) || (item.extras && item.extras.length > 0)) {
+                        const allExtras = [...(item.ingredients || []), ...(item.extras || [])];
+                        detailsHtml = `<ul class="text-xs text-gray-500 pl-4 list-disc">${allExtras.map(ing => `<li>${ing.name}</li>`).join('')}</ul>`;
                     }
                     return `
                         <tr class="border-b hover:bg-gray-50">
-                            <td class="p-2 font-medium">${item.name}${ingredientsHtml}</td>
+                            <td class="p-2 font-medium">${item.name}${detailsHtml}</td>
                             <td class="p-2 text-center">${item.quantity}</td>
                             <td class="p-2 text-right font-medium">R$ ${subtotal.toFixed(2).replace('.',',')}</td>
                             <td class="p-2 text-center">
@@ -570,9 +682,7 @@
             document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrder);
             
             const pizzaModal = document.getElementById('pizza-option-modal');
-            document.getElementById('close-pizza-modal-btn').addEventListener('click', () => {
-                pizzaModal.style.display = 'none';
-            });
+            document.getElementById('close-pizza-modal-btn').addEventListener('click', () => pizzaModal.style.display = 'none');
             
             const burgerModal = document.getElementById('burger-builder-modal');
             document.getElementById('close-burger-modal-btn').addEventListener('click', () => burgerModal.style.display = 'none');
@@ -593,20 +703,16 @@
 
             const clientName = document.getElementById('client-name').value || 'Cliente Balcão';
             const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            const cleanedItems = JSON.parse(JSON.stringify(order, (key, value) => {
+                if (key === 'originalItem' || key === 'uniqueId') return undefined;
+                return value;
+            }));
 
             const newOrder = {
-                itens: order,
-                endereco: {
-                    clientName: clientName,
-                    rua: "Retirada no Balcão",
-                    bairro: "BALCÃO"
-                },
-                total: {
-                    subtotal: total,
-                    finalTotal: total,
-                    deliveryFee: 0,
-                    discount: 0,
-                },
+                itens: cleanedItems,
+                endereco: { clientName: clientName, rua: "Retirada no Balcão", bairro: "BALCÃO" },
+                total: { subtotal: total, finalTotal: total, deliveryFee: 0, discount: 0 },
                 pagamento: 'A Definir',
                 status: 'Entregue',
                 criadoEm: serverTimestamp(),
@@ -623,52 +729,6 @@
                 alert("Falha ao finalizar o pedido. Tente novamente.");
             }
         }
-        
-        // As funções openPizzaOptionsModal, openBurgerBuilderModal, addCustomBurgerToOrder, etc.
-        // precisam ser totalmente implementadas aqui, similar ao que foi feito em `atendente.html` e `index.html`.
-        // Vou adicionar a estrutura básica para a de pizza, como exemplo:
-
-        function openPizzaOptionsModal(pizza) {
-            document.getElementById('modal-pizza-name').textContent = pizza.name;
-            const sizeContainer = document.getElementById('pizza-size-options');
-            sizeContainer.innerHTML = '';
-
-            const sizes = [
-                { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
-                { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
-                { slices: 8, label: '8 Fatias', priceKey: 'basePrice' },
-                { slices: 10, label: '10 Fatias', priceKey: 'price10Slices' }
-            ];
-
-            sizes.forEach(size => {
-                if (pizza[size.priceKey] > 0) {
-                    const optionDiv = document.createElement('div');
-                    optionDiv.className = 'p-3 border rounded-lg hover:bg-gray-100 cursor-pointer';
-                    optionDiv.innerHTML = `<div class="flex justify-between items-center"><span>${size.label}</span><span class="font-bold">R$ ${pizza[size.priceKey].toFixed(2)}</span></div>`;
-                    optionDiv.addEventListener('click', () => {
-                        addToOrder({
-                            id: `${pizza.id}-${size.slices}`,
-                            name: `${pizza.name} (${size.label})`,
-                            price: pizza[size.priceKey],
-                            quantity: 1,
-                            category: pizza.category,
-                            isPizza: true,
-                            type: 'full' // Adicionado para lógica de adicionais
-                        });
-                        document.getElementById('pizza-option-modal').style.display = 'none';
-                    });
-                    sizeContainer.appendChild(optionDiv);
-                }
-            });
-
-            document.getElementById('pizza-option-modal').style.display = 'flex';
-        }
-        
-        function addCustomBurgerToOrder() {
-            // Lógica completa do builder de hambúrguer deve ser implementada aqui.
-        }
-
-
     </script>
 </body>
 </html>
