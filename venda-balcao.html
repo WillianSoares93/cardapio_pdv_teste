@@ -263,13 +263,24 @@
             }
         }
         
+        function capitalizeFirstLetter(string) {
+            if (!string) return '';
+            return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+        }
+
+        function formatCategoryName(category) {
+            if (category === 'Todos') return 'Todos';
+            const isPizzaCategory = fullMenu.some(item => item.category === category && item.isPizza);
+            return isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
+        }
+
         function renderCategories() {
             const categoryContainer = document.getElementById('category-list');
             const categories = ['Todos', ...new Set(fullMenu.map(item => item.category).filter(Boolean))];
             
             categoryContainer.innerHTML = categories.map((cat, index) => `
                 <button class="category-btn w-full p-4 text-sm font-bold rounded-md ${index === 0 ? 'active' : ''}" data-category="${cat}">
-                    ${cat}
+                    ${formatCategoryName(cat)}
                 </button>
             `).join('');
 
