@@ -82,6 +82,19 @@
             background-color: #3b82f6;
             color: white;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -179,6 +192,23 @@
             </section>
         </main>
     </div>
+    
+    <!-- Modal de Opções de Pizza -->
+    <div id="pizza-option-modal" class="modal">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 id="modal-pizza-name" class="text-xl font-bold text-gray-900"></h3>
+                <button id="close-pizza-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <div class="mt-4">
+                <p class="text-sm text-gray-600 mb-4">Selecione o tamanho:</p>
+                <div id="pizza-size-options" class="space-y-2">
+                    <!-- Opções de tamanho serão inseridas aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -226,7 +256,7 @@
             try {
                 const response = await fetch('/api/menu');
                 const data = await response.json();
-                fullMenu = data.cardapio.filter(item => !item.isPizza && !item.isCustomizable); // Filtra apenas itens de venda direta
+                fullMenu = data.cardapio.filter(item => !item.isCustomizable); // Mostra todos os itens, exceto os montáveis
             } catch (error) {
                 console.error("Erro ao buscar cardápio:", error);
                 alert("Não foi possível carregar o cardápio.");
@@ -235,7 +265,7 @@
         
         function renderCategories() {
             const categoryContainer = document.getElementById('category-list');
-            const categories = ['Todos', ...new Set(fullMenu.map(item => item.category))];
+            const categories = ['Todos', ...new Set(fullMenu.map(item => item.category).filter(Boolean))];
             
             categoryContainer.innerHTML = categories.map((cat, index) => `
                 <button class="category-btn w-full p-4 text-sm font-bold rounded-md ${index === 0 ? 'active' : ''}" data-category="${cat}">
@@ -254,7 +284,10 @@
 
         function renderProducts() {
             const productGrid = document.getElementById('product-grid');
-            const activeCategory = document.querySelector('#category-list .active').dataset.category;
+            const activeCategoryBtn = document.querySelector('#category-list .active');
+            if (!activeCategoryBtn) return;
+            
+            const activeCategory = activeCategoryBtn.dataset.category;
             const searchTerm = document.getElementById('search-product').value.toLowerCase();
 
             const filteredMenu = fullMenu.filter(item => {
@@ -267,7 +300,7 @@
                 <div class="product-card" data-item-id="${item.id}">
                     <img src="${item.imageUrl || 'https://placehold.co/100x60/d1d5db/374151?text=S%C3%A2mia'}" alt="${item.name}">
                     <span class="text-xs font-bold text-gray-800 mt-2">${item.name}</span>
-                    <span class="text-sm font-bold text-blue-600">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</span>
+                    <span class="text-sm font-bold text-blue-600">R$ ${(item.basePrice || item.price4Slices || 0).toFixed(2).replace('.', ',')}</span>
                 </div>
             `).join('');
 
@@ -276,7 +309,11 @@
                     const itemId = card.dataset.itemId;
                     const product = fullMenu.find(p => p.id === itemId);
                     if (product) {
-                        addToOrder(product);
+                        if (product.isPizza) {
+                            openPizzaOptionsModal(product);
+                        } else {
+                            addToOrder({ ...product, price: product.basePrice });
+                        }
                     }
                 });
             });
@@ -290,13 +327,56 @@
                 order.push({
                     id: product.id,
                     name: product.name,
-                    price: product.basePrice,
+                    price: product.price,
                     quantity: 1,
                     category: product.category
                 });
             }
             updateOrderDisplay();
         }
+
+        const sizes = [
+            { slices: 4, label: '4 Fatias', priceKey: 'price4Slices' },
+            { slices: 6, label: '6 Fatias', priceKey: 'price6Slices' },
+            { slices: 8, label: '8 Fatias', priceKey: 'basePrice' },
+            { slices: 10, label: '10 Fatias', priceKey: 'price10Slices' }
+        ];
+
+        function openPizzaOptionsModal(pizza) {
+            document.getElementById('modal-pizza-name').textContent = pizza.name;
+            const sizeContainer = document.getElementById('pizza-size-options');
+            sizeContainer.innerHTML = '';
+
+            sizes.forEach(size => {
+                if (pizza[size.priceKey] > 0) {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'p-3 border rounded-lg hover:bg-gray-100 cursor-pointer';
+                    optionDiv.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-bold">${size.label}</span>
+                            </div>
+                            <span class="font-bold text-blue-600">R$ ${pizza[size.priceKey].toFixed(2).replace('.', ',')}</span>
+                        </div>
+                    `;
+                    optionDiv.addEventListener('click', () => {
+                        const selectedPizza = {
+                            id: `${pizza.id}-${size.slices}`,
+                            name: `${pizza.name} (${size.label})`,
+                            price: pizza[size.priceKey],
+                            quantity: 1,
+                            category: pizza.category
+                        };
+                        addToOrder(selectedPizza);
+                        document.getElementById('pizza-option-modal').style.display = 'none';
+                    });
+                    sizeContainer.appendChild(optionDiv);
+                }
+            });
+
+            document.getElementById('pizza-option-modal').style.display = 'flex';
+        }
+
 
         function updateOrderDisplay() {
             const tableBody = document.getElementById('order-items-table');
@@ -349,6 +429,16 @@
                 }
             });
             document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrder);
+            
+            const pizzaModal = document.getElementById('pizza-option-modal');
+            document.getElementById('close-pizza-modal-btn').addEventListener('click', () => {
+                pizzaModal.style.display = 'none';
+            });
+            window.addEventListener('click', (e) => {
+                if (e.target === pizzaModal) {
+                    pizzaModal.style.display = 'none';
+                }
+            });
         }
 
         async function finalizeOrder() {
