@@ -95,6 +95,41 @@
             justify-content: center;
             align-items: center;
         }
+        .ingredient-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            border: 1px solid #d1d5db;
+            transition: all 0.2s ease-in-out;
+        }
+        .ingredient-option:hover {
+            background-color: #f9fafb;
+            border-color: #3b82f6;
+        }
+        .ingredient-option.selected-ingredient {
+            background-color: #dbeafe; /* blue-100 */
+            border-color: #3b82f6; /* blue-500 */
+        }
+        .quantity-btn {
+            background-color: #e5e7eb;
+            color: #4b5563;
+            transition: all 0.2s ease-in-out;
+            width: 28px;
+            height: 28px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        .quantity-btn:hover:not(:disabled) {
+            background-color: #d1d5db;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -209,6 +244,27 @@
         </div>
     </div>
 
+    <!-- Modal de Montagem de Hambúrguer -->
+    <div id="burger-builder-modal" class="modal">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 id="modal-burger-name" class="text-xl font-bold text-gray-900">Monte seu Hambúrguer</h3>
+                <button id="close-burger-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <div id="burger-ingredients-container" class="mt-4 mb-4 max-h-80 overflow-y-auto p-2 space-y-4">
+                <!-- Ingredientes serão inseridos aqui -->
+            </div>
+            <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
+                <span class="text-lg font-bold">Total do Hambúrguer:</span>
+                <span id="burger-total-price" class="text-2xl font-bold text-blue-600">R$ 0,00</span>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button id="cancel-burger-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button id="add-custom-burger-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Adicionar ao Pedido</button>
+            </div>
+        </div>
+    </div>
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -230,6 +286,7 @@
 
         let fullMenu = [];
         let allItems = [];
+        let burgerIngredients = {};
         let order = [];
         let currentUserEmail = '';
 
@@ -258,25 +315,28 @@
                 const response = await fetch('/api/menu');
                 const data = await response.json();
                 
-                // Adiciona uma categoria 'Promoções' aos itens de promoção para que apareçam na lista
                 const promotionsWithCategory = (data.promocoes || []).map(promo => {
-                    // Tenta encontrar o item original no cardápio para herdar a categoria
                     const originalItem = data.cardapio.find(item => item.id === promo.itemId);
                     return {
                         ...promo,
-                        // Se o item original for encontrado, usa a categoria dele, senão, 'Promoções'
                         category: originalItem ? originalItem.category : 'Promoções', 
                         isPizza: originalItem ? originalItem.isPizza : false,
-                        isCustomizable: false, // Promoções de balcão são de preço fixo
-                        basePrice: promo.promoPrice // O preço de venda é o preço promocional
+                        isCustomizable: false,
+                        basePrice: promo.promoPrice
                     };
                 });
-
-                // Junta o cardápio principal com as promoções
-                allItems = [...(data.cardapio || []), ...promotionsWithCategory];
                 
-                // Filtra os itens que podem ser exibidos na grade (não customizáveis)
-                fullMenu = allItems.filter(item => !item.isCustomizable); 
+                allItems = [...(data.cardapio || []), ...promotionsWithCategory];
+                fullMenu = allItems; // Agora fullMenu contém todos os itens, incluindo customizáveis.
+                
+                const rawBurgerIngredients = data.ingredientesHamburguer || [];
+                burgerIngredients = rawBurgerIngredients.reduce((acc, current) => {
+                    const category = current.category || 'Outros';
+                    if (!acc[category]) acc[category] = [];
+                    acc[category].push(current);
+                    return acc;
+                }, {});
+
             } catch (error) {
                 console.error("Erro ao buscar cardápio:", error);
                 alert("Não foi possível carregar o cardápio.");
@@ -290,14 +350,12 @@
 
         function formatCategoryName(category) {
             if (category === 'Todos') return 'Todos';
-            // Usa a lista completa de itens (allItems) para verificar se a categoria é de pizza
             const isPizzaCategory = allItems.some(item => item.category === category && item.isPizza);
             return isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
         }
 
         function renderCategories() {
             const categoryContainer = document.getElementById('category-list');
-            // Usa a lista completa de itens (allItems) para garantir que todas as categorias apareçam
             const categories = ['Todos', ...new Set(allItems.map(item => item.category).filter(Boolean))];
             
             categoryContainer.innerHTML = categories.map((cat, index) => `
@@ -323,7 +381,6 @@
             const activeCategory = activeCategoryBtn.dataset.category;
             const searchTerm = document.getElementById('search-product').value.toLowerCase();
 
-            // Continua usando fullMenu (a lista já filtrada de produtos vendáveis) para a exibição
             const filteredMenu = fullMenu.filter(item => {
                 const categoryMatch = activeCategory === 'Todos' || item.category === activeCategory;
                 const searchMatch = !searchTerm || item.name.toLowerCase().includes(searchTerm);
@@ -350,7 +407,10 @@
                     if (product) {
                         if (product.isPizza) {
                             openPizzaOptionsModal(product);
-                        } else {
+                        } else if (product.isCustomizable) {
+                            openBurgerBuilderModal(product);
+                        }
+                        else {
                             addToOrder({ ...product, price: product.basePrice });
                         }
                     }
@@ -368,7 +428,8 @@
                     name: product.name,
                     price: product.price,
                     quantity: 1,
-                    category: product.category
+                    category: product.category,
+                    ingredients: product.ingredients // Para o hambúrguer montável
                 });
             }
             updateOrderDisplay();
@@ -414,6 +475,83 @@
             });
 
             document.getElementById('pizza-option-modal').style.display = 'flex';
+        }
+
+        function openBurgerBuilderModal(burger) {
+            const modal = document.getElementById('burger-builder-modal');
+            modal.dataset.burgerId = burger.id;
+            const ingredientsContainer = modal.querySelector('#burger-ingredients-container');
+            ingredientsContainer.innerHTML = '';
+
+            for (const categoryName in burgerIngredients) {
+                const ingredients = burgerIngredients[categoryName];
+                let categoryHtml = `<div class="mb-4"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)}</h4>`;
+                
+                ingredients.forEach(ing => {
+                     const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
+                    categoryHtml += `
+                        <label class="ingredient-option">
+                            <div>
+                                <input type="checkbox" class="form-checkbox ingredient-checkbox" data-price="${ing.price}" value="${ing.name}">
+                                <span class="ml-2">${ing.name}</span>
+                            </div>
+                            <span class="font-medium text-sm">${priceDisplay}</span>
+                        </label>
+                    `;
+                });
+                categoryHtml += `</div>`;
+                ingredientsContainer.innerHTML += categoryHtml;
+            }
+            
+            updateBurgerPrice();
+            modal.style.display = 'flex';
+
+            ingredientsContainer.querySelectorAll('.ingredient-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                     checkbox.closest('.ingredient-option').classList.toggle('selected-ingredient', checkbox.checked);
+                    updateBurgerPrice()
+                });
+            });
+        }
+        
+        function updateBurgerPrice() {
+            const modal = document.getElementById('burger-builder-modal');
+            const burgerId = modal.dataset.burgerId;
+            const burger = fullMenu.find(item => item.id === burgerId);
+            let total = burger.basePrice;
+
+            modal.querySelectorAll('.ingredient-checkbox:checked').forEach(checkbox => {
+                total += parseFloat(checkbox.dataset.price);
+            });
+            
+            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
+        }
+        
+        function addCustomBurgerToOrder() {
+            const modal = document.getElementById('burger-builder-modal');
+            const burgerId = modal.dataset.burgerId;
+            const burger = fullMenu.find(item => item.id === burgerId);
+            const selectedIngredients = [];
+            let ingredientsPrice = 0;
+
+            modal.querySelectorAll('.ingredient-checkbox:checked').forEach(checkbox => {
+                selectedIngredients.push({ name: checkbox.value, price: parseFloat(checkbox.dataset.price) });
+                ingredientsPrice += parseFloat(checkbox.dataset.price);
+            });
+            
+            const finalPrice = burger.basePrice + ingredientsPrice;
+            const ingredientNames = selectedIngredients.map(i => i.name).join(', ');
+
+            const newBurger = {
+                id: `${burger.id}-${Date.now()}`,
+                name: `${burger.name} com ${ingredientNames || 'ingredientes'}`,
+                price: finalPrice,
+                category: burger.category,
+                ingredients: selectedIngredients
+            };
+            
+            addToOrder(newBurger);
+            modal.style.display = 'none';
         }
 
 
@@ -473,10 +611,15 @@
             document.getElementById('close-pizza-modal-btn').addEventListener('click', () => {
                 pizzaModal.style.display = 'none';
             });
+            
+            const burgerModal = document.getElementById('burger-builder-modal');
+            document.getElementById('close-burger-modal-btn').addEventListener('click', () => burgerModal.style.display = 'none');
+            document.getElementById('cancel-burger-btn').addEventListener('click', () => burgerModal.style.display = 'none');
+            document.getElementById('add-custom-burger-btn').addEventListener('click', addCustomBurgerToOrder);
+
             window.addEventListener('click', (e) => {
-                if (e.target === pizzaModal) {
-                    pizzaModal.style.display = 'none';
-                }
+                if (e.target === pizzaModal) pizzaModal.style.display = 'none';
+                if (e.target === burgerModal) burgerModal.style.display = 'none';
             });
         }
 
