@@ -221,11 +221,6 @@
            projectId: "pizzaria-pdv",
            storageBucket: "pizzaria-pdv.firebasestorage.app",
            messagingSenderId: "304171744691",
-           appId: "1:304171744691:web:e54d7f-pyIUp47XDKzRXk84",
-           authDomain: "pizzaria-pdv.firebaseapp.com",
-           projectId: "pizzaria-pdv",
-           storageBucket: "pizzaria-pdv.firebasestorage.app",
-           messagingSenderId: "304171744691",
            appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
         };
 
@@ -262,8 +257,26 @@
             try {
                 const response = await fetch('/api/menu');
                 const data = await response.json();
-                allItems = data.cardapio; // Armazena todos os itens para a lógica de categorias
-                fullMenu = allItems.filter(item => !item.isCustomizable); // Filtra os produtos para exibição
+                
+                // Adiciona uma categoria 'Promoções' aos itens de promoção para que apareçam na lista
+                const promotionsWithCategory = (data.promocoes || []).map(promo => {
+                    // Tenta encontrar o item original no cardápio para herdar a categoria
+                    const originalItem = data.cardapio.find(item => item.id === promo.itemId);
+                    return {
+                        ...promo,
+                        // Se o item original for encontrado, usa a categoria dele, senão, 'Promoções'
+                        category: originalItem ? originalItem.category : 'Promoções', 
+                        isPizza: originalItem ? originalItem.isPizza : false,
+                        isCustomizable: false, // Promoções de balcão são de preço fixo
+                        basePrice: promo.promoPrice // O preço de venda é o preço promocional
+                    };
+                });
+
+                // Junta o cardápio principal com as promoções
+                allItems = [...(data.cardapio || []), ...promotionsWithCategory];
+                
+                // Filtra os itens que podem ser exibidos na grade (não customizáveis)
+                fullMenu = allItems.filter(item => !item.isCustomizable); 
             } catch (error) {
                 console.error("Erro ao buscar cardápio:", error);
                 alert("Não foi possível carregar o cardápio.");
@@ -316,6 +329,11 @@
                 const searchMatch = !searchTerm || item.name.toLowerCase().includes(searchTerm);
                 return categoryMatch && searchMatch;
             });
+
+            if(filteredMenu.length === 0) {
+                productGrid.innerHTML = `<p class="text-center text-gray-500 col-span-full mt-8">Nenhum produto encontrado para esta categoria.</p>`;
+                return;
+            }
 
             productGrid.innerHTML = filteredMenu.map(item => `
                 <div class="product-card" data-item-id="${item.id}">
