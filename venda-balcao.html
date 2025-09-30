@@ -221,6 +221,11 @@
            projectId: "pizzaria-pdv",
            storageBucket: "pizzaria-pdv.firebasestorage.app",
            messagingSenderId: "304171744691",
+           appId: "1:304171744691:web:e54d7f-pyIUp47XDKzRXk84",
+           authDomain: "pizzaria-pdv.firebaseapp.com",
+           projectId: "pizzaria-pdv",
+           storageBucket: "pizzaria-pdv.firebasestorage.app",
+           messagingSenderId: "304171744691",
            appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
         };
 
@@ -229,6 +234,7 @@
         const db = getFirestore(app);
 
         let fullMenu = [];
+        let allItems = [];
         let order = [];
         let currentUserEmail = '';
 
@@ -256,7 +262,8 @@
             try {
                 const response = await fetch('/api/menu');
                 const data = await response.json();
-                fullMenu = data.cardapio.filter(item => !item.isCustomizable); // Mostra todos os itens, exceto os montáveis
+                allItems = data.cardapio; // Armazena todos os itens para a lógica de categorias
+                fullMenu = allItems.filter(item => !item.isCustomizable); // Filtra os produtos para exibição
             } catch (error) {
                 console.error("Erro ao buscar cardápio:", error);
                 alert("Não foi possível carregar o cardápio.");
@@ -270,13 +277,15 @@
 
         function formatCategoryName(category) {
             if (category === 'Todos') return 'Todos';
-            const isPizzaCategory = fullMenu.some(item => item.category === category && item.isPizza);
+            // Usa a lista completa de itens (allItems) para verificar se a categoria é de pizza
+            const isPizzaCategory = allItems.some(item => item.category === category && item.isPizza);
             return isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
         }
 
         function renderCategories() {
             const categoryContainer = document.getElementById('category-list');
-            const categories = ['Todos', ...new Set(fullMenu.map(item => item.category).filter(Boolean))];
+            // Usa a lista completa de itens (allItems) para garantir que todas as categorias apareçam
+            const categories = ['Todos', ...new Set(allItems.map(item => item.category).filter(Boolean))];
             
             categoryContainer.innerHTML = categories.map((cat, index) => `
                 <button class="category-btn w-full p-4 text-sm font-bold rounded-md ${index === 0 ? 'active' : ''}" data-category="${cat}">
@@ -301,6 +310,7 @@
             const activeCategory = activeCategoryBtn.dataset.category;
             const searchTerm = document.getElementById('search-product').value.toLowerCase();
 
+            // Continua usando fullMenu (a lista já filtrada de produtos vendáveis) para a exibição
             const filteredMenu = fullMenu.filter(item => {
                 const categoryMatch = activeCategory === 'Todos' || item.category === activeCategory;
                 const searchMatch = !searchTerm || item.name.toLowerCase().includes(searchTerm);
