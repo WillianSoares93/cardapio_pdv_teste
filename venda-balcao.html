@@ -752,7 +752,7 @@
         }
 
         function openPizzaExtrasBuilderModal(uniqueId) {
-             const orderIndex = order.findIndex(item => item.uniqueId === uniqueId);
+            const orderIndex = order.findIndex(item => item.uniqueId === uniqueId);
             if (orderIndex === -1) return;
 
             const pizzaItem = order[orderIndex];
@@ -775,9 +775,9 @@
                 const half1Name = pizzaItem.firstHalfData.name;
                 const half2Name = pizzaItem.secondHalfData.name;
                 scopeButtonsContainer.innerHTML = `
-                    <button class="scope-button px-3 py-1" data-scope="metade1">1ª Metade: ${half1Name}</button>
-                    <button class="scope-button px-3 py-1" data-scope="metade2">2ª Metade: ${half2Name}</button>
-                    <button class="scope-button px-3 py-1 active" data-scope="toda">Pizza Toda</button>
+                    <button class="scope-button" data-scope="metade1">1ª Metade: ${half1Name}</button>
+                    <button class="scope-button" data-scope="metade2">2ª Metade: ${half2Name}</button>
+                    <button class="scope-button active" data-scope="toda">Pizza Toda</button>
                 `;
                 scopeButtonsContainer.querySelectorAll('.scope-button').forEach(btn => {
                     btn.addEventListener('click', () => {
@@ -887,7 +887,7 @@
             
             const pizzaItem = order[orderIndex];
             let basePrice = pizzaItem.price;
-            if (pizzaItem.extras && pizzaItem.extras.length > 0) {
+             if (pizzaItem.extras && pizzaItem.extras.length > 0) {
                 pizzaItem.extras.forEach(extra => { basePrice -= (extra.price * extra.quantity); });
             }
             
@@ -928,9 +928,9 @@
                     total += subtotal;
                     totalItems += item.quantity;
                     let detailsHtml = '';
-                    if ((item.ingredients && item.ingredients.length > 0) || (item.extras && item.extras.length > 0)) {
-                        const allExtras = [...(item.ingredients || []), ...(item.extras || [])];
-                        detailsHtml = `<ul class="text-xs text-gray-500 pl-4 list-disc">${allExtras.map(ing => `<li>${ing.name}</li>`).join('')}</ul>`;
+                    const allDetails = [...(item.ingredients || []), ...(item.extras || [])];
+                    if (allDetails.length > 0) {
+                        detailsHtml = `<ul class="text-xs text-gray-500 pl-4 list-disc">${allDetails.map(ing => `<li>${ing.name}</li>`).join('')}</ul>`;
                     }
                     return `
                         <tr class="border-b hover:bg-gray-50">
