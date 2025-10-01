@@ -797,15 +797,117 @@
             const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
             const container = document.getElementById('pizza-extras-ingredients-container');
             container.innerHTML = '';
-            // Lógica para renderizar os extras
+             for (const categoryName in allPizzaExtras) {
+                const extras = allPizzaExtras[categoryName].filter(ext => extraVisibility[ext.id] !== false);
+                 if (extras.length === 0) continue;
+                
+                let categoryHtml = `<div class="mb-4"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)}</h4>`;
+                
+                extras.forEach(extra => {
+                    const isUnavailable = extraStatus[extra.id] === false;
+                    const priceDisplay = extra.price > 0 ? `+ R$ ${extra.price.toFixed(2).replace('.', ',')}` : '';
+                    const existingExtra = currentPizzaExtrasState[activeScope]?.find(e => e.name === extra.name);
+                    const quantity = existingExtra ? existingExtra.quantity : 0;
+                    
+                    categoryHtml += `
+                        <div class="ingredient-option ${isUnavailable ? 'opacity-50' : ''}">
+                            <div class="flex-grow">
+                                <span class="ml-2">${extra.name}</span>
+                            </div>
+                           <div class="flex items-center space-x-2">
+                                <span class="font-medium text-sm">${priceDisplay}</span>
+                                <div class="flex items-center space-x-2" data-name="${extra.name}" data-price="${extra.price}">
+                                    <button type="button" class="quantity-btn minus-btn" ${isUnavailable ? 'disabled' : ''}>-</button>
+                                    <span class="quantity-display font-bold text-base w-6 text-center">${quantity}</span>
+                                    <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                categoryHtml += `</div>`;
+                container.innerHTML += categoryHtml;
+            }
+
+            container.querySelectorAll('.quantity-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                     const display = e.target.parentElement.querySelector('.quantity-display');
+                    let quantity = parseInt(display.textContent);
+                    if(e.target.classList.contains('plus-btn')) quantity++;
+                    else if (quantity > 0) quantity--;
+                    display.textContent = quantity;
+                    
+                    const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
+                    const extraContainer = e.target.closest('[data-name]');
+                    const extraName = extraContainer.dataset.name;
+                    const extraPrice = parseFloat(extraContainer.dataset.price);
+
+                    const existingExtraIndex = currentPizzaExtrasState[activeScope].findIndex(ex => ex.name === extraName);
+                    
+                    if (quantity > 0) {
+                        const placementText = activeScope === 'toda' ? 'Toda' : (activeScope === 'metade1' ? '1ª Metade' : '2ª Metade');
+                        if (existingExtraIndex > -1) {
+                            currentPizzaExtrasState[activeScope][existingExtraIndex].quantity = quantity;
+                        } else {
+                            currentPizzaExtrasState[activeScope].push({ name: extraName, price: extraPrice, placement: placementText, quantity: quantity });
+                        }
+                    } else {
+                        if (existingExtraIndex > -1) {
+                            currentPizzaExtrasState[activeScope].splice(existingExtraIndex, 1);
+                        }
+                    }
+                    updatePizzaExtrasPrice(orderIndex);
+                });
+            });
         }
 
         function updatePizzaExtrasPrice(orderIndex) {
-             // Lógica para atualizar preço com extras
+            const pizzaItem = order[orderIndex];
+            
+            let basePrice = pizzaItem.price;
+            if (pizzaItem.extras && pizzaItem.extras.length > 0) {
+                pizzaItem.extras.forEach(extra => {
+                    basePrice -= (extra.price * extra.quantity);
+                });
+            }
+
+            let totalExtrasPrice = 0;
+            for (const scope in currentPizzaExtrasState) {
+                currentPizzaExtrasState[scope].forEach(extra => {
+                    totalExtrasPrice += (extra.price * extra.quantity);
+                });
+            }
+
+            document.getElementById('pizza-extras-total-price').textContent = `R$ ${(basePrice + totalExtrasPrice).toFixed(2).replace('.', ',')}`;
         }
         
         function confirmPizzaExtras() {
-             // Lógica para confirmar e salvar os extras
+            const orderIndex = parseInt(document.getElementById('pizza-extras-builder-modal').dataset.orderIndex);
+            if (isNaN(orderIndex)) return;
+            
+            const pizzaItem = order[orderIndex];
+            let basePrice = pizzaItem.price;
+            if (pizzaItem.extras && pizzaItem.extras.length > 0) {
+                pizzaItem.extras.forEach(extra => { basePrice -= (extra.price * extra.quantity); });
+            }
+            
+            const finalExtras = [];
+            let finalExtrasPrice = 0;
+            
+            for (const scope in currentPizzaExtrasState) {
+                currentPizzaExtrasState[scope].forEach(extra => {
+                    if(extra.quantity > 0) {
+                        finalExtras.push(extra);
+                        finalExtrasPrice += (extra.price * extra.quantity);
+                    }
+                });
+            }
+            
+            pizzaItem.extras = finalExtras;
+            pizzaItem.price = basePrice + finalExtrasPrice;
+            
+            updateOrderDisplay();
+            document.getElementById('pizza-extras-builder-modal').style.display = 'none';
         }
 
         function updateOrderDisplay() {
