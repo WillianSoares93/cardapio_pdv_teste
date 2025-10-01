@@ -720,6 +720,26 @@
             const burger = allItems.find(item => item.id === burgerId);
             const selectedIngredients = [];
             let ingredientsPrice = 0;
+            
+            let allRequiredCategoriesFilled = true;
+            for (const categoryName in allIngredients) {
+                 const ingredients = allIngredients[categoryName];
+                if (ingredients.length > 0 && ingredients[0].isRequired) {
+                    const categoryDiv = modal.querySelector(`.mb-4[data-category-name="${categoryName}"]`);
+                    const radioChecked = categoryDiv.querySelector(`input[type="radio"]:checked`);
+                    let quantitySelected = false;
+                    categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
+                        if (parseInt(display.textContent) > 0) quantitySelected = true;
+                    });
+                    if (!radioChecked && !quantitySelected) {
+                        alert(`Por favor, escolha uma opção na categoria obrigatória: ${categoryName}`);
+                        allRequiredCategoriesFilled = false;
+                        break; 
+                    }
+                }
+            }
+            if (!allRequiredCategoriesFilled) return;
+
 
             modal.querySelectorAll('.quantity-display').forEach(display => {
                 const quantity = parseInt(display.textContent);
