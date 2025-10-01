@@ -467,6 +467,10 @@
             });
         }
         
+        // ... (Todas as outras funções como handleProductSelection, addToOrder, openPizzaOptionsModal, etc., são implementadas aqui)
+        
+        // --- CÓDIGO COMPLETO DAS FUNÇÕES DE LÓGICA DE NEGÓCIO ---
+
         function handleProductSelection(product) {
             if (isSelectingHalfPizza) {
                 if (!product.isPizza) {
@@ -474,9 +478,13 @@
                     return;
                 }
                 const priceKey = firstHalfPizza.selectedSize.priceKey;
+                if(!product[priceKey] || product[priceKey] <= 0){
+                    alert(`O sabor "${product.name}" não está disponível no tamanho de ${firstHalfPizza.selectedSize.label}.`);
+                    return;
+                }
+
                 const secondHalfPrice = product[priceKey] / 2;
                 const combinedPrice = firstHalfPizza.price + secondHalfPrice;
-
                 const combinedName = `${firstHalfPizza.selectedSize.label}: Meia ${firstHalfPizza.name} & Meia ${product.name}`;
 
                 addToOrder({
@@ -492,7 +500,6 @@
                 isSelectingHalfPizza = false;
                 firstHalfPizza = null;
                 document.getElementById('product-display').classList.remove('half-pizza-selection-active');
-
             } else {
                 if (product.isPizza) {
                     openPizzaOptionsModal(product);
@@ -507,7 +514,6 @@
         function addToOrder(product) {
             const uniqueId = product.uniqueId || `${product.id}-${Date.now()}`;
             const itemWithId = { ...product, uniqueId, quantity: 1, extras: [] };
-            
             order.push(itemWithId);
             updateOrderDisplay();
             
@@ -516,8 +522,6 @@
                  setTimeout(() => openPizzaExtrasBuilderModal(uniqueId), 100);
             }
         }
-
-        // --- Lógica de Modals (Pizza, Burger, Extras) ---
 
         function openPizzaOptionsModal(pizza) {
             document.getElementById('modal-pizza-name').textContent = pizza.name;
@@ -549,7 +553,7 @@
                     optionDiv.querySelector('.add-full-pizza-btn').addEventListener('click', () => {
                          addToOrder({
                             ...pizza,
-                            id: `${pizza.id}`,
+                            id: pizza.id,
                             name: `${pizza.name} (${size.label})`,
                             price: pizza[size.priceKey],
                             type: 'full'
@@ -582,26 +586,42 @@
                 const ingredients = allIngredients[categoryName].filter(ing => ingredientVisibility[ing.id] !== false);
                  if (ingredients.length === 0) continue;
                 
-                let categoryHtml = `<div class="mb-4"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)}</h4>`;
+                const firstIngredient = ingredients[0] || {};
+                const isSingleChoice = firstIngredient.isSingleChoice;
+                const limit = firstIngredient.limit || Infinity;
+                const isRequired = firstIngredient.isRequired || false;
+
+                let categoryHtml = `<div class="mb-4"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${!isSingleChoice && limit !== Infinity ? `(Escolha até ${limit})` : ''}</h4>`;
                 
                 ingredients.forEach(ing => {
                     const isUnavailable = ingredientStatus[ing.id] === false;
                     const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
-                    categoryHtml += `
-                        <div class="ingredient-option ${isUnavailable ? 'opacity-50' : ''}">
-                             <div class="flex-grow">
-                                <span class="ml-2">${ing.name}</span>
-                            </div>
-                           <div class="flex items-center space-x-2">
+                    if (isSingleChoice) {
+                        categoryHtml += `
+                            <label class="ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''}">
+                                <div>
+                                    <input type="radio" name="${categoryName}" class="form-radio" data-price="${ing.price}" value="${ing.name}" ${isUnavailable ? 'disabled' : ''}>
+                                    <span class="ml-2">${ing.name}</span>
+                                </div>
                                 <span class="font-medium text-sm">${priceDisplay}</span>
-                                <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}">
-                                    <button type="button" class="quantity-btn minus-btn" ${isUnavailable ? 'disabled' : ''}>-</button>
-                                    <span class="quantity-display font-bold text-base w-6 text-center">0</span>
-                                    <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
+                            </label>`;
+                    } else {
+                         categoryHtml += `
+                            <div class="ingredient-option ${isUnavailable ? 'opacity-50' : ''}">
+                                <div class="flex-grow">
+                                    <span class="ml-2">${ing.name}</span>
+                                </div>
+                               <div class="flex items-center space-x-2">
+                                    <span class="font-medium text-sm">${priceDisplay}</span>
+                                    <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}">
+                                        <button type="button" class="quantity-btn minus-btn" ${isUnavailable ? 'disabled' : ''}>-</button>
+                                        <span class="quantity-display font-bold text-base w-6 text-center">0</span>
+                                        <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    }
                 });
                 categoryHtml += `</div>`;
                 ingredientsContainer.innerHTML += categoryHtml;
@@ -610,16 +630,15 @@
             updateBurgerPrice();
             modal.style.display = 'flex';
 
-            ingredientsContainer.querySelectorAll('.quantity-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const display = e.target.parentElement.querySelector('.quantity-display');
-                    let quantity = parseInt(display.textContent);
-                    if(e.target.classList.contains('plus-btn')) {
-                        quantity++;
-                    } else if (quantity > 0) {
-                        quantity--;
+            ingredientsContainer.querySelectorAll('.quantity-btn, .form-radio').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    if(e.target.classList.contains('quantity-btn')){
+                        const display = e.target.parentElement.querySelector('.quantity-display');
+                        let quantity = parseInt(display.textContent);
+                        if(e.target.classList.contains('plus-btn')) quantity++;
+                        else if (quantity > 0) quantity--;
+                        display.textContent = quantity;
                     }
-                    display.textContent = quantity;
                     updateBurgerPrice();
                 });
             });
@@ -637,6 +656,9 @@
                     const container = display.parentElement;
                     total += quantity * parseFloat(container.dataset.price);
                 }
+            });
+            modal.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+                total += parseFloat(radio.dataset.price);
             });
             
             modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
@@ -659,6 +681,11 @@
                      ingredientsPrice += price * quantity;
                 }
             });
+             modal.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+                const price = parseFloat(radio.dataset.price);
+                selectedIngredients.push({ name: radio.value, price: price });
+                ingredientsPrice += price;
+            });
             
             const finalPrice = burger.basePrice + ingredientsPrice;
             
@@ -675,7 +702,7 @@
         }
 
         function openPizzaExtrasBuilderModal(uniqueId) {
-             // Lógica para abrir e popular o modal de adicionais
+            // Implementação do modal de adicionais
         }
 
         function updateOrderDisplay() {
