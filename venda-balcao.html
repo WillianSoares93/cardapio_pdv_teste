@@ -153,6 +153,14 @@
             background-color: #fef9c3; /* yellow-100 */
             border: 2px dashed #f59e0b; /* yellow-500 */
         }
+        .scope-button {
+            transition: all 0.2s ease-in-out;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            background-color: #e5e7eb;
+            color: #4b5563;
+            font-size: 0.875rem;
+        }
         .scope-button.active {
             background-color: #3b82f6;
             color: white;
@@ -294,6 +302,17 @@
             </div>
             <div class="mt-6 flex justify-end">
                 <button id="add-pizza-with-extras-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar Adicionais</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para perguntar sobre adicionais -->
+    <div id="ask-pizza-extras-modal" class="modal">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+             <p class="text-lg font-semibold text-gray-800 mb-4 text-center">Deseja adicionar ingredientes extras?</p>
+            <div class="flex justify-center gap-4">
+                <button id="ask-extras-no-btn" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold hover:bg-gray-400 transition">Não, obrigado</button>
+                <button id="ask-extras-yes-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition">Sim, quero!</button>
             </div>
         </div>
     </div>
@@ -467,14 +486,15 @@
             });
         }
         
-        // ... (Todas as outras funções como handleProductSelection, addToOrder, openPizzaOptionsModal, etc., são implementadas aqui)
-        
-        // --- CÓDIGO COMPLETO DAS FUNÇÕES DE LÓGICA DE NEGÓCIO ---
-
         function handleProductSelection(product) {
             if (isSelectingHalfPizza) {
-                if (!product.isPizza) {
-                    alert('Por favor, escolha uma pizza para a segunda metade.');
+                 if (!product.isPizza || pizzaHalfStatus[product.id] === false) {
+                    alert('Por favor, escolha um sabor de pizza válido para a segunda metade.');
+                    return;
+                }
+                const isSecondHalfPromotional = product.category.toLowerCase() === 'promocionais';
+                if(firstHalfPizza.isPromotional !== isSecondHalfPromotional) {
+                    alert('Não é possível combinar uma pizza promocional com uma não promocional.');
                     return;
                 }
                 const priceKey = firstHalfPizza.selectedSize.priceKey;
@@ -514,12 +534,21 @@
         function addToOrder(product) {
             const uniqueId = product.uniqueId || `${product.id}-${Date.now()}`;
             const itemWithId = { ...product, uniqueId, quantity: 1, extras: [] };
+            
             order.push(itemWithId);
             updateOrderDisplay();
             
-            const acceptsExtras = itemExtrasStatus[product.id] === undefined ? product.isPizza : itemExtrasStatus[product.id];
-            if(acceptsExtras && (product.type === 'full' || product.type === 'split')){
-                 setTimeout(() => openPizzaExtrasBuilderModal(uniqueId), 100);
+            const originalItemId = (product.type === 'split' ? product.firstHalfData.id : product.id);
+            const originalItem = allItems.find(i => i.id === originalItemId);
+            if (originalItem) {
+                const acceptsExtras = itemExtrasStatus[originalItem.id] === undefined ? originalItem.isPizza : itemExtrasStatus[originalItem.id];
+                if(acceptsExtras && (product.type === 'full' || product.type === 'split')){
+                    setTimeout(() => {
+                        const askModal = document.getElementById('ask-pizza-extras-modal');
+                        askModal.dataset.uniqueId = uniqueId;
+                        askModal.style.display = 'flex';
+                    }, 100);
+                }
             }
         }
 
@@ -564,7 +593,7 @@
                     if(allowsHalf) {
                         optionDiv.querySelector('.add-half-pizza-btn').addEventListener('click', () => {
                             isSelectingHalfPizza = true;
-                            firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2 };
+                            firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: pizza.category.toLowerCase() === 'promoções' };
                             document.getElementById('product-display').classList.add('half-pizza-selection-active');
                             alert(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
                             document.getElementById('pizza-option-modal').style.display = 'none';
@@ -591,7 +620,7 @@
                 const limit = firstIngredient.limit || Infinity;
                 const isRequired = firstIngredient.isRequired || false;
 
-                let categoryHtml = `<div class="mb-4"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${!isSingleChoice && limit !== Infinity ? `(Escolha até ${limit})` : ''}</h4>`;
+                let categoryHtml = `<div class="mb-4" data-limit="${limit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${!isSingleChoice && limit !== Infinity ? `(Escolha até ${limit})` : ''}</h4>`;
                 
                 ingredients.forEach(ing => {
                     const isUnavailable = ingredientStatus[ing.id] === false;
@@ -613,7 +642,7 @@
                                 </div>
                                <div class="flex items-center space-x-2">
                                     <span class="font-medium text-sm">${priceDisplay}</span>
-                                    <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}">
+                                    <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}" data-limit="${ing.ingredientLimit || 1}">
                                         <button type="button" class="quantity-btn minus-btn" ${isUnavailable ? 'disabled' : ''}>-</button>
                                         <span class="quantity-display font-bold text-base w-6 text-center">0</span>
                                         <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
@@ -633,10 +662,31 @@
             ingredientsContainer.querySelectorAll('.quantity-btn, .form-radio').forEach(el => {
                 el.addEventListener('click', (e) => {
                     if(e.target.classList.contains('quantity-btn')){
-                        const display = e.target.parentElement.querySelector('.quantity-display');
+                        const container = e.target.closest('[data-ingredient-id]');
+                        const display = container.querySelector('.quantity-display');
+                        const ingredientLimit = parseInt(container.dataset.limit);
+                        
                         let quantity = parseInt(display.textContent);
-                        if(e.target.classList.contains('plus-btn')) quantity++;
-                        else if (quantity > 0) quantity--;
+
+                        const categoryDiv = container.closest('[data-limit]');
+                        const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                        let currentCategoryCount = 0;
+                        categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                            if(parseInt(d.textContent) > 0) currentCategoryCount++;
+                        });
+
+                        if(e.target.classList.contains('plus-btn')) {
+                            if (quantity < ingredientLimit) {
+                                if (quantity === 0 && currentCategoryCount >= categoryLimit) {
+                                    alert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                                    return;
+                                }
+                                quantity++;
+                            }
+                        }
+                        else if (quantity > 0) {
+                            quantity--;
+                        }
                         display.textContent = quantity;
                     }
                     updateBurgerPrice();
@@ -702,7 +752,60 @@
         }
 
         function openPizzaExtrasBuilderModal(uniqueId) {
-            // Implementação do modal de adicionais
+             const orderIndex = order.findIndex(item => item.uniqueId === uniqueId);
+            if (orderIndex === -1) return;
+
+            const pizzaItem = order[orderIndex];
+            const modal = document.getElementById('pizza-extras-builder-modal');
+            modal.dataset.orderIndex = orderIndex;
+            const scopeButtonsContainer = modal.querySelector('#pizza-extras-scope-buttons');
+            scopeButtonsContainer.innerHTML = '';
+            
+            currentPizzaExtrasState = { metade1: [], metade2: [], toda: [] };
+            if (pizzaItem.extras && pizzaItem.extras.length > 0) {
+                pizzaItem.extras.forEach(extra => {
+                    let placement = 'toda';
+                    if (extra.placement.includes('1ª Metade')) placement = 'metade1';
+                    else if (extra.placement.includes('2ª Metade')) placement = 'metade2';
+                    if (currentPizzaExtrasState[placement]) currentPizzaExtrasState[placement].push({ ...extra });
+                });
+            }
+
+            if (pizzaItem.type === 'split') {
+                const half1Name = pizzaItem.firstHalfData.name;
+                const half2Name = pizzaItem.secondHalfData.name;
+                scopeButtonsContainer.innerHTML = `
+                    <button class="scope-button px-3 py-1" data-scope="metade1">1ª Metade: ${half1Name}</button>
+                    <button class="scope-button px-3 py-1" data-scope="metade2">2ª Metade: ${half2Name}</button>
+                    <button class="scope-button px-3 py-1 active" data-scope="toda">Pizza Toda</button>
+                `;
+                scopeButtonsContainer.querySelectorAll('.scope-button').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        scopeButtonsContainer.querySelector('.active').classList.remove('active');
+                        btn.classList.add('active');
+                        renderPizzaExtrasList(orderIndex);
+                    });
+                });
+            }
+
+            renderPizzaExtrasList(orderIndex);
+            updatePizzaExtrasPrice(orderIndex);
+            modal.style.display = 'flex';
+        }
+        
+        function renderPizzaExtrasList(orderIndex) {
+            const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
+            const container = document.getElementById('pizza-extras-ingredients-container');
+            container.innerHTML = '';
+            // Lógica para renderizar os extras
+        }
+
+        function updatePizzaExtrasPrice(orderIndex) {
+             // Lógica para atualizar preço com extras
+        }
+        
+        function confirmPizzaExtras() {
+             // Lógica para confirmar e salvar os extras
         }
 
         function updateOrderDisplay() {
@@ -757,6 +860,9 @@
             document.getElementById('cancel-order-btn').addEventListener('click', () => {
                 if (order.length > 0 && confirm('Deseja cancelar o pedido atual?')) {
                     order = [];
+                    isSelectingHalfPizza = false;
+                    firstHalfPizza = null;
+                    document.getElementById('product-display').classList.remove('half-pizza-selection-active');
                     updateOrderDisplay();
                 }
             });
@@ -769,10 +875,24 @@
             document.getElementById('close-burger-modal-btn').addEventListener('click', () => burgerModal.style.display = 'none');
             document.getElementById('cancel-burger-btn').addEventListener('click', () => burgerModal.style.display = 'none');
             document.getElementById('add-custom-burger-btn').addEventListener('click', addCustomBurgerToOrder);
+            
+            const extrasModal = document.getElementById('pizza-extras-builder-modal');
+            document.getElementById('close-pizza-extras-builder-modal').addEventListener('click', () => extrasModal.style.display = 'none');
+            document.getElementById('add-pizza-with-extras-btn').addEventListener('click', confirmPizzaExtras);
+            
+            const askExtrasModal = document.getElementById('ask-pizza-extras-modal');
+            document.getElementById('ask-extras-no-btn').addEventListener('click', () => askExtrasModal.style.display = 'none');
+            document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
+                const uniqueId = askExtrasModal.dataset.uniqueId;
+                openPizzaExtrasBuilderModal(uniqueId);
+                askExtrasModal.style.display = 'none';
+            });
 
             window.addEventListener('click', (e) => {
                 if (e.target === pizzaModal) pizzaModal.style.display = 'none';
                 if (e.target === burgerModal) burgerModal.style.display = 'none';
+                if (e.target === extrasModal) extrasModal.style.display = 'none';
+                if (e.target === askExtrasModal) askExtrasModal.style.display = 'none';
             });
         }
 
@@ -786,7 +906,8 @@
             const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             
             const cleanedItems = JSON.parse(JSON.stringify(order, (key, value) => {
-                if (key === 'originalItem' || key === 'uniqueId') return undefined;
+                const fieldsToExclude = ['originalItem', 'uniqueId', 'firstHalfData', 'secondHalfData'];
+                if (fieldsToExclude.includes(key)) return undefined;
                 return value;
             }));
 
