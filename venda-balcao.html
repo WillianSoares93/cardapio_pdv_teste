@@ -492,7 +492,7 @@
                     alert('Por favor, escolha um sabor de pizza válido para a segunda metade.');
                     return;
                 }
-                const isSecondHalfPromotional = product.category.toLowerCase() === 'promocionais';
+                const isSecondHalfPromotional = product.category.toLowerCase() === 'promoções';
                 if(firstHalfPizza.isPromotional !== isSecondHalfPromotional) {
                     alert('Não é possível combinar uma pizza promocional com uma não promocional.');
                     return;
