@@ -3128,8 +3128,7 @@
 
             // --- INÍCIO: NOVAS FUNÇÕES GEMINI ---
             async function callGeminiAPI(prompt) {
-                const apiKey = ""; // Será injetada em tempo de execução
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent`;
 
                 const systemInstruction = {
                     parts: [{ text: "You are a helpful and creative sommelier and chef for a Brazilian pizzeria called Sâmia. Your goal is to suggest ONE item from the menu that perfectly complements the user's current order. Respond in Portuguese." }]
