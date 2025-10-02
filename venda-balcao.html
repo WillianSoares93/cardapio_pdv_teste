@@ -388,7 +388,7 @@
                 
                 const promotionsWithCategory = (data.promocoes || []).map(promo => {
                     const originalItem = data.cardapio.find(item => item.id === promo.itemId);
-                    return { ...promo, category: originalItem ? originalItem.category : 'Promoções', isPizza: originalItem ? originalItem.isPizza : false, isCustomizable: false, basePrice: promo.promoPrice };
+                    return { ...promo, category: 'Promoções', isPizza: originalItem ? originalItem.isPizza : false, isCustomizable: false, basePrice: promo.promoPrice };
                 });
                 
                 allItems = [...(data.cardapio || []), ...promotionsWithCategory];
@@ -486,6 +486,8 @@
             });
         }
         
+        // --- CÓDIGO COMPLETO DAS FUNÇÕES DE LÓGICA DE NEGÓCIO ---
+
         function handleProductSelection(product) {
             if (isSelectingHalfPizza) {
                  if (!product.isPizza || pizzaHalfStatus[product.id] === false) {
