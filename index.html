@@ -624,6 +624,10 @@
                 </button>
             </div>
 
+            <button id="chef-suggestion-btn" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-full mb-4 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                ✨ Sugestão do Chef
+            </button>
+
             <button id="back-to-menu-btn" class="btn-add-more w-full py-3 text-white font-bold rounded-full mb-4">
                 Adicionar mais
             </button>
@@ -870,6 +874,39 @@
         </div>
     </div>
 
+    <!-- INÍCIO: NOVO MODAL PARA SUGESTÃO DO GEMINI -->
+    <div id="gemini-suggestion-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="close-gemini-suggestion-modal">&times;</span>
+            <div id="gemini-suggestion-content">
+                <!-- Estado de Carregamento -->
+                <div id="gemini-loading" class="text-center">
+                    <i class="fas fa-brain fa-2x fa-beat-fade text-indigo-500"></i>
+                    <p class="mt-4 text-gray-700 font-semibold">O Chef está pensando na combinação perfeita para você...</p>
+                </div>
+                <!-- Estado de Resultado -->
+                <div id="gemini-result" class="hidden">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">✨ Sugestão do Chef!</h3>
+                    <p class="text-gray-600 mb-4">Para acompanhar seu pedido, que tal adicionar:</p>
+                    <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-r-lg">
+                        <h4 id="gemini-item-name" class="font-bold text-lg text-indigo-800"></h4>
+                        <p id="gemini-reason" class="text-indigo-700 mt-2 text-sm"></p>
+                    </div>
+                    <div class="mt-6 flex gap-4">
+                        <button id="add-suggestion-to-order-btn" class="w-full btn-confirm-green py-2 text-white font-bold rounded-full">Adicionar ao Pedido</button>
+                    </div>
+                </div>
+                <!-- Estado de Erro -->
+                <div id="gemini-error" class="hidden text-center">
+                    <i class="fas fa-exclamation-triangle fa-2x text-red-500"></i>
+                    <p class="mt-4 text-gray-700 font-semibold">Desculpe, o Chef está ocupado. Tente novamente em alguns instantes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- FIM: NOVO MODAL PARA SUGESTÃO DO GEMINI -->
+
+
     <footer class="bg-gray-800 text-white py-8 px-4">
         <div class="max-w-6xl mx-auto">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
@@ -1047,6 +1084,19 @@
             const pizzaExtrasIngredientsContainer = document.getElementById('pizza-extras-ingredients-container');
             const pizzaExtrasTotalPrice = document.getElementById('pizza-extras-total-price');
             const addPizzaWithExtrasBtn = document.getElementById('add-pizza-with-extras-btn');
+            
+            // --- INÍCIO: NOVOS ELEMENTOS DO GEMINI ---
+            const chefSuggestionBtn = document.getElementById('chef-suggestion-btn');
+            const geminiSuggestionModal = document.getElementById('gemini-suggestion-modal');
+            const closeGeminiSuggestionModalBtn = document.getElementById('close-gemini-suggestion-modal');
+            const geminiLoading = document.getElementById('gemini-loading');
+            const geminiResult = document.getElementById('gemini-result');
+            const geminiError = document.getElementById('gemini-error');
+            const geminiItemName = document.getElementById('gemini-item-name');
+            const geminiReason = document.getElementById('gemini-reason');
+            const addSuggestionToOrderBtn = document.getElementById('add-suggestion-to-order-btn');
+            let suggestedItem = null;
+            // --- FIM: NOVOS ELEMENTOS DO GEMINI ---
 
 
             let currentPizzaData = {}; 
@@ -2023,6 +2073,17 @@
             }
             
             function updateOrderDisplay() {
+                // --- INÍCIO: LÓGICA DO BOTÃO GEMINI ---
+                const chefSuggestionBtn = document.getElementById('chef-suggestion-btn');
+                if (order.length > 0) {
+                    chefSuggestionBtn.disabled = false;
+                    chefSuggestionBtn.classList.remove('disabled:bg-gray-400', 'disabled:cursor-not-allowed');
+                } else {
+                    chefSuggestionBtn.disabled = true;
+                    chefSuggestionBtn.classList.add('disabled:bg-gray-400', 'disabled:cursor-not-allowed');
+                }
+                // --- FIM: LÓGICA DO BOTÃO GEMINI ---
+
                 let subtotal = 0;
                 order.forEach((item) => {
                     subtotal += item.price;
@@ -3065,6 +3126,118 @@
                 pizzaExtrasBuilderModal.style.display = 'none';
             }
 
+            // --- INÍCIO: NOVAS FUNÇÕES GEMINI ---
+            async function callGeminiAPI(prompt) {
+                const apiKey = ""; // Será injetada em tempo de execução
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const systemInstruction = {
+                    parts: [{ text: "You are a helpful and creative sommelier and chef for a Brazilian pizzeria called Sâmia. Your goal is to suggest ONE item from the menu that perfectly complements the user's current order. Respond in Portuguese." }]
+                };
+
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    systemInstruction: systemInstruction,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                    }
+                };
+                
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        console.error("Gemini API Error:", errorBody);
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) {
+                        throw new Error("Resposta inesperada da API.");
+                    }
+                    
+                    return JSON.parse(text);
+
+                } catch (error) {
+                    console.error('Falha ao chamar a API Gemini:', error);
+                    return null;
+                }
+            }
+            
+            async function handleChefSuggestionClick() {
+                // Mostrar estado de carregamento
+                geminiSuggestionModal.style.display = 'flex';
+                geminiLoading.style.display = 'block';
+                geminiResult.style.display = 'none';
+                geminiError.style.display = 'none';
+
+                const orderItems = order.map(item => item.name);
+                const menuToSuggest = allMenuData
+                    .filter(item => !item.isPizza && !item.isCustomizable && itemVisibility[item.id] !== false && unavailableItems[item.id] !== false)
+                    .map(item => ({ name: item.name, category: item.category, description: item.description, price: item.basePrice }));
+
+                const prompt = `
+                    Aqui está o pedido atual do cliente: ${JSON.stringify(orderItems)}.
+                    Aqui está o menu de itens disponíveis para sugestão: ${JSON.stringify(menuToSuggest)}.
+                    
+                    Baseado no pedido atual, sugira exatamente UM item do menu (que ainda não esteja no pedido) para adicionar.
+                    Explique em um parágrafo curto, amigável e convincente por que é uma boa combinação.
+                    
+                    Sua resposta DEVE estar em um formato JSON válido como este: 
+                    {"suggestion": {"itemName": "Nome do Item Sugerido", "reason": "Sua explicação aqui..."}}
+                `;
+
+                const response = await callGeminiAPI(prompt);
+
+                if (response && response.suggestion) {
+                    const { itemName, reason } = response.suggestion;
+                    suggestedItem = allMenuData.find(item => item.name === itemName);
+
+                    if (suggestedItem) {
+                        geminiItemName.textContent = itemName;
+                        geminiReason.textContent = reason;
+                        geminiLoading.style.display = 'none';
+                        geminiResult.style.display = 'block';
+                    } else {
+                        geminiLoading.style.display = 'none';
+                        geminiError.style.display = 'block';
+                    }
+                } else {
+                    geminiLoading.style.display = 'none';
+                    geminiError.style.display = 'block';
+                }
+            }
+
+            chefSuggestionBtn.addEventListener('click', handleChefSuggestionClick);
+
+            closeGeminiSuggestionModalBtn.addEventListener('click', () => {
+                geminiSuggestionModal.style.display = 'none';
+            });
+            
+            addSuggestionToOrderBtn.addEventListener('click', () => {
+                if (suggestedItem) {
+                    addToOrder({
+                        id: Date.now() + Math.random(),
+                        type: 'full',
+                        name: suggestedItem.name,
+                        price: suggestedItem.basePrice, 
+                        description: suggestedItem.description,
+                        category: suggestedItem.category,
+                        extras: [],
+                        acceptsExtras: suggestedItem.acceptsExtras
+                    }, addSuggestionToOrderBtn, suggestedItem.imageUrl);
+                }
+                geminiSuggestionModal.style.display = 'none';
+            });
+            // --- FIM: NOVAS FUNÇÕES GEMINI ---
+
+
             loadMenuAndRender();
 
             // Event Listeners
@@ -3197,6 +3370,9 @@
                 }
                 if (event.target == pizzaExtrasBuilderModal) {
                     pizzaExtrasBuilderModal.style.display = 'none';
+                }
+                 if (event.target == geminiSuggestionModal) { // NOVO
+                    geminiSuggestionModal.style.display = 'none';
                 }
             });
 
