@@ -495,14 +495,15 @@
                     return;
                 }
                 
-                const isSecondHalfPromotional = (product.category || '').trim().toLowerCase() === 'promoções';
+                // CORREÇÃO: Lógica de validação explícita, igual ao index.html
+                const secondHalfCategory = (product.category || '').trim().toLowerCase();
 
-                if (firstHalfPizza.isPromotional && !isSecondHalfPromotional) {
+                if (firstHalfPizza.isPromotional && secondHalfCategory !== 'promoções') {
                     alert('ERRO: Você selecionou uma pizza promocional. A segunda metade também deve ser da categoria "Promoções".');
                     return;
                 }
 
-                if (!firstHalfPizza.isPromotional && isSecondHalfPromotional) {
+                if (!firstHalfPizza.isPromotional && secondHalfCategory === 'promoções') {
                     alert('ERRO: Você selecionou uma pizza comum. A segunda metade não pode ser da categoria "Promoções".');
                     return;
                 }
