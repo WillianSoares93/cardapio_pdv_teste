@@ -494,7 +494,9 @@
                     alert('Por favor, escolha um sabor de pizza válido para a segunda metade.');
                     return;
                 }
-                const isSecondHalfPromotional = product.category.toLowerCase() === 'promoções';
+                // CORREÇÃO INÍCIO: Adiciona verificação robusta contra categorias nulas/indefinidas
+                const isSecondHalfPromotional = (product.category || '').toLowerCase() === 'promoções';
+                // CORREÇÃO FIM
                 if(firstHalfPizza.isPromotional !== isSecondHalfPromotional) {
                     alert('Não é possível combinar uma pizza promocional com uma não promocional.');
                     return;
@@ -595,7 +597,10 @@
                     if(allowsHalf) {
                         optionDiv.querySelector('.add-half-pizza-btn').addEventListener('click', () => {
                             isSelectingHalfPizza = true;
-                            firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: pizza.category.toLowerCase() === 'promoções' };
+                            // CORREÇÃO INÍCIO: Adiciona verificação robusta para a categoria da primeira metade.
+                            const isPromotional = (pizza.category || '').toLowerCase() === 'promoções';
+                            // CORREÇÃO FIM
+                            firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: isPromotional };
                             document.getElementById('product-display').classList.add('half-pizza-selection-active');
                             alert(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
                             document.getElementById('pizza-option-modal').style.display = 'none';
@@ -1058,4 +1063,3 @@
     </script>
 </body>
 </html>
-
