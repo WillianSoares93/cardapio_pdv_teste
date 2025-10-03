@@ -494,13 +494,19 @@
                     alert('Por favor, escolha um sabor de pizza válido para a segunda metade.');
                     return;
                 }
-                // CORREÇÃO INÍCIO: Adiciona verificação robusta contra categorias nulas/indefinidas
-                const isSecondHalfPromotional = (product.category || '').toLowerCase() === 'promoções';
-                // CORREÇÃO FIM
-                if(firstHalfPizza.isPromotional !== isSecondHalfPromotional) {
-                    alert('Não é possível combinar uma pizza promocional com uma não promocional.');
+                
+                const isSecondHalfPromotional = (product.category || '').trim().toLowerCase() === 'promoções';
+
+                if (firstHalfPizza.isPromotional && !isSecondHalfPromotional) {
+                    alert('ERRO: Você selecionou uma pizza promocional. A segunda metade também deve ser da categoria "Promoções".');
                     return;
                 }
+
+                if (!firstHalfPizza.isPromotional && isSecondHalfPromotional) {
+                    alert('ERRO: Você selecionou uma pizza comum. A segunda metade não pode ser da categoria "Promoções".');
+                    return;
+                }
+
                 const priceKey = firstHalfPizza.selectedSize.priceKey;
                 if(!product[priceKey] || product[priceKey] <= 0){
                     alert(`O sabor "${product.name}" não está disponível no tamanho de ${firstHalfPizza.selectedSize.label}.`);
@@ -597,9 +603,7 @@
                     if(allowsHalf) {
                         optionDiv.querySelector('.add-half-pizza-btn').addEventListener('click', () => {
                             isSelectingHalfPizza = true;
-                            // CORREÇÃO INÍCIO: Adiciona verificação robusta para a categoria da primeira metade.
-                            const isPromotional = (pizza.category || '').toLowerCase() === 'promoções';
-                            // CORREÇÃO FIM
+                            const isPromotional = (pizza.category || '').trim().toLowerCase() === 'promoções';
                             firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: isPromotional };
                             document.getElementById('product-display').classList.add('half-pizza-selection-active');
                             alert(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
@@ -1063,3 +1067,4 @@
     </script>
 </body>
 </html>
+
