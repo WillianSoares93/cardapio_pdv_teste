@@ -571,8 +571,6 @@
             });
         }
         
-        // --- CÓDIGO COMPLETO DAS FUNÇÕES DE LÓGICA DE NEGÓCIO ---
-
         function handleProductSelection(product) {
             if (isSelectingHalfPizza) {
                  if (!product.isPizza || pizzaHalfStatus[product.id] === false) {
@@ -754,40 +752,6 @@
             
             updateBurgerPrice();
             modal.style.display = 'flex';
-
-            ingredientsContainer.querySelectorAll('.quantity-btn, .form-radio').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    if(e.target.classList.contains('quantity-btn')){
-                        const container = e.target.closest('[data-ingredient-id]');
-                        const display = container.querySelector('.quantity-display');
-                        const ingredientLimit = parseInt(container.dataset.limit);
-                        
-                        let quantity = parseInt(display.textContent);
-
-                        const categoryDiv = container.closest('[data-limit]');
-                        const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                        let currentCategoryCount = 0;
-                        categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                            if(parseInt(d.textContent) > 0) currentCategoryCount++;
-                        });
-
-                        if(e.target.classList.contains('plus-btn')) {
-                            if (quantity < ingredientLimit) {
-                                if (quantity === 0 && currentCategoryCount >= categoryLimit) {
-                                    showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                                    return;
-                                }
-                                quantity++;
-                            }
-                        }
-                        else if (quantity > 0) {
-                            quantity--;
-                        }
-                        display.textContent = quantity;
-                    }
-                    updateBurgerPrice();
-                });
-            });
         }
         
         function updateBurgerPrice() {
@@ -799,7 +763,7 @@
             modal.querySelectorAll('.quantity-display').forEach(display => {
                 const quantity = parseInt(display.textContent);
                 if (quantity > 0) {
-                    const container = display.parentElement;
+                    const container = display.closest('[data-ingredient-id]');
                     total += quantity * parseFloat(container.dataset.price);
                 }
             });
@@ -917,13 +881,17 @@
                 const extras = allPizzaExtras[categoryName].filter(ext => extraVisibility[ext.id] !== false);
                  if (extras.length === 0) continue;
                 
-                let categoryHtml = `<div class="mb-4"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)}</h4>`;
+                const firstExtra = extras[0] || {};
+                const categoryLimit = firstExtra.categoryLimit || Infinity;
+
+                let categoryHtml = `<div class="mb-4 ingredient-category" data-limit="${categoryLimit}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${categoryLimit !== Infinity ? `(Escolha até ${categoryLimit})` : ''}</h4>`;
                 
                 extras.forEach(extra => {
                     const isUnavailable = extraStatus[extra.id] === false;
                     const priceDisplay = extra.price > 0 ? `+ R$ ${extra.price.toFixed(2).replace('.', ',')}` : '';
                     const existingExtra = currentPizzaExtrasState[activeScope]?.find(e => e.name === extra.name);
                     const quantity = existingExtra ? existingExtra.quantity : 0;
+                    const individualLimit = extra.limit || 1;
                     
                     categoryHtml += `
                         <div class="ingredient-option ${isUnavailable ? 'opacity-50' : ''}">
@@ -932,7 +900,7 @@
                             </div>
                            <div class="flex items-center space-x-2">
                                 <span class="font-medium text-sm">${priceDisplay}</span>
-                                <div class="flex items-center space-x-2" data-name="${extra.name}" data-price="${extra.price}">
+                                <div class="flex items-center space-x-2" data-name="${extra.name}" data-price="${extra.price}" data-limit="${individualLimit}">
                                     <button type="button" class="quantity-btn minus-btn" ${isUnavailable ? 'disabled' : ''}>-</button>
                                     <span class="quantity-display font-bold text-base w-6 text-center">${quantity}</span>
                                     <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
@@ -944,37 +912,6 @@
                 categoryHtml += `</div>`;
                 container.innerHTML += categoryHtml;
             }
-
-            container.querySelectorAll('.quantity-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                     const display = e.target.parentElement.querySelector('.quantity-display');
-                    let quantity = parseInt(display.textContent);
-                    if(e.target.classList.contains('plus-btn')) quantity++;
-                    else if (quantity > 0) quantity--;
-                    display.textContent = quantity;
-                    
-                    const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
-                    const extraContainer = e.target.closest('[data-name]');
-                    const extraName = extraContainer.dataset.name;
-                    const extraPrice = parseFloat(extraContainer.dataset.price);
-
-                    const existingExtraIndex = currentPizzaExtrasState[activeScope].findIndex(ex => ex.name === extraName);
-                    
-                    if (quantity > 0) {
-                        const placementText = activeScope === 'toda' ? 'Toda' : (activeScope === 'metade1' ? '1ª Metade' : '2ª Metade');
-                        if (existingExtraIndex > -1) {
-                            currentPizzaExtrasState[activeScope][existingExtraIndex].quantity = quantity;
-                        } else {
-                            currentPizzaExtrasState[activeScope].push({ name: extraName, price: extraPrice, placement: placementText, quantity: quantity });
-                        }
-                    } else {
-                        if (existingExtraIndex > -1) {
-                            currentPizzaExtrasState[activeScope].splice(existingExtraIndex, 1);
-                        }
-                    }
-                    updatePizzaExtrasPrice(orderIndex);
-                });
-            });
         }
 
         function updatePizzaExtrasPrice(orderIndex) {
@@ -1114,6 +1051,101 @@
                 if (e.target === burgerModal) burgerModal.style.display = 'none';
                 if (e.target === extrasModal) extrasModal.style.display = 'none';
                 if (e.target === askExtrasModal) askExtrasModal.style.display = 'none';
+            });
+            
+            // Event listener for burger builder quantity buttons
+            document.getElementById('burger-ingredients-container').addEventListener('click', (e) => {
+                const target = e.target;
+                if(target.classList.contains('quantity-btn')) {
+                    const container = target.closest('[data-ingredient-id]');
+                    const display = container.querySelector('.quantity-display');
+                    const ingredientLimit = parseInt(container.dataset.limit);
+                    
+                    let quantity = parseInt(display.textContent);
+
+                    const categoryDiv = container.closest('[data-limit]');
+                    const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                    let currentCategoryCount = 0;
+                    categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                        if (parseInt(d.textContent) > 0) currentCategoryCount++;
+                    });
+                    
+                    if(target.classList.contains('plus-btn')) {
+                        if (quantity >= ingredientLimit) {
+                            showAlert(`O limite para este ingrediente é ${ingredientLimit}.`);
+                            return;
+                        }
+                        if (quantity === 0 && currentCategoryCount >= categoryLimit) {
+                           showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                            return;
+                        }
+                        quantity++;
+                    } else if (quantity > 0) {
+                        quantity--;
+                    }
+                    display.textContent = quantity;
+                }
+                updateBurgerPrice();
+            });
+            
+            // Event listener for pizza extras builder quantity buttons
+            document.getElementById('pizza-extras-ingredients-container').addEventListener('click', (e) => {
+                const target = e.target.closest('.quantity-btn');
+                if (!target) return;
+
+                const orderIndex = parseInt(document.getElementById('pizza-extras-builder-modal').dataset.orderIndex);
+                const display = target.parentElement.querySelector('.quantity-display');
+                const extraContainer = target.closest('[data-name]');
+                const ingredientLimit = parseInt(extraContainer.dataset.limit);
+
+                let quantity = parseInt(display.textContent);
+
+                const categoryDiv = extraContainer.closest('.ingredient-category');
+                const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                let currentCategoryVarietyCount = 0;
+                categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                    if (parseInt(d.textContent) > 0) {
+                        currentCategoryVarietyCount++;
+                    }
+                });
+
+                if (target.classList.contains('plus-btn')) {
+                    if (quantity >= ingredientLimit) {
+                        showAlert(`O limite para este adicional é ${ingredientLimit}.`);
+                        return;
+                    }
+                    if (quantity === 0 && currentCategoryVarietyCount >= categoryLimit) {
+                        showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                        return;
+                    }
+                    quantity++;
+                } else if (target.classList.contains('minus-btn')) {
+                    if (quantity > 0) {
+                        quantity--;
+                    }
+                }
+                display.textContent = quantity;
+
+                // Update state logic
+                const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
+                const extraName = extraContainer.dataset.name;
+                const extraPrice = parseFloat(extraContainer.dataset.price);
+
+                const existingExtraIndex = currentPizzaExtrasState[activeScope].findIndex(ex => ex.name === extraName);
+                
+                if (quantity > 0) {
+                    const placementText = activeScope === 'toda' ? 'Toda' : (activeScope === 'metade1' ? '1ª Metade' : '2ª Metade');
+                    if (existingExtraIndex > -1) {
+                        currentPizzaExtrasState[activeScope][existingExtraIndex].quantity = quantity;
+                    } else {
+                        currentPizzaExtrasState[activeScope].push({ name: extraName, price: extraPrice, placement: placementText, quantity: quantity });
+                    }
+                } else {
+                    if (existingExtraIndex > -1) {
+                        currentPizzaExtrasState[activeScope].splice(existingExtraIndex, 1);
+                    }
+                }
+                updatePizzaExtrasPrice(orderIndex);
             });
         }
 
