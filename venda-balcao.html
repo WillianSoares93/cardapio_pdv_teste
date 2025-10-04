@@ -711,7 +711,7 @@
                 
                 const firstIngredient = ingredients[0] || {};
                 const isSingleChoice = firstIngredient.isSingleChoice;
-                const categoryLimit = firstIngredient.categoryLimit || firstIngredient.limit || Infinity;
+                const categoryLimit = firstIngredient.limit || Infinity;
                 const isRequired = firstIngredient.isRequired || false;
 
                 let categoryHtml = `<div class="mb-4" data-limit="${categoryLimit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${!isSingleChoice && categoryLimit !== Infinity ? `(Escolha até ${categoryLimit})` : ''}</h4>`;
@@ -1075,7 +1075,6 @@
                             return;
                         }
                         
-                        // Check category limit only when adding a new variety
                         if (quantity === 0) {
                             let currentVarietyCount = 0;
                             categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
