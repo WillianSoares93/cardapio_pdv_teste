@@ -1055,26 +1055,23 @@
             
             document.getElementById('burger-ingredients-container').addEventListener('click', (e) => {
                 const quantityBtn = e.target.closest('.quantity-btn');
-                const ingredientOption = e.target.closest('.ingredient-option');
+                const radioInput = e.target.closest('.ingredient-option')?.querySelector('.form-radio');
 
                 if (quantityBtn) {
                     e.stopPropagation();
-
                     const container = quantityBtn.closest('[data-ingredient-id]');
                     const display = container.querySelector('.quantity-display');
                     const ingredientLimit = parseInt(container.dataset.limit);
-                    
                     let quantity = parseInt(display.textContent);
 
                     const categoryDiv = container.closest('[data-limit]');
                     const categoryLimit = parseInt(categoryDiv.dataset.limit);
                     
-                    if(quantityBtn.classList.contains('plus-btn')) {
+                    if (quantityBtn.classList.contains('plus-btn')) {
                         if (quantity >= ingredientLimit) {
                             showAlert(`O limite para este ingrediente é ${ingredientLimit}.`);
                             return;
                         }
-                        
                         if (quantity === 0) {
                             let currentVarietyCount = 0;
                             categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
@@ -1083,7 +1080,6 @@
                             categoryDiv.querySelectorAll('input[type="radio"]:checked').forEach(() => {
                                 currentVarietyCount++;
                             });
-
                             if (currentVarietyCount >= categoryLimit) {
                                showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
                                 return;
@@ -1094,43 +1090,40 @@
                         quantity--;
                     }
                     display.textContent = quantity;
-                    
-                    if (quantity > 0) {
-                        container.closest('.ingredient-option').classList.add('selected-ingredient');
-                    } else {
-                        container.closest('.ingredient-option').classList.remove('selected-ingredient');
-                    }
+                    container.closest('.ingredient-option').classList.toggle('selected-ingredient', quantity > 0);
                     updateBurgerPrice();
-
-                } else if (ingredientOption) {
-                    const radio = ingredientOption.querySelector('.form-radio');
-                    if (radio) {
-                        if (radio.disabled) return;
-                        
-                        if (!radio.checked) {
-                            const categoryDiv = ingredientOption.closest('[data-limit]');
+                } else if (radioInput) {
+                    if (radioInput.disabled) return;
+                    
+                    const wasChecked = radioInput.checked;
+                    
+                    setTimeout(() => {
+                        const isNowChecked = radioInput.checked;
+                        if (!wasChecked && isNowChecked) {
+                            const categoryDiv = radioInput.closest('[data-limit]');
                             const categoryLimit = parseInt(categoryDiv.dataset.limit);
                             let currentVarietyCount = 0;
                             
                             categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
                                 if (parseInt(d.textContent) > 0) currentVarietyCount++;
                             });
-                            
-                            if (currentVarietyCount >= categoryLimit) {
+                            categoryDiv.querySelectorAll('input[type="radio"]:checked').forEach(() => {
+                                currentVarietyCount++;
+                            });
+
+                            if (currentVarietyCount > categoryLimit) {
                                 showAlert(`Você pode escolher no máximo ${categoryLimit} item(ns) nesta categoria.`);
-                                e.preventDefault();
+                                radioInput.checked = false;
                                 return;
                             }
                         }
 
-                        setTimeout(() => {
-                            const categoryName = radio.name;
-                            document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
-                                r.closest('.ingredient-option').classList.toggle('selected-ingredient', r.checked);
-                            });
-                            updateBurgerPrice();
-                        }, 0);
-                    }
+                        const categoryName = radioInput.name;
+                        document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
+                            r.closest('.ingredient-option').classList.toggle('selected-ingredient', r.checked);
+                        });
+                        updateBurgerPrice();
+                    }, 0);
                 }
             });
             
