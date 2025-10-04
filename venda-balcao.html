@@ -114,6 +114,14 @@
             justify-content: center;
             align-items: center;
         }
+        .modal-content {
+             background-color: #fff;
+             padding: 1.5rem;
+             border-radius: 0.5rem;
+             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+             width: 90%;
+             max-width: 500px;
+        }
         .ingredient-option {
             display: flex;
             justify-content: space-between;
@@ -317,6 +325,27 @@
         </div>
     </div>
 
+    <!-- Custom Alert Modal -->
+    <div id="alert-modal" class="modal">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+             <p id="alert-message" class="text-lg font-semibold text-gray-800 mb-4 text-center">Message goes here.</p>
+            <div class="flex justify-center">
+                <button id="alert-ok-btn" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+             <p id="confirm-message" class="text-lg font-semibold text-gray-800 mb-6 text-center">Are you sure?</p>
+            <div class="flex justify-center gap-4">
+                <button id="confirm-no-btn" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold hover:bg-gray-400 transition">Não</button>
+                <button id="confirm-yes-btn" class="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition">Sim</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
@@ -361,6 +390,62 @@
         });
 
         document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+        function showAlert(message) {
+            const modal = document.getElementById('alert-modal');
+            const messageEl = document.getElementById('alert-message');
+            const okBtn = document.getElementById('alert-ok-btn');
+
+            messageEl.textContent = message;
+            modal.style.display = 'flex';
+
+            const closeHandler = () => {
+                modal.style.display = 'none';
+            };
+
+            const modalCloseHandler = (e) => {
+                if (e.target === modal) {
+                    closeHandler();
+                }
+            };
+            
+            okBtn.addEventListener('click', closeHandler, { once: true });
+            modal.addEventListener('click', modalCloseHandler);
+        }
+
+        function showConfirm(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirm-modal');
+                const messageEl = document.getElementById('confirm-message');
+                const yesBtn = document.getElementById('confirm-yes-btn');
+                const noBtn = document.getElementById('confirm-no-btn');
+
+                messageEl.textContent = message;
+                modal.style.display = 'flex';
+
+                const close = (result) => {
+                    modal.style.display = 'none';
+                    // Clean up listeners
+                    yesBtn.removeEventListener('click', yesHandler);
+                    noBtn.removeEventListener('click', noHandler);
+                    modal.removeEventListener('click', modalCloseHandler);
+                    resolve(result);
+                };
+
+                const yesHandler = () => close(true);
+                const noHandler = () => close(false);
+                 const modalCloseHandler = (e) => {
+                    if (e.target === modal) {
+                        close(false);
+                    }
+                };
+
+                yesBtn.addEventListener('click', yesHandler, { once: true });
+                noBtn.addEventListener('click', noHandler, { once: true });
+                modal.addEventListener('click', modalCloseHandler);
+            });
+        }
+
 
         async function initializeAppLogic() {
             listenToStatusChanges();
@@ -411,7 +496,7 @@
 
             } catch (error) {
                 console.error("Erro ao buscar cardápio:", error);
-                alert("Não foi possível carregar o cardápio.");
+                showAlert("Não foi possível carregar o cardápio.");
             }
         }
         
@@ -491,26 +576,25 @@
         function handleProductSelection(product) {
             if (isSelectingHalfPizza) {
                  if (!product.isPizza || pizzaHalfStatus[product.id] === false) {
-                    alert('Por favor, escolha um sabor de pizza válido para a segunda metade.');
+                    showAlert('Por favor, escolha um sabor de pizza válido para a segunda metade.');
                     return;
                 }
                 
-                // CORREÇÃO: Lógica de validação explícita para normalizar 'promoções' e 'promocionais'
                 const isSecondHalfPromotional = (product.category || '').trim().toLowerCase().replace('ç', 'c') === 'promocionais';
 
                 if (firstHalfPizza.isPromotional && !isSecondHalfPromotional) {
-                    alert('ERRO: Você selecionou uma pizza promocional. A segunda metade também deve ser da categoria "Promocionais".');
+                    showAlert('ERRO: Você selecionou uma pizza promocional. A segunda metade também deve ser da categoria "Promocionais".');
                     return;
                 }
 
                 if (!firstHalfPizza.isPromotional && isSecondHalfPromotional) {
-                    alert('ERRO: Você selecionou uma pizza comum. A segunda metade não pode ser da categoria "Promocionais".');
+                    showAlert('ERRO: Você selecionou uma pizza comum. A segunda metade não pode ser da categoria "Promocionais".');
                     return;
                 }
 
                 const priceKey = firstHalfPizza.selectedSize.priceKey;
                 if(!product[priceKey] || product[priceKey] <= 0){
-                    alert(`O sabor "${product.name}" não está disponível no tamanho de ${firstHalfPizza.selectedSize.label}.`);
+                    showAlert(`O sabor "${product.name}" não está disponível no tamanho de ${firstHalfPizza.selectedSize.label}.`);
                     return;
                 }
 
@@ -604,11 +688,10 @@
                     if(allowsHalf) {
                         optionDiv.querySelector('.add-half-pizza-btn').addEventListener('click', () => {
                             isSelectingHalfPizza = true;
-                            // CORREÇÃO: Normaliza a verificação da categoria para 'promocionais'
                             const isPromotional = (pizza.category || '').trim().toLowerCase().replace('ç', 'c') === 'promocionais';
                             firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: isPromotional };
                             document.getElementById('product-display').classList.add('half-pizza-selection-active');
-                            alert(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
+                            showAlert(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
                             document.getElementById('pizza-option-modal').style.display = 'none';
                         });
                     }
@@ -691,7 +774,7 @@
                         if(e.target.classList.contains('plus-btn')) {
                             if (quantity < ingredientLimit) {
                                 if (quantity === 0 && currentCategoryCount >= categoryLimit) {
-                                    alert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                                    showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
                                     return;
                                 }
                                 quantity++;
@@ -745,7 +828,7 @@
                         if (parseInt(display.textContent) > 0) quantitySelected = true;
                     });
                     if (!radioChecked && !quantitySelected) {
-                        alert(`Por favor, escolha uma opção na categoria obrigatória: ${categoryName}`);
+                        showAlert(`Por favor, escolha uma opção na categoria obrigatória: ${categoryName}`);
                         allRequiredCategoriesFilled = false;
                         break; 
                     }
@@ -990,15 +1073,18 @@
             });
         }
         
-        function setupEventListeners() {
+        async function setupEventListeners() {
             document.getElementById('search-product').addEventListener('input', renderProducts);
-            document.getElementById('cancel-order-btn').addEventListener('click', () => {
-                if (order.length > 0 && confirm('Deseja cancelar o pedido atual?')) {
-                    order = [];
-                    isSelectingHalfPizza = false;
-                    firstHalfPizza = null;
-                    document.getElementById('product-display').classList.remove('half-pizza-selection-active');
-                    updateOrderDisplay();
+            document.getElementById('cancel-order-btn').addEventListener('click', async () => {
+                if (order.length > 0) {
+                    const confirmed = await showConfirm('Deseja cancelar o pedido atual?');
+                    if (confirmed) {
+                        order = [];
+                        isSelectingHalfPizza = false;
+                        firstHalfPizza = null;
+                        document.getElementById('product-display').classList.remove('half-pizza-selection-active');
+                        updateOrderDisplay();
+                    }
                 }
             });
             document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrder);
@@ -1033,7 +1119,7 @@
 
         async function finalizeOrder() {
             if(order.length === 0) {
-                alert("O carrinho está vazio.");
+                showAlert("O carrinho está vazio.");
                 return;
             }
 
@@ -1058,14 +1144,15 @@
 
             try {
                 await addDoc(collection(db, "pedidos"), newOrder);
-                alert(`Pedido para ${clientName} finalizado com sucesso!`);
+                showAlert(`Pedido para ${clientName} finalizado com sucesso!`);
                 order = [];
                 updateOrderDisplay();
             } catch (error) {
                 console.error("Erro ao finalizar pedido:", error);
-                alert("Falha ao finalizar o pedido. Tente novamente.");
+                showAlert("Falha ao finalizar o pedido. Tente novamente.");
             }
         }
     </script>
 </body>
 </html>
+
