@@ -1068,19 +1068,27 @@
 
                     const categoryDiv = container.closest('[data-limit]');
                     const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                    let currentCategoryCount = 0;
-                    categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                        if (parseInt(d.textContent) > 0) currentCategoryCount++;
-                    });
                     
                     if(quantityBtn.classList.contains('plus-btn')) {
                         if (quantity >= ingredientLimit) {
                             showAlert(`O limite para este ingrediente é ${ingredientLimit}.`);
                             return;
                         }
-                        if (quantity === 0 && currentCategoryCount >= categoryLimit) {
-                           showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                            return;
+                        
+                        // Check category limit only when adding a new variety
+                        if (quantity === 0) {
+                            let currentVarietyCount = 0;
+                            categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                                if (parseInt(d.textContent) > 0) currentVarietyCount++;
+                            });
+                            categoryDiv.querySelectorAll('input[type="radio"]:checked').forEach(() => {
+                                currentVarietyCount++;
+                            });
+
+                            if (currentVarietyCount >= categoryLimit) {
+                               showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                                return;
+                            }
                         }
                         quantity++;
                     } else if (quantity > 0) {
@@ -1100,24 +1108,22 @@
                     if (radio) {
                         if (radio.disabled) return;
                         
-                        // Check before changing
                         if (!radio.checked) {
                             const categoryDiv = ingredientOption.closest('[data-limit]');
                             const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                            let currentCategoryCount = 0;
+                            let currentVarietyCount = 0;
                             
                             categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                                if (parseInt(d.textContent) > 0) currentCategoryCount++;
+                                if (parseInt(d.textContent) > 0) currentVarietyCount++;
                             });
-                             // A radio button will deselect others, so we don't count them
-                            if (currentCategoryCount >= categoryLimit) {
+                            
+                            if (currentVarietyCount >= categoryLimit) {
                                 showAlert(`Você pode escolher no máximo ${categoryLimit} item(ns) nesta categoria.`);
-                                e.preventDefault(); // Prevent radio from being checked
+                                e.preventDefault();
                                 return;
                             }
                         }
 
-                        // Update visual state after the click has been processed by the browser
                         setTimeout(() => {
                             const categoryName = radio.name;
                             document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
