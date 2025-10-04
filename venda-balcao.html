@@ -1058,7 +1058,6 @@
                 const ingredientOption = e.target.closest('.ingredient-option');
 
                 if (quantityBtn) {
-                    // Impede que o evento se propague para o listener do 'ingredientOption'
                     e.stopPropagation();
 
                     const container = quantityBtn.closest('[data-ingredient-id]');
@@ -1094,25 +1093,39 @@
                     } else {
                         container.closest('.ingredient-option').classList.remove('selected-ingredient');
                     }
+                    updateBurgerPrice();
 
                 } else if (ingredientOption) {
                     const radio = ingredientOption.querySelector('.form-radio');
                     if (radio) {
+                        if (radio.disabled) return;
+                        
+                        // Check before changing
                         if (!radio.checked) {
-                            radio.checked = true;
+                            const categoryDiv = ingredientOption.closest('[data-limit]');
+                            const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                            let currentCategoryCount = 0;
+                            
+                            categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                                if (parseInt(d.textContent) > 0) currentCategoryCount++;
+                            });
+                             // A radio button will deselect others, so we don't count them
+                            if (currentCategoryCount >= categoryLimit) {
+                                showAlert(`Você pode escolher no máximo ${categoryLimit} item(ns) nesta categoria.`);
+                                e.preventDefault(); // Prevent radio from being checked
+                                return;
+                            }
                         }
-                        // Atualiza a seleção visual para os botões de rádio
-                        const categoryName = radio.name;
-                        document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
-                            r.closest('.ingredient-option').classList.remove('selected-ingredient');
-                        });
-                        ingredientOption.classList.add('selected-ingredient');
-                    }
-                }
 
-                // Atualiza o preço se qualquer parte do container de ingredientes foi clicada
-                if (quantityBtn || ingredientOption) {
-                    updateBurgerPrice();
+                        // Update visual state after the click has been processed by the browser
+                        setTimeout(() => {
+                            const categoryName = radio.name;
+                            document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
+                                r.closest('.ingredient-option').classList.toggle('selected-ingredient', r.checked);
+                            });
+                            updateBurgerPrice();
+                        }, 0);
+                    }
                 }
             });
             
@@ -1213,5 +1226,4 @@
     </script>
 </body>
 </html>
-
 
