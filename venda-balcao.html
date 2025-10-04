@@ -1054,38 +1054,66 @@
             });
             
             document.getElementById('burger-ingredients-container').addEventListener('click', (e) => {
-                const target = e.target.closest('.quantity-btn');
-                if (!target) return;
+                const quantityBtn = e.target.closest('.quantity-btn');
+                const ingredientOption = e.target.closest('.ingredient-option');
 
-                const container = target.closest('[data-ingredient-id]');
-                const display = container.querySelector('.quantity-display');
-                const ingredientLimit = parseInt(container.dataset.limit);
-                
-                let quantity = parseInt(display.textContent);
+                if (quantityBtn) {
+                    // Impede que o evento se propague para o listener do 'ingredientOption'
+                    e.stopPropagation();
 
-                const categoryDiv = container.closest('[data-limit]');
-                const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                let currentCategoryCount = 0;
-                categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                    if (parseInt(d.textContent) > 0) currentCategoryCount++;
-                });
-                
-                if(target.classList.contains('plus-btn')) {
-                    if (quantity >= ingredientLimit) {
-                        showAlert(`O limite para este ingrediente é ${ingredientLimit}.`);
-                        return;
+                    const container = quantityBtn.closest('[data-ingredient-id]');
+                    const display = container.querySelector('.quantity-display');
+                    const ingredientLimit = parseInt(container.dataset.limit);
+                    
+                    let quantity = parseInt(display.textContent);
+
+                    const categoryDiv = container.closest('[data-limit]');
+                    const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                    let currentCategoryCount = 0;
+                    categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                        if (parseInt(d.textContent) > 0) currentCategoryCount++;
+                    });
+                    
+                    if(quantityBtn.classList.contains('plus-btn')) {
+                        if (quantity >= ingredientLimit) {
+                            showAlert(`O limite para este ingrediente é ${ingredientLimit}.`);
+                            return;
+                        }
+                        if (quantity === 0 && currentCategoryCount >= categoryLimit) {
+                           showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                            return;
+                        }
+                        quantity++;
+                    } else if (quantity > 0) {
+                        quantity--;
                     }
-                    if (quantity === 0 && currentCategoryCount >= categoryLimit) {
-                       showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                        return;
+                    display.textContent = quantity;
+                    
+                    if (quantity > 0) {
+                        container.closest('.ingredient-option').classList.add('selected-ingredient');
+                    } else {
+                        container.closest('.ingredient-option').classList.remove('selected-ingredient');
                     }
-                    quantity++;
-                } else if (quantity > 0) {
-                    quantity--;
+
+                } else if (ingredientOption) {
+                    const radio = ingredientOption.querySelector('.form-radio');
+                    if (radio) {
+                        if (!radio.checked) {
+                            radio.checked = true;
+                        }
+                        // Atualiza a seleção visual para os botões de rádio
+                        const categoryName = radio.name;
+                        document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
+                            r.closest('.ingredient-option').classList.remove('selected-ingredient');
+                        });
+                        ingredientOption.classList.add('selected-ingredient');
+                    }
                 }
-                display.textContent = quantity;
-                
-                updateBurgerPrice();
+
+                // Atualiza o preço se qualquer parte do container de ingredientes foi clicada
+                if (quantityBtn || ingredientOption) {
+                    updateBurgerPrice();
+                }
             });
             
             document.getElementById('pizza-extras-ingredients-container').addEventListener('click', (e) => {
@@ -1185,4 +1213,5 @@
     </script>
 </body>
 </html>
+
 
