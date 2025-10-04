@@ -711,10 +711,10 @@
                 
                 const firstIngredient = ingredients[0] || {};
                 const isSingleChoice = firstIngredient.isSingleChoice;
-                const limit = firstIngredient.limit || Infinity;
+                const categoryLimit = firstIngredient.categoryLimit || firstIngredient.limit || Infinity;
                 const isRequired = firstIngredient.isRequired || false;
 
-                let categoryHtml = `<div class="mb-4" data-limit="${limit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${!isSingleChoice && limit !== Infinity ? `(Escolha até ${limit})` : ''}</h4>`;
+                let categoryHtml = `<div class="mb-4" data-limit="${categoryLimit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${!isSingleChoice && categoryLimit !== Infinity ? `(Escolha até ${categoryLimit})` : ''}</h4>`;
                 
                 ingredients.forEach(ing => {
                     const isUnavailable = ingredientStatus[ing.id] === false;
@@ -1053,42 +1053,41 @@
                 if (e.target === askExtrasModal) askExtrasModal.style.display = 'none';
             });
             
-            // Event listener for burger builder quantity buttons
             document.getElementById('burger-ingredients-container').addEventListener('click', (e) => {
-                const target = e.target;
-                if(target.classList.contains('quantity-btn')) {
-                    const container = target.closest('[data-ingredient-id]');
-                    const display = container.querySelector('.quantity-display');
-                    const ingredientLimit = parseInt(container.dataset.limit);
-                    
-                    let quantity = parseInt(display.textContent);
+                const target = e.target.closest('.quantity-btn');
+                if (!target) return;
 
-                    const categoryDiv = container.closest('[data-limit]');
-                    const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                    let currentCategoryCount = 0;
-                    categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                        if (parseInt(d.textContent) > 0) currentCategoryCount++;
-                    });
-                    
-                    if(target.classList.contains('plus-btn')) {
-                        if (quantity >= ingredientLimit) {
-                            showAlert(`O limite para este ingrediente é ${ingredientLimit}.`);
-                            return;
-                        }
-                        if (quantity === 0 && currentCategoryCount >= categoryLimit) {
-                           showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                            return;
-                        }
-                        quantity++;
-                    } else if (quantity > 0) {
-                        quantity--;
+                const container = target.closest('[data-ingredient-id]');
+                const display = container.querySelector('.quantity-display');
+                const ingredientLimit = parseInt(container.dataset.limit);
+                
+                let quantity = parseInt(display.textContent);
+
+                const categoryDiv = container.closest('[data-limit]');
+                const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                let currentCategoryCount = 0;
+                categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                    if (parseInt(d.textContent) > 0) currentCategoryCount++;
+                });
+                
+                if(target.classList.contains('plus-btn')) {
+                    if (quantity >= ingredientLimit) {
+                        showAlert(`O limite para este ingrediente é ${ingredientLimit}.`);
+                        return;
                     }
-                    display.textContent = quantity;
+                    if (quantity === 0 && currentCategoryCount >= categoryLimit) {
+                       showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                        return;
+                    }
+                    quantity++;
+                } else if (quantity > 0) {
+                    quantity--;
                 }
+                display.textContent = quantity;
+                
                 updateBurgerPrice();
             });
             
-            // Event listener for pizza extras builder quantity buttons
             document.getElementById('pizza-extras-ingredients-container').addEventListener('click', (e) => {
                 const target = e.target.closest('.quantity-btn');
                 if (!target) return;
@@ -1126,7 +1125,6 @@
                 }
                 display.textContent = quantity;
 
-                // Update state logic
                 const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
                 const extraName = extraContainer.dataset.name;
                 const extraPrice = parseFloat(extraContainer.dataset.price);
