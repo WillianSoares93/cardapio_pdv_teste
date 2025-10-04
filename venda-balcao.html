@@ -388,7 +388,7 @@
                 
                 const promotionsWithCategory = (data.promocoes || []).map(promo => {
                     const originalItem = data.cardapio.find(item => item.id === promo.itemId);
-                    return { ...promo, category: 'Promoções', isPizza: originalItem ? originalItem.isPizza : false, isCustomizable: false, basePrice: promo.promoPrice };
+                    return { ...promo, category: 'Promocionais', isPizza: originalItem ? originalItem.isPizza : false, isCustomizable: false, basePrice: promo.promoPrice };
                 });
                 
                 allItems = [...(data.cardapio || []), ...promotionsWithCategory];
@@ -495,16 +495,16 @@
                     return;
                 }
                 
-                // CORREÇÃO: Lógica de validação explícita, igual ao index.html
-                const isSecondHalfPromotional = (product.category || '').trim().toLowerCase() === 'promoções';
+                // CORREÇÃO: Lógica de validação explícita para normalizar 'promoções' e 'promocionais'
+                const isSecondHalfPromotional = (product.category || '').trim().toLowerCase().replace('ç', 'c') === 'promocionais';
 
                 if (firstHalfPizza.isPromotional && !isSecondHalfPromotional) {
-                    alert('ERRO: Você selecionou uma pizza promocional. A segunda metade também deve ser da categoria "Promoções".');
+                    alert('ERRO: Você selecionou uma pizza promocional. A segunda metade também deve ser da categoria "Promocionais".');
                     return;
                 }
 
                 if (!firstHalfPizza.isPromotional && isSecondHalfPromotional) {
-                    alert('ERRO: Você selecionou uma pizza comum. A segunda metade não pode ser da categoria "Promoções".');
+                    alert('ERRO: Você selecionou uma pizza comum. A segunda metade não pode ser da categoria "Promocionais".');
                     return;
                 }
 
@@ -604,7 +604,8 @@
                     if(allowsHalf) {
                         optionDiv.querySelector('.add-half-pizza-btn').addEventListener('click', () => {
                             isSelectingHalfPizza = true;
-                            const isPromotional = (pizza.category || '').trim().toLowerCase() === 'promoções';
+                            // CORREÇÃO: Normaliza a verificação da categoria para 'promocionais'
+                            const isPromotional = (pizza.category || '').trim().toLowerCase().replace('ç', 'c') === 'promocionais';
                             firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: isPromotional };
                             document.getElementById('product-display').classList.add('half-pizza-selection-active');
                             alert(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
@@ -1068,4 +1069,3 @@
     </script>
 </body>
 </html>
-
