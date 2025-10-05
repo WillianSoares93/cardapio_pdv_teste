@@ -1068,11 +1068,8 @@
                     const categoryLimit = parseInt(categoryDiv.dataset.limit);
                     
                     if (quantityBtn.classList.contains('plus-btn')) {
-                        if (quantity >= ingredientLimit) {
-                            showAlert(`O limite para este ingrediente é ${ingredientLimit}.`);
-                            return;
-                        }
-                        if (quantity === 0) {
+                        // CORREÇÃO: Lógica de verificação do limite de categoria
+                        if (quantity === 0) { // Só verifica o limite da categoria ao adicionar um NOVO tipo de item
                             let currentVarietyCount = 0;
                             categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
                                 if (parseInt(d.textContent) > 0) currentVarietyCount++;
@@ -1085,7 +1082,9 @@
                                 return;
                             }
                         }
-                        quantity++;
+                        if (quantity < ingredientLimit) {
+                            quantity++;
+                        }
                     } else if (quantity > 0) {
                         quantity--;
                     }
@@ -1095,6 +1094,7 @@
                 } else if (radioInput) {
                     if (radioInput.disabled) return;
                     
+                    // CORREÇÃO: Lógica de verificação do limite de categoria para radios
                     if (!radioInput.checked) {
                         const categoryDiv = radioInput.closest('[data-limit]');
                         const categoryLimit = parseInt(categoryDiv.dataset.limit);
@@ -1223,4 +1223,3 @@
     </script>
 </body>
 </html>
-
