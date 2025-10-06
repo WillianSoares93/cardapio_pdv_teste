@@ -714,7 +714,7 @@
                 const categoryLimit = firstIngredient.limit || Infinity;
                 const isRequired = firstIngredient.isRequired || false;
 
-                let categoryHtml = `<div class="mb-4" data-limit="${categoryLimit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${categoryLimit !== Infinity ? `(Escolha até ${categoryLimit})` : ''}</h4>`;
+                let categoryHtml = `<div class="mb-4 ingredient-category" data-limit="${categoryLimit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${categoryLimit !== Infinity ? `(Escolha até ${categoryLimit})` : ''}</h4>`;
                 
                 ingredients.forEach(ing => {
                     const isUnavailable = ingredientStatus[ing.id] === false;
@@ -1064,7 +1064,7 @@
                     const ingredientLimit = parseInt(container.dataset.limit);
                     let quantity = parseInt(display.textContent);
 
-                    const categoryDiv = container.closest('[data-limit]');
+                    const categoryDiv = container.closest('.ingredient-category');
                     const categoryLimit = parseInt(categoryDiv.dataset.limit);
                     
                     if (quantityBtn.classList.contains('plus-btn')) {
@@ -1096,33 +1096,23 @@
                 } else if (radioInput) {
                     if (radioInput.disabled) return;
                     
-                    if (!radioInput.checked) {
-                        const categoryDiv = radioInput.closest('[data-limit]');
-                        const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                    const categoryDiv = radioInput.closest('.ingredient-category');
+                    const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                    const isReplacing = categoryDiv.querySelector(`input[name="${radioInput.name}"]:checked`);
 
+                    if (!isReplacing) {
                         let currentVarietyCount = 0;
-                        let isReplacing = false;
-                        categoryDiv.querySelectorAll('.ingredient-option').forEach(opt => {
-                            const radio = opt.querySelector('input[type="radio"]');
-                            const qtyDisplay = opt.querySelector('.quantity-display');
-
-                            if (radio && radio.checked) {
-                                isReplacing = true; 
-                                currentVarietyCount++;
-                            } else if (qtyDisplay && parseInt(qtyDisplay.textContent) > 0) {
-                                currentVarietyCount++;
-                            }
+                        categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                            if (parseInt(d.textContent) > 0) currentVarietyCount++;
                         });
-                        
-                        if (!isReplacing) {
-                            if (currentVarietyCount >= categoryLimit) {
-                                showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                                e.preventDefault(); 
-                                return;
-                            }
+
+                        if ((currentVarietyCount + 1) > categoryLimit) {
+                            showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                            e.preventDefault();
+                            return;
                         }
                     }
-
+                    
                     setTimeout(() => {
                         const categoryName = radioInput.name;
                         document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
