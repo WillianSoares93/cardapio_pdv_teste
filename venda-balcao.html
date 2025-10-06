@@ -955,19 +955,19 @@
             const container = document.getElementById('order-items-container');
             const totalValueEl = document.getElementById('total-value');
             const totalItemsEl = document.getElementById('total-items');
-            const emptyCartMsg = document.getElementById('empty-cart-message');
             
             let total = 0;
             let totalItems = 0;
 
-            if (order.length === 0) {
-                container.innerHTML = ''; // Limpa o container
-                container.appendChild(emptyCartMsg);
-                emptyCartMsg.style.display = 'flex';
-            } else {
-                emptyCartMsg.style.display = 'none';
-                container.innerHTML = ''; 
+            container.innerHTML = ''; 
 
+            if (order.length === 0) {
+                container.innerHTML = `
+                     <div id="empty-cart-message" class="text-center text-gray-400 p-10 flex flex-col items-center justify-center h-full">
+                        <i class="fas fa-shopping-cart fa-3x mb-4"></i>
+                        <p class="font-medium">Carrinho Vazio</p>
+                    </div>`;
+            } else {
                 const itemsByCategory = order.reduce((acc, item) => {
                     const category = item.category || 'Outros';
                     if (!acc[category]) {
@@ -1008,7 +1008,6 @@
                             </button>`;
                         }
 
-
                         itemDiv.innerHTML = `
                             <div class="flex justify-between items-start">
                                 <div class="flex-1 pr-2">
@@ -1029,20 +1028,22 @@
 
             totalValueEl.textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
             totalItemsEl.textContent = totalItems;
-
-            container.querySelectorAll('.remove-item-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const uniqueId = btn.dataset.uniqueId;
-                    order = order.filter(item => item.uniqueId !== uniqueId);
-                    updateOrderDisplay();
+            
+            if (order.length > 0) {
+                container.querySelectorAll('.remove-item-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const uniqueId = btn.dataset.uniqueId;
+                        order = order.filter(item => item.uniqueId !== uniqueId);
+                        updateOrderDisplay();
+                    });
                 });
-            });
-            container.querySelectorAll('.edit-extras-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const uniqueId = btn.dataset.uniqueId;
-                    openPizzaExtrasBuilderModal(uniqueId);
+                container.querySelectorAll('.edit-extras-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const uniqueId = btn.dataset.uniqueId;
+                        openPizzaExtrasBuilderModal(uniqueId);
+                    });
                 });
-            });
+            }
         }
         
         async function setupEventListeners() {
