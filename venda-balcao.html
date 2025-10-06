@@ -22,7 +22,7 @@
         }
         .main-content {
             display: grid;
-            grid-template-columns: 400px 1fr 180px;
+            grid-template-columns: 1fr 450px; /* Layout ajustado */
             gap: 1rem;
             padding: 1rem;
             height: 100%;
@@ -213,7 +213,20 @@
         </aside>
 
         <main class="main-content">
-            <!-- Coluna da Esquerda: Pedido -->
+            <!-- Nova Coluna da Esquerda: Produtos e Categorias -->
+            <div class="grid grid-cols-[1fr_180px] gap-4 overflow-hidden">
+                <!-- Produtos -->
+                <section id="product-display" class="bg-white rounded-lg shadow-md flex flex-col p-4 overflow-hidden">
+                     <div class="mb-4">
+                        <input type="text" id="search-product" placeholder="Buscar produto..." class="w-full p-2 border rounded-md">
+                    </div>
+                    <div class="product-grid flex-grow overflow-y-auto pr-2" id="product-grid"></div>
+                </section>
+                <!-- Categorias -->
+                <section id="category-list" class="flex flex-col p-0 space-y-2 overflow-y-auto"></section>
+            </div>
+
+            <!-- Nova Coluna da Direita: Pedido -->
             <section class="bg-white rounded-lg shadow-md flex flex-col overflow-hidden">
                 <div class="p-4 border-b">
                     <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
@@ -264,17 +277,6 @@
                     </div>
                 </div>
             </section>
-
-            <!-- Coluna do Meio: Produtos -->
-            <section id="product-display" class="bg-white rounded-lg shadow-md flex flex-col p-4 overflow-hidden">
-                 <div class="mb-4">
-                    <input type="text" id="search-product" placeholder="Buscar produto..." class="w-full p-2 border rounded-md">
-                </div>
-                <div class="product-grid flex-grow overflow-y-auto pr-2" id="product-grid"></div>
-            </section>
-
-            <!-- Coluna da Direita: Categorias -->
-            <section id="category-list" class="flex flex-col p-0 space-y-2 overflow-y-auto"></section>
         </main>
     </div>
     
@@ -366,7 +368,7 @@
                 <h3 class="text-xl font-bold text-gray-900">Endereço de Entrega</h3>
                 <button id="close-address-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
-            <div id="delivery-fields" class="mt-4 space-y-4">
+            <div class="mt-4 space-y-4">
                 <div>
                     <label for="delivery-street" class="text-sm font-medium text-gray-700">Rua</label>
                     <input type="text" id="delivery-street" class="w-full mt-1 p-2 border rounded-md">
@@ -498,6 +500,7 @@
             renderCategories();
             renderProducts();
             setupEventListeners();
+            updateDeliveryInfoUI(); // Initial call
         }
 
         function listenToStatusChanges() {
