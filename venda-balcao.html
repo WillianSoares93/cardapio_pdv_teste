@@ -440,9 +440,9 @@
 
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -1459,8 +1459,7 @@
 
         function openClientDataModal() {
             const modal = document.getElementById('client-data-modal');
-            const fields = modal.querySelectorAll('[id^="client-modal-"]');
-            fields.forEach(f => f.classList.add('hidden'));
+            modal.querySelectorAll('#client-modal-retirada-fields, #client-modal-delivery-fields, #client-modal-mesa-fields').forEach(f => f.classList.add('hidden'));
 
             if (currentOrderType === 'Retirada') {
                 document.getElementById('client-modal-retirada-fields').classList.remove('hidden');
