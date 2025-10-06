@@ -429,6 +429,10 @@
                         <label for="client-modal-table-number" class="text-sm font-medium text-gray-700">Número da Mesa</label>
                         <input type="number" id="client-modal-table-number" class="w-full mt-1 p-2 border rounded-md">
                     </div>
+                    <div>
+                        <label for="client-modal-name-mesa" class="text-sm font-medium text-gray-700">Nome do Cliente (Opcional)</label>
+                        <input type="text" id="client-modal-name-mesa" class="w-full mt-1 p-2 border rounded-md">
+                    </div>
                 </div>
             </div>
             <div class="mt-6 flex justify-end space-x-4">
@@ -1475,6 +1479,7 @@
             } else { // Mesa
                 document.getElementById('client-modal-mesa-fields').classList.remove('hidden');
                 document.getElementById('client-modal-table-number').value = clientData.table || '';
+                document.getElementById('client-modal-name-mesa').value = clientData.name || '';
             }
             modal.style.display = 'flex';
         }
@@ -1496,7 +1501,11 @@
                 clientData.address = { street, number, neighborhood };
             } else { // Mesa
                 clientData.table = document.getElementById('client-modal-table-number').value.trim();
-                clientData.name = `Mesa ${clientData.table}`;
+                clientData.name = document.getElementById('client-modal-name-mesa').value.trim();
+                if (!clientData.table) {
+                    showAlert("O número da mesa é obrigatório.");
+                    return;
+                }
             }
             document.getElementById('client-data-modal').style.display = 'none';
             updateClientDataSummary();
@@ -1513,6 +1522,9 @@
             let summaryHtml = '';
             if (currentOrderType === 'Mesa') {
                 summaryHtml = `<strong>Mesa:</strong> ${clientData.table || 'N/A'}`;
+                 if(clientData.name) {
+                    summaryHtml += ` | <strong>Cliente:</strong> ${clientData.name}`;
+                }
             } else {
                 summaryHtml = `<strong>Cliente:</strong> ${clientData.name || 'N/A'}`;
                 if(clientData.contact) summaryHtml += ` | <strong>Contato:</strong> ${clientData.contact}`;
@@ -1530,8 +1542,13 @@
                 return;
             }
             
-            if (!clientData.name && !clientData.table) {
-                showAlert("Por favor, informe os dados do cliente antes de finalizar.");
+            if (currentOrderType === 'Mesa' && !clientData.table) {
+                 showAlert("Por favor, informe os dados do cliente antes de finalizar.");
+                openClientDataModal();
+                return;
+            }
+            if (currentOrderType !== 'Mesa' && !clientData.name) {
+                 showAlert("Por favor, informe os dados do cliente antes de finalizar.");
                 openClientDataModal();
                 return;
             }
@@ -1551,7 +1568,11 @@
                 deliveryFee = parseFloat(neighborhoodSelect.options[neighborhoodSelect.selectedIndex].dataset.fee) || 0;
                 endereco = { clientName: clientData.name, telefone: clientData.contact, rua: clientData.address.street, numero: clientData.address.number, bairro: clientData.address.neighborhood };
             } else if (currentOrderType === 'Mesa') {
-                endereco = { clientName: clientData.name, rua: 'Mesa' };
+                let clientNameForOrder = `Mesa ${clientData.table}`;
+                if (clientData.name) {
+                    clientNameForOrder += ` (${clientData.name})`;
+                }
+                endereco = { clientName: clientNameForOrder, rua: 'Mesa' };
                 status = 'Em Preparo';
             } else { // Retirada
                 endereco = { clientName: clientData.name || 'Cliente Balcão', telefone: clientData.contact, rua: 'Retirada no Balcão' };
@@ -1575,7 +1596,7 @@
 
             try {
                 await addDoc(collection(db, "pedidos"), newOrder);
-                showTemporaryFeedback(`Pedido para ${clientData.name} finalizado com sucesso!`);
+                showTemporaryFeedback(`Pedido para ${clientData.name || `Mesa ${clientData.table}`} finalizado com sucesso!`);
                 order = [];
                 clientData = { name: null, contact: null, address: null, table: null };
                 updateOrderDisplay();
