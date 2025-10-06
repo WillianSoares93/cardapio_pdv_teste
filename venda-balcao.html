@@ -236,21 +236,9 @@
                     <label id="client-label" for="client-name" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
                     <input type="text" id="client-name" class="w-full p-2 border rounded-md mt-1" placeholder="Nome do Cliente">
                 </div>
-                <div id="delivery-fields" class="hidden p-4 border-b space-y-2">
-                    <h4 class="text-sm font-medium text-gray-700">Endereço de Entrega</h4>
-                    <div>
-                        <label for="delivery-street" class="text-xs">Rua</label>
-                        <input type="text" id="delivery-street" class="w-full p-2 border rounded-md">
-                    </div>
-                    <div>
-                        <label for="delivery-number" class="text-xs">Número</label>
-                        <input type="text" id="delivery-number" class="w-full p-2 border rounded-md">
-                    </div>
-                    <div>
-                        <label for="delivery-neighborhood" class="text-xs">Bairro</label>
-                        <select id="delivery-neighborhood" class="w-full p-2 border rounded-md"></select>
-                    </div>
-                </div>
+                
+                <div id="delivery-info-container" class="p-4 border-b"></div>
+
                 <div id="order-items-container" class="flex-grow overflow-y-auto p-4 space-y-4">
                      <div id="empty-cart-message" class="text-center text-gray-400 p-10 flex flex-col items-center justify-center h-full">
                         <i class="fas fa-shopping-cart fa-3x mb-4"></i>
@@ -371,6 +359,35 @@
         </div>
     </div>
 
+    <!-- Address Modal -->
+    <div id="address-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 class="text-xl font-bold text-gray-900">Endereço de Entrega</h3>
+                <button id="close-address-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <div id="delivery-fields" class="mt-4 space-y-4">
+                <div>
+                    <label for="delivery-street" class="text-sm font-medium text-gray-700">Rua</label>
+                    <input type="text" id="delivery-street" class="w-full mt-1 p-2 border rounded-md">
+                </div>
+                <div>
+                    <label for="delivery-number" class="text-sm font-medium text-gray-700">Número</label>
+                    <input type="text" id="delivery-number" class="w-full mt-1 p-2 border rounded-md">
+                </div>
+                <div>
+                    <label for="delivery-neighborhood" class="text-sm font-medium text-gray-700">Bairro</label>
+                    <select id="delivery-neighborhood" class="w-full mt-1 p-2 border rounded-md"></select>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button id="cancel-address-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button id="confirm-address-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar Endereço</button>
+            </div>
+        </div>
+    </div>
+
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
@@ -396,6 +413,7 @@
         let order = [];
         let currentUserEmail = '';
         let currentOrderType = 'Retirada';
+        let selectedAddress = null;
 
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
         let ingredientStatus = {}, ingredientVisibility = {};
@@ -1042,8 +1060,10 @@
             const container = document.getElementById('order-items-container');
             const totalValueEl = document.getElementById('total-value');
             const totalItemsEl = document.getElementById('total-items');
+            const deliveryFeeSummary = document.getElementById('delivery-fee-summary');
+            const deliveryFeeValue = document.getElementById('delivery-fee-value');
             
-            let total = 0;
+            let subtotal = 0;
             let totalItems = 0;
 
             container.innerHTML = ''; 
@@ -1071,8 +1091,8 @@
                     container.appendChild(categoryTitle);
 
                     itemsByCategory[category].forEach(item => {
-                        const subtotal = item.price * item.quantity;
-                        total += subtotal;
+                        const currentSubtotal = item.price * item.quantity;
+                        subtotal += currentSubtotal;
                         totalItems += item.quantity;
 
                         const itemDiv = document.createElement('div');
@@ -1112,7 +1132,7 @@
                                     ${detailsHtml}
                                 </div>
                                 <div class="flex items-center">
-                                    <p class="font-bold text-gray-900 mr-4">R$ ${subtotal.toFixed(2).replace('.',',')}</p>
+                                    <p class="font-bold text-gray-900 mr-4">R$ ${currentSubtotal.toFixed(2).replace('.',',')}</p>
                                     <button class="remove-item-btn text-red-500 hover:text-red-700" data-unique-id="${item.uniqueId}"><i class="fas fa-trash-alt"></i></button>
                                 </div>
                             </div>
@@ -1122,10 +1142,28 @@
                     });
                 });
             }
+            
+            let deliveryFee = 0;
+            if (currentOrderType === 'Delivery' && selectedAddress) {
+                const neighborhoodSelect = document.getElementById('delivery-neighborhood');
+                const selectedOption = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
+                if(selectedOption && selectedOption.value) {
+                    deliveryFee = parseFloat(selectedOption.dataset.fee) || 0;
+                }
+            }
+            
+            if (deliveryFee > 0) {
+                deliveryFeeValue.textContent = `R$ ${deliveryFee.toFixed(2).replace('.',',')}`;
+                deliveryFeeSummary.classList.remove('hidden');
+            } else {
+                deliveryFeeSummary.classList.add('hidden');
+            }
 
+            const total = subtotal + deliveryFee;
             totalValueEl.textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
             totalItemsEl.textContent = totalItems;
             
+            // Re-attach event listeners for dynamic elements
             if (order.length > 0) {
                 container.querySelectorAll('.remove-item-btn').forEach(btn => {
                     btn.addEventListener('click', () => {
@@ -1194,21 +1232,20 @@
                 currentOrderType = e.target.value;
                 const clientLabel = document.getElementById('client-label');
                 const clientInput = document.getElementById('client-name');
-                const deliveryFields = document.getElementById('delivery-fields');
+                const deliveryInfoContainer = document.getElementById('delivery-info-container');
+                selectedAddress = null; // Reset address on type change
 
                 if (currentOrderType === 'Delivery') {
                     clientLabel.textContent = 'Nome do Cliente';
                     clientInput.placeholder = 'Nome do Cliente';
-                    deliveryFields.classList.remove('hidden');
                 } else if (currentOrderType === 'Mesa') {
                     clientLabel.textContent = 'Número da Mesa';
                     clientInput.placeholder = 'Ex: Mesa 05';
-                    deliveryFields.classList.add('hidden');
                 } else { // Retirada
                     clientLabel.textContent = 'Nome do Cliente';
                     clientInput.placeholder = 'Nome do Cliente (Opcional)';
-                    deliveryFields.classList.add('hidden');
                 }
+                updateDeliveryInfoUI();
                 updateOrderDisplay();
             });
             
@@ -1220,6 +1257,11 @@
                 if (e.target === burgerModal) burgerModal.style.display = 'none';
                 if (e.target === extrasModal) extrasModal.style.display = 'none';
                 if (e.target === askExtrasModal) askExtrasModal.style.display = 'none';
+                if (e.target.closest('#address-modal')) {
+                     if (e.target.id === 'close-address-modal-btn' || e.target.id === 'cancel-address-btn' || e.target.id === 'address-modal') {
+                        document.getElementById('address-modal').style.display = 'none';
+                    }
+                }
             });
             
             document.getElementById('burger-ingredients-container').addEventListener('click', (e) => {
@@ -1351,6 +1393,49 @@
                 }
                 updatePizzaExtrasPrice(orderIndex);
             });
+            
+            document.getElementById('confirm-address-btn').addEventListener('click', () => {
+                const street = document.getElementById('delivery-street').value.trim();
+                const number = document.getElementById('delivery-number').value.trim();
+                const neighborhoodSelect = document.getElementById('delivery-neighborhood');
+                const neighborhood = neighborhoodSelect.value;
+
+                if(!street || !number || !neighborhood) {
+                    showAlert("Preencha todos os campos do endereço.");
+                    return;
+                }
+                
+                selectedAddress = { street, number, neighborhood };
+                document.getElementById('address-modal').style.display = 'none';
+                updateDeliveryInfoUI();
+                updateOrderDisplay();
+            });
+        }
+
+        function updateDeliveryInfoUI() {
+            const container = document.getElementById('delivery-info-container');
+            container.innerHTML = '';
+
+            if (currentOrderType === 'Delivery') {
+                if (selectedAddress) {
+                    container.innerHTML = `
+                        <div class="bg-blue-50 p-3 rounded-md">
+                            <h4 class="text-sm font-bold text-blue-800">Endereço de Entrega:</h4>
+                            <p class="text-sm text-blue-700">${selectedAddress.street}, ${selectedAddress.number} - ${selectedAddress.neighborhood}</p>
+                            <button id="edit-address-btn" class="text-xs text-blue-600 hover:underline mt-1">Editar Endereço</button>
+                        </div>
+                    `;
+                    container.querySelector('#edit-address-btn').addEventListener('click', openAddressModal);
+
+                } else {
+                     container.innerHTML = `<button id="inform-address-btn" class="w-full py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600">Informar Endereço</button>`;
+                     container.querySelector('#inform-address-btn').addEventListener('click', openAddressModal);
+                }
+            }
+        }
+
+        function openAddressModal() {
+            document.getElementById('address-modal').style.display = 'flex';
         }
 
         async function finalizeOrder() {
@@ -1364,6 +1449,12 @@
                 showAlert("Por favor, preencha o nome do cliente ou da mesa.");
                 return;
             }
+            
+            if (currentOrderType === 'Delivery' && !selectedAddress) {
+                showAlert("Por favor, informe o endereço de entrega para continuar.");
+                openAddressModal();
+                return;
+            }
 
             let subtotal = order.reduce((sum, item) => sum + item.price, 0);
             let deliveryFee = 0;
@@ -1371,16 +1462,9 @@
             let status = 'Novo';
 
             if(currentOrderType === 'Delivery') {
-                const street = document.getElementById('delivery-street').value.trim();
-                const number = document.getElementById('delivery-number').value.trim();
                 const neighborhoodSelect = document.getElementById('delivery-neighborhood');
-                const neighborhood = neighborhoodSelect.value;
-                if(!street || !number || !neighborhood) {
-                    showAlert("Para pedidos Delivery, preencha todos os campos do endereço.");
-                    return;
-                }
                 deliveryFee = parseFloat(neighborhoodSelect.options[neighborhoodSelect.selectedIndex].dataset.fee) || 0;
-                endereco = { clientName, rua: street, numero: number, bairro: neighborhood };
+                endereco = { clientName, rua: selectedAddress.street, numero: selectedAddress.number, bairro: selectedAddress.neighborhood };
             } else if (currentOrderType === 'Mesa') {
                 endereco = { clientName, rua: 'Mesa' };
                 status = 'Em Preparo';
@@ -1408,9 +1492,13 @@
                 await addDoc(collection(db, "pedidos"), newOrder);
                 showAlert(`Pedido para ${clientName} finalizado com sucesso!`);
                 order = [];
+                selectedAddress = null;
                 document.getElementById('client-name').value = '';
-                document.getElementById('delivery-fields').querySelectorAll('input, select').forEach(el => el.value = '');
+                document.getElementById('delivery-street').value = '';
+                document.getElementById('delivery-number').value = '';
+                document.getElementById('delivery-neighborhood').selectedIndex = 0;
                 updateOrderDisplay();
+                updateDeliveryInfoUI();
             } catch (error) {
                 console.error("Erro ao finalizar pedido:", error);
                 showAlert("Falha ao finalizar o pedido. Tente novamente.");
