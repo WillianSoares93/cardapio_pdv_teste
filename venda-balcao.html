@@ -219,18 +219,7 @@
                     <label for="client-name" class="text-sm font-medium text-gray-700">Cliente Padrão</label>
                     <input type="text" id="client-name" class="w-full p-2 border rounded-md mt-1" value="Cliente Balcão">
                 </div>
-                <div class="flex-grow overflow-y-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="p-2 text-left font-medium text-gray-600">Produto</th>
-                                <th class="p-2 text-center font-medium text-gray-600 w-20">Qtd</th>
-                                <th class="p-2 text-right font-medium text-gray-600 w-24">Subtotal</th>
-                                <th class="p-2 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="order-items-table"></tbody>
-                    </table>
+                <div id="order-items-container" class="flex-grow overflow-y-auto p-4 space-y-4">
                      <div id="empty-cart-message" class="text-center text-gray-400 p-10 flex flex-col items-center justify-center h-full">
                         <i class="fas fa-shopping-cart fa-3x mb-4"></i>
                         <p class="font-medium">Carrinho Vazio</p>
@@ -626,22 +615,21 @@
         
         function addToOrder(product) {
             const uniqueId = product.uniqueId || `${product.id}-${Date.now()}`;
-            const itemWithId = { ...product, uniqueId, quantity: 1, extras: [] };
+            
+            const originalItem = allItems.find(i => i.id === product.id);
+            const acceptsExtras = originalItem ? (itemExtrasStatus[originalItem.id] === undefined ? originalItem.isPizza : itemExtrasStatus[originalItem.id]) : false;
+
+            const itemWithId = { ...product, uniqueId, quantity: 1, extras: [], acceptsExtras };
             
             order.push(itemWithId);
             updateOrderDisplay();
             
-            const originalItemId = (product.type === 'split' ? product.firstHalfData.id : product.id);
-            const originalItem = allItems.find(i => i.id === originalItemId);
-            if (originalItem) {
-                const acceptsExtras = itemExtrasStatus[originalItem.id] === undefined ? originalItem.isPizza : itemExtrasStatus[originalItem.id];
-                if(acceptsExtras && (product.type === 'full' || product.type === 'split')){
-                    setTimeout(() => {
-                        const askModal = document.getElementById('ask-pizza-extras-modal');
-                        askModal.dataset.uniqueId = uniqueId;
-                        askModal.style.display = 'flex';
-                    }, 100);
-                }
+            if(acceptsExtras && (product.type === 'full' || product.type === 'split')){
+                setTimeout(() => {
+                    const askModal = document.getElementById('ask-pizza-extras-modal');
+                    askModal.dataset.uniqueId = uniqueId;
+                    askModal.style.display = 'flex';
+                }, 100);
             }
         }
 
@@ -676,7 +664,7 @@
                          addToOrder({
                             ...pizza,
                             id: pizza.id,
-                            name: `${pizza.name} (${size.label})`,
+                            name: `${size.label}: ${pizza.name}`,
                             price: pizza[size.priceKey],
                             type: 'full'
                         });
@@ -964,48 +952,95 @@
         }
 
         function updateOrderDisplay() {
-            const tableBody = document.getElementById('order-items-table');
+            const container = document.getElementById('order-items-container');
             const totalValueEl = document.getElementById('total-value');
             const totalItemsEl = document.getElementById('total-items');
             const emptyCartMsg = document.getElementById('empty-cart-message');
+            
             let total = 0;
             let totalItems = 0;
 
             if (order.length === 0) {
-                tableBody.innerHTML = '';
+                container.innerHTML = ''; // Limpa o container
+                container.appendChild(emptyCartMsg);
                 emptyCartMsg.style.display = 'flex';
             } else {
                 emptyCartMsg.style.display = 'none';
-                tableBody.innerHTML = order.map((item, index) => {
-                    const subtotal = item.price * item.quantity;
-                    total += subtotal;
-                    totalItems += item.quantity;
-                    let detailsHtml = '';
-                    const allDetails = [...(item.ingredients || []), ...(item.extras || [])];
-                    if (allDetails.length > 0) {
-                        detailsHtml = `<ul class="text-xs text-gray-500 pl-4 list-disc">${allDetails.map(ing => `<li>${ing.name}</li>`).join('')}</ul>`;
+                container.innerHTML = ''; 
+
+                const itemsByCategory = order.reduce((acc, item) => {
+                    const category = item.category || 'Outros';
+                    if (!acc[category]) {
+                        acc[category] = [];
                     }
-                    return `
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="p-2 font-medium">${item.name}${detailsHtml}</td>
-                            <td class="p-2 text-center">${item.quantity}</td>
-                            <td class="p-2 text-right font-medium">R$ ${subtotal.toFixed(2).replace('.',',')}</td>
-                            <td class="p-2 text-center">
-                                <button class="remove-item-btn text-red-500 hover:text-red-700" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
+                    acc[category].push(item);
+                    return acc;
+                }, {});
+
+                Object.keys(itemsByCategory).forEach(category => {
+                    const categoryTitle = document.createElement('h4');
+                    categoryTitle.className = 'text-sm font-bold text-gray-500 uppercase tracking-wider pb-1 border-b mb-2';
+                    categoryTitle.textContent = category;
+                    container.appendChild(categoryTitle);
+
+                    itemsByCategory[category].forEach(item => {
+                        const subtotal = item.price * item.quantity;
+                        total += subtotal;
+                        totalItems += item.quantity;
+
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'py-2';
+
+                        let detailsHtml = '';
+                        const allDetails = [...(item.ingredients || []), ...(item.extras || [])];
+                        if (allDetails.length > 0) {
+                           detailsHtml = `<ul class="text-xs text-gray-600 pl-4 mt-1 space-y-px">${allDetails.map(ing => `<li>• ${ing.name}</li>`).join('')}</ul>`;
+                        }
+                        
+                        let actionButtonHtml = '';
+                        if (item.acceptsExtras) {
+                            const hasExtras = item.extras && item.extras.length > 0;
+                            const buttonText = hasExtras ? 'Editar Adicionais' : 'Incluir Adicionais';
+                            const iconClass = hasExtras ? 'fas fa-pencil-alt' : 'fas fa-plus';
+                            actionButtonHtml = `<button class="edit-extras-btn mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition-colors" data-unique-id="${item.uniqueId}">
+                                <i class="${iconClass} fa-fw"></i>
+                                <span>${buttonText}</span>
+                            </button>`;
+                        }
+
+
+                        itemDiv.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1 pr-2">
+                                    <p class="font-semibold text-gray-800">${item.name}</p>
+                                    ${detailsHtml}
+                                </div>
+                                <div class="flex items-center">
+                                    <p class="font-bold text-gray-900 mr-4">R$ ${subtotal.toFixed(2).replace('.',',')}</p>
+                                    <button class="remove-item-btn text-red-500 hover:text-red-700" data-unique-id="${item.uniqueId}"><i class="fas fa-trash-alt"></i></button>
+                                </div>
+                            </div>
+                            ${actionButtonHtml}
+                        `;
+                        container.appendChild(itemDiv);
+                    });
+                });
             }
 
             totalValueEl.textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
             totalItemsEl.textContent = totalItems;
 
-            document.querySelectorAll('.remove-item-btn').forEach(btn => {
+            container.querySelectorAll('.remove-item-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const index = parseInt(btn.dataset.index);
-                    order.splice(index, 1);
+                    const uniqueId = btn.dataset.uniqueId;
+                    order = order.filter(item => item.uniqueId !== uniqueId);
                     updateOrderDisplay();
+                });
+            });
+            container.querySelectorAll('.edit-extras-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const uniqueId = btn.dataset.uniqueId;
+                    openPizzaExtrasBuilderModal(uniqueId);
                 });
             });
         }
@@ -1105,6 +1140,8 @@
                         categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
                             if (parseInt(d.textContent) > 0) currentVarietyCount++;
                         });
+                        
+                        categoryDiv.querySelectorAll('input[type="radio"]:checked').forEach(() => currentVarietyCount++);
 
                         if ((currentVarietyCount + 1) > categoryLimit) {
                             showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
