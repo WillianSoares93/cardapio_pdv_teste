@@ -442,7 +442,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firestore.js";
 
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -1218,11 +1218,10 @@
             }
             
             let deliveryFee = 0;
-            if (currentOrderType === 'Delivery' && selectedAddress) {
-                const neighborhoodSelect = document.getElementById('delivery-neighborhood');
-                const selectedOption = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
-                if(selectedOption && selectedOption.value) {
-                    deliveryFee = parseFloat(selectedOption.dataset.fee) || 0;
+            if (currentOrderType === 'Delivery' && clientData.address) {
+                const selectedFee = allDeliveryFees.find(fee => fee.neighborhood === clientData.address.neighborhood);
+                if(selectedFee) {
+                    deliveryFee = selectedFee.deliveryFee;
                 }
             }
             
@@ -1270,14 +1269,16 @@
         async function setupEventListeners() {
             document.getElementById('search-product').addEventListener('input', renderProducts);
             document.getElementById('cancel-order-btn').addEventListener('click', async () => {
-                if (order.length > 0) {
-                    const confirmed = await showConfirm('Deseja cancelar o pedido atual?');
+                if (order.length > 0 || clientData.name) {
+                    const confirmed = await showConfirm('Deseja cancelar o pedido atual e limpar os dados do cliente?');
                     if (confirmed) {
                         order = [];
+                        clientData = { name: null, contact: null, address: null, table: null };
                         isSelectingHalfPizza = false;
                         firstHalfPizza = null;
                         document.getElementById('product-display').classList.remove('half-pizza-selection-active');
                         updateOrderDisplay();
+                        updateClientDataSummary();
                     }
                 }
             });
@@ -1304,38 +1305,21 @@
             
              document.getElementById('order-type-selector').addEventListener('change', (e) => {
                 currentOrderType = e.target.value;
-                const clientLabel = document.getElementById('client-label');
-                const clientInput = document.getElementById('client-name');
-                const deliveryInfoContainer = document.getElementById('delivery-info-container');
-                selectedAddress = null; // Reset address on type change
-
-                if (currentOrderType === 'Delivery') {
-                    clientLabel.textContent = 'Nome do Cliente';
-                    clientInput.placeholder = 'Nome do Cliente';
-                } else if (currentOrderType === 'Mesa') {
-                    clientLabel.textContent = 'Número da Mesa';
-                    clientInput.placeholder = 'Ex: Mesa 05';
-                } else { // Retirada
-                    clientLabel.textContent = 'Nome do Cliente';
-                    clientInput.placeholder = 'Nome do Cliente (Opcional)';
-                }
-                updateDeliveryInfoUI();
+                clientData = { name: null, contact: null, address: null, table: null };
+                updateClientDataSummary();
                 updateOrderDisplay();
             });
             
-            document.getElementById('delivery-neighborhood').addEventListener('change', updateOrderDisplay);
+            document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
 
 
             window.addEventListener('click', (e) => {
+                const clientModal = document.getElementById('client-data-modal');
                 if (e.target === pizzaModal) pizzaModal.style.display = 'none';
                 if (e.target === burgerModal) burgerModal.style.display = 'none';
                 if (e.target === extrasModal) extrasModal.style.display = 'none';
                 if (e.target === askExtrasModal) askExtrasModal.style.display = 'none';
-                if (e.target.closest('#address-modal')) {
-                     if (e.target.id === 'close-address-modal-btn' || e.target.id === 'cancel-address-btn' || e.target.id === 'address-modal') {
-                        document.getElementById('address-modal').style.display = 'none';
-                    }
-                }
+                if (e.target === clientModal) clientModal.style.display = 'none';
             });
             
             document.getElementById('burger-ingredients-container').addEventListener('click', (e) => {
@@ -1468,48 +1452,77 @@
                 updatePizzaExtrasPrice(orderIndex);
             });
             
-            document.getElementById('confirm-address-btn').addEventListener('click', () => {
-                const street = document.getElementById('delivery-street').value.trim();
-                const number = document.getElementById('delivery-number').value.trim();
-                const neighborhoodSelect = document.getElementById('delivery-neighborhood');
-                const neighborhood = neighborhoodSelect.value;
+            document.getElementById('close-client-modal-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
+            document.getElementById('cancel-client-data-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
+            document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
+        }
 
-                if(!street || !number || !neighborhood) {
-                    showAlert("Preencha todos os campos do endereço.");
+        function openClientDataModal() {
+            const modal = document.getElementById('client-data-modal');
+            const fields = modal.querySelectorAll('[id^="client-modal-"]');
+            fields.forEach(f => f.classList.add('hidden'));
+
+            if (currentOrderType === 'Retirada') {
+                document.getElementById('client-modal-retirada-fields').classList.remove('hidden');
+                document.getElementById('client-modal-name-retirada').value = clientData.name || '';
+                document.getElementById('client-modal-contact-retirada').value = clientData.contact || '';
+            } else if (currentOrderType === 'Delivery') {
+                document.getElementById('client-modal-delivery-fields').classList.remove('hidden');
+                document.getElementById('client-modal-name-delivery').value = clientData.name || '';
+                document.getElementById('client-modal-contact-delivery').value = clientData.contact || '';
+                document.getElementById('client-modal-street').value = clientData.address ? clientData.address.street : '';
+                document.getElementById('client-modal-number').value = clientData.address ? clientData.address.number : '';
+                document.getElementById('client-modal-neighborhood').value = clientData.address ? clientData.address.neighborhood : '';
+            } else { // Mesa
+                document.getElementById('client-modal-mesa-fields').classList.remove('hidden');
+                document.getElementById('client-modal-table-number').value = clientData.table || '';
+            }
+            modal.style.display = 'flex';
+        }
+        
+        function confirmClientData() {
+             if (currentOrderType === 'Retirada') {
+                clientData.name = document.getElementById('client-modal-name-retirada').value.trim();
+                clientData.contact = document.getElementById('client-modal-contact-retirada').value.trim();
+            } else if (currentOrderType === 'Delivery') {
+                clientData.name = document.getElementById('client-modal-name-delivery').value.trim();
+                clientData.contact = document.getElementById('client-modal-contact-delivery').value.trim();
+                const street = document.getElementById('client-modal-street').value.trim();
+                const number = document.getElementById('client-modal-number').value.trim();
+                const neighborhood = document.getElementById('client-modal-neighborhood').value;
+                if (!clientData.name || !clientData.contact || !street || !number || !neighborhood) {
+                    showAlert("Para Delivery, todos os campos são obrigatórios.");
                     return;
                 }
-                
-                selectedAddress = { street, number, neighborhood };
-                document.getElementById('address-modal').style.display = 'none';
-                updateDeliveryInfoUI();
-                updateOrderDisplay();
-            });
+                clientData.address = { street, number, neighborhood };
+            } else { // Mesa
+                clientData.table = document.getElementById('client-modal-table-number').value.trim();
+                clientData.name = `Mesa ${clientData.table}`;
+            }
+            document.getElementById('client-data-modal').style.display = 'none';
+            updateClientDataSummary();
+            updateOrderDisplay();
         }
 
-        function updateDeliveryInfoUI() {
-            const container = document.getElementById('delivery-info-container');
-            container.innerHTML = '';
+        function updateClientDataSummary() {
+            const summaryDiv = document.getElementById('client-data-summary');
+            if (!clientData.name && !clientData.table) {
+                summaryDiv.classList.add('hidden');
+                return;
+            }
 
-            if (currentOrderType === 'Delivery') {
-                if (selectedAddress) {
-                    container.innerHTML = `
-                        <div class="bg-blue-50 p-3 rounded-md">
-                            <h4 class="text-sm font-bold text-blue-800">Endereço de Entrega:</h4>
-                            <p class="text-sm text-blue-700">${selectedAddress.street}, ${selectedAddress.number} - ${selectedAddress.neighborhood}</p>
-                            <button id="edit-address-btn" class="text-xs text-blue-600 hover:underline mt-1">Editar Endereço</button>
-                        </div>
-                    `;
-                    container.querySelector('#edit-address-btn').addEventListener('click', openAddressModal);
-
-                } else {
-                     container.innerHTML = `<button id="inform-address-btn" class="w-full py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600">Informar Endereço</button>`;
-                     container.querySelector('#inform-address-btn').addEventListener('click', openAddressModal);
+            let summaryHtml = '';
+            if (currentOrderType === 'Mesa') {
+                summaryHtml = `<strong>Mesa:</strong> ${clientData.table || 'N/A'}`;
+            } else {
+                summaryHtml = `<strong>Cliente:</strong> ${clientData.name || 'N/A'}`;
+                if(clientData.contact) summaryHtml += ` | <strong>Contato:</strong> ${clientData.contact}`;
+                if(clientData.address) {
+                    summaryHtml += `<br><strong>Endereço:</strong> ${clientData.address.street}, ${clientData.address.number} - ${clientData.address.neighborhood}`;
                 }
             }
-        }
-
-        function openAddressModal() {
-            document.getElementById('address-modal').style.display = 'flex';
+            summaryDiv.innerHTML = summaryHtml;
+            summaryDiv.classList.remove('hidden');
         }
 
         async function finalizeOrder() {
@@ -1517,16 +1530,10 @@
                 showAlert("O carrinho está vazio.");
                 return;
             }
-
-            const clientName = document.getElementById('client-name').value.trim();
-            if(!clientName) {
-                showAlert("Por favor, preencha o nome do cliente ou da mesa.");
-                return;
-            }
             
-            if (currentOrderType === 'Delivery' && !selectedAddress) {
-                showAlert("Por favor, informe o endereço de entrega para continuar.");
-                openAddressModal();
+            if (!clientData.name && !clientData.table) {
+                showAlert("Por favor, informe os dados do cliente antes de finalizar.");
+                openClientDataModal();
                 return;
             }
 
@@ -1536,14 +1543,19 @@
             let status = 'Novo';
 
             if(currentOrderType === 'Delivery') {
-                const neighborhoodSelect = document.getElementById('delivery-neighborhood');
+                if (!clientData.address) {
+                    showAlert("Por favor, informe o endereço de entrega para continuar.");
+                    openClientDataModal();
+                    return;
+                }
+                const neighborhoodSelect = document.getElementById('client-modal-neighborhood');
                 deliveryFee = parseFloat(neighborhoodSelect.options[neighborhoodSelect.selectedIndex].dataset.fee) || 0;
-                endereco = { clientName, rua: selectedAddress.street, numero: selectedAddress.number, bairro: selectedAddress.neighborhood };
+                endereco = { clientName: clientData.name, telefone: clientData.contact, rua: clientData.address.street, numero: clientData.address.number, bairro: clientData.address.neighborhood };
             } else if (currentOrderType === 'Mesa') {
-                endereco = { clientName, rua: 'Mesa' };
+                endereco = { clientName: clientData.name, rua: 'Mesa' };
                 status = 'Em Preparo';
             } else { // Retirada
-                endereco = { clientName: clientName || 'Cliente Balcão', rua: 'Retirada no Balcão' };
+                endereco = { clientName: clientData.name || 'Cliente Balcão', telefone: clientData.contact, rua: 'Retirada no Balcão' };
             }
             
             const cleanedItems = JSON.parse(JSON.stringify(order, (key, value) => {
@@ -1564,15 +1576,11 @@
 
             try {
                 await addDoc(collection(db, "pedidos"), newOrder);
-                showTemporaryFeedback(`Pedido para ${clientName} finalizado com sucesso!`);
+                showTemporaryFeedback(`Pedido para ${clientData.name} finalizado com sucesso!`);
                 order = [];
-                selectedAddress = null;
-                document.getElementById('client-name').value = '';
-                document.getElementById('delivery-street').value = '';
-                document.getElementById('delivery-number').value = '';
-                document.getElementById('delivery-neighborhood').selectedIndex = 0;
+                clientData = { name: null, contact: null, address: null, table: null };
                 updateOrderDisplay();
-                updateDeliveryInfoUI();
+                updateClientDataSummary();
             } catch (error) {
                 console.error("Erro ao finalizar pedido:", error);
                 showAlert("Falha ao finalizar o pedido. Tente novamente.");
