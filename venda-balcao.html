@@ -1026,9 +1026,14 @@
                         itemDiv.className = 'py-2';
 
                         let detailsHtml = '';
-                        const allDetails = [...(item.ingredients || []), ...(item.extras || [])];
-                        if (allDetails.length > 0) {
-                           detailsHtml = `<ul class="text-xs text-gray-600 pl-4 mt-1 space-y-px">${allDetails.map(ing => `<li>• ${ing.name}</li>`).join('')}</ul>`;
+                        if (item.extras && item.extras.length > 0) {
+                            detailsHtml += `<ul class="text-xs text-gray-600 pl-4 mt-1 space-y-px">${item.extras.map(extra => {
+                                const quantityText = extra.quantity > 1 ? ` (x${extra.quantity})` : '';
+                                const priceText = extra.price > 0 ? ` +R$ ${(extra.price * extra.quantity).toFixed(2).replace('.',',')}` : '';
+                                return `<li>• ${extra.name} (${extra.placement})${quantityText}${priceText}</li>`;
+                            }).join('')}</ul>`;
+                        } else if (item.ingredients && item.ingredients.length > 0) {
+                            detailsHtml += `<ul class="text-xs text-gray-600 pl-4 mt-1 space-y-px">${item.ingredients.map(ing => `<li>• ${ing.name}</li>`).join('')}</ul>`;
                         }
                         
                         let actionButtonHtml = '';
