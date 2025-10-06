@@ -687,7 +687,7 @@
             document.getElementById('pizza-option-modal').style.display = 'flex';
         }
         
-        function openBurgerBuilderModal(burger) {
+        function openBurgerBuilderModal(burger, editIndex = null, existingItem = null) {
             const modal = document.getElementById('burger-builder-modal');
             modal.dataset.burgerId = burger.id;
             const ingredientsContainer = modal.querySelector('#burger-ingredients-container');
@@ -708,15 +708,24 @@
                     const isUnavailable = ingredientStatus[ing.id] === false;
                     const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
                     if (isSingleChoice) {
+                        const isChecked = existingItem && existingItem.ingredients.some(i => i.name === ing.name);
                         categoryHtml += `
                             <label class="ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''}">
                                 <div>
-                                    <input type="radio" name="${categoryName}" class="form-radio" data-price="${ing.price}" value="${ing.name}" ${isUnavailable ? 'disabled' : ''}>
+                                    <input type="radio" name="${categoryName}" class="form-radio" data-price="${ing.price}" value="${ing.name}" ${isUnavailable ? 'disabled' : ''} ${isChecked ? 'checked' : ''}>
                                     <span class="ml-2">${ing.name}</span>
                                 </div>
                                 <span class="font-medium text-sm">${priceDisplay}</span>
                             </label>`;
                     } else {
+                        const ingredientLimit = ing.ingredientLimit || 1;
+                        let quantity = 0;
+                        if (existingItem && existingItem.ingredients) {
+                            const existingIng = existingItem.ingredients.find(i => i.name.startsWith(ing.name));
+                            if(existingIng) {
+                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/\(x(\d+)\)/)[1]) : 1;
+                            }
+                        }
                          categoryHtml += `
                             <div class="ingredient-option ${isUnavailable ? 'opacity-50' : ''}">
                                 <div class="flex-grow">
@@ -724,9 +733,9 @@
                                 </div>
                                <div class="flex items-center space-x-2">
                                     <span class="font-medium text-sm">${priceDisplay}</span>
-                                    <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}" data-limit="${ing.ingredientLimit || 1}">
+                                    <div class="flex items-center space-x-2" data-ingredient-id="${ing.id}" data-price="${ing.price}" data-limit="${ingredientLimit}">
                                         <button type="button" class="quantity-btn minus-btn" ${isUnavailable ? 'disabled' : ''}>-</button>
-                                        <span class="quantity-display font-bold text-base w-6 text-center">0</span>
+                                        <span class="quantity-display font-bold text-base w-6 text-center">${quantity}</span>
                                         <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
                                     </div>
                                 </div>
@@ -737,6 +746,10 @@
                 categoryHtml += `</div>`;
                 ingredientsContainer.innerHTML += categoryHtml;
             }
+
+            const addBtn = modal.querySelector('#add-custom-burger-btn');
+            addBtn.onclick = () => addCustomBurgerToOrder(editIndex);
+            addBtn.textContent = editIndex !== null ? 'Atualizar Hambúrguer' : 'Adicionar ao Pedido';
             
             updateBurgerPrice();
             modal.style.display = 'flex';
@@ -762,7 +775,7 @@
             modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
         }
 
-        function addCustomBurgerToOrder() {
+        function addCustomBurgerToOrder(editIndex = null) {
             const modal = document.getElementById('burger-builder-modal');
             const burgerId = modal.dataset.burgerId;
             const burger = allItems.find(item => item.id === burgerId);
@@ -773,7 +786,7 @@
             for (const categoryName in allIngredients) {
                  const ingredients = allIngredients[categoryName];
                 if (ingredients.length > 0 && ingredients[0].isRequired) {
-                    const categoryDiv = modal.querySelector(`.mb-4[data-category-name="${categoryName}"]`);
+                    const categoryDiv = modal.querySelector(`.ingredient-category[data-category-name="${categoryName}"]`);
                     const radioChecked = categoryDiv.querySelector(`input[type="radio"]:checked`);
                     let quantitySelected = false;
                     categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
@@ -807,16 +820,26 @@
             
             const finalPrice = burger.basePrice + ingredientsPrice;
             
-            addToOrder({
+            const newBurger = {
                 ...burger,
-                id: `${burger.id}-${Date.now()}`,
+                id: editIndex !== null ? order[editIndex].id : `${burger.id}-${Date.now()}`,
+                uniqueId: editIndex !== null ? order[editIndex].uniqueId : `${burger.id}-${Date.now()}`,
                 name: `Hambúrguer Montável`,
                 price: finalPrice,
                 ingredients: selectedIngredients,
-                type: 'custom_burger'
-            });
+                type: 'custom_burger',
+                originalItem: burger,
+                quantity: 1
+            };
+
+            if (editIndex !== null) {
+                order[editIndex] = newBurger;
+            } else {
+                addToOrder(newBurger);
+            }
 
             modal.style.display = 'none';
+            updateOrderDisplay();
         }
 
         function openPizzaExtrasBuilderModal(uniqueId) {
@@ -1006,6 +1029,11 @@
                                 <i class="${iconClass} fa-fw"></i>
                                 <span>${buttonText}</span>
                             </button>`;
+                        } else if (item.type === 'custom_burger') {
+                            actionButtonHtml = `<button class="edit-burger-btn mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition-colors" data-unique-id="${item.uniqueId}">
+                                <i class="fas fa-pencil-alt fa-fw"></i>
+                                <span>Editar Hambúrguer</span>
+                            </button>`;
                         }
 
                         itemDiv.innerHTML = `
@@ -1043,6 +1071,18 @@
                         openPizzaExtrasBuilderModal(uniqueId);
                     });
                 });
+                container.querySelectorAll('.edit-burger-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const uniqueId = btn.dataset.uniqueId;
+                        const index = order.findIndex(item => item.uniqueId === uniqueId);
+                        if (index !== -1) {
+                            const itemToEdit = order[index];
+                            if (itemToEdit.originalItem) {
+                                openBurgerBuilderModal(itemToEdit.originalItem, index, itemToEdit);
+                            }
+                        }
+                    });
+                });
             }
         }
         
@@ -1068,7 +1108,6 @@
             const burgerModal = document.getElementById('burger-builder-modal');
             document.getElementById('close-burger-modal-btn').addEventListener('click', () => burgerModal.style.display = 'none');
             document.getElementById('cancel-burger-btn').addEventListener('click', () => burgerModal.style.display = 'none');
-            document.getElementById('add-custom-burger-btn').addEventListener('click', addCustomBurgerToOrder);
             
             const extrasModal = document.getElementById('pizza-extras-builder-modal');
             document.getElementById('close-pizza-extras-builder-modal').addEventListener('click', () => extrasModal.style.display = 'none');
