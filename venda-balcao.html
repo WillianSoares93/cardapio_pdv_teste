@@ -173,6 +173,22 @@
             background-color: #3b82f6;
             color: white;
         }
+        .feedback-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #22c55e;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 2000;
+            font-size: 0.875rem;
+            font-weight: 500;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, top 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -418,6 +434,7 @@
         let currentUserEmail = '';
         let currentOrderType = 'Retirada';
         let selectedAddress = null;
+        let pauseTime = 2000; // Default 2 seconds
 
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
         let ingredientStatus = {}, ingredientVisibility = {};
@@ -460,6 +477,24 @@
             
             okBtn.addEventListener('click', closeHandler, { once: true });
             modal.addEventListener('click', modalCloseHandler);
+        }
+
+        function showTemporaryFeedback(message) {
+            const feedbackEl = document.createElement('div');
+            feedbackEl.className = 'feedback-toast';
+            feedbackEl.textContent = message;
+            document.body.appendChild(feedbackEl);
+
+            setTimeout(() => {
+                feedbackEl.style.top = '30px';
+                feedbackEl.style.opacity = '1';
+            }, 100);
+
+            setTimeout(() => {
+                feedbackEl.style.opacity = '0';
+                feedbackEl.style.top = '10px';
+                setTimeout(() => feedbackEl.remove(), 300);
+            }, pauseTime);
         }
 
         function showConfirm(message) {
@@ -514,6 +549,11 @@
             onSnapshot(doc(db, "config", "ingredient_visibility"), (doc) => { ingredientVisibility = doc.exists() ? doc.data() : {}; });
             onSnapshot(doc(db, "config", "extra_status"), (doc) => { extraStatus = doc.exists() ? doc.data() : {}; });
             onSnapshot(doc(db, "config", "extra_visibility"), (doc) => { extraVisibility = doc.exists() ? doc.data() : {}; });
+            onSnapshot(doc(db, "config", "system_settings"), (doc) => {
+                if (doc.exists() && doc.data().pause_time) {
+                    pauseTime = doc.data().pause_time * 1000;
+                }
+            });
         }
 
         async function fetchMenu() {
@@ -764,7 +804,7 @@
                             const isPromotional = (pizza.category || '').trim().toLowerCase().replace('ç', 'c') === 'promocionais';
                             firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: isPromotional };
                             document.getElementById('product-display').classList.add('half-pizza-selection-active');
-                            showAlert(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
+                            showTemporaryFeedback(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
                             document.getElementById('pizza-option-modal').style.display = 'none';
                         });
                     }
@@ -1495,7 +1535,7 @@
 
             try {
                 await addDoc(collection(db, "pedidos"), newOrder);
-                showAlert(`Pedido para ${clientName} finalizado com sucesso!`);
+                showTemporaryFeedback(`Pedido para ${clientName} finalizado com sucesso!`);
                 order = [];
                 selectedAddress = null;
                 document.getElementById('client-name').value = '';
