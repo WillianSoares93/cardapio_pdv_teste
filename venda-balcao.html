@@ -202,6 +202,7 @@
             <div class="flex items-center space-x-4">
                 <span id="current-user" class="text-sm font-medium text-gray-600"></span>
                 <a href="pdv.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">PAINEL PDV</a>
+                <a href="configuracoes.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">Configurações</a>
                 <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">SAIR</button>
             </div>
         </div>
@@ -245,28 +246,29 @@
             <!-- Nova Coluna da Direita: Pedido -->
             <section class="bg-white rounded-lg shadow-md flex flex-col overflow-hidden">
                 <div class="flex-shrink-0">
-                    <div class="p-4 border-b">
-                        <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
-                        <div id="order-type-selector" class="flex space-x-4">
-                            <label class="flex items-center">
-                                <input type="radio" name="orderType" value="Retirada" checked class="form-radio text-blue-600">
-                                <span class="ml-2">Retirada</span>
-                            </label>
-                            <label class="flex items-center">
-                                <input type="radio" name="orderType" value="Delivery" class="form-radio text-blue-600">
-                                <span class="ml-2">Delivery</span>
-                            </label>
-                            <label class="flex items-center">
-                                <input type="radio" name="orderType" value="Mesa" class="form-radio text-blue-600">
-                                <span class="ml-2">Mesa</span>
-                            </label>
+                    <div class="p-4 border-b flex justify-between items-center">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
+                            <div id="order-type-selector" class="flex space-x-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="orderType" value="Retirada" checked class="form-radio text-blue-600">
+                                    <span class="ml-2">Retirada</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="orderType" value="Delivery" class="form-radio text-blue-600">
+                                    <span class="ml-2">Delivery</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="orderType" value="Mesa" class="form-radio text-blue-600">
+                                    <span class="ml-2">Mesa</span>
+                                </label>
+                            </div>
                         </div>
+                        <button id="open-client-data-modal-btn" class="px-4 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600">Dados do Cliente</button>
                     </div>
-                    <div class="p-4 border-b">
-                        <label id="client-label" for="client-name" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
-                        <input type="text" id="client-name" class="w-full p-2 border rounded-md mt-1" placeholder="Nome do Cliente">
+                    <div id="client-data-summary" class="p-4 border-b hidden bg-blue-50 text-sm text-blue-800">
+                        <!-- Summary of client data will go here -->
                     </div>
-                    <div id="delivery-info-container" class="p-4 border-b"></div>
                 </div>
 
                 <div id="order-items-container" class="flex-grow overflow-y-auto p-4 space-y-4">
@@ -379,30 +381,59 @@
         </div>
     </div>
 
-    <!-- Address Modal -->
-    <div id="address-modal" class="modal">
+    <!-- Client Data Modal -->
+    <div id="client-data-modal" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center pb-3 border-b">
-                <h3 class="text-xl font-bold text-gray-900">Endereço de Entrega</h3>
-                <button id="close-address-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <h3 id="client-modal-title" class="text-xl font-bold text-gray-900">Dados do Cliente</h3>
+                <button id="close-client-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
             <div class="mt-4 space-y-4">
-                <div>
-                    <label for="delivery-street" class="text-sm font-medium text-gray-700">Rua</label>
-                    <input type="text" id="delivery-street" class="w-full mt-1 p-2 border rounded-md">
+                <!-- Fields for Retirada -->
+                <div id="client-modal-retirada-fields" class="hidden space-y-4">
+                    <div>
+                        <label for="client-modal-name-retirada" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
+                        <input type="text" id="client-modal-name-retirada" class="w-full mt-1 p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="client-modal-contact-retirada" class="text-sm font-medium text-gray-700">Contato (Opcional)</label>
+                        <input type="tel" id="client-modal-contact-retirada" class="w-full mt-1 p-2 border rounded-md">
+                    </div>
                 </div>
-                <div>
-                    <label for="delivery-number" class="text-sm font-medium text-gray-700">Número</label>
-                    <input type="text" id="delivery-number" class="w-full mt-1 p-2 border rounded-md">
+                <!-- Fields for Delivery -->
+                <div id="client-modal-delivery-fields" class="hidden space-y-4">
+                    <div>
+                        <label for="client-modal-name-delivery" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
+                        <input type="text" id="client-modal-name-delivery" class="w-full mt-1 p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="client-modal-contact-delivery" class="text-sm font-medium text-gray-700">Contato</label>
+                        <input type="tel" id="client-modal-contact-delivery" class="w-full mt-1 p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="client-modal-street" class="text-sm font-medium text-gray-700">Rua</label>
+                        <input type="text" id="client-modal-street" class="w-full mt-1 p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="client-modal-number" class="text-sm font-medium text-gray-700">Número</label>
+                        <input type="text" id="client-modal-number" class="w-full mt-1 p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="client-modal-neighborhood" class="text-sm font-medium text-gray-700">Bairro</label>
+                        <select id="client-modal-neighborhood" class="w-full mt-1 p-2 border rounded-md"></select>
+                    </div>
                 </div>
-                <div>
-                    <label for="delivery-neighborhood" class="text-sm font-medium text-gray-700">Bairro</label>
-                    <select id="delivery-neighborhood" class="w-full mt-1 p-2 border rounded-md"></select>
+                <!-- Fields for Mesa -->
+                <div id="client-modal-mesa-fields" class="hidden space-y-4">
+                    <div>
+                        <label for="client-modal-table-number" class="text-sm font-medium text-gray-700">Número da Mesa</label>
+                        <input type="number" id="client-modal-table-number" class="w-full mt-1 p-2 border rounded-md">
+                    </div>
                 </div>
             </div>
             <div class="mt-6 flex justify-end space-x-4">
-                <button id="cancel-address-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button id="confirm-address-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar Endereço</button>
+                <button id="cancel-client-data-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button id="confirm-client-data-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar</button>
             </div>
         </div>
     </div>
@@ -433,7 +464,7 @@
         let order = [];
         let currentUserEmail = '';
         let currentOrderType = 'Retirada';
-        let selectedAddress = null;
+        let clientData = { name: null, contact: null, address: null, table: null };
         let pauseTime = 2000; // Default 2 seconds
 
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
@@ -509,7 +540,6 @@
 
                 const close = (result) => {
                     modal.style.display = 'none';
-                    // Clean up listeners
                     yesBtn.removeEventListener('click', yesHandler);
                     noBtn.removeEventListener('click', noHandler);
                     modal.removeEventListener('click', modalCloseHandler);
@@ -537,7 +567,6 @@
             renderCategories();
             renderProducts();
             setupEventListeners();
-            updateDeliveryInfoUI(); // Initial call
         }
 
         function listenToStatusChanges() {
@@ -594,7 +623,7 @@
         }
         
         function populateNeighborhoods() {
-            const select = document.getElementById('delivery-neighborhood');
+            const select = document.getElementById('client-modal-neighborhood');
             select.innerHTML = '<option value="">Selecione o bairro</option>';
             allDeliveryFees.forEach(fee => {
                 const option = document.createElement('option');
