@@ -216,8 +216,40 @@
             <!-- Coluna da Esquerda: Pedido -->
             <section class="bg-white rounded-lg shadow-md flex flex-col overflow-hidden">
                 <div class="p-4 border-b">
-                    <label for="client-name" class="text-sm font-medium text-gray-700">Cliente Padrão</label>
-                    <input type="text" id="client-name" class="w-full p-2 border rounded-md mt-1" value="Cliente Balcão">
+                    <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
+                    <div id="order-type-selector" class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="orderType" value="Retirada" checked class="form-radio text-blue-600">
+                            <span class="ml-2">Retirada</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="orderType" value="Delivery" class="form-radio text-blue-600">
+                            <span class="ml-2">Delivery</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="orderType" value="Mesa" class="form-radio text-blue-600">
+                            <span class="ml-2">Mesa</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="p-4 border-b">
+                    <label id="client-label" for="client-name" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
+                    <input type="text" id="client-name" class="w-full p-2 border rounded-md mt-1" placeholder="Nome do Cliente">
+                </div>
+                <div id="delivery-fields" class="hidden p-4 border-b space-y-2">
+                    <h4 class="text-sm font-medium text-gray-700">Endereço de Entrega</h4>
+                    <div>
+                        <label for="delivery-street" class="text-xs">Rua</label>
+                        <input type="text" id="delivery-street" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="delivery-number" class="text-xs">Número</label>
+                        <input type="text" id="delivery-number" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="delivery-neighborhood" class="text-xs">Bairro</label>
+                        <select id="delivery-neighborhood" class="w-full p-2 border rounded-md"></select>
+                    </div>
                 </div>
                 <div id="order-items-container" class="flex-grow overflow-y-auto p-4 space-y-4">
                      <div id="empty-cart-message" class="text-center text-gray-400 p-10 flex flex-col items-center justify-center h-full">
@@ -229,6 +261,10 @@
                     <div class="flex justify-between items-center text-gray-600 text-sm">
                         <span>Total de Itens</span>
                         <span id="total-items">0</span>
+                    </div>
+                     <div id="delivery-fee-summary" class="flex justify-between items-center text-gray-600 text-sm hidden">
+                        <span>Taxa de Entrega</span>
+                        <span id="delivery-fee-value">R$ 0,00</span>
                     </div>
                     <div class="flex justify-between items-center text-2xl font-bold text-gray-800 mt-2 pt-2 border-t">
                         <span>VALOR A PAGAR</span>
@@ -356,8 +392,10 @@
         let allItems = [];
         let allIngredients = {};
         let allPizzaExtras = {};
+        let allDeliveryFees = [];
         let order = [];
         let currentUserEmail = '';
+        let currentOrderType = 'Retirada';
 
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
         let ingredientStatus = {}, ingredientVisibility = {};
@@ -482,11 +520,26 @@
                     acc[category].push(current);
                     return acc;
                 }, {});
+                
+                allDeliveryFees = data.deliveryFees || [];
+                populateNeighborhoods();
 
             } catch (error) {
                 console.error("Erro ao buscar cardápio:", error);
                 showAlert("Não foi possível carregar o cardápio.");
             }
+        }
+        
+        function populateNeighborhoods() {
+            const select = document.getElementById('delivery-neighborhood');
+            select.innerHTML = '<option value="">Selecione o bairro</option>';
+            allDeliveryFees.forEach(fee => {
+                const option = document.createElement('option');
+                option.value = fee.neighborhood;
+                option.dataset.fee = fee.deliveryFee;
+                option.textContent = `${fee.neighborhood} - R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')}`;
+                select.appendChild(option);
+            });
         }
         
         function capitalizeFirstLetter(string) {
@@ -1136,6 +1189,31 @@
                 openPizzaExtrasBuilderModal(uniqueId);
                 askExtrasModal.style.display = 'none';
             });
+            
+             document.getElementById('order-type-selector').addEventListener('change', (e) => {
+                currentOrderType = e.target.value;
+                const clientLabel = document.getElementById('client-label');
+                const clientInput = document.getElementById('client-name');
+                const deliveryFields = document.getElementById('delivery-fields');
+
+                if (currentOrderType === 'Delivery') {
+                    clientLabel.textContent = 'Nome do Cliente';
+                    clientInput.placeholder = 'Nome do Cliente';
+                    deliveryFields.classList.remove('hidden');
+                } else if (currentOrderType === 'Mesa') {
+                    clientLabel.textContent = 'Número da Mesa';
+                    clientInput.placeholder = 'Ex: Mesa 05';
+                    deliveryFields.classList.add('hidden');
+                } else { // Retirada
+                    clientLabel.textContent = 'Nome do Cliente';
+                    clientInput.placeholder = 'Nome do Cliente (Opcional)';
+                    deliveryFields.classList.add('hidden');
+                }
+                updateOrderDisplay();
+            });
+            
+            document.getElementById('delivery-neighborhood').addEventListener('change', updateOrderDisplay);
+
 
             window.addEventListener('click', (e) => {
                 if (e.target === pizzaModal) pizzaModal.style.display = 'none';
@@ -1281,21 +1359,47 @@
                 return;
             }
 
-            const clientName = document.getElementById('client-name').value || 'Cliente Balcão';
-            const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const clientName = document.getElementById('client-name').value.trim();
+            if(!clientName) {
+                showAlert("Por favor, preencha o nome do cliente ou da mesa.");
+                return;
+            }
+
+            let subtotal = order.reduce((sum, item) => sum + item.price, 0);
+            let deliveryFee = 0;
+            let endereco = {};
+            let status = 'Novo';
+
+            if(currentOrderType === 'Delivery') {
+                const street = document.getElementById('delivery-street').value.trim();
+                const number = document.getElementById('delivery-number').value.trim();
+                const neighborhoodSelect = document.getElementById('delivery-neighborhood');
+                const neighborhood = neighborhoodSelect.value;
+                if(!street || !number || !neighborhood) {
+                    showAlert("Para pedidos Delivery, preencha todos os campos do endereço.");
+                    return;
+                }
+                deliveryFee = parseFloat(neighborhoodSelect.options[neighborhoodSelect.selectedIndex].dataset.fee) || 0;
+                endereco = { clientName, rua: street, numero: number, bairro: neighborhood };
+            } else if (currentOrderType === 'Mesa') {
+                endereco = { clientName, rua: 'Mesa' };
+                status = 'Em Preparo';
+            } else { // Retirada
+                endereco = { clientName: clientName || 'Cliente Balcão', rua: 'Retirada no Balcão' };
+            }
             
             const cleanedItems = JSON.parse(JSON.stringify(order, (key, value) => {
-                const fieldsToExclude = ['originalItem', 'uniqueId', 'firstHalfData', 'secondHalfData'];
+                const fieldsToExclude = ['originalItem', 'uniqueId', 'firstHalfData', 'secondHalfData', 'acceptsExtras'];
                 if (fieldsToExclude.includes(key)) return undefined;
                 return value;
             }));
 
             const newOrder = {
                 itens: cleanedItems,
-                endereco: { clientName: clientName, rua: "Retirada no Balcão", bairro: "BALCÃO" },
-                total: { subtotal: total, finalTotal: total, deliveryFee: 0, discount: 0 },
+                endereco: endereco,
+                total: { subtotal: subtotal, finalTotal: subtotal + deliveryFee, deliveryFee: deliveryFee, discount: 0 },
                 pagamento: 'A Definir',
-                status: 'Entregue',
+                status: status,
                 criadoEm: serverTimestamp(),
                 observacao: `Venda de balcão por ${currentUserEmail}`
             };
@@ -1304,6 +1408,8 @@
                 await addDoc(collection(db, "pedidos"), newOrder);
                 showAlert(`Pedido para ${clientName} finalizado com sucesso!`);
                 order = [];
+                document.getElementById('client-name').value = '';
+                document.getElementById('delivery-fields').querySelectorAll('input, select').forEach(el => el.value = '');
                 updateOrderDisplay();
             } catch (error) {
                 console.error("Erro ao finalizar pedido:", error);
