@@ -214,7 +214,7 @@
 
         <main class="main-content">
             <!-- Coluna da Esquerda: Pedido -->
-            <section class="bg-white rounded-lg shadow-md flex flex-col">
+            <section class="bg-white rounded-lg shadow-md flex flex-col overflow-hidden">
                 <div class="p-4 border-b">
                     <label for="client-name" class="text-sm font-medium text-gray-700">Cliente Padrão</label>
                     <input type="text" id="client-name" class="w-full p-2 border rounded-md mt-1" value="Cliente Balcão">
@@ -616,8 +616,19 @@
         function addToOrder(product) {
             const uniqueId = product.uniqueId || `${product.id}-${Date.now()}`;
             
-            const originalItem = allItems.find(i => i.id === product.id);
-            const acceptsExtras = originalItem ? (itemExtrasStatus[originalItem.id] === undefined ? originalItem.isPizza : itemExtrasStatus[originalItem.id]) : false;
+            let acceptsExtras = false;
+            if (product.type === 'split') {
+                const firstHalfOriginal = allItems.find(i => i.id === product.firstHalfData.id);
+                const secondHalfOriginal = allItems.find(i => i.id === product.secondHalfData.id);
+                
+                const firstHalfAccepts = firstHalfOriginal ? (itemExtrasStatus[firstHalfOriginal.id] === undefined ? firstHalfOriginal.isPizza : itemExtrasStatus[firstHalfOriginal.id]) : false;
+                const secondHalfAccepts = secondHalfOriginal ? (itemExtrasStatus[secondHalfOriginal.id] === undefined ? secondHalfOriginal.isPizza : itemExtrasStatus[secondHalfOriginal.id]) : false;
+                
+                acceptsExtras = firstHalfAccepts || secondHalfAccepts;
+            } else {
+                 const originalItem = allItems.find(i => i.id === product.id);
+                 acceptsExtras = originalItem ? (itemExtrasStatus[originalItem.id] === undefined ? originalItem.isPizza : itemExtrasStatus[originalItem.id]) : false;
+            }
 
             const itemWithId = { ...product, uniqueId, quantity: 1, extras: [], acceptsExtras };
             
