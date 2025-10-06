@@ -711,7 +711,7 @@
                 
                 const firstIngredient = ingredients[0] || {};
                 const isSingleChoice = firstIngredient.isSingleChoice;
-                const categoryLimit = firstIngredient.limit || Infinity; // CORREÇÃO APLICADA AQUI
+                const categoryLimit = firstIngredient.limit || Infinity;
                 const isRequired = firstIngredient.isRequired || false;
 
                 let categoryHtml = `<div class="mb-4" data-limit="${categoryLimit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${categoryLimit !== Infinity ? `(Escolha até ${categoryLimit})` : ''}</h4>`;
@@ -1055,7 +1055,7 @@
             
             document.getElementById('burger-ingredients-container').addEventListener('click', (e) => {
                 const quantityBtn = e.target.closest('.quantity-btn');
-                const radioInput = e.target.closest('.ingredient-option')?.querySelector('.form-radio');
+                const radioInput = e.target.closest('.ingredient-option')?.querySelector('input[type="radio"]');
 
                 if (quantityBtn) {
                     e.stopPropagation();
@@ -1068,15 +1068,16 @@
                     const categoryLimit = parseInt(categoryDiv.dataset.limit);
                     
                     if (quantityBtn.classList.contains('plus-btn')) {
-                        // CORREÇÃO: Lógica de verificação do limite de categoria
-                        if (quantity === 0) { // Só verifica o limite da categoria ao adicionar um NOVO tipo de item
+                        if (quantity === 0) { 
                             let currentVarietyCount = 0;
-                            categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                                if (parseInt(d.textContent) > 0) currentVarietyCount++;
+                            categoryDiv.querySelectorAll('.ingredient-option').forEach(opt => {
+                                const radio = opt.querySelector('input[type="radio"]');
+                                const qtyDisplay = opt.querySelector('.quantity-display');
+                                if ((radio && radio.checked) || (qtyDisplay && parseInt(qtyDisplay.textContent) > 0)) {
+                                    currentVarietyCount++;
+                                }
                             });
-                            categoryDiv.querySelectorAll('input[type="radio"]:checked').forEach(() => {
-                                currentVarietyCount++;
-                            });
+
                             if (currentVarietyCount >= categoryLimit) {
                                showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
                                 return;
@@ -1091,28 +1092,34 @@
                     display.textContent = quantity;
                     container.closest('.ingredient-option').classList.toggle('selected-ingredient', quantity > 0);
                     updateBurgerPrice();
+
                 } else if (radioInput) {
                     if (radioInput.disabled) return;
                     
-                    // CORREÇÃO: Lógica de verificação do limite de categoria para radios
                     if (!radioInput.checked) {
                         const categoryDiv = radioInput.closest('[data-limit]');
                         const categoryLimit = parseInt(categoryDiv.dataset.limit);
+
                         let currentVarietyCount = 0;
-                        
-                        categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                            if (parseInt(d.textContent) > 0) currentVarietyCount++;
+                        let isReplacing = false;
+                        categoryDiv.querySelectorAll('.ingredient-option').forEach(opt => {
+                            const radio = opt.querySelector('input[type="radio"]');
+                            const qtyDisplay = opt.querySelector('.quantity-display');
+
+                            if (radio && radio.checked) {
+                                isReplacing = true; 
+                                currentVarietyCount++;
+                            } else if (qtyDisplay && parseInt(qtyDisplay.textContent) > 0) {
+                                currentVarietyCount++;
+                            }
                         });
                         
-                        const isReplacingRadio = categoryDiv.querySelector('input[type="radio"]:checked');
-                        if (!isReplacingRadio) {
-                            currentVarietyCount++;
-                        }
-
-                        if (currentVarietyCount > categoryLimit) {
-                            showAlert(`Você pode escolher no máximo ${categoryLimit} item(ns) nesta categoria.`);
-                            e.preventDefault();
-                            return;
+                        if (!isReplacing) {
+                            if (currentVarietyCount >= categoryLimit) {
+                                showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                                e.preventDefault(); 
+                                return;
+                            }
                         }
                     }
 
@@ -1223,3 +1230,4 @@
     </script>
 </body>
 </html>
+
