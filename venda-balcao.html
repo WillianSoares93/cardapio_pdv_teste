@@ -388,6 +388,7 @@
                 <h3 id="client-modal-title" class="text-xl font-bold text-gray-900">Dados do Cliente</h3>
                 <button id="close-client-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
+            <div id="client-modal-error-message" class="hidden mt-4 p-3 bg-red-100 text-red-700 rounded-md text-sm"></div>
             <div class="mt-4 space-y-4">
                 <!-- Fields for Retirada -->
                 <div id="client-modal-retirada-fields" class="hidden space-y-4">
@@ -1463,6 +1464,8 @@
 
         function openClientDataModal() {
             const modal = document.getElementById('client-data-modal');
+            const errorDiv = document.getElementById('client-modal-error-message');
+            errorDiv.classList.add('hidden');
             modal.querySelectorAll('#client-modal-retirada-fields, #client-modal-delivery-fields, #client-modal-mesa-fields').forEach(f => f.classList.add('hidden'));
 
             if (currentOrderType === 'Retirada') {
@@ -1485,6 +1488,9 @@
         }
         
         function confirmClientData() {
+             const errorDiv = document.getElementById('client-modal-error-message');
+             errorDiv.classList.add('hidden');
+
              if (currentOrderType === 'Retirada') {
                 clientData.name = document.getElementById('client-modal-name-retirada').value.trim();
                 clientData.contact = document.getElementById('client-modal-contact-retirada').value.trim();
@@ -1495,7 +1501,8 @@
                 const number = document.getElementById('client-modal-number').value.trim();
                 const neighborhood = document.getElementById('client-modal-neighborhood').value;
                 if (!clientData.name || !clientData.contact || !street || !number || !neighborhood) {
-                    showAlert("Para Delivery, todos os campos são obrigatórios.");
+                    errorDiv.textContent = "Para Delivery, todos os campos são obrigatórios.";
+                    errorDiv.classList.remove('hidden');
                     return;
                 }
                 clientData.address = { street, number, neighborhood };
@@ -1503,7 +1510,8 @@
                 clientData.table = document.getElementById('client-modal-table-number').value.trim();
                 clientData.name = document.getElementById('client-modal-name-mesa').value.trim();
                 if (!clientData.table) {
-                    showAlert("O número da mesa é obrigatório.");
+                    errorDiv.textContent = "O número da mesa é obrigatório.";
+                    errorDiv.classList.remove('hidden');
                     return;
                 }
             }
@@ -1565,7 +1573,8 @@
                     return;
                 }
                 const neighborhoodSelect = document.getElementById('client-modal-neighborhood');
-                deliveryFee = parseFloat(neighborhoodSelect.options[neighborhoodSelect.selectedIndex].dataset.fee) || 0;
+                const selectedOption = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
+                deliveryFee = parseFloat(selectedOption ? selectedOption.dataset.fee : 0) || 0;
                 endereco = { clientName: clientData.name, telefone: clientData.contact, rua: clientData.address.street, numero: clientData.address.number, bairro: clientData.address.neighborhood };
             } else if (currentOrderType === 'Mesa') {
                 let clientNameForOrder = `Mesa ${clientData.table}`;
