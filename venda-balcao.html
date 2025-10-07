@@ -1153,7 +1153,8 @@
                     </div>`;
             } else {
                 const itemsByCategory = order.reduce((acc, item) => {
-                    const category = item.category || 'Outros';
+                    const rawCategory = item.isPizza ? `Pizzas ${item.category}` : item.category;
+                    const category = formatCategoryName(rawCategory || 'Outros');
                     if (!acc[category]) {
                         acc[category] = [];
                     }
