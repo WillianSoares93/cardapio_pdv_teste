@@ -22,7 +22,7 @@
         }
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 450px; /* Layout ajustado */
+            grid-template-columns: 400px 1fr 180px; /* Layout Revertido */
             gap: 1rem;
             padding: 1rem;
             height: 100%;
@@ -230,20 +230,7 @@
         </aside>
 
         <main class="main-content">
-            <!-- Nova Coluna da Esquerda: Produtos e Categorias -->
-            <div class="grid grid-cols-[1fr_180px] gap-4 overflow-hidden">
-                <!-- Produtos -->
-                <section id="product-display" class="bg-white rounded-lg shadow-md flex flex-col p-4 overflow-hidden">
-                     <div class="mb-4">
-                        <input type="text" id="search-product" placeholder="Buscar produto..." class="w-full p-2 border rounded-md">
-                    </div>
-                    <div class="product-grid flex-grow overflow-y-auto pr-2" id="product-grid"></div>
-                </section>
-                <!-- Categorias -->
-                <section id="category-list" class="flex flex-col p-0 space-y-2 overflow-y-auto"></section>
-            </div>
-
-            <!-- Nova Coluna da Direita: Pedido -->
+            <!-- Coluna da Esquerda: Pedido -->
             <section class="bg-white rounded-lg shadow-md flex flex-col overflow-hidden">
                 <div class="flex-shrink-0">
                     <div class="p-4 border-b flex justify-between items-center">
@@ -297,6 +284,17 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Coluna do Meio: Produtos -->
+            <section id="product-display" class="bg-white rounded-lg shadow-md flex flex-col p-4 overflow-hidden">
+                 <div class="mb-4">
+                    <input type="text" id="search-product" placeholder="Buscar produto..." class="w-full p-2 border rounded-md">
+                </div>
+                <div class="product-grid flex-grow overflow-y-auto pr-2" id="product-grid"></div>
+            </section>
+
+            <!-- Coluna da Direita: Categorias -->
+            <section id="category-list" class="flex flex-col p-0 space-y-2 overflow-y-auto"></section>
         </main>
     </div>
     
