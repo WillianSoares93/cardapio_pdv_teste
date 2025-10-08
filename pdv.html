@@ -12,6 +12,7 @@
         body {
             font-family: 'Roboto', sans-serif;
             visibility: hidden;
+            overflow: hidden; /* Previne scroll duplo */
         }
         .modal {
             display: none;
@@ -123,14 +124,41 @@
         .timer-green { background-color: #dcfce7; color: #166534; } /* green-100 / green-800 */
         .timer-yellow { background-color: #fef9c3; color: #854d0e; } /* yellow-100 / yellow-800 */
         .timer-red { background-color: #fee2e2; color: #991b1b; } /* red-100 / red-900 */
+
+        /* --- NOVOS ESTILOS PARA BARRA LATERAL --- */
+        .main-container {
+            display: grid;
+            grid-template-columns: 0px 1fr; /* Barra lateral escondida por padrão */
+            height: calc(100vh - 128px); /* Altura total menos header e stats */
+            transition: grid-template-columns 0.3s ease-in-out;
+        }
+        .main-container.sidebar-open {
+            grid-template-columns: 80px 1fr; /* Mostra a barra lateral */
+        }
+        .sidebar-nav {
+            background-color: #2C3E50;
+            overflow: hidden;
+        }
+        .sidebar-btn {
+            color: #BDC3C7;
+            transition: all 0.2s ease-in-out;
+        }
+        .sidebar-btn:hover {
+            background-color: #34495E;
+            color: white;
+        }
+        .sidebar-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 h-screen flex flex-col">
 
     <div id="pdv-overlay"></div>
 
     <header class="bg-white shadow-md">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <div class="max-w-full mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
             <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
             <div class="flex items-center space-x-2">
                 <a href="atendente.html" target="_blank" class="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700">Lançar Pedido</a>
@@ -145,7 +173,7 @@
     </header>
 
     <div class="bg-gray-800 text-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center py-4">
                 <div><h3 class="text-sm font-medium text-gray-400">PEDIDOS HOJE</h3><p id="stats-total-orders" class="text-2xl font-bold">0</p></div>
                 <div><h3 class="text-sm font-medium text-gray-400">FATURAMENTO TOTAL</h3><p id="stats-total-revenue" class="text-2xl font-bold">R$ 0,00</p></div>
@@ -154,87 +182,113 @@
         </div>
     </div>
 
-    <main id="main-content" class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <!-- Abas Principais -->
-        <div class="border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
-            <nav id="main-tabs" class="flex -mb-px" aria-label="Tabs">
-                <button class="main-tab-btn active w-1/3 py-4 px-1 text-center border-b-4 font-medium text-lg relative" data-tab="delivery">
-                    <div class="flex justify-center items-center">
-                        <i class="fas fa-motorcycle mr-2"></i>
-                        <span>Delivery</span>
-                        <div id="delivery-notification" class="ml-2 flex items-center space-x-1 hidden">
-                            <i class="fas fa-bell text-yellow-500"></i>
-                            <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                        </div>
-                    </div>
-                </button>
-                <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg relative" data-tab="retirada">
-                    <div class="flex justify-center items-center">
-                        <i class="fas fa-shopping-bag mr-2"></i>
-                        <span>Retirada</span>
-                        <div id="retirada-notification" class="ml-2 flex items-center space-x-1 hidden">
-                            <i class="fas fa-bell text-yellow-500"></i>
-                            <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                        </div>
-                    </div>
-                </button>
-                <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg" data-tab="mesas">
-                    <i class="fas fa-utensils mr-2"></i> Mesas
-                </button>
-            </nav>
-        </div>
+    <div class="main-container">
+        <!-- Sidebar Vertical Esquerda -->
+        <aside class="sidebar-nav flex flex-col items-center py-4 space-y-4">
+            <a href="pdv.html" class="sidebar-btn active w-full flex flex-col items-center p-3 text-xs" title="Painel de Pedidos">
+                <i class="fas fa-receipt fa-2x"></i>
+                <span>PEDIDOS</span>
+            </a>
+            <a href="venda-balcao.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Venda Balcão">
+                <i class="fas fa-cash-register fa-2x"></i>
+                <span>BALCÃO</span>
+            </a>
+            <a href="editar-cardapio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Editar Cardápio">
+                <i class="fas fa-edit fa-2x"></i>
+                <span>EDITAR</span>
+            </a>
+            <a href="gerenciar.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Gerenciar Itens">
+                <i class="fas fa-tasks fa-2x"></i>
+                <span>GERENCIAR</span>
+            </a>
+            <a href="relatorio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Relatórios">
+                <i class="fas fa-chart-line fa-2x"></i>
+                <span>RELATÓRIOS</span>
+            </a>
+        </aside>
 
-        <!-- Conteúdo das Abas -->
-        <div id="tab-content-delivery" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
-                <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
+        <main id="main-content" class="max-w-full mx-auto py-6 sm:px-6 lg:px-8 overflow-y-auto">
+            <!-- Abas Principais -->
+            <div class="border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
+                <nav id="main-tabs" class="flex -mb-px" aria-label="Tabs">
+                    <button class="main-tab-btn active w-1/3 py-4 px-1 text-center border-b-4 font-medium text-lg relative" data-tab="delivery">
+                        <div class="flex justify-center items-center">
+                            <i class="fas fa-motorcycle mr-2"></i>
+                            <span>Delivery</span>
+                            <div id="delivery-notification" class="ml-2 flex items-center space-x-1 hidden">
+                                <i class="fas fa-bell text-yellow-500"></i>
+                                <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                            </div>
+                        </div>
+                    </button>
+                    <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg relative" data-tab="retirada">
+                        <div class="flex justify-center items-center">
+                            <i class="fas fa-shopping-bag mr-2"></i>
+                            <span>Retirada</span>
+                            <div id="retirada-notification" class="ml-2 flex items-center space-x-1 hidden">
+                                <i class="fas fa-bell text-yellow-500"></i>
+                                <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                            </div>
+                        </div>
+                    </button>
+                    <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg" data-tab="mesas">
+                        <i class="fas fa-utensils mr-2"></i> Mesas
+                    </button>
+                </nav>
             </div>
-        </div>
 
-        <div id="tab-content-retirada" class="tab-content hidden">
-             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
-                <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-                <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-20rem)]"></div></div>
-            </div>
-        </div>
-
-        <div id="tab-content-mesas" class="tab-content hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-                <div class="lg:col-span-2">
-                    <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
-                        <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
-                            <i class="fas fa-link mr-2"></i>Agrupar Mesas
-                        </button>
-                        <div id="joining-controls" class="hidden space-x-2">
-                            <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
-                            <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
-                        </div>
-                    </div>
-                    <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-4">
-                        <!-- As mesas serão inseridas aqui pelo JavaScript -->
-                    </div>
-                </div>
-                <div class="lg:col-span-1">
-                     <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow h-full">
-                        <div class="p-4 border-b border-gray-300">
-                            <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
-                        </div>
-                        <div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-22rem)]">
-                            <!-- Cards de mesas fechadas aqui -->
-                        </div>
-                    </div>
+            <!-- Conteúdo das Abas -->
+            <div id="tab-content-delivery" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
+                    <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
+                    <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
+                    <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
+                    <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
+                    <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
                 </div>
             </div>
-        </div>
-    </main>
 
-    <!-- Modal Abrir Caixa -->
+            <div id="tab-content-retirada" class="tab-content hidden">
+                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
+                    <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
+                    <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
+                    <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
+                    <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
+                </div>
+            </div>
+
+            <div id="tab-content-mesas" class="tab-content hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+                    <div class="lg:col-span-2">
+                        <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
+                            <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
+                                <i class="fas fa-link mr-2"></i>Agrupar Mesas
+                            </button>
+                            <div id="joining-controls" class="hidden space-x-2">
+                                <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
+                                <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
+                            </div>
+                        </div>
+                        <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-4">
+                            <!-- As mesas serão inseridas aqui pelo JavaScript -->
+                        </div>
+                    </div>
+                    <div class="lg:col-span-1">
+                         <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow h-full">
+                            <div class="p-4 border-b border-gray-300">
+                                <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
+                            </div>
+                            <div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-300px)]">
+                                <!-- Cards de mesas fechadas aqui -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
     <div id="open-cash-modal" class="modal">
         <div class="modal-content">
             <div id="pending-cash-alert" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
@@ -258,7 +312,6 @@
         </div>
     </div>
 
-    <!-- Modal Fechar Caixa -->
     <div id="close-cash-modal" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
@@ -303,7 +356,6 @@
         </div>
     </div>
     
-    <!-- MODAL DE GERENCIAMENTO DE MESA -->
     <div id="manage-table-modal" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4 pb-4 border-b">
@@ -327,7 +379,6 @@
         </div>
     </div>
     
-    <!-- Modal para Transferir Mesa -->
     <div id="transfer-table-modal" class="modal">
         <div class="modal-content">
             <h3 class="text-lg font-bold mb-4">Transferir para qual mesa livre?</h3>
@@ -360,7 +411,6 @@
         </div>
     </div>
 
-    <!-- Modal para Registrar Sangria -->
     <div id="sangria-modal" class="modal">
         <div class="modal-content">
             <h3 class="text-lg font-bold text-gray-900 mb-4">Registrar Sangria de Caixa</h3>
@@ -381,7 +431,6 @@
         </div>
     </div>
 
-    <!-- Custom Alert Modal -->
     <div id="custom-alert-modal" class="modal">
       <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
         <h3 class="text-lg font-bold text-gray-900 mb-4">Atenção</h3>
@@ -646,6 +695,27 @@
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             let audioResumed = false;
             setupCustomAlertModal();
+
+            // --- LÓGICA DA BARRA LATERAL ---
+            const mainContainer = document.querySelector('.main-container');
+            const sidebar = document.querySelector('.sidebar-nav');
+            const mainContentArea = document.getElementById('main-content'); 
+
+            document.addEventListener('mousemove', (e) => {
+                if (e.clientX < 20) {
+                    mainContainer.classList.add('sidebar-open');
+                }
+            });
+
+            sidebar.addEventListener('mouseleave', () => {
+                mainContainer.classList.remove('sidebar-open');
+            });
+            
+            mainContentArea.addEventListener('mouseenter', () => {
+                mainContainer.classList.remove('sidebar-open');
+            });
+            // --- FIM DA LÓGICA DA BARRA LATERAL ---
+
 
             document.body.addEventListener('click', () => {
                 if (!audioResumed && audioContext.state === 'suspended') {
@@ -1839,3 +1909,4 @@
     </script>
 </body>
 </html>
+
