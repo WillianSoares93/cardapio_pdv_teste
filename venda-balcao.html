@@ -1277,6 +1277,24 @@
         }
         
         async function setupEventListeners() {
+            const mainContainer = document.querySelector('.main-container');
+            const sidebar = document.querySelector('.sidebar-nav');
+            const mainContent = document.querySelector('.main-content');
+
+            document.addEventListener('mousemove', (e) => {
+                if (e.clientX < 20) {
+                    mainContainer.classList.add('sidebar-open');
+                }
+            });
+
+            sidebar.addEventListener('mouseleave', () => {
+                mainContainer.classList.remove('sidebar-open');
+            });
+            
+            mainContent.addEventListener('mouseenter', () => {
+                mainContainer.classList.remove('sidebar-open');
+            });
+
             document.getElementById('search-product').addEventListener('input', renderProducts);
             document.getElementById('cancel-order-btn').addEventListener('click', async () => {
                 if (order.length > 0 || clientData.name || clientData.table) {
