@@ -452,11 +452,26 @@
                 currentCashRegister = { id: cashDoc.id, ...cashDoc.data() };
 
                 const openDate = currentCashRegister.dataAbertura.toDate();
-                const today = new Date();
+                const now = new Date();
                 
-                const isOpenDateFromYesterday = openDate.setHours(0,0,0,0) < today.setHours(0,0,0,0);
+                // --- NOVA LÓGICA DE DIA OPERACIONAL ---
+                // Define o horário de "virada" do dia operacional (ex: 5 da manhã).
+                const OPERATIONAL_CUTOFF_HOUR = 5; 
 
-                if (isOpenDateFromYesterday) {
+                // Calcula o início do dia operacional atual.
+                const operationalDayStart = new Date(now);
+                operationalDayStart.setHours(OPERATIONAL_CUTOFF_HOUR, 0, 0, 0);
+
+                // Se a hora atual for antes da "virada" (ex: 2h da manhã de quinta),
+                // o dia operacional ainda é considerado o de quarta (que começou às 5h de quarta).
+                if (now < operationalDayStart) {
+                    operationalDayStart.setDate(operationalDayStart.getDate() - 1);
+                }
+
+                // O caixa é considerado pendente se foi aberto ANTES do início do dia operacional atual.
+                const isFromPreviousOperationalDay = openDate < operationalDayStart;
+
+                if (isFromPreviousOperationalDay) {
                     const formattedDate = openDate.toLocaleDateString('pt-BR');
                     document.getElementById('pending-cash-message').textContent = `Existe um caixa do dia ${formattedDate} que não foi fechado. Por favor, feche o caixa para poder continuar.`;
                     document.getElementById('pending-cash-alert').classList.remove('hidden');
@@ -1824,4 +1839,3 @@
     </script>
 </body>
 </html>
-
