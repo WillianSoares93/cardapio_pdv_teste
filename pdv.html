@@ -129,7 +129,8 @@
         .main-container {
             display: grid;
             grid-template-columns: 0px 1fr; /* Barra lateral escondida por padrão */
-            height: calc(100vh - 128px); /* Altura total menos header e stats */
+            flex-grow: 1; /* Faz o container crescer para preencher o espaço */
+            overflow: hidden; /* Previne que o container crie suas próprias scrollbars */
             transition: grid-template-columns 0.3s ease-in-out;
         }
         .main-container.sidebar-open {
@@ -207,9 +208,9 @@
             </a>
         </aside>
 
-        <main id="main-content" class="max-w-full mx-auto py-6 sm:px-6 lg:px-8 overflow-y-auto">
+        <main id="main-content" class="flex flex-col overflow-hidden p-6">
             <!-- Abas Principais -->
-            <div class="border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
+            <div class="border-b border-gray-200 bg-white rounded-t-lg shadow-sm flex-shrink-0">
                 <nav id="main-tabs" class="flex -mb-px" aria-label="Tabs">
                     <button class="main-tab-btn active w-1/3 py-4 px-1 text-center border-b-4 font-medium text-lg relative" data-tab="delivery">
                         <div class="flex justify-center items-center">
@@ -237,49 +238,51 @@
                 </nav>
             </div>
 
-            <!-- Conteúdo das Abas -->
-            <div id="tab-content-delivery" class="tab-content">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
-                    <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                    <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                    <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                    <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                    <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                </div>
-            </div>
-
-            <div id="tab-content-retirada" class="tab-content hidden">
-                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
-                    <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                    <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                    <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                    <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-280px)]"></div></div>
-                </div>
-            </div>
-
-            <div id="tab-content-mesas" class="tab-content hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-                    <div class="lg:col-span-2">
-                        <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
-                            <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
-                                <i class="fas fa-link mr-2"></i>Agrupar Mesas
-                            </button>
-                            <div id="joining-controls" class="hidden space-x-2">
-                                <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
-                                <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
-                            </div>
-                        </div>
-                        <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-4">
-                            <!-- As mesas serão inseridas aqui pelo JavaScript -->
-                        </div>
+            <!-- Conteúdo das Abas (wrapper para crescer e esconder overflow) -->
+            <div class="flex-grow overflow-hidden mt-4">
+                <div id="tab-content-delivery" class="tab-content h-full">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 h-full">
+                        <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-red-200 flex-shrink-0"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
+                        <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-yellow-200 flex-shrink-0"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
+                        <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-green-200 flex-shrink-0"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
+                        <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-blue-200 flex-shrink-0"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
+                        <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-gray-300 flex-shrink-0"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
                     </div>
-                    <div class="lg:col-span-1">
-                         <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow h-full">
-                            <div class="p-4 border-b border-gray-300">
-                                <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
+                </div>
+
+                <div id="tab-content-retirada" class="tab-content hidden h-full">
+                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 h-full">
+                        <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-red-200 flex-shrink-0"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
+                        <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-yellow-200 flex-shrink-0"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
+                        <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-green-200 flex-shrink-0"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
+                        <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow flex flex-col"><div class="p-4 border-b border-gray-300 flex-shrink-0"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow"></div></div>
+                    </div>
+                </div>
+
+                <div id="tab-content-mesas" class="tab-content hidden h-full">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                        <div class="lg:col-span-2 flex flex-col">
+                            <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2 flex-shrink-0">
+                                <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
+                                    <i class="fas fa-link mr-2"></i>Agrupar Mesas
+                                </button>
+                                <div id="joining-controls" class="hidden space-x-2">
+                                    <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
+                                    <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
+                                </div>
                             </div>
-                            <div class="pdv-column p-4 space-y-4 overflow-y-auto h-[calc(100vh-300px)]">
-                                <!-- Cards de mesas fechadas aqui -->
+                            <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-4 flex-grow overflow-y-auto">
+                                <!-- As mesas serão inseridas aqui pelo JavaScript -->
+                            </div>
+                        </div>
+                        <div class="lg:col-span-1">
+                             <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow h-full flex flex-col">
+                                <div class="p-4 border-b border-gray-300 flex-shrink-0">
+                                    <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
+                                </div>
+                                <div class="pdv-column p-4 space-y-4 overflow-y-auto flex-grow">
+                                    <!-- Cards de mesas fechadas aqui -->
+                                </div>
                             </div>
                         </div>
                     </div>
