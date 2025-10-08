@@ -1556,7 +1556,6 @@
             }
             
             if ( (currentOrderType === 'Mesa' && !clientData.table) || (currentOrderType !== 'Mesa' && !clientData.name) ) {
-                showAlert("Por favor, informe os dados do cliente antes de finalizar.");
                 finalizingAfterData = true;
                 openClientDataModal();
                 return;
@@ -1569,7 +1568,6 @@
 
             if(currentOrderType === 'Delivery') {
                 if (!clientData.address) {
-                    showAlert("Por favor, informe o endereço de entrega para continuar.");
                     finalizingAfterData = true;
                     openClientDataModal();
                     return;
