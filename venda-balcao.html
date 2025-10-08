@@ -17,8 +17,12 @@
         }
         .main-container {
             display: grid;
-            grid-template-columns: 80px 1fr;
+            grid-template-columns: 0px 1fr; /* Começa com a barra lateral escondida */
             height: calc(100vh - 57px);
+            transition: grid-template-columns 0.3s ease-in-out;
+        }
+        .main-container.sidebar-open {
+            grid-template-columns: 80px 1fr; /* Mostra a barra lateral */
         }
         .main-content {
             display: grid;
@@ -88,6 +92,7 @@
         }
         .sidebar-nav {
             background-color: #2C3E50;
+            overflow: hidden;
         }
         .sidebar-btn {
             color: #BDC3C7;
