@@ -151,6 +151,14 @@
             background-color: #3b82f6;
             color: white;
         }
+        /* Estilo para o modal de mesa reestruturado */
+        #manage-table-modal .modal-content {
+            max-width: 400px;
+        }
+        .mesa-order-details {
+            max-height: 400px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -363,18 +371,7 @@
                 <button id="close-manage-table-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
             <div id="manage-table-body" class="space-y-4">
-                <div class="max-h-60 overflow-y-auto p-2 border rounded-md bg-gray-50">
-                    <h4 class="font-bold mb-2">Itens Consumidos:</h4>
-                    <ul id="table-order-items-list" class="text-sm space-y-1"></ul>
-                </div>
-                <div class="text-right font-bold text-lg">
-                    Total: <span id="table-order-total">R$ 0,00</span>
-                </div>
-                <div class="grid grid-cols-2 gap-4 pt-4 border-t">
-                    <button id="print-partial-btn" class="p-3 bg-blue-500 text-white rounded-md hover:bg-blue-600">Imprimir Parcial</button>
-                    <button id="transfer-table-btn" class="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">Transferir Mesa</button>
-                    <button id="close-account-btn" class="col-span-2 p-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-bold text-lg">Fechar Conta</button>
-                </div>
+                <!-- CONTEÚDO REESTRUTURADO PARA REFLETIR O CARD DE PEDIDO -->
             </div>
         </div>
     </div>
@@ -1132,13 +1129,124 @@
 
             if (docSnap.exists()) {
                 currentManagingOrderData = docSnap.data();
+                
+                // --- NOVO CÓDIGO: REUTILIZA A ESTRUTURA DO CARD DE PEDIDO ---
+                const mesaCardHtml = createDetailedOrderCardHtml(currentManagingOrderData, orderId);
+                
                 document.getElementById('manage-table-title').textContent = `Gerenciar ${currentManagingOrderData.endereco.clientName}`;
-                const itemsList = document.getElementById('table-order-items-list');
-                itemsList.innerHTML = currentManagingOrderData.itens.map(item => `<li>${item.name} - R$ ${parseFloat(item.price || 0).toFixed(2).replace(',',',')}</li>`).join('');
-                document.getElementById('table-order-total').textContent = `R$ ${parseFloat(currentManagingOrderData.total.finalTotal || 0).toFixed(2).replace('.',',')}`;
+                
+                // Remove os botões padronizados que existiam antes
+                const modalBody = document.getElementById('manage-table-body');
+                modalBody.innerHTML = mesaCardHtml;
+
+                // Adiciona botões de ação específicos para a mesa
+                modalBody.insertAdjacentHTML('beforeend', `
+                    <div class="grid grid-cols-2 gap-4 pt-4 border-t">
+                        <button id="print-partial-btn" data-id="${orderId}" class="p-3 bg-blue-500 text-white rounded-md hover:bg-blue-600">Imprimir Parcial</button>
+                        <button id="transfer-table-btn" data-id="${orderId}" class="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">Transferir Mesa</button>
+                        <button id="close-account-btn" data-id="${orderId}" class="col-span-2 p-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-bold text-lg">Fechar Conta</button>
+                    </div>
+                `);
+
+                // Reanexa listeners no novo conteúdo do modal
+                attachModalActionListeners(orderId);
+                
                 manageTableModal.style.display = 'flex';
             }
         }
+        
+        function createDetailedOrderCardHtml(order, id) {
+             const createdAtTimestamp = order.criadoEm ? order.criadoEm.toMillis() : Date.now();
+             const statusChangedAtTimestamp = order.statusChangedAt ? order.statusChangedAt.toMillis() : createdAtTimestamp;
+             const orderType = identifyOrderType(order);
+             
+             let itemsHtml = order.itens.map(item => `
+                <li class="flex justify-between text-sm">
+                    <span>${item.name}</span>
+                    <span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span>
+                </li>
+             `).join('');
+
+             let buttonHtml = '';
+             let finalStep = false;
+             
+             // Lógica para o botão principal de avanço de status
+             if (order.status === 'Em Preparo') {
+                const nextStatus = orderType === 'retirada' ? 'Pronto para Retirada' : 'Pronto para Entrega';
+                buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 hidden">Em Preparo</button>`;
+                // Em mesas, não há um fluxo de status contínuo como delivery/retirada, mas podemos dar a opção de iniciar o preparo se necessário.
+                // Aqui vamos focar em fechar a conta.
+            }
+
+            let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
+            
+            let paymentText = 'Não definido';
+            if (order.pagamento) {
+                if (typeof order.pagamento === 'object' && order.pagamento.method) {
+                    paymentText = `${order.pagamento.method}`;
+                    if (order.pagamento.trocoPara) {
+                        paymentText += ` (Troco p/ R$ ${parseFloat(order.pagamento.trocoPara).toFixed(2).replace('.', ',')})`;
+                    }
+                } else {
+                    paymentText = order.pagamento;
+                }
+            }
+            let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
+
+
+             return `
+                <div class="px-4 pb-2 flex justify-between items-center space-x-2">
+                    <div class="timer-container timer-green">
+                        <i class="far fa-clock"></i> Total: <span class="total-timer-value" data-created-at="${createdAtTimestamp}">${formatTime(Math.max(0, Math.floor((Date.now() - createdAtTimestamp) / 1000)))}</span>
+                    </div>
+                    <div class="timer-container timer-green">
+                        <i class="fas fa-hourglass-start"></i> Na Etapa: <span class="status-timer-value" data-status-changed-at="${statusChangedAtTimestamp}">${formatTime(Math.max(0, Math.floor((Date.now() - statusChangedAtTimestamp) / 1000)))}</span>
+                    </div>
+                </div>
+                <div class="px-4 pb-4">
+                    <div class="mt-2 pt-2 border-t">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
+                            <div class="flex items-center space-x-2">
+                                <button data-id="${id}" data-type="kitchen" class="print-btn modal-print-btn text-gray-500" title="Imprimir Comanda Cozinha"><i class="fas fa-utensils"></i></button>
+                                <button data-id="${id}" data-type="client" class="print-btn modal-print-btn text-gray-500" title="Imprimir Recibo Cliente"><i class="fas fa-receipt"></i></button>
+                                <button data-id="${id}" class="manage-btn modal-manage-btn text-blue-500" title="Editar Endereço/Detalhes"><i class="fas fa-edit"></i></button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500">Telefone: ${order.endereco.telefone || 'N/A'}</p>
+                        <div class="mesa-order-details border-t border-b py-2 my-2">
+                            <h4 class="font-bold text-gray-700 mb-1">Itens:</h4>
+                            <ul class="space-y-1">${itemsHtml}</ul>
+                        </div>
+                        ${observationHtml}
+                        ${paymentHtml}
+                        <div class="text-right font-bold text-lg pt-2 border-t">
+                             Total: <span id="table-order-total">R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</span>
+                        </div>
+                    </div>
+                </div>
+             `;
+        }
+
+        function attachModalActionListeners(orderId) {
+            document.querySelectorAll('#manage-table-modal .modal-print-btn').forEach(btn => {
+                btn.onclick = () => printOrder(orderId, btn.dataset.type);
+            });
+            document.querySelector('#manage-table-modal .modal-manage-btn').onclick = () => {
+                manageTableModal.style.display = 'none';
+                openEditModal(orderId);
+            };
+            document.getElementById('close-account-btn').onclick = async () => {
+                manageTableModal.style.display = 'none';
+                window.open(`atendente.html?close=${orderId}`, '_blank');
+            };
+            document.getElementById('print-partial-btn').onclick = () => printOrder(orderId, 'client');
+            document.getElementById('transfer-table-btn').onclick = () => handleTableTransferClick(orderId);
+        }
+
+        // Fim das alterações na função createOrderCard e introdução de createDetailedOrderCardHtml
+        // O código de updateTimers já está OK para funcionar com a nova estrutura de dados
+        // A função handleMesaClick foi atualizada para chamar openManageTableModal(orderId);
 
         async function openEditModal(id) {
             await loadDeliveryFees();
@@ -1168,6 +1276,10 @@
                     <div>
                         <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
                         <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm"></select>
+                    </div>
+                    <div>
+                        <label for="edit-observacao" class="block text-sm font-medium text-gray-700">Observação</label>
+                        <textarea id="edit-observacao" rows="2" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">${order.observacao || ''}</textarea>
                     </div>
                     <div class="mt-4 flex justify-between">
                         <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
@@ -1199,7 +1311,8 @@
                 "endereco.telefone": document.getElementById('edit-telefone').value,
                 "endereco.rua": document.getElementById('edit-rua').value,
                 "endereco.numero": document.getElementById('edit-numero').value,
-                "endereco.bairro": document.getElementById('edit-bairro').value
+                "endereco.bairro": document.getElementById('edit-bairro').value,
+                "observacao": document.getElementById('edit-observacao').value 
             });
             editOrderModal.style.display = 'none';
         }
@@ -1766,10 +1879,31 @@
         });
 
         closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
-        document.getElementById('print-partial-btn').addEventListener('click', () => {
-            if(currentManagingOrderId) printOrder(currentManagingOrderId, 'client');
-        });
-        document.getElementById('transfer-table-btn').addEventListener('click', () => {
+        
+        // Remove listeners antigos para reanexar no modal reestruturado (attachModalActionListeners)
+        // document.getElementById('print-partial-btn').addEventListener('click', () => {
+        //     if(currentManagingOrderId) printOrder(currentManagingOrderId, 'client');
+        // });
+        // document.getElementById('transfer-table-btn').addEventListener('click', () => {
+        //      const freeTablesSelect = document.getElementById('free-tables-select');
+        //     freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
+        //     const freeTables = [];
+        //     document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
+        //         freeTables.push(mesaEl.dataset.number);
+        //         const option = document.createElement('option');
+        //         option.value = mesaEl.dataset.number;
+        //         option.textContent = `Mesa ${mesaEl.dataset.number}`;
+        //         freeTablesSelect.appendChild(option);
+        //     });
+
+        //     if (freeTables.length === 0) {
+        //         alert("Nenhuma mesa livre para transferir.");
+        //         return;
+        //     }
+        //     transferTableModal.style.display = 'flex';
+        // });
+
+        const handleTableTransferClick = (orderId) => {
              const freeTablesSelect = document.getElementById('free-tables-select');
             freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
             const freeTables = [];
@@ -1785,33 +1919,48 @@
                 alert("Nenhuma mesa livre para transferir.");
                 return;
             }
+            // Define o OrderId no modal de transferência
+            document.getElementById('confirm-transfer-btn').dataset.orderId = orderId; 
             transferTableModal.style.display = 'flex';
-        });
+        }
 
         document.getElementById('cancel-transfer-btn').addEventListener('click', () => {
             transferTableModal.style.display = 'none';
         });
 
-        document.getElementById('confirm-transfer-btn').addEventListener('click', async () => {
+        document.getElementById('confirm-transfer-btn').addEventListener('click', async (e) => {
             const newTableNumber = document.getElementById('free-tables-select').value;
-            if (!newTableNumber) {
-                alert("Por favor, selecione uma mesa para a transferência.");
+            const orderIdToTransfer = e.currentTarget.dataset.orderId;
+
+            if (!newTableNumber || !orderIdToTransfer) {
+                alert("Erro: Mesa ou pedido de origem não definidos.");
                 return;
             }
+            
+            const orderRef = doc(db, "pedidos", orderIdToTransfer);
+            const docSnap = await getDoc(orderRef);
+            if (!docSnap.exists()) return; 
 
-            if (currentManagingOrderId && currentManagingOrderData) {
+            const currentOrderData = docSnap.data();
+
+            if (currentOrderData) {
                 const newClientName = `Mesa ${newTableNumber}`;
+                
+                // Remove os dados do grupo e atualiza o nome do cliente/mesa
                 const newOrderData = {
-                    ...currentManagingOrderData,
+                    ...currentOrderData,
                     "endereco.clientName": newClientName,
-                    grupoMesas: null // Remove o grupo se houver
+                    "endereco.rua": "Mesa", 
+                    "endereco.numero": newTableNumber, 
+                    "endereco.bairro": "Local",
+                    grupoMesas: null 
                 };
 
                 // Cria um novo pedido para a nova mesa
                 const newOrderRef = await addDoc(collection(db, "pedidos"), newOrderData);
                 
-                // Finaliza o pedido antigo
-                await updateDoc(doc(db, "pedidos", currentManagingOrderId), { status: "Finalizado" });
+                // Finaliza o pedido antigo (mantém o registro da mesa antiga)
+                await updateDoc(doc(db, "pedidos", orderIdToTransfer), { status: "Finalizado" });
 
                 alert(`Pedido transferido com sucesso para a ${newClientName}`);
                 transferTableModal.style.display = 'none';
@@ -1909,5 +2058,3 @@
     </script>
 </body>
 </html>
-
-
