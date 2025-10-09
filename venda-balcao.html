@@ -438,7 +438,14 @@
                         <input type="text" id="client-modal-name-mesa" class="w-full mt-1 p-2 border rounded-md">
                     </div>
                 </div>
+                
+                <!-- NOVO CAMPO DE OBSERVAÇÃO, visível em todos os modos -->
+                <div>
+                    <label for="client-modal-observation" class="block text-sm font-medium text-gray-700">Observação do Cliente (opcional)</label>
+                    <textarea id="client-modal-observation" rows="2" class="w-full mt-1 p-2 border rounded-md"></textarea>
+                </div>
             </div>
+            
             <div class="mt-6 flex justify-end space-x-4">
                 <button id="cancel-client-data-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
                 <button id="confirm-client-data-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar</button>
@@ -472,7 +479,7 @@
         let order = [];
         let currentUserEmail = '';
         let currentOrderType = 'Retirada';
-        let clientData = { name: null, contact: null, address: null, table: null };
+        let clientData = { name: null, contact: null, address: null, table: null, observation: null }; // Adicionado 'observation'
         let pauseTime = 2000; // Default 2 seconds
         let finalizingAfterData = false;
 
@@ -483,6 +490,9 @@
         let isSelectingHalfPizza = false;
         let firstHalfPizza = null;
         let currentPizzaExtrasState = {};
+        
+        // Elemento do campo de observação
+        const clientModalObservationInput = document.getElementById('client-modal-observation');
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -851,7 +861,7 @@
             });
             document.getElementById('pizza-option-modal').style.display = 'flex';
         }
-        
+
         function openBurgerBuilderModal(burger, editIndex = null, existingItem = null) {
             const modal = document.getElementById('burger-builder-modal');
             modal.dataset.burgerId = burger.id;
@@ -1301,7 +1311,7 @@
                     const confirmed = await showConfirm('Deseja cancelar o pedido atual e limpar os dados do cliente?');
                     if (confirmed) {
                         order = [];
-                        clientData = { name: null, contact: null, address: null, table: null };
+                        clientData = { name: null, contact: null, address: null, table: null, observation: null }; // Resetar observação
                         isSelectingHalfPizza = false;
                         firstHalfPizza = null;
                         document.getElementById('product-display').classList.remove('half-pizza-selection-active');
@@ -1333,7 +1343,14 @@
             
              document.getElementById('order-type-selector').addEventListener('change', (e) => {
                 currentOrderType = e.target.value;
-                clientData = { name: null, contact: null, address: null, table: null };
+                // Mantém o nome e a observação, mas limpa o resto ao trocar o tipo de pedido
+                clientData = { 
+                    name: clientData.name, 
+                    contact: null, 
+                    address: null, 
+                    table: null, 
+                    observation: clientData.observation 
+                }; 
                 updateClientDataSummary();
                 updateOrderDisplay();
             });
@@ -1507,6 +1524,10 @@
                 document.getElementById('client-modal-table-number').value = clientData.table || '';
                 document.getElementById('client-modal-name-mesa').value = clientData.name || '';
             }
+            
+            // NOVO: Preencher campo de observação
+            clientModalObservationInput.value = clientData.observation || ''; 
+            
             modal.style.display = 'flex';
         }
         
@@ -1524,7 +1545,7 @@
                 const number = document.getElementById('client-modal-number').value.trim();
                 const neighborhood = document.getElementById('client-modal-neighborhood').value;
                 if (!clientData.name || !clientData.contact || !street || !number || !neighborhood) {
-                    errorDiv.textContent = "Para Delivery, todos os campos são obrigatórios.";
+                    errorDiv.textContent = "Para Delivery, Nome, Contato, Rua, Número e Bairro são obrigatórios.";
                     errorDiv.classList.remove('hidden');
                     return;
                 }
@@ -1538,6 +1559,10 @@
                     return;
                 }
             }
+            
+            // NOVO: Salvar observação
+            clientData.observation = clientModalObservationInput.value.trim();
+            
             document.getElementById('client-data-modal').style.display = 'none';
             updateClientDataSummary();
             updateOrderDisplay();
@@ -1568,6 +1593,12 @@
                     summaryHtml += `<br><strong>Endereço:</strong> ${clientData.address.street}, ${clientData.address.number} - ${clientData.address.neighborhood}`;
                 }
             }
+            
+            // NOVO: Adicionar observação ao resumo
+            if (clientData.observation) {
+                 summaryHtml += `<br><strong>Obs:</strong> ${clientData.observation}`;
+            }
+            
             summaryDiv.innerHTML = summaryHtml;
             summaryDiv.classList.remove('hidden');
         }
@@ -1623,14 +1654,17 @@
                 pagamento: 'A Definir',
                 status: status,
                 criadoEm: serverTimestamp(),
-                observacao: `Venda de balcão por ${currentUserEmail}`
+                // NOVO: Adiciona a observação do cliente ao pedido
+                observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
             };
 
             try {
                 await addDoc(collection(db, "pedidos"), newOrder);
                 showTemporaryFeedback(`Pedido para ${clientData.name || `Mesa ${clientData.table}`} finalizado com sucesso!`);
+                
+                // Limpa os dados do pedido após a finalização
                 order = [];
-                clientData = { name: null, contact: null, address: null, table: null };
+                clientData = { name: null, contact: null, address: null, table: null, observation: null }; // Resetar observação
                 updateOrderDisplay();
                 updateClientDataSummary();
             } catch (error) {
@@ -1641,4 +1675,3 @@
     </script>
 </body>
 </html>
-
