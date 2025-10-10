@@ -912,6 +912,7 @@
 
                     // Se a conta já estiver fechada, coloca na coluna de Contas Fechadas
                     if (order.status === 'Fechado') {
+                         const card = createOrderCard(order, orderId); // CRIA O CARD
                          colMesasFechado.appendChild(card);
                     }
                 });
@@ -935,24 +936,36 @@
                 // --- ATUALIZAÇÃO DOS OUTROS CARDS (Delivery/Retirada) ---
                 activeOrders.forEach(order => {
                     const orderId = order.id;
-                    if (order.status === 'Finalizado' || order.status === 'Arquivado' || identifyOrderType(order) === 'mesa') return;
-
-                    const card = createOrderCard(order, orderId);
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
-                    if(orderDate === today) {
+                    const orderType = identifyOrderType(order);
+
+                    // Apenas pedidos concluídos no dia de hoje contam para o faturamento total.
+                    const isCompleted = order.status === 'Entregue' || order.status === 'Fechado';
+                    
+                    if (orderDate === today) {
+                        // Contamos todas as ordens criadas no dia para "PEDIDOS HOJE"
                         totalOrdersToday++;
-                        totalRevenueToday += order.total.finalTotal;
+                        
+                        // Contamos o faturamento apenas se o pedido foi concluído
+                        if (isCompleted) {
+                            totalRevenueToday += order.total.finalTotal;
+                        }
+                    }
+                    
+                    if (order.status === 'Finalizado' || order.status === 'Arquivado' || identifyOrderType(order) === 'mesa') {
+                        if (order.status === 'Fechado') colMesasFechado.appendChild(createOrderCard(order, orderId));
+                        return;
                     }
 
-                    const tipoPedido = identifyOrderType(order);
+                    const card = createOrderCard(order, orderId);
 
-                    if (tipoPedido === 'delivery') {
+                    if (orderType === 'delivery') {
                         if (order.status === 'Novo') colDeliveryNovo.appendChild(card);
                         else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
                         else if (order.status === 'Pronto para Entrega') colDeliveryPronto.appendChild(card);
                         else if (order.status === 'Saiu para Entrega') colDeliveryEntrega.appendChild(card);
                         else if (order.status === 'Entregue') colDeliveryEntregue.appendChild(card);
-                    } else if (tipoPedido === 'retirada') {
+                    } else if (orderType === 'retirada') {
                         if (order.status === 'Novo') colRetiradaNovo.appendChild(card);
                         else if (order.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
                         else if (order.status === 'Pronto para Retirada') colRetiradaPronto.appendChild(card);
@@ -960,10 +973,17 @@
                     }
                 });
 
-
+                // Calcula o Ticket Médio apenas com os pedidos CONCLUÍDOS.
+                const totalCompletedOrders = activeOrders.filter(order => {
+                    const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
+                    return orderDate === today && (order.status === 'Entregue' || order.status === 'Fechado');
+                }).length;
+                
+                const avgTicket = totalCompletedOrders > 0 ? totalRevenueToday / totalCompletedOrders : 0;
+                
                 document.getElementById('stats-total-orders').textContent = totalOrdersToday;
                 document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
-                document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
+                document.getElementById('stats-avg-ticket').textContent = `R$ ${avgTicket.toFixed(2).replace('.', ',')}`;
             });
             // Iniciar a atualização dos cronômetros
             if (timerIntervalId) clearInterval(timerIntervalId);
