@@ -588,6 +588,7 @@
         const closeCashRegisterBtn = document.getElementById('close-cash-register-btn');
         const closeCashModal = document.getElementById('close-cash-modal');
         const closeCashForm = document.getElementById('close-cash-form');
+        const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn'); // CORREÇÃO: Variável declarada
         const finalValueInput = document.getElementById('final-value');
         
         let orderIdToDelete = null;
@@ -1780,14 +1781,9 @@
         cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.style.display = 'none');
         confirmDeleteBtn.addEventListener('click', executeDelete);
         
-        // REMOVIDO: Este listener agora está em attachModalActionListeners
-        // document.getElementById('close-account-btn').addEventListener('click', async () => {
-        //     if(currentManagingOrderId) {
-        //         await updateOrderStatus(currentManagingOrderId, 'Fechado');
-        //         alert("Conta fechada com sucesso!");
-        //         manageTableModal.style.display = 'none';
-        //     }
-        // });
+        // CORREÇÃO: Variável cancelCloseCashBtn agora está definida
+        cancelCloseCashBtn.addEventListener('click', () => closeCashModal.style.display = 'none');
+        document.getElementById('print-cash-closure-btn').addEventListener('click', printCashClosure);
 
         resolvePendingBtn.addEventListener('click', () => {
             openCashModal.style.display = 'none';
@@ -1795,9 +1791,7 @@
         });
 
         closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
-        cancelCloseCashBtn.addEventListener('click', () => closeCashModal.style.display = 'none');
-        document.getElementById('print-cash-closure-btn').addEventListener('click', printCashClosure);
-
+        
         finalValueInput.addEventListener('input', () => {
             const finalValue = parseFloat(finalValueInput.value);
             const expectedValueText = document.getElementById('summary-expected').textContent;
