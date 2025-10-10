@@ -1927,38 +1927,50 @@
             const orderIdToTransfer = e.currentTarget.dataset.orderId;
 
             if (!newTableNumber || !orderIdToTransfer) {
-                alert("Erro: Mesa ou pedido de origem não definidos.");
+                showCustomAlert("Erro: Mesa ou pedido de origem não definidos.");
                 return;
             }
             
             const orderRef = doc(db, "pedidos", orderIdToTransfer);
             const docSnap = await getDoc(orderRef);
-            if (!docSnap.exists()) return; 
+            if (!docSnap.exists()) {
+                showCustomAlert("Erro: Pedido de origem não encontrado.");
+                return;
+            } 
 
             const currentOrderData = docSnap.data();
 
             if (currentOrderData) {
                 const newClientName = `Mesa ${newTableNumber}`;
                 
-                // Remove os dados do grupo e atualiza o nome do cliente/mesa
+                // 1. Cria a estrutura do NOVO pedido para a nova mesa
                 const newOrderData = {
                     ...currentOrderData,
                     "endereco.clientName": newClientName,
                     "endereco.rua": "Mesa", 
                     "endereco.numero": newTableNumber, 
                     "endereco.bairro": "Local",
-                    grupoMesas: null 
+                    status: currentOrderData.status, // Mantém o status original (Ex: Em Preparo)
+                    grupoMesas: null, 
+                    criadoEm: serverTimestamp() // Novo timestamp de criação (ou reuso do antigo)
                 };
 
-                // Cria um novo pedido para a nova mesa
-                const newOrderRef = await addDoc(collection(db, "pedidos"), newOrderData);
-                
-                // Finaliza o pedido antigo (mantém o registro da mesa antiga)
-                await updateDoc(doc(db, "pedidos", orderIdToTransfer), { status: "Finalizado" });
+                try {
+                    // 2. Cria o novo pedido
+                    await addDoc(collection(db, "pedidos"), newOrderData);
+                    
+                    // 3. Finaliza o pedido antigo (mantém o registro da mesa antiga)
+                    await updateDoc(doc(db, "pedidos", orderIdToTransfer), { status: "Finalizado" });
 
-                alert(`Pedido transferido com sucesso para a ${newClientName}`);
-                transferTableModal.style.display = 'none';
-                manageTableModal.style.display = 'none';
+                    showCustomAlert(`Pedido transferido com sucesso para a ${newClientName}`);
+                    
+                } catch (error) {
+                    console.error("Erro durante a transferência:", error);
+                    showCustomAlert(`Falha na transferência. Tente novamente. Detalhe: ${error.message}`);
+                } finally {
+                    transferTableModal.style.display = 'none';
+                    manageTableModal.style.display = 'none';
+                }
             }
         });
 
