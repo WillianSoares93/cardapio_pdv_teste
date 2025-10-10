@@ -588,7 +588,6 @@
         const closeCashRegisterBtn = document.getElementById('close-cash-register-btn');
         const closeCashModal = document.getElementById('close-cash-modal');
         const closeCashForm = document.getElementById('close-cash-form');
-        const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn');
         const finalValueInput = document.getElementById('final-value');
         
         let orderIdToDelete = null;
@@ -623,10 +622,9 @@
             const notificationDiv = document.getElementById(`${tabName}-notification`);
             if (notificationDiv) {
                 const bell = notificationDiv.querySelector('.fa-bell');
-                // Apenas adiciona a animação se a aba não estiver ativa
-                const tabButton = document.querySelector(`.main-tab-btn[data-tab="${orderType}"]`);
-                if (bell && !tabButton.classList.contains('active')) {
-                    bell.classList.add('notification-bell-ringing');
+                // Apenas remove a animação se a aba foi clicada
+                if (bell) {
+                    bell.classList.remove('notification-bell-ringing');
                 }
             }
         });
@@ -1047,7 +1045,14 @@
             let itemsHtml = order.itens.map(item => `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`).join('');
 
             const createdAtTimestamp = order.criadoEm ? order.criadoEm.toMillis() : Date.now();
-            const statusChangedAtTimestamp = order.statusChangedAt ? order.statusChangedAt.toMillis() : createdAtTimestamp;
+            
+            // CORREÇÃO: Verifica se statusChangedAt é um Timestamp antes de chamar toMillis
+            let statusChangedAtTimestamp;
+            if (order.statusChangedAt && typeof order.statusChangedAt.toMillis === 'function') {
+                statusChangedAtTimestamp = order.statusChangedAt.toMillis();
+            } else {
+                statusChangedAtTimestamp = createdAtTimestamp; // Usa createdAt como fallback
+            }
 
             let buttonHtml = '';
             let finalStep = false;
@@ -1212,7 +1217,15 @@
         
         function createDetailedOrderCardHtml(order, id) {
              const createdAtTimestamp = order.criadoEm ? order.criadoEm.toMillis() : Date.now();
-             const statusChangedAtTimestamp = order.statusChangedAt ? order.statusChangedAt.toMillis() : createdAtTimestamp;
+             
+             // CORREÇÃO: Verifica se statusChangedAt é um Timestamp antes de chamar toMillis
+             let statusChangedAtTimestamp;
+             if (order.statusChangedAt && typeof order.statusChangedAt.toMillis === 'function') {
+                 statusChangedAtTimestamp = order.statusChangedAt.toMillis();
+             } else {
+                 statusChangedAtTimestamp = createdAtTimestamp; // Usa createdAt como fallback
+             }
+             
              const orderType = identifyOrderType(order);
              
              let itemsHtml = order.itens.map(item => `
