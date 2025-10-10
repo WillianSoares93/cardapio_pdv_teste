@@ -2018,12 +2018,15 @@
 
                 try {
                     // 2. Finaliza o pedido antigo (muda o status para Finalizado)
-                    // Fazemos isso PRIMEIRO para liberar o slot na grade de mesas
                     await updateDoc(doc(db, "pedidos", orderIdToTransfer), { 
                         status: "Finalizado",
                         statusChangedAt: serverTimestamp()
                     });
                     
+                    // **AÇÃO CHAVE:** Arquiva e exclui o pedido antigo IMEDIATAMENTE.
+                    // Isso garante que ele não fique residuando no Firestore.
+                    await handleArchiveOrder(orderIdToTransfer);
+
                     // 3. Cria o novo pedido
                     await addDoc(collection(db, "pedidos"), newOrderData);
 
