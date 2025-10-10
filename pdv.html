@@ -1243,13 +1243,17 @@
             
             // Listener para Fechar Conta
             document.getElementById('close-account-btn').onclick = async () => {
+                // Ação: Define o status como 'Fechado' para mover para a coluna de Contas Fechadas
+                await updateOrderStatus(orderId, 'Fechado');
                 manageTableModal.style.display = 'none';
-                // O atendente.html abre a página para lançar mais itens ou fechar a conta.
-                window.open(`atendente.html?close=${orderId}`, '_blank'); 
             };
             
             // Listener para Transferir Mesa
             document.getElementById('transfer-table-btn').onclick = () => handleTableTransferClick(orderId);
+
+            // Listener para Imprimir Parcial
+            document.getElementById('print-partial-btn').onclick = () => printOrder(orderId, 'client');
+
 
             // Listener para Mudar Status (Em Preparo/Pronto)
             document.querySelectorAll('#manage-table-modal .move-btn').forEach(btn => {
