@@ -860,33 +860,82 @@
                 });
                 updateTabCounters(newDeliveryCount, newRetiradaCount);
 
-                activeOrders.filter(order => order.grupoMesas && order.grupoMesas.length > 1 && order.status !== 'Finalizado' && order.status !== 'Fechado')
-                    .forEach(order => {
-                        const sortedGroup = [...order.grupoMesas].sort((a, b) => a - b);
+                // Mapeia todos os pedidos de mesa ATIVOS (não finalizados/arquivados)
+                const activeTableOrders = activeOrders.filter(order => 
+                    identifyOrderType(order) === 'mesa' && 
+                    order.status !== 'Finalizado' && 
+                    order.status !== 'Arquivado'
+                );
+
+                // Processa grupos de mesas e mesas individuais
+                activeTableOrders.forEach(order => {
+                    const orderId = order.id;
+                    const mesaNumbers = order.grupoMesas && order.grupoMesas.length > 0
+                        ? order.grupoMesas
+                        : [parseInt((order.endereco.clientName || "").replace(/[^0-9]/g, ''))].filter(n => n > 0);
+
+                    if (mesaNumbers.length > 0) {
+                        const sortedGroup = mesaNumbers.sort((a, b) => a - b);
                         const primaryTableNumber = sortedGroup[0];
-                        
-                        const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
-                        if (primaryTableEl) {
-                            primaryTableEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-juntada';
-                            primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
-                            primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
-                            primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
-                            primaryTableEl.dataset.status = 'juntada';
-                            primaryTableEl.dataset.orderId = order.id;
-                            processedTables.add(primaryTableNumber);
 
-                            for (let i = 1; i < sortedGroup.length; i++) {
-                                const secondaryTableNumber = sortedGroup[i];
-                                const secondaryTableEl = document.getElementById(`mesa-${secondaryTableNumber}`);
-                                if (secondaryTableEl) secondaryTableEl.classList.add('hidden');
-                                processedTables.add(secondaryTableNumber);
+                        // Se for grupo, exibe o card apenas na primeira mesa do grupo
+                        if (sortedGroup.length > 1) {
+                            const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
+                            if (primaryTableEl) {
+                                primaryTableEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-juntada';
+                                primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
+                                primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
+                                primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
+                                primaryTableEl.dataset.status = 'juntada';
+                                primaryTableEl.dataset.orderId = orderId;
+                                processedTables.add(primaryTableNumber);
+
+                                for (let i = 1; i < sortedGroup.length; i++) {
+                                    const secondaryTableEl = document.getElementById(`mesa-${sortedGroup[i]}`);
+                                    if (secondaryTableEl) secondaryTableEl.classList.add('hidden');
+                                    processedTables.add(sortedGroup[i]);
+                                }
                             }
+                        } else if (mesaNumbers.length === 1 && !processedTables.has(primaryTableNumber)) {
+                            // Mesa individual
+                             const mesaEl = document.getElementById(`mesa-${primaryTableNumber}`);
+                                if (mesaEl) {
+                                    mesaEl.classList.remove('mesa-status-livre');
+                                    mesaEl.classList.add('mesa-status-ocupada');
+                                    mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
+                                    mesaEl.dataset.status = 'ocupada';
+                                    mesaEl.dataset.orderId = orderId;
+                                    processedTables.add(primaryTableNumber);
+                                }
                         }
-                    });
+                    }
 
+                    // Se a conta já estiver fechada, coloca na coluna de Contas Fechadas
+                    if (order.status === 'Fechado') {
+                         colMesasFechado.appendChild(card);
+                    }
+                });
+
+                // Se houver mesas que não foram processadas (eram ocupadas e agora estão livres/finalizadas), redefina o estado
+                for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
+                    if (!processedTables.has(i)) {
+                         const mesaEl = document.getElementById(`mesa-${i}`);
+                        if (mesaEl) {
+                            mesaEl.classList.remove('mesa-status-ocupada', 'mesa-status-juntada', 'hidden');
+                            mesaEl.classList.add('mesa-status-livre');
+                            mesaEl.querySelector('span:last-child').textContent = 'Livre';
+                            mesaEl.dataset.status = 'livre';
+                            mesaEl.dataset.orderId = '';
+                            mesaEl.style.gridColumn = '';
+                            mesaEl.querySelector('span.text-3xl').textContent = i.toString().padStart(2, '0');
+                        }
+                    }
+                }
+                
+                // --- ATUALIZAÇÃO DOS OUTROS CARDS (Delivery/Retirada) ---
                 activeOrders.forEach(order => {
                     const orderId = order.id;
-                    if (order.status === 'Finalizado' || order.status === 'Arquivado') return;
+                    if (order.status === 'Finalizado' || order.status === 'Arquivado' || identifyOrderType(order) === 'mesa') return;
 
                     const card = createOrderCard(order, orderId);
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
@@ -908,26 +957,10 @@
                         else if (order.status === 'Em Preparo') colRetiradaPreparo.appendChild(card);
                         else if (order.status === 'Pronto para Retirada') colRetiradaPronto.appendChild(card);
                         else if (order.status === 'Entregue') colRetiradaEntregue.appendChild(card);
-                    } else if (tipoPedido === 'mesa') {
-                        if (order.status === 'Fechado') {
-                            colMesasFechado.appendChild(card);
-                        } else if (!order.grupoMesas) {
-                            const clientName = order.endereco.clientName || "";
-                            const numeroMesa = parseInt(clientName.replace(/[^0-9]/g, ''));
-                            if (numeroMesa && !processedTables.has(numeroMesa)) {
-                                const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
-                                if (mesaEl) {
-                                    mesaEl.classList.remove('mesa-status-livre');
-                                    mesaEl.classList.add('mesa-status-ocupada');
-                                    mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
-                                    mesaEl.dataset.status = 'ocupada';
-                                    mesaEl.dataset.orderId = orderId;
-                                    processedTables.add(numeroMesa);
-                                }
-                            }
-                        }
                     }
                 });
+
+
                 document.getElementById('stats-total-orders').textContent = totalOrdersToday;
                 document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
                 document.getElementById('stats-avg-ticket').textContent = totalOrdersToday > 0 ? `R$ ${(totalRevenueToday / totalOrdersToday).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
@@ -1943,24 +1976,31 @@
             if (currentOrderData) {
                 const newClientName = `Mesa ${newTableNumber}`;
                 
-                // 1. Cria a estrutura do NOVO pedido para a nova mesa
+                // 1. Cria a estrutura do NOVO pedido para a nova mesa (Limpa dados específicos da mesa antiga)
                 const newOrderData = {
                     ...currentOrderData,
                     "endereco.clientName": newClientName,
                     "endereco.rua": "Mesa", 
                     "endereco.numero": newTableNumber, 
                     "endereco.bairro": "Local",
-                    status: currentOrderData.status, // Mantém o status original (Ex: Em Preparo)
+                    status: currentOrderData.status, 
                     grupoMesas: null, 
-                    criadoEm: serverTimestamp() // Novo timestamp de criação (ou reuso do antigo)
+                    criadoEm: serverTimestamp() 
                 };
 
                 try {
                     // 2. Cria o novo pedido
-                    const newDocRef = await addDoc(collection(db, "pedidos"), newOrderData); // Armazena a referência
+                    await addDoc(collection(db, "pedidos"), newOrderData);
                     
                     // 3. Finaliza o pedido antigo (muda o status para Finalizado)
                     await updateDoc(doc(db, "pedidos", orderIdToTransfer), { status: "Finalizado" });
+
+                    // 4. Se a transferência for bem-sucedida, force a re-renderização da grade de mesas.
+                    // Isso é feito re-inicializando a view após um pequeno delay para garantir que o onSnapshot já tenha processado a mudança.
+                    setTimeout(() => {
+                        initializeMesas();
+                        // O onSnapshot se encarrega do resto, mas a re-inicialização da estrutura base ajuda.
+                    }, 100); 
 
                     // A mensagem de sucesso deve ser exibida após a operação ser concluída no Firestore.
                     showCustomAlert(`Pedido transferido com sucesso para a Mesa ${newTableNumber}`);
