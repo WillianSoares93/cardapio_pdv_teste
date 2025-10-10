@@ -2023,9 +2023,8 @@
                         statusChangedAt: serverTimestamp()
                     });
                     
-                    // **AÇÃO CHAVE:** Arquiva e exclui o pedido antigo IMEDIATAMENTE.
-                    // Isso garante que ele não fique residuando no Firestore.
-                    await handleArchiveOrder(orderIdToTransfer);
+                    // **AÇÃO CHAVE (CORRIGIDA):** Exclui o pedido antigo IMEDIATAMENTE (sem arquivar).
+                    await deleteDoc(doc(db, "pedidos", orderIdToTransfer));
 
                     // 3. Cria o novo pedido
                     await addDoc(collection(db, "pedidos"), newOrderData);
