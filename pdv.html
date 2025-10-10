@@ -863,7 +863,8 @@
                 const activeTableOrders = activeOrders.filter(order => 
                     identifyOrderType(order) === 'mesa' && 
                     order.status !== 'Finalizado' && 
-                    order.status !== 'Arquivado'
+                    order.status !== 'Arquivado' &&
+                    order.status !== 'Fechado' // CORREÇÃO: Ignora pedidos Fechados na grade de mesas
                 );
 
                 // Processa grupos de mesas e mesas individuais
@@ -908,12 +909,6 @@
                                 }
                         }
                     }
-
-                    // Se a conta já estiver fechada, coloca na coluna de Contas Fechadas
-                    if (order.status === 'Fechado') {
-                         const card = createOrderCard(order, orderId); // CRIA O CARD
-                         colMesasFechado.appendChild(card);
-                    }
                 });
 
                 // Se houver mesas que não foram processadas (eram ocupadas e agora estão livres/finalizadas), redefina o estado
@@ -932,7 +927,7 @@
                     }
                 }
                 
-                // --- ATUALIZAÇÃO DOS OUTROS CARDS (Delivery/Retirada) ---
+                // --- ATUALIZAÇÃO DOS OUTROS CARDS (Delivery/Retirada e Contas Fechadas) ---
                 activeOrders.forEach(order => {
                     const orderId = order.id;
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
@@ -951,14 +946,15 @@
                         }
                     }
                     
-                    if (order.status === 'Finalizado' || order.status === 'Arquivado' || identifyOrderType(order) === 'mesa') {
-                        if (order.status === 'Fechado') colMesasFechado.appendChild(createOrderCard(order, orderId));
-                        return;
+                    if (order.status === 'Finalizado' || order.status === 'Arquivado') {
+                        return; // Ignora Finalizados e Arquivados
                     }
 
                     const card = createOrderCard(order, orderId);
 
-                    if (orderType === 'delivery') {
+                    if (orderType === 'mesa' && order.status === 'Fechado') {
+                         colMesasFechado.appendChild(card); // Adiciona apenas cards Fechados aqui
+                    } else if (orderType === 'delivery') {
                         if (order.status === 'Novo') colDeliveryNovo.appendChild(card);
                         else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
                         else if (order.status === 'Pronto para Entrega') colDeliveryPronto.appendChild(card);
