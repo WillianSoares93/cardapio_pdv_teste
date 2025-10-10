@@ -1977,30 +1977,32 @@
                 const newClientName = `Mesa ${newTableNumber}`;
                 
                 // 1. Cria a estrutura do NOVO pedido para a nova mesa (Limpa dados específicos da mesa antiga)
-                const newOrderData = {
-                    ...currentOrderData,
-                    "endereco.clientName": newClientName,
-                    "endereco.rua": "Mesa", 
-                    "endereco.numero": newTableNumber, 
-                    "endereco.bairro": "Local",
-                    status: currentOrderData.status, 
-                    grupoMesas: null, 
-                    criadoEm: serverTimestamp() 
-                };
+                // Usamos JSON.parse/stringify para garantir que estamos criando um objeto LIMPÍSSIMO.
+                const newOrderData = JSON.parse(JSON.stringify(currentOrderData));
+                
+                // Atualiza os dados de Endereço/Mesa no novo objeto
+                newOrderData.endereco.clientName = newClientName;
+                newOrderData.endereco.rua = "Mesa"; 
+                newOrderData.endereco.numero = newTableNumber; 
+                newOrderData.endereco.bairro = "Local";
+                newOrderData.grupoMesas = null; 
+                
+                // Mantém o status original, mas atualiza o timestamp de criação
+                newOrderData.criadoEm = serverTimestamp();
+                
+                // Remove o ID do documento, forçando o Firestore a criar um novo
+                delete newOrderData.id;
 
                 try {
-                    // 2. Cria o novo pedido
-                    await addDoc(collection(db, "pedidos"), newOrderData);
+                    // 2. Finaliza o pedido antigo (muda o status para Finalizado)
+                    // Fazemos isso PRIMEIRO para liberar o slot na grade de mesas
+                    await updateDoc(doc(db, "pedidos", orderIdToTransfer), { 
+                        status: "Finalizado",
+                        statusChangedAt: serverTimestamp()
+                    });
                     
-                    // 3. Finaliza o pedido antigo (muda o status para Finalizado)
-                    await updateDoc(doc(db, "pedidos", orderIdToTransfer), { status: "Finalizado" });
-
-                    // 4. Se a transferência for bem-sucedida, force a re-renderização da grade de mesas.
-                    // Isso é feito re-inicializando a view após um pequeno delay para garantir que o onSnapshot já tenha processado a mudança.
-                    setTimeout(() => {
-                        initializeMesas();
-                        // O onSnapshot se encarrega do resto, mas a re-inicialização da estrutura base ajuda.
-                    }, 100); 
+                    // 3. Cria o novo pedido
+                    await addDoc(collection(db, "pedidos"), newOrderData);
 
                     // A mensagem de sucesso deve ser exibida após a operação ser concluída no Firestore.
                     showCustomAlert(`Pedido transferido com sucesso para a Mesa ${newTableNumber}`);
