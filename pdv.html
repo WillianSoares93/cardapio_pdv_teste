@@ -1957,7 +1957,7 @@
 
                 try {
                     // 2. Cria o novo pedido
-                    await addDoc(collection(db, "pedidos"), newOrderData);
+                    const newDocRef = await addDoc(collection(db, "pedidos"), newOrderData); // Armazena a referência
                     
                     // 3. Finaliza o pedido antigo (muda o status para Finalizado)
                     await updateDoc(doc(db, "pedidos", orderIdToTransfer), { status: "Finalizado" });
