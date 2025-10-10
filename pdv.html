@@ -1959,10 +1959,11 @@
                     // 2. Cria o novo pedido
                     await addDoc(collection(db, "pedidos"), newOrderData);
                     
-                    // 3. Finaliza o pedido antigo (mantém o registro da mesa antiga)
+                    // 3. Finaliza o pedido antigo (muda o status para Finalizado)
                     await updateDoc(doc(db, "pedidos", orderIdToTransfer), { status: "Finalizado" });
 
-                    showCustomAlert(`Pedido transferido com sucesso para a ${newClientName}`);
+                    // A mensagem de sucesso deve ser exibida após a operação ser concluída no Firestore.
+                    showCustomAlert(`Pedido transferido com sucesso para a Mesa ${newTableNumber}`);
                     
                 } catch (error) {
                     console.error("Erro durante a transferência:", error);
