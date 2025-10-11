@@ -651,6 +651,50 @@
                 mesasGrid.appendChild(mesaEl);
             }
         }
+        
+        // ++ NOVO ++
+        async function openManageTableModal(orderId) {
+            currentManagingOrderId = orderId;
+            const modal = document.getElementById('manage-table-modal');
+            const modalBody = document.getElementById('manage-table-body');
+            const modalTitle = document.getElementById('manage-table-title');
+            
+            try {
+                const orderRef = doc(db, "pedidos", orderId);
+                const docSnap = await getDoc(orderRef);
+
+                if (!docSnap.exists()) {
+                    showCustomAlert("Erro: Pedido não encontrado.");
+                    return;
+                }
+
+                const order = docSnap.data();
+                currentManagingOrderData = order;
+
+                const mesaNumbers = order.grupoMesas && order.grupoMesas.length > 0
+                    ? order.grupoMesas.join(' + ')
+                    : (order.endereco.clientName || "").replace(/[^0-9]/g, '');
+                
+                modalTitle.textContent = `Gerenciar Mesa(s) ${mesaNumbers}`;
+
+                modalBody.innerHTML = `
+                    ${createDetailedOrderCardHtml(order, orderId)}
+                    <div class="mt-4 pt-4 border-t grid grid-cols-2 gap-4">
+                        <button id="transfer-table-btn" class="w-full px-4 py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700">Transferir Mesa</button>
+                        <button id="close-account-btn" class="w-full px-4 py-2 bg-gray-700 text-white font-bold rounded-md hover:bg-gray-800">Fechar Conta</button>
+                    </div>
+                `;
+                
+                attachModalActionListeners(orderId);
+
+                modal.style.display = 'flex';
+
+            } catch (error) {
+                console.error("Erro ao abrir modal da mesa:", error);
+                showCustomAlert("Não foi possível carregar os detalhes do pedido.");
+            }
+        }
+        // ++ FIM DO NOVO ++
 
         function handleMesaClick(numeroMesa) {
             const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
@@ -1268,28 +1312,43 @@
 
         function attachModalActionListeners(orderId) {
              // Anexa listeners para os botões do MODAL (move-btn, print-btn, close-account-btn)
-            manageTableModal.querySelectorAll('.modal-move-btn').forEach(btn => {
+            const modal = document.getElementById('manage-table-modal');
+            if (!modal) return;
+
+            modal.querySelectorAll('.modal-move-btn').forEach(btn => {
                 btn.onclick = () => {
                     updateOrderStatus(btn.dataset.id, btn.dataset.status);
-                    manageTableModal.style.display = 'none';
+                    modal.style.display = 'none';
                 };
             });
-            manageTableModal.querySelectorAll('.modal-print-btn').forEach(btn => {
+            modal.querySelectorAll('.modal-print-btn').forEach(btn => {
                 btn.onclick = () => {
                     printOrder(btn.dataset.id, btn.dataset.type);
                 };
             });
-            manageTableModal.querySelector('#close-account-btn').onclick = () => {
-                updateOrderStatus(orderId, 'Fechado'); // Move para a coluna Fechado
-                manageTableModal.style.display = 'none';
-            };
-            manageTableModal.querySelector('#transfer-table-btn').onclick = () => {
-                handleTransferTableClick(orderId);
-            };
-            manageTableModal.querySelector('.modal-manage-btn').onclick = () => {
-                 openEditModal(orderId);
-                 manageTableModal.style.display = 'none';
-            };
+
+            const closeBtn = modal.querySelector('#close-account-btn');
+            if (closeBtn) {
+                closeBtn.onclick = () => {
+                    updateOrderStatus(orderId, 'Fechado'); // Move para a coluna Fechado
+                    modal.style.display = 'none';
+                };
+            }
+            
+            const transferBtn = modal.querySelector('#transfer-table-btn');
+            if (transferBtn) {
+                transferBtn.onclick = () => {
+                    handleTableTransferClick(orderId);
+                };
+            }
+
+            const manageBtn = modal.querySelector('.modal-manage-btn');
+            if (manageBtn) {
+                manageBtn.onclick = () => {
+                     openEditModal(orderId);
+                     modal.style.display = 'none';
+                };
+            }
         }
 
         // **CORREÇÃO**: Lógica de arquivamento movida para o frontend
@@ -1434,7 +1493,7 @@
         });
 
         // Listener para Fechar Conta (Mesa)
-        document.getElementById('close-manage-table-modal').addEventListener('click', () => manageTableModal.style.display = 'none');
+        closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
         document.getElementById('cancel-transfer-btn').addEventListener('click', () => transferTableModal.style.display = 'none');
 
 
@@ -1795,14 +1854,9 @@
         cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.style.display = 'none');
         confirmDeleteBtn.addEventListener('click', executeDelete);
         
-        document.getElementById('close-account-btn').addEventListener('click', async () => {
-            if(currentManagingOrderId) {
-                await updateOrderStatus(currentManagingOrderId, 'Fechado');
-                showCustomAlert("Conta fechada com sucesso!");
-                manageTableModal.style.display = 'none';
-            }
-        });
-
+        // ++ CORREÇÃO ++
+        // Removi o listener que causava o erro e centralizei a lógica na função `attachModalActionListeners`
+        
         resolvePendingBtn.addEventListener('click', () => {
             openCashModal.style.display = 'none';
             openCloseCashModal();
