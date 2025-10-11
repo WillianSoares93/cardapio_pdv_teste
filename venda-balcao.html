@@ -664,7 +664,34 @@
             renderCategories();
             renderProducts();
             setupEventListeners();
-            setupPaymentModalListeners();
+        }
+
+        function setupPaymentModalListeners() {
+            // NEW: Payment method listeners inside the modal
+            document.getElementById('payment-options-container').addEventListener('click', (e) => {
+                const label = e.target.closest('.payment-option');
+                if (label) {
+                    document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
+                    label.classList.add('selected');
+
+                    const method = label.dataset.method;
+                    const isCash = method === 'Dinheiro';
+
+                    document.getElementById('troco-input-container').classList.toggle('hidden', !isCash);
+
+                    // Clear troco data if not cash
+                    if (!isCash) {
+                        document.getElementById('modal-trocoPara').value = '';
+                        document.getElementById('modal-trocoTotalDisplay').textContent = 'R$ 0,00';
+                    } else {
+                        // Calculate troco immediately if cash is selected and there's an input value
+                        calculateTroco();
+                    }
+                }
+            });
+
+            // NEW: Troco input listener
+            document.getElementById('modal-trocoPara').addEventListener('input', calculateTroco);
         }
 
         function listenToStatusChanges() {
@@ -1451,31 +1478,7 @@
             document.getElementById('cancel-client-data-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
             
-            // NEW: Payment method listeners inside the modal
-            document.getElementById('payment-options-container').addEventListener('click', (e) => {
-                const label = e.target.closest('.payment-option');
-                if (label) {
-                    document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
-                    label.classList.add('selected');
-
-                    const method = label.dataset.method;
-                    const isCash = method === 'Dinheiro';
-
-                    document.getElementById('troco-input-container').classList.toggle('hidden', !isCash);
-
-                    // Clear troco data if not cash
-                    if (!isCash) {
-                        trocoParaInput.value = '';
-                        trocoTotalDisplay.textContent = 'R$ 0,00';
-                    } else {
-                        // Calculate troco immediately if cash is selected and there's an input value
-                        calculateTroco();
-                    }
-                }
-            });
-
-            // NEW: Troco input listener
-            trocoParaInput.addEventListener('input', calculateTroco);
+            setupPaymentModalListeners(); // Chame a nova função aqui
         }
         
         function handleBurgerIngredientClick(e) {
@@ -1643,9 +1646,19 @@
             
             // Populates Payment Method
             const selectedMethod = paymentMethod ? (typeof paymentMethod === 'object' ? paymentMethod.method : paymentMethod) : 'Dinheiro';
-            document.querySelector(`input[name="modalPaymentMethod"][value="${selectedMethod}"]`).checked = true;
+            
+            // Remove 'selected' from all and check the correct radio
             document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected')); 
-            document.querySelector(`input[name="modalPaymentMethod"]:checked`).closest('.payment-option').classList.add('selected');
+            const paymentRadio = document.querySelector(`input[name="modalPaymentMethod"][value="${selectedMethod}"]`);
+            if (paymentRadio) {
+                paymentRadio.checked = true;
+                paymentRadio.closest('.payment-option').classList.add('selected');
+            } else {
+                 // Fallback: check 'A Definir' if paymentMethod is invalid
+                document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).checked = true;
+                document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).closest('.payment-option').classList.add('selected');
+            }
+
 
             // Populates Troco
             const isCash = selectedMethod === 'Dinheiro';
@@ -1653,7 +1666,7 @@
             const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
             document.getElementById('troco-input-container').classList.toggle('hidden', !isCash);
             
-            if (isCash && typeof paymentMethod === 'object' && paymentMethod.trocoPara) {
+            if (isCash && paymentMethod && typeof paymentMethod === 'object' && paymentMethod.trocoPara) {
                 trocoParaInput.value = paymentMethod.trocoPara;
             } else {
                 trocoParaInput.value = '';
