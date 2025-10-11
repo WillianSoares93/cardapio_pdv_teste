@@ -1675,16 +1675,39 @@
 
             // Set Total Value for summary
             const totalValue = order.reduce((sum, item) => sum + item.price, 0) + (currentOrderType === 'Delivery' && clientData.address ? clientData.address.deliveryFee : 0);
-            document.getElementById('payment-modal-total').textContent = `R$ ${totalValue.toFixed(2).replace('.',',')}`;
-
-
+            
+            // Corrigindo o erro: O ID 'payment-modal-total' não existe no HTML. 
+            // Vamos usar o total do pedido da tela principal.
+            // Para mostrar o total dentro do modal, adicionaremos um novo elemento H4 com um ID exclusivo no modal.
+            
+            const modalTotalDisplay = document.getElementById('client-modal-total-display');
+            if(modalTotalDisplay) {
+                modalTotalDisplay.textContent = `R$ ${totalValue.toFixed(2).replace('.', ',')}`;
+            } else {
+                // Se o elemento de total ainda não existir (devido à refatoração), precisamos adicioná-lo.
+                // Vou injetar o total do pedido antes da seção de pagamento.
+                const paymentSection = document.querySelector('.pt-4.border-t.border-gray-200');
+                if (paymentSection) {
+                    const existingTotal = document.getElementById('client-modal-total-display');
+                    if (!existingTotal) {
+                        const totalDiv = document.createElement('h4');
+                        totalDiv.id = 'client-modal-total-display-container';
+                        totalDiv.className = 'text-gray-600 text-lg mb-4';
+                        totalDiv.innerHTML = `Total Pedido: <span id="client-modal-total-display" class="font-bold text-green-600">R$ ${totalValue.toFixed(2).replace(',', ',')}</span>`;
+                        paymentSection.insertAdjacentElement('beforebegin', totalDiv);
+                    }
+                }
+            }
+            
+            
             modal.style.display = 'flex';
         }
         
         function calculateTroco() {
             const trocoParaInput = document.getElementById('modal-trocoPara');
             const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
-            const totalValue = order.reduce((sum, item) => sum + item.price, 0) + (currentOrderType === 'Delivery' && clientData.address ? clientData.address.deliveryFee : 0);
+            const deliveryFee = currentOrderType === 'Delivery' && clientData.address ? clientData.address.deliveryFee : 0;
+            const totalValue = order.reduce((sum, item) => sum + item.price, 0) + deliveryFee;
 
             const trocoPara = parseFloat(trocoParaInput.value.replace(',', '.')) || 0;
             
@@ -1766,10 +1789,14 @@
 
             if (method === 'Dinheiro') {
                 const trocoPara = parseFloat(document.getElementById('modal-trocoPara').value.replace(',', '.')) || 0;
-                if (trocoPara > 0 && trocoPara < totalValue) {
+                if (totalValue > 0 && trocoPara > 0 && trocoPara < totalValue) {
                     errorDiv.textContent = `O valor para troco (R$ ${trocoPara.toFixed(2).replace('.', ',')}) não pode ser menor que o total (R$ ${totalValue.toFixed(2).replace('.', ',')}).`;
                     errorDiv.classList.remove('hidden');
                     return;
+                } else if (totalValue > 0 && trocoPara === 0) {
+                     errorDiv.textContent = `Por favor, insira o valor para troco ou um valor igual ao total.`;
+                     errorDiv.classList.remove('hidden');
+                     return;
                 }
                 const trocoTotal = trocoPara > 0 ? trocoPara - totalValue : 0;
                 finalPaymentData = { method: 'Dinheiro', trocoPara: trocoPara, trocoTotal: trocoTotal };
