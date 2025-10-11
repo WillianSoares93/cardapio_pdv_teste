@@ -64,6 +64,7 @@
         .mesa-item {
             transition: all 0.2s ease-in-out;
             aspect-ratio: 1 / 1;
+            position: relative;
         }
         .mesa-item:hover:not(.joining-mode) {
             transform: translateY(-4px);
@@ -160,6 +161,16 @@
         .mesa-order-details {
             max-height: 400px;
             overflow-y: auto;
+        }
+        .mesa-timer-container {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            font-size: 0.7rem;
+        }
+        .mesa-timer-container .timer-container {
+            padding: 2px 4px;
         }
     </style>
 </head>
@@ -644,15 +655,21 @@
                 mesaEl.dataset.number = i;
                 mesaEl.style.gridColumn = '';
                 mesaEl.innerHTML = `
-                    <span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span>
-                    <span class="text-sm font-medium mt-2">Livre</span>
+                    <div class="text-center">
+                        <span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span>
+                        <span class="text-sm font-medium mt-2 block status-text">Livre</span>
+                    </div>
+                    <div class="mesa-timer-container hidden">
+                        <div class="timer-container timer-green w-full text-center">
+                            <i class="far fa-clock"></i> Total: <span class="total-timer-value" data-created-at="0">00:00</span>
+                        </div>
+                    </div>
                 `;
                 mesaEl.addEventListener('click', () => handleMesaClick(i));
                 mesasGrid.appendChild(mesaEl);
             }
         }
         
-        // ++ NOVO ++
         async function openManageTableModal(orderId) {
             currentManagingOrderId = orderId;
             const modal = document.getElementById('manage-table-modal');
@@ -694,7 +711,6 @@
                 showCustomAlert("Não foi possível carregar os detalhes do pedido.");
             }
         }
-        // ++ FIM DO NOVO ++
 
         function handleMesaClick(numeroMesa) {
             const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
@@ -927,6 +943,8 @@
                         const primaryTableNumber = sortedGroup[0];
                         const orderStatus = order.status;
                         
+                        const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
+
                         // Determina o status visual da mesa
                         let mesaStatusClass;
                         let mesaStatusText;
@@ -952,10 +970,18 @@
                                 primaryTableEl.classList.remove('mesa-status-livre', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido');
                                 primaryTableEl.classList.add('mesa-status-juntada', mesaStatusClass);
                                 primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
-                                primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
+                                primaryTableEl.querySelector('.status-text').textContent = 'Agrupada';
                                 primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
                                 primaryTableEl.dataset.status = 'juntada';
                                 primaryTableEl.dataset.orderId = orderId;
+                                
+                                const timerContainer = primaryTableEl.querySelector('.mesa-timer-container');
+                                const timerValue = primaryTableEl.querySelector('.total-timer-value');
+                                if (timerContainer && timerValue) {
+                                    timerContainer.classList.remove('hidden');
+                                    timerValue.dataset.createdAt = createdAtTimestamp;
+                                }
+
                                 processedTables.add(primaryTableNumber);
 
                                 for (let i = 1; i < sortedGroup.length; i++) {
@@ -970,9 +996,17 @@
                                 if (mesaEl) {
                                     mesaEl.classList.remove('mesa-status-livre', 'mesa-status-juntada', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido');
                                     mesaEl.classList.add(mesaStatusClass);
-                                    mesaEl.querySelector('span:last-child').textContent = mesaStatusText;
+                                    mesaEl.querySelector('.status-text').textContent = mesaStatusText;
                                     mesaEl.dataset.status = 'ocupada';
                                     mesaEl.dataset.orderId = orderId;
+
+                                    const timerContainer = mesaEl.querySelector('.mesa-timer-container');
+                                    const timerValue = mesaEl.querySelector('.total-timer-value');
+                                    if (timerContainer && timerValue) {
+                                        timerContainer.classList.remove('hidden');
+                                        timerValue.dataset.createdAt = createdAtTimestamp;
+                                    }
+
                                     processedTables.add(primaryTableNumber);
                                 }
                         }
@@ -986,11 +1020,16 @@
                         if (mesaEl) {
                             mesaEl.classList.remove('mesa-status-ocupada', 'mesa-status-juntada', 'hidden', 'mesa-status-pronto', 'mesa-status-servido');
                             mesaEl.classList.add('mesa-status-livre');
-                            mesaEl.querySelector('span:last-child').textContent = 'Livre';
+                            mesaEl.querySelector('.status-text').textContent = 'Livre';
                             mesaEl.dataset.status = 'livre';
                             mesaEl.dataset.orderId = '';
                             mesaEl.style.gridColumn = '';
                             mesaEl.querySelector('span.text-3xl').textContent = i.toString().padStart(2, '0');
+                            
+                            const timerContainer = mesaEl.querySelector('.mesa-timer-container');
+                            if (timerContainer) {
+                                timerContainer.classList.add('hidden');
+                            }
                         }
                     }
                 }
@@ -1060,20 +1099,34 @@
 
         function updateTimers() {
             const now = new Date();
-            document.querySelectorAll('.order-card').forEach(card => {
+            document.querySelectorAll('.order-card, .mesa-item').forEach(card => {
                 const totalTimerEl = card.querySelector('.total-timer-value');
-                const statusTimerEl = card.querySelector('.status-timer-value');
-                if (totalTimerEl && statusTimerEl) {
+                const statusTimerEl = card.querySelector('.status-timer-value'); // This will be null for tables, which is fine
+
+                if (totalTimerEl && totalTimerEl.dataset.createdAt !== "0") {
                     const createdAt = new Date(parseInt(totalTimerEl.dataset.createdAt));
-                    const statusChangedAt = new Date(parseInt(statusTimerEl.dataset.statusChangedAt));
-
                     const totalDiff = Math.max(0, Math.floor((now - createdAt) / 1000));
-                    const statusDiff = Math.max(0, Math.floor((now - statusChangedAt) / 1000));
-
                     totalTimerEl.textContent = formatTime(totalDiff);
+
+                    const isTable = card.classList.contains('mesa-item');
+                    if (isTable) {
+                        const timerContainer = totalTimerEl.parentElement;
+                        timerContainer.classList.remove('timer-green', 'timer-yellow', 'timer-red');
+                        if (totalDiff < 1800) { // 30 mins
+                            timerContainer.classList.add('timer-green');
+                        } else if (totalDiff < 3600) { // 60 mins
+                            timerContainer.classList.add('timer-yellow');
+                        } else {
+                            timerContainer.classList.add('timer-red');
+                        }
+                    }
+                }
+
+                if (statusTimerEl) {
+                    const statusChangedAt = new Date(parseInt(statusTimerEl.dataset.statusChangedAt));
+                    const statusDiff = Math.max(0, Math.floor((now - statusChangedAt) / 1000));
                     statusTimerEl.textContent = formatTime(statusDiff);
                     
-                    // Atualizar a cor do cronômetro da etapa
                     const statusTimerContainer = statusTimerEl.parentElement;
                     statusTimerContainer.classList.remove('timer-green', 'timer-yellow', 'timer-red');
                     if (statusDiff < 300) { // Menos de 5 minutos
@@ -1822,7 +1875,6 @@
             }
         }
 
-        // ++ CORREÇÃO ++
         function printCashClosure() {
             const styles = `
                 <style>
@@ -1944,9 +1996,6 @@
         });
         cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.style.display = 'none');
         confirmDeleteBtn.addEventListener('click', executeDelete);
-        
-        // ++ CORREÇÃO ++
-        // Removi o listener que causava o erro e centralizei a lógica na função `attachModalActionListeners`
         
         resolvePendingBtn.addEventListener('click', () => {
             openCashModal.style.display = 'none';
