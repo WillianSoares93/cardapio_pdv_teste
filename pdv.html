@@ -70,7 +70,9 @@
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
         .mesa-status-livre { background-color: #dcfce7; border-color: #22c55e; color: #166534; }
-        .mesa-status-ocupada { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; }
+        .mesa-status-ocupada { background-color: #fef3c7; border-color: #f59e0b; color: #b45309; } /* Amarelo: Em Preparo */
+        .mesa-status-pronto { background-color: #dbeafe; border-color: #3b82f6; color: #1e40af; } /* Azul Claro: Pronto p/ Servir */
+        .mesa-status-servido { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; } /* Vermelho Claro: Servido (Aguardando Fechamento) */
         .mesa-status-juntada { background-color: #e0e7ff; border-color: #4f46e5; color: #3730a3; }
         .mesa-item.selected-for-join {
             outline: 4px solid #3b82f6;
@@ -266,8 +268,8 @@
             </div>
 
             <div id="tab-content-mesas" class="tab-content hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-                    <div class="lg:col-span-2">
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-4">
+                     <div class="lg:col-span-4">
                         <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
                             <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
                                 <i class="fas fa-link mr-2"></i>Agrupar Mesas
@@ -281,14 +283,10 @@
                             <!-- As mesas serão inseridas aqui pelo JavaScript -->
                         </div>
                     </div>
-                    <div class="lg:col-span-1">
-                         <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow h-full">
-                            <div class="p-4 border-b border-gray-300">
-                                <h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2>
-                            </div>
-                            <div class="pdv-column p-4 space-y-4">
-                                <!-- Cards de mesas fechadas aqui -->
-                            </div>
+                     <div class="lg:col-span-1">
+                        <!-- COLUNAS DE STATUS DE PEDIDO DE MESA -->
+                        <div class="grid grid-cols-1 gap-6">
+                            <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
                         </div>
                     </div>
                 </div>
@@ -366,7 +364,7 @@
     
     <div id="manage-table-modal" class="modal">
         <div class="modal-content">
-            <div class="flex justify-between items-center mb-4 pb-4 border-b">
+            <div class="flex justify-between items-center pb-3 border-b">
                 <h2 id="manage-table-title" class="text-xl font-bold">Gerenciar Mesa</h2>
                 <button id="close-manage-table-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
@@ -575,6 +573,12 @@
         const colRetiradaPreparo = document.getElementById('col-retirada-preparo').querySelector('.pdv-column');
         const colRetiradaPronto = document.getElementById('col-retirada-pronto').querySelector('.pdv-column');
         const colRetiradaEntregue = document.getElementById('col-retirada-entregue').querySelector('.pdv-column');
+        
+        // Colunas de status de Mesa
+        // REMOVIDAS DA HTML, MANTIDAS PARA O FLUXO DE STATUS MESA APENAS (NÃO USAMOS MAIS NOVO, PREPARO, SERVIDO)
+        // const colMesasPreparo = document.getElementById('col-mesas-preparo').querySelector('.pdv-column');
+        // const colMesasPronto = document.getElementById('col-mesas-pronto').querySelector('.pdv-column');
+        // const colMesasServido = document.getElementById('col-mesas-servido').querySelector('.pdv-column');
 
         const colMesasFechado = document.getElementById('col-mesas-fechado').querySelector('.pdv-column');
         
@@ -588,7 +592,7 @@
         const closeCashRegisterBtn = document.getElementById('close-cash-register-btn');
         const closeCashModal = document.getElementById('close-cash-modal');
         const closeCashForm = document.getElementById('close-cash-form');
-        const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn'); // CORREÇÃO: Variável declarada
+        const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn');
         const finalValueInput = document.getElementById('final-value');
         
         let orderIdToDelete = null;
@@ -859,12 +863,12 @@
                 });
                 updateTabCounters(newDeliveryCount, newRetiradaCount);
 
-                // Mapeia todos os pedidos de mesa ATIVOS (não finalizados/arquivados)
+                // Mapeia todos os pedidos de mesa ATIVOS (não finalizados/arquivados/fechados)
                 const activeTableOrders = activeOrders.filter(order => 
                     identifyOrderType(order) === 'mesa' && 
                     order.status !== 'Finalizado' && 
                     order.status !== 'Arquivado' &&
-                    order.status !== 'Fechado' // CORREÇÃO: Ignora pedidos Fechados na grade de mesas
+                    order.status !== 'Fechado' 
                 );
 
                 // Processa grupos de mesas e mesas individuais
@@ -877,12 +881,32 @@
                     if (mesaNumbers.length > 0) {
                         const sortedGroup = mesaNumbers.sort((a, b) => a - b);
                         const primaryTableNumber = sortedGroup[0];
+                        const orderStatus = order.status;
+                        
+                        // Determina o status visual da mesa
+                        let mesaStatusClass;
+                        let mesaStatusText;
+                        if (orderStatus === 'Novo' || orderStatus === 'Em Preparo') {
+                             mesaStatusClass = 'mesa-status-ocupada';
+                             mesaStatusText = 'Em Preparo';
+                        } else if (orderStatus === 'Pronto Para Servir') {
+                             mesaStatusClass = 'mesa-status-pronto';
+                             mesaStatusText = 'Pronto P/ Servir';
+                        } else if (orderStatus === 'Servido') {
+                             mesaStatusClass = 'mesa-status-servido';
+                             mesaStatusText = 'Servido';
+                        } else {
+                            // Fallback para pedidos abertos com status inesperado
+                            mesaStatusClass = 'mesa-status-ocupada';
+                            mesaStatusText = 'Ocupada';
+                        }
 
-                        // Se for grupo, exibe o card apenas na primeira mesa do grupo
+                        // --- ATUALIZAÇÃO DA GRADE DE MESAS (LIVRE/OCUPADA/AGRUPADA) ---
                         if (sortedGroup.length > 1) {
                             const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
                             if (primaryTableEl) {
-                                primaryTableEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-juntada';
+                                primaryTableEl.classList.remove('mesa-status-livre', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido');
+                                primaryTableEl.classList.add('mesa-status-juntada', mesaStatusClass);
                                 primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
                                 primaryTableEl.querySelector('span:last-child').textContent = 'Agrupada';
                                 primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
@@ -900,9 +924,9 @@
                             // Mesa individual
                              const mesaEl = document.getElementById(`mesa-${primaryTableNumber}`);
                                 if (mesaEl) {
-                                    mesaEl.classList.remove('mesa-status-livre');
-                                    mesaEl.classList.add('mesa-status-ocupada');
-                                    mesaEl.querySelector('span:last-child').textContent = 'Ocupada';
+                                    mesaEl.classList.remove('mesa-status-livre', 'mesa-status-juntada', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido');
+                                    mesaEl.classList.add(mesaStatusClass);
+                                    mesaEl.querySelector('span:last-child').textContent = mesaStatusText;
                                     mesaEl.dataset.status = 'ocupada';
                                     mesaEl.dataset.orderId = orderId;
                                     processedTables.add(primaryTableNumber);
@@ -916,7 +940,7 @@
                     if (!processedTables.has(i)) {
                          const mesaEl = document.getElementById(`mesa-${i}`);
                         if (mesaEl) {
-                            mesaEl.classList.remove('mesa-status-ocupada', 'mesa-status-juntada', 'hidden');
+                            mesaEl.classList.remove('mesa-status-ocupada', 'mesa-status-juntada', 'hidden', 'mesa-status-pronto', 'mesa-status-servido');
                             mesaEl.classList.add('mesa-status-livre');
                             mesaEl.querySelector('span:last-child').textContent = 'Livre';
                             mesaEl.dataset.status = 'livre';
@@ -927,7 +951,7 @@
                     }
                 }
                 
-                // --- ATUALIZAÇÃO DOS OUTROS CARDS (Delivery/Retirada e Contas Fechadas) ---
+                // --- PROCESSAMENTO DOS OUTROS CARDS (Delivery/Retirada e MESAS FECHADAS) ---
                 activeOrders.forEach(order => {
                     const orderId = order.id;
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
@@ -947,14 +971,19 @@
                     }
                     
                     if (order.status === 'Finalizado' || order.status === 'Arquivado') {
-                        return; // Ignora Finalizados e Arquivados
+                        return;
                     }
+                    
+                    // Adiciona Mesas Fechadas na coluna de Contas Fechadas
+                    if (orderType === 'mesa' && order.status === 'Fechado') {
+                         colMesasFechado.appendChild(createOrderCard(order, orderId));
+                         return;
+                    }
+
 
                     const card = createOrderCard(order, orderId);
 
-                    if (orderType === 'mesa' && order.status === 'Fechado') {
-                         colMesasFechado.appendChild(card); // Adiciona apenas cards Fechados aqui
-                    } else if (orderType === 'delivery') {
+                    if (orderType === 'delivery') {
                         if (order.status === 'Novo') colDeliveryNovo.appendChild(card);
                         else if (order.status === 'Em Preparo') colDeliveryPreparo.appendChild(card);
                         else if (order.status === 'Pronto para Entrega') colDeliveryPronto.appendChild(card);
@@ -1041,38 +1070,47 @@
 
             let itemsHtml = order.itens.map(item => `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`).join('');
 
-            const createdAtTimestamp = order.criadoEm ? order.criadoEm.toMillis() : Date.now();
-            
-            // CORREÇÃO: Verifica se statusChangedAt é um Timestamp antes de chamar toMillis
-            let statusChangedAtTimestamp;
-            if (order.statusChangedAt && typeof order.statusChangedAt.toMillis === 'function') {
-                statusChangedAtTimestamp = order.statusChangedAt.toMillis();
-            } else {
-                statusChangedAtTimestamp = createdAtTimestamp; // Usa createdAt como fallback
-            }
+            const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
+            const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
 
             let buttonHtml = '';
             let finalStep = false;
             
-            if (order.status === 'Novo') {
-                card.classList.add('border-red-500');
-                buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600">Iniciar Preparo</button>`;
-            } else if (order.status === 'Em Preparo') {
-                card.classList.add('border-yellow-500');
-                const nextStatus = orderType === 'retirada' ? 'Pronto para Retirada' : 'Pronto para Entrega';
-                buttonHtml = `<button data-id="${id}" data-status="${nextStatus}" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto</button>`;
-            } else if (order.status === 'Pronto para Entrega') {
-                card.classList.add('border-green-500');
-                buttonHtml = `<button data-id="${id}" data-status="Saiu para Entrega" class="move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Saiu p/ Entrega</button>`;
-            } else if (order.status === 'Saiu para Entrega') {
-                card.classList.add('border-blue-500');
-                buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
-            } else if (order.status === 'Pronto para Retirada') {
-                card.classList.add('border-green-500');
-                buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
-            } else if (order.status === 'Entregue' || order.status === 'Fechado') {
-                card.classList.add('border-gray-400');
-                finalStep = true;
+            if (orderType === 'mesa') {
+                if (order.status === 'Em Preparo') {
+                    card.classList.add('border-yellow-500');
+                    buttonHtml = `<button data-id="${id}" data-status="Pronto Para Servir" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto P/ Servir</button>`;
+                } else if (order.status === 'Pronto Para Servir') {
+                    card.classList.add('border-green-500');
+                    buttonHtml = `<button data-id="${id}" data-status="Servido" class="move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Servido</button>`;
+                } else if (order.status === 'Servido') {
+                    card.classList.add('border-blue-500');
+                    buttonHtml = `<button data-id="${id}" data-status="Fechado" class="move-btn w-full mt-4 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600">Fechar Conta</button>`;
+                } else if (order.status === 'Fechado') {
+                    card.classList.add('border-gray-400');
+                    finalStep = true;
+                }
+            } else { // Delivery e Retirada
+                if (order.status === 'Novo') {
+                    card.classList.add('border-red-500');
+                    buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600">Iniciar Preparo</button>`;
+                } else if (order.status === 'Em Preparo') {
+                    card.classList.add('border-yellow-500');
+                    const nextStatus = orderType === 'retirada' ? 'Pronto para Retirada' : 'Pronto para Entrega';
+                    buttonHtml = `<button data-id="${id}" data-status="${nextStatus}" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto</button>`;
+                } else if (order.status === 'Pronto para Entrega') {
+                    card.classList.add('border-green-500');
+                    buttonHtml = `<button data-id="${id}" data-status="Saiu para Entrega" class="move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Saiu p/ Entrega</button>`;
+                } else if (order.status === 'Saiu para Entrega') {
+                    card.classList.add('border-blue-500');
+                    buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
+                } else if (order.status === 'Pronto para Retirada') {
+                    card.classList.add('border-green-500');
+                    buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
+                } else if (order.status === 'Entregue' || order.status === 'Fechado') {
+                    card.classList.add('border-gray-400');
+                    finalStep = true;
+                }
             }
 
             let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
@@ -1132,6 +1170,128 @@
             return card;
         }
 
+        function createDetailedOrderCardHtml(order, id) {
+             const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
+             const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
+             const orderType = identifyOrderType(order);
+             
+             let itemsHtml = order.itens.map(item => `
+                <li class="flex justify-between text-sm">
+                    <span>${item.name}</span>
+                    <span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span>
+                </li>
+             `).join('');
+
+             let buttonHtml = '';
+             
+             if (orderType === 'mesa') {
+                if (order.status === 'Em Preparo') {
+                    buttonHtml = `<button data-id="${id}" data-status="Pronto Para Servir" class="move-btn modal-move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto P/ Servir</button>`;
+                } else if (order.status === 'Pronto Para Servir') {
+                    buttonHtml = `<button data-id="${id}" data-status="Servido" class="move-btn modal-move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Servido</button>`;
+                } else if (order.status === 'Servido') {
+                    buttonHtml = `<button data-id="${id}" data-status="Fechado" class="move-btn modal-move-btn w-full mt-4 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600">Fechar Conta</button>`;
+                } else {
+                     buttonHtml = `<button disabled class="w-full mt-4 bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed">Status: ${order.status}</button>`;
+                }
+            } else { // Delivery/Retirada
+                 if (order.status === 'Novo') {
+                    buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn modal-move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600">Iniciar Preparo</button>`;
+                 } else if (order.status === 'Em Preparo') {
+                    const nextStatus = orderType === 'retirada' ? 'Pronto para Retirada' : 'Pronto para Entrega';
+                    buttonHtml = `<button data-id="${id}" data-status="${nextStatus}" class="move-btn modal-move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto</button>`;
+                 } else if (order.status === 'Pronto para Entrega') {
+                    buttonHtml = `<button data-id="${id}" data-status="Saiu para Entrega" class="move-btn modal-move-btn w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Saiu p/ Entrega</button>`;
+                 } else if (order.status === 'Saiu para Entrega') {
+                    buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn modal-move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
+                 } else if (order.status === 'Pronto para Retirada') {
+                    buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn modal-move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-60om">Marcar como Entregue</button>`;
+                 } else {
+                     buttonHtml = `<button disabled class="w-full mt-4 bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed">Status: ${order.status}</button>`;
+                 }
+            }
+
+            let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
+            
+            let paymentText = 'Não definido';
+            if (order.pagamento) {
+                if (typeof order.pagamento === 'object' && order.pagamento.method) {
+                    paymentText = `${order.pagamento.method}`;
+                    if (order.pagamento.trocoPara) {
+                        paymentText += ` (Troco p/ R$ ${parseFloat(order.pagamento.trocoPara).toFixed(2).replace('.', ',')})`;
+                    }
+                } else {
+                    paymentText = order.pagamento;
+                }
+            }
+            let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
+            
+            // Renderização do endereço para Mesas
+            let addressHtml = '';
+            if (orderType === 'mesa' && order.endereco.rua === 'Mesa') {
+                 addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua}</p>`;
+            } else {
+                 addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>`;
+            }
+
+             return `
+                <div class="mesa-order-details">
+                    <div class="px-4 pb-2 flex justify-between items-center space-x-2">
+                        <div class="timer-container timer-green">
+                            <i class="far fa-clock"></i> Total: <span class="total-timer-value" data-created-at="${createdAtTimestamp}">${formatTime(Math.max(0, Math.floor((Date.now() - createdAtTimestamp) / 1000)))}</span>
+                        </div>
+                        <div class="timer-container timer-green">
+                            <i class="fas fa-hourglass-start"></i> Na Etapa: <span class="status-timer-value" data-status-changed-at="${statusChangedAtTimestamp}">${formatTime(Math.max(0, Math.floor((Date.now() - statusChangedAtTimestamp) / 1000)))}</span>
+                        </div>
+                    </div>
+                    <div class="px-4 pb-4">
+                        <div class="mt-2 pt-2 border-t">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
+                                <div class="flex items-center space-x-2">
+                                    <button data-id="${id}" data-type="kitchen" class="print-btn modal-print-btn text-gray-500" title="Imprimir Comanda Cozinha"><i class="fas fa-utensils"></i></button>
+                                    <button data-id="${id}" data-type="client" class="print-btn modal-print-btn text-gray-500" title="Imprimir Recibo Cliente"><i class="fas fa-receipt"></i></button>
+                                    <button class="archive-btn text-green-500 hover:text-green-700 opacity-50 cursor-not-allowed" data-id="${id}" disabled title="Arquivar Pedido"><i class="fas fa-check-circle"></i></button>
+                                    <button data-id="${id}" class="manage-btn modal-manage-btn text-blue-500" title="Editar Pedido"><i class="fas fa-edit"></i></button>
+                                </div>
+                            </div>
+                            ${addressHtml}
+                            <ul class="border-t border-b py-2 my-2 space-y-1">${itemsHtml}</ul>
+                            ${observationHtml}
+                            ${paymentHtml}
+                            ${buttonHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function attachModalActionListeners(orderId) {
+             // Anexa listeners para os botões do MODAL (move-btn, print-btn, close-account-btn)
+            manageTableModal.querySelectorAll('.modal-move-btn').forEach(btn => {
+                btn.onclick = () => {
+                    updateOrderStatus(btn.dataset.id, btn.dataset.status);
+                    manageTableModal.style.display = 'none';
+                };
+            });
+            manageTableModal.querySelectorAll('.modal-print-btn').forEach(btn => {
+                btn.onclick = () => {
+                    printOrder(btn.dataset.id, btn.dataset.type);
+                };
+            });
+            manageTableModal.querySelector('#close-account-btn').onclick = () => {
+                updateOrderStatus(orderId, 'Fechado'); // Move para a coluna Fechado
+                manageTableModal.style.display = 'none';
+            };
+            manageTableModal.querySelector('#transfer-table-btn').onclick = () => {
+                handleTransferTableClick(orderId);
+            };
+            manageTableModal.querySelector('.modal-manage-btn').onclick = () => {
+                 openEditModal(orderId);
+                 manageTableModal.style.display = 'none';
+            };
+        }
+
         // **CORREÇÃO**: Lógica de arquivamento movida para o frontend
         async function handleArchiveOrder(orderId) {
             const archiveBtn = document.querySelector(`.archive-btn[data-id="${orderId}"]`);
@@ -1179,153 +1339,104 @@
             }
         }
 
-        async function openManageTableModal(orderId) {
-            currentManagingOrderId = orderId;
-            const orderRef = doc(db, "pedidos", orderId);
+        async function handleTableTransferClick(orderIdToTransfer) {
+            const orderRef = doc(db, "pedidos", orderIdToTransfer);
             const docSnap = await getDoc(orderRef);
 
-            if (docSnap.exists()) {
-                currentManagingOrderData = docSnap.data();
-                
-                // --- NOVO CÓDIGO: REUTILIZA A ESTRUTURA DO CARD DE PEDIDO ---
-                const mesaCardHtml = createDetailedOrderCardHtml(currentManagingOrderData, orderId);
-                
-                document.getElementById('manage-table-title').textContent = `Gerenciar ${currentManagingOrderData.endereco.clientName}`;
-                
-                // Remove os botões padronizados que existiam antes
-                const modalBody = document.getElementById('manage-table-body');
-                modalBody.innerHTML = mesaCardHtml;
-
-                // Adiciona botões de ação específicos para a mesa
-                modalBody.insertAdjacentHTML('beforeend', `
-                    <div class="grid grid-cols-2 gap-4 pt-4 border-t">
-                        <button id="print-partial-btn" data-id="${orderId}" class="p-3 bg-blue-500 text-white rounded-md hover:bg-blue-600">Imprimir Parcial</button>
-                        <button id="transfer-table-btn" data-id="${orderId}" class="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">Transferir Mesa</button>
-                        <button id="close-account-btn" data-id="${orderId}" class="col-span-2 p-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-bold text-lg">Fechar Conta</button>
-                    </div>
-                `);
-
-                // Reanexa listeners no novo conteúdo do modal
-                attachModalActionListeners(orderId);
-                
-                manageTableModal.style.display = 'flex';
+            if (!docSnap.exists()) {
+                showCustomAlert("Erro: Pedido não encontrado para transferência.");
+                return;
             }
-        }
-        
-        function createDetailedOrderCardHtml(order, id) {
-             const createdAtTimestamp = order.criadoEm ? order.criadoEm.toMillis() : Date.now();
-             
-             // CORREÇÃO: Verifica se statusChangedAt é um Timestamp antes de chamar toMillis
-             let statusChangedAtTimestamp;
-             if (order.statusChangedAt && typeof order.statusChangedAt.toMillis === 'function') {
-                 statusChangedAtTimestamp = order.statusChangedAt.toMillis();
-             } else {
-                 statusChangedAtTimestamp = createdAtTimestamp; // Usa createdAt como fallback
-             }
-             
-             const orderType = identifyOrderType(order);
-             
-             let itemsHtml = order.itens.map(item => `
-                <li class="flex justify-between text-sm">
-                    <span>${item.name}</span>
-                    <span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span>
-                </li>
-             `).join('');
-
-             let buttonHtml = '';
-             
-             // Lógica para o botão principal de avanço de status (Avança de Novo para Em Preparo)
-             if (order.status === 'Novo') {
-                 buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600">Iniciar Preparo</button>`;
-             } else if (order.status === 'Em Preparo') {
-                buttonHtml = `<button data-id="${id}" data-status="Pronto para Retirada" class="move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto</button>`;
-             } else {
-                 buttonHtml = `<button disabled class="w-full mt-4 bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed">Status: ${order.status}</button>`;
-             }
-
-
-            let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
+            currentManagingOrderData = docSnap.data();
             
-            let paymentText = 'Não definido';
-            if (order.pagamento) {
-                if (typeof order.pagamento === 'object' && order.pagamento.method) {
-                    paymentText = `${order.pagamento.method}`;
-                    if (order.pagamento.trocoPara) {
-                        paymentText += ` (Troco p/ R$ ${parseFloat(order.pagamento.trocoPara).toFixed(2).replace('.', ',')})`;
-                    }
-                } else {
-                    paymentText = order.pagamento;
-                }
+            // Popula o seletor de mesas livres
+            const freeTablesSelect = document.getElementById('free-tables-select');
+            freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
+            document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
+                const number = mesaEl.dataset.number;
+                const option = document.createElement('option');
+                option.value = number;
+                option.textContent = `Mesa ${number}`;
+                freeTablesSelect.appendChild(option);
+            });
+
+            if (freeTablesSelect.options.length === 1) {
+                showCustomAlert("Nenhuma mesa livre disponível para transferência.");
+                return;
             }
-            let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
-
-
-             return `
-                <div class="px-4 pb-2 flex justify-between items-center space-x-2">
-                    <div class="timer-container timer-green">
-                        <i class="far fa-clock"></i> Total: <span class="total-timer-value" data-created-at="${createdAtTimestamp}">${formatTime(Math.max(0, Math.floor((Date.now() - createdAtTimestamp) / 1000)))}</span>
-                    </div>
-                    <div class="timer-container timer-green">
-                        <i class="fas fa-hourglass-start"></i> Na Etapa: <span class="status-timer-value" data-status-changed-at="${statusChangedAtTimestamp}">${formatTime(Math.max(0, Math.floor((Date.now() - statusChangedAtTimestamp) / 1000)))}</span>
-                    </div>
-                </div>
-                <div class="px-4 pb-4">
-                    <div class="mt-2 pt-2 border-t">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
-                            <div class="flex items-center space-x-2">
-                                <button data-id="${id}" data-type="kitchen" class="print-btn modal-print-btn text-gray-500" title="Imprimir Comanda Cozinha"><i class="fas fa-utensils"></i></button>
-                                <button data-id="${id}" data-type="client" class="print-btn modal-print-btn text-gray-500" title="Imprimir Recibo Cliente"><i class="fas fa-receipt"></i></button>
-                                <button data-id="${id}" class="manage-btn modal-manage-btn text-blue-500" title="Editar Endereço/Detalhes"><i class="fas fa-edit"></i></button>
-                            </div>
-                        </div>
-                        <p class="text-xs text-gray-500">Telefone: ${order.endereco.telefone || 'N/A'}</p>
-                        <div class="mesa-order-details border-t border-b py-2 my-2">
-                            <h4 class="font-bold text-gray-700 mb-1">Itens:</h4>
-                            <ul class="space-y-1">${itemsHtml}</ul>
-                        </div>
-                        ${observationHtml}
-                        ${paymentHtml}
-                        <div class="text-right font-bold text-lg pt-2 border-t">
-                             Total: <span id="table-order-total">R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</span>
-                        </div>
-                        ${buttonHtml}
-                    </div>
-                </div>
-             `;
+            
+            transferTableModal.style.display = 'flex';
         }
 
-        function attachModalActionListeners(orderId) {
-            document.querySelectorAll('#manage-table-modal .modal-print-btn').forEach(btn => {
-                btn.onclick = () => printOrder(orderId, btn.dataset.type);
-            });
-            document.querySelector('#manage-table-modal .modal-manage-btn').onclick = () => {
-                manageTableModal.style.display = 'none';
-                openEditModal(orderId);
+        // Listener para CONFIRMAR TRANSFERÊNCIA (AGORA REFORÇADO)
+        document.getElementById('confirm-transfer-btn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const newTableNumber = document.getElementById('free-tables-select').value;
+            const orderIdToTransfer = currentManagingOrderId;
+            
+            if (!newTableNumber || !orderIdToTransfer || !currentManagingOrderData) {
+                showCustomAlert("Erro nos dados de transferência. Tente abrir o gerenciador da mesa novamente.");
+                return;
+            }
+
+            const newTableNum = parseInt(newTableNumber);
+
+            // 1. Prepara dados para o novo pedido
+            // Remove metadados de controle do Firestore e IDs únicos temporários do front
+            const { id, grupoMesas, criadoEm, statusChangedAt, ...transferrableData } = currentManagingOrderData;
+            
+            // Cria o novo pedido (que será o pedido ativo na nova mesa)
+            const newOrderData = {
+                ...transferrableData,
+                status: currentManagingOrderData.status, // Mantém o status original (Ex: Em Preparo)
+                endereco: {
+                    ...currentManagingOrderData.endereco,
+                    clientName: `Mesa ${newTableNum}`,
+                    rua: 'Mesa' // Garante que seja tratado como pedido de Mesa
+                },
+                grupoMesas: null,
+                criadoEm: serverTimestamp(),
+                statusChangedAt: serverTimestamp()
             };
             
-            // Listener para Fechar Conta
-            document.getElementById('close-account-btn').onclick = async () => {
-                // Ação: Define o status como 'Fechado' para mover para a coluna de Contas Fechadas
-                await updateOrderStatus(orderId, 'Fechado');
-                manageTableModal.style.display = 'none';
-            };
-            
-            // Listener para Transferir Mesa
-            document.getElementById('transfer-table-btn').onclick = () => handleTableTransferClick(orderId);
+            // 2. Finaliza o pedido antigo e o remove (DELETE DOC)
+            try {
+                // Finaliza (Marca como Finalizado, não Fechado)
+                await updateDoc(doc(db, "pedidos", orderIdToTransfer), {
+                    status: "Finalizado", 
+                    statusChangedAt: serverTimestamp()
+                });
+                
+                // Remove o pedido antigo do Firebase (pois ele foi substituído)
+                 await deleteDoc(doc(db, "pedidos", orderIdToTransfer));
 
-            // Listener para Imprimir Parcial
-            document.getElementById('print-partial-btn').onclick = () => printOrder(orderId, 'client');
+            } catch (error) {
+                console.error("Erro ao finalizar/remover pedido antigo durante transferência:", error);
+                showCustomAlert("Falha ao liberar a mesa de origem. Tente novamente.");
+                return;
+            }
+
+            // 3. Adiciona o novo pedido para a nova mesa
+            try {
+                await addDoc(collection(db, "pedidos"), newOrderData);
+            } catch (error) {
+                 console.error("Erro ao criar novo pedido na transferência:", error);
+                 showCustomAlert("Pedido antigo finalizado, mas falha ao criar na nova mesa. Recarregue a página.");
+                 return;
+            }
 
 
-            // Listener para Mudar Status (Em Preparo/Pronto)
-            document.querySelectorAll('#manage-table-modal .move-btn').forEach(btn => {
-                btn.onclick = () => {
-                    updateOrderStatus(orderId, btn.dataset.status);
-                    manageTableModal.style.display = 'none'; 
-                };
-            });
-        }
+            // Sucesso
+            showCustomAlert(`Pedido transferido com sucesso para a Mesa ${newTableNumber}`);
+            transferTableModal.style.display = 'none';
+            manageTableModal.style.display = 'none';
+            // O onSnapshot cuidará da atualização visual da grade
+        });
+
+        // Listener para Fechar Conta (Mesa)
+        document.getElementById('close-manage-table-modal').addEventListener('click', () => manageTableModal.style.display = 'none');
+        document.getElementById('cancel-transfer-btn').addEventListener('click', () => transferTableModal.style.display = 'none');
+
 
         async function openEditModal(id) {
             await loadDeliveryFees();
@@ -1355,10 +1466,6 @@
                     <div>
                         <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
                         <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm"></select>
-                    </div>
-                    <div>
-                        <label for="edit-observacao" class="block text-sm font-medium text-gray-700">Observação</label>
-                        <textarea id="edit-observacao" rows="2" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">${order.observacao || ''}</textarea>
                     </div>
                     <div class="mt-4 flex justify-between">
                         <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
@@ -1390,8 +1497,7 @@
                 "endereco.telefone": document.getElementById('edit-telefone').value,
                 "endereco.rua": document.getElementById('edit-rua').value,
                 "endereco.numero": document.getElementById('edit-numero').value,
-                "endereco.bairro": document.getElementById('edit-bairro').value,
-                "observacao": document.getElementById('edit-observacao').value 
+                "endereco.bairro": document.getElementById('edit-bairro').value
             });
             editOrderModal.style.display = 'none';
         }
@@ -1581,94 +1687,6 @@
                 }
             });
         }
-        
-        function printCashClosure() {
-            // Gather data from the modal
-            const initialValue = document.getElementById('summary-initial').textContent;
-            const totalDelivery = document.getElementById('summary-delivery').textContent;
-            const totalRetirada = document.getElementById('summary-retirada').textContent;
-            const totalMesas = document.getElementById('summary-mesas').textContent;
-            const totalDeliveryFees = document.getElementById('summary-delivery-fees').textContent;
-            const totalCash = document.getElementById('summary-cash').textContent;
-            const totalCard = document.getElementById('summary-card').textContent;
-            const totalPix = document.getElementById('summary-pix').textContent;
-            const totalSales = document.getElementById('summary-total-sales').textContent;
-            const totalSangrias = document.getElementById('summary-sangrias').textContent;
-            const expectedInCash = document.getElementById('summary-expected').textContent;
-            const finalValue = document.getElementById('final-value').value;
-            const differenceText = document.getElementById('summary-difference').textContent;
-
-            const styles = `
-                <style>
-                    @media print {
-                        @page { margin: 0; size: 80mm auto; }
-                        body {
-                            width: 80mm;
-                            margin: 0;
-                            padding: 5mm;
-                            font-family: 'Courier New', Courier, monospace;
-                            font-size: 10pt;
-                            color: #000;
-                        }
-                        * {
-                            font-family: 'Courier New', Courier, monospace;
-                            font-size: 10pt;
-                        }
-                        h1 { font-size: 14pt; text-align: center; margin-bottom: 5px; }
-                        h2 { font-size: 11pt; font-weight: bold; margin-top: 10px; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 2px;}
-                        p { margin: 2px 0; display: flex; justify-content: space-between; }
-                        hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
-                        .font-bold { font-weight: bold; }
-                    }
-                </style>
-            `;
-
-            const printContent = `
-                <h1>Fechamento de Caixa</h1>
-                <p><span>Data:</span> <span>${new Date().toLocaleString('pt-BR')}</span></p>
-                <hr>
-                <h2>Resumo de Vendas</h2>
-                <p><span>Vendas Delivery:</span> <span>${totalDelivery}</span></p>
-                <p><span>Vendas Retirada:</span> <span>${totalRetirada}</span></p>
-                <p><span>Vendas Mesas:</span> <span>${totalMesas}</span></p>
-                <p><span>Taxas de Entrega:</span> <span>${totalDeliveryFees}</span></p>
-                <hr>
-                <p class="font-bold"><span>Total de Vendas:</span> <span>${totalSales}</span></p>
-                <hr>
-                <h2>Pagamentos</h2>
-                <p><span>Dinheiro:</span> <span>${totalCash}</span></p>
-                <p><span>Cartão:</span> <span>${totalCard}</span></p>
-                <p><span>Pix:</span> <span>${totalPix}</span></p>
-                <hr>
-                <h2>Resumo do Caixa</h2>
-                <p><span>Valor Inicial:</span> <span>${initialValue}</span></p>
-                <p><span>Total Sangrias:</span> <span>${totalSangrias}</span></p>
-                <p><span>Valor Esperado:</span> <span>${expectedInCash}</span></p>
-                <p><span>Valor Contado:</span> <span>R$ ${parseFloat(finalValue || 0).toFixed(2).replace('.', ',')}</span></p>
-                <p class="font-bold"><span>Diferença:</span> <span>${differenceText || 'N/A'}</span></p>
-            `;
-
-            let printFrame = document.getElementById('print-frame');
-            if (!printFrame) {
-                printFrame = document.createElement('iframe');
-                printFrame.id = 'print-frame';
-                printFrame.style.position = 'absolute';
-                printFrame.style.width = '0';
-                printFrame.style.height = '0';
-                printFrame.style.border = '0';
-                document.body.appendChild(printFrame);
-            }
-
-            const frameDoc = printFrame.contentWindow.document;
-            frameDoc.open();
-            frameDoc.write(styles + printContent);
-            frameDoc.close();
-            
-            setTimeout(() => {
-                printFrame.contentWindow.focus();
-                printFrame.contentWindow.print();
-            }, 100);
-        }
 
         async function openCloseCashModal() {
             if (!currentCashRegister) {
@@ -1777,9 +1795,13 @@
         cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.style.display = 'none');
         confirmDeleteBtn.addEventListener('click', executeDelete);
         
-        // CORREÇÃO: Variável cancelCloseCashBtn agora está definida
-        cancelCloseCashBtn.addEventListener('click', () => closeCashModal.style.display = 'none');
-        document.getElementById('print-cash-closure-btn').addEventListener('click', printCashClosure);
+        document.getElementById('close-account-btn').addEventListener('click', async () => {
+            if(currentManagingOrderId) {
+                await updateOrderStatus(currentManagingOrderId, 'Fechado');
+                showCustomAlert("Conta fechada com sucesso!");
+                manageTableModal.style.display = 'none';
+            }
+        });
 
         resolvePendingBtn.addEventListener('click', () => {
             openCashModal.style.display = 'none';
@@ -1787,7 +1809,9 @@
         });
 
         closeCashRegisterBtn.addEventListener('click', openCloseCashModal);
-        
+        cancelCloseCashBtn.addEventListener('click', () => closeCashModal.style.display = 'none');
+        document.getElementById('print-cash-closure-btn').addEventListener('click', printCashClosure);
+
         finalValueInput.addEventListener('input', () => {
             const finalValue = parseFloat(finalValueInput.value);
             const expectedValueText = document.getElementById('summary-expected').textContent;
@@ -1940,7 +1964,7 @@
         cancelJoinBtn.addEventListener('click', () => toggleJoinMode(false));
         confirmJoinBtn.addEventListener('click', () => {
             if (selectedTablesForJoining.length < 2) {
-                alert("Selecione pelo menos duas mesas para juntar.");
+                showCustomAlert("Selecione pelo menos duas mesas para juntar.");
                 return;
             }
             const sortedTables = selectedTablesForJoining.sort((a, b) => a - b);
@@ -1952,97 +1976,76 @@
         });
 
         closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
-        
-        const handleTableTransferClick = (orderId) => {
-             const freeTablesSelect = document.getElementById('free-tables-select');
-            freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
-            const freeTables = [];
-            document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
-                freeTables.push(mesaEl.dataset.number);
-                const option = document.createElement('option');
-                option.value = mesaEl.dataset.number;
-                option.textContent = `Mesa ${mesaEl.dataset.number}`;
-                freeTablesSelect.appendChild(option);
-            });
+        document.getElementById('cancel-transfer-btn').addEventListener('click', () => transferTableModal.style.display = 'none');
 
-            if (freeTables.length === 0) {
-                alert("Nenhuma mesa livre para transferir.");
-                return;
-            }
-            // Define o OrderId no modal de transferência
-            document.getElementById('confirm-transfer-btn').dataset.orderId = orderId; 
-            transferTableModal.style.display = 'flex';
-        }
 
-        document.getElementById('cancel-transfer-btn').addEventListener('click', () => {
-            transferTableModal.style.display = 'none';
-        });
-
+        // Listener para CONFIRMAR TRANSFERÊNCIA (AGORA REFORÇADO)
         document.getElementById('confirm-transfer-btn').addEventListener('click', async (e) => {
+            e.preventDefault();
             const newTableNumber = document.getElementById('free-tables-select').value;
-            const orderIdToTransfer = e.currentTarget.dataset.orderId;
-
-            if (!newTableNumber || !orderIdToTransfer) {
-                showCustomAlert("Erro: Mesa ou pedido de origem não definidos.");
-                return;
-            }
+            const orderIdToTransfer = currentManagingOrderId;
             
-            const orderRef = doc(db, "pedidos", orderIdToTransfer);
-            const docSnap = await getDoc(orderRef);
-            if (!docSnap.exists()) {
-                showCustomAlert("Erro: Pedido de origem não encontrado.");
+            if (!newTableNumber || !orderIdToTransfer || !currentManagingOrderData) {
+                showCustomAlert("Erro nos dados de transferência. Tente abrir o gerenciador da mesa novamente.");
                 return;
-            } 
-
-            const currentOrderData = docSnap.data();
-
-            if (currentOrderData) {
-                const newClientName = `Mesa ${newTableNumber}`;
-                
-                // 1. Cria a estrutura do NOVO pedido para a nova mesa (Limpa dados específicos da mesa antiga)
-                // Usamos JSON.parse/stringify para garantir que estamos criando um objeto LIMPÍSSIMO.
-                const newOrderData = JSON.parse(JSON.stringify(currentOrderData));
-                
-                // Atualiza os dados de Endereço/Mesa no novo objeto
-                newOrderData.endereco.clientName = newClientName;
-                newOrderData.endereco.rua = "Mesa"; 
-                newOrderData.endereco.numero = newTableNumber; 
-                newOrderData.endereco.bairro = "Local";
-                newOrderData.grupoMesas = null; 
-                
-                // Mantém o status original, mas atualiza o timestamp de criação
-                newOrderData.criadoEm = serverTimestamp();
-                
-                // Remove o ID do documento, forçando o Firestore a criar um novo
-                delete newOrderData.id;
-
-                try {
-                    // 2. Finaliza o pedido antigo (muda o status para Finalizado)
-                    await updateDoc(doc(db, "pedidos", orderIdToTransfer), { 
-                        status: "Finalizado",
-                        statusChangedAt: serverTimestamp()
-                    });
-                    
-                    // **AÇÃO CHAVE (CORRIGIDA):** Exclui o pedido antigo IMEDIATAMENTE (sem arquivar).
-                    await deleteDoc(doc(db, "pedidos", orderIdToTransfer));
-
-                    // 3. Cria o novo pedido
-                    await addDoc(collection(db, "pedidos"), newOrderData);
-
-                    // A mensagem de sucesso deve ser exibida após a operação ser concluída no Firestore.
-                    showCustomAlert(`Pedido transferido com sucesso para a Mesa ${newTableNumber}`);
-                    
-                } catch (error) {
-                    console.error("Erro durante a transferência:", error);
-                    showCustomAlert(`Falha na transferência. Tente novamente. Detalhe: ${error.message}`);
-                } finally {
-                    transferTableModal.style.display = 'none';
-                    manageTableModal.style.display = 'none';
-                }
             }
+
+            const newTableNum = parseInt(newTableNumber);
+
+            // 1. Prepara dados para o novo pedido
+            // Remove metadados de controle do Firestore e IDs únicos temporários do front
+            const { id, grupoMesas, criadoEm, statusChangedAt, ...transferrableData } = currentManagingOrderData;
+            
+            // Cria o novo pedido (que será o pedido ativo na nova mesa)
+            const newOrderData = {
+                ...transferrableData,
+                status: currentManagingOrderData.status, // Mantém o status original (Ex: Em Preparo)
+                endereco: {
+                    ...currentManagingOrderData.endereco,
+                    clientName: `Mesa ${newTableNum}`,
+                    rua: 'Mesa' // Garante que seja tratado como pedido de Mesa
+                },
+                grupoMesas: null,
+                criadoEm: serverTimestamp(),
+                statusChangedAt: serverTimestamp()
+            };
+            
+            // 2. Finaliza o pedido antigo e o remove (DELETE DOC)
+            try {
+                // Finaliza (Marca como Finalizado, não Fechado)
+                await updateDoc(doc(db, "pedidos", orderIdToTransfer), {
+                    status: "Finalizado", 
+                    statusChangedAt: serverTimestamp()
+                });
+                
+                // Remove o pedido antigo do Firebase (pois ele foi substituído)
+                 await deleteDoc(doc(db, "pedidos", orderIdToTransfer));
+
+            } catch (error) {
+                console.error("Erro ao finalizar/remover pedido antigo durante transferência:", error);
+                showCustomAlert("Falha ao liberar a mesa de origem. Tente novamente.");
+                return;
+            }
+
+            // 3. Adiciona o novo pedido para a nova mesa
+            try {
+                await addDoc(collection(db, "pedidos"), newOrderData);
+            } catch (error) {
+                 console.error("Erro ao criar novo pedido na transferência:", error);
+                 showCustomAlert("Pedido antigo finalizado, mas falha ao criar na nova mesa. Recarregue a página.");
+                 return;
+            }
+
+
+            // Sucesso
+            showCustomAlert(`Pedido transferido com sucesso para a Mesa ${newTableNumber}`);
+            transferTableModal.style.display = 'none';
+            manageTableModal.style.display = 'none';
+            // O onSnapshot cuidará da atualização visual da grade
         });
 
-        // --- LÓGICA DA SANGRIA ---
+
+        // Lógica da Sangria
         const sangriaModal = document.getElementById('sangria-modal');
         const sangriaForm = document.getElementById('sangria-form');
 
