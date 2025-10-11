@@ -1822,6 +1822,97 @@
             }
         }
 
+        // ++ CORREÇÃO ++
+        function printCashClosure() {
+            const styles = `
+                <style>
+                    @media print {
+                        @page { margin: 0; size: 80mm auto; }
+                        body {
+                            width: 80mm;
+                            margin: 0;
+                            padding: 5mm;
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 10pt;
+                            color: #000;
+                            background-color: #fff;
+                        }
+                        * {
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 10pt;
+                        }
+                        h1 { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 10px;}
+                        h2 { font-size: 12pt; font-weight: bold; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px dashed #000; padding-bottom: 2px;}
+                        .line { display: flex; justify-content: space-between; margin: 2px 0; }
+                        .sub-line { padding-left: 15px; }
+                        hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+                        .font-bold { font-weight: bold; }
+                    }
+                </style>
+            `;
+
+            const initial = document.getElementById('summary-initial').textContent;
+            const delivery = document.getElementById('summary-delivery').textContent;
+            const retirada = document.getElementById('summary-retirada').textContent;
+            const mesas = document.getElementById('summary-mesas').textContent;
+            const deliveryFees = document.getElementById('summary-delivery-fees').textContent;
+            const cash = document.getElementById('summary-cash').textContent;
+            const card = document.getElementById('summary-card').textContent;
+            const pix = document.getElementById('summary-pix').textContent;
+            const totalSales = document.getElementById('summary-total-sales').textContent;
+            const sangrias = document.getElementById('summary-sangrias').textContent;
+            const expected = document.getElementById('summary-expected').textContent;
+            const finalValue = document.getElementById('final-value').value;
+            const difference = document.getElementById('summary-difference').textContent;
+            
+            const printContent = `
+                <h1>Fechamento de Caixa</h1>
+                <p><strong>Usuário:</strong> ${auth.currentUser.email}</p>
+                <p><strong>Data:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+                <hr>
+                <div class="line"><span>Valor Inicial:</span><span>${initial}</span></div>
+                <hr>
+                <h2>VENDAS POR TIPO</h2>
+                <div class="line sub-line"><span>Delivery:</span><span>${delivery}</span></div>
+                <div class="line sub-line"><span>Retirada:</span><span>${retirada}</span></div>
+                <div class="line sub-line"><span>Mesas:</span><span>${mesas}</span></div>
+                <div class="line sub-line"><span>Taxas de Entrega:</span><span>${deliveryFees}</span></div>
+                <hr>
+                <h2>VENDAS POR PAGAMENTO</h2>
+                <div class="line sub-line"><span>Dinheiro:</span><span>${cash}</span></div>
+                <div class="line sub-line"><span>Cartão:</span><span>${card}</span></div>
+                <div class="line sub-line"><span>Pix:</span><span>${pix}</span></div>
+                <hr>
+                <div class="line font-bold"><span>TOTAL DE VENDAS:</span><span>${totalSales}</span></div>
+                <div class="line"><span>Total Sangrias:</span><span>${sangrias}</span></div>
+                <hr>
+                <div class="line font-bold"><span>ESPERADO EM CAIXA:</span><span>${expected}</span></div>
+                <div class="line"><span>Valor Contado:</span><span>R$ ${parseFloat(finalValue || 0).toFixed(2).replace('.',',')}</span></div>
+                <div class="line font-bold"><span>DIFERENÇA:</span><span>${difference}</span></div>
+            `;
+
+            let printFrame = document.getElementById('print-frame');
+            if (!printFrame) {
+                printFrame = document.createElement('iframe');
+                printFrame.id = 'print-frame';
+                printFrame.style.position = 'absolute';
+                printFrame.style.width = '0';
+                printFrame.style.height = '0';
+                printFrame.style.border = '0';
+                document.body.appendChild(printFrame);
+            }
+
+            const frameDoc = printFrame.contentWindow.document;
+            frameDoc.open();
+            frameDoc.write(styles + printContent);
+            frameDoc.close();
+            
+            setTimeout(() => {
+                printFrame.contentWindow.focus();
+                printFrame.contentWindow.print();
+            }, 100);
+        }
+
         document.querySelector('main').addEventListener('click', function(e) {
             const card = e.target.closest('.order-card');
             if (card) {
@@ -2189,3 +2280,4 @@
     </script>
 </body>
 </html>
+
