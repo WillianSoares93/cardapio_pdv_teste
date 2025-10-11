@@ -74,11 +74,6 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             border-color: #3b82f6;
         }
-        .product-card img {
-            max-height: 50px;
-            object-fit: contain;
-            margin: 0.5rem auto;
-        }
         .category-btn {
             background-color: #f3f4f6;
             border: 1px solid #d1d5db;
@@ -194,6 +189,48 @@
             opacity: 0;
             transition: opacity 0.3s ease-in-out, top 0.3s ease-in-out;
         }
+        .payment-option {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .payment-option:hover {
+            background-color: #f9fafb;
+            border-color: #10b981;
+        }
+        .payment-option.selected {
+            background-color: #e6ffed; /* green-50 */
+            border-color: #10b981; /* green-600 */
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+        }
+        .payment-option input[type="radio"] {
+            margin-right: 12px;
+            accent-color: #10b981;
+        }
+        .payment-option .icon {
+            font-size: 1.5rem;
+            margin-right: 12px;
+            color: #4b5563;
+        }
+        .payment-option.selected .icon {
+            color: #10b981;
+        }
+        .payment-option .text-content {
+            flex-grow: 1;
+        }
+        .payment-option .text-content h4 {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .payment-option .text-content p {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -207,7 +244,8 @@
             <div class="flex items-center space-x-4">
                 <span id="current-user" class="text-sm font-medium text-gray-600"></span>
                 <a href="pdv.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">PAINEL PDV</a>
-                <a href="configuracoes.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">Configurações</a>
+                <a href="gerenciar.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">GERENCIAR</a>
+                <a href="editar-cardapio.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">EDITAR</a>
                 <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">SAIR</button>
             </div>
         </div>
@@ -388,7 +426,7 @@
     <div id="client-data-modal" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center pb-3 border-b">
-                <h3 id="client-modal-title" class="text-xl font-bold text-gray-900">Dados do Cliente</h3>
+                <h3 id="client-modal-title" class="text-xl font-bold text-gray-900">Dados do Cliente e Pagamento</h3>
                 <button id="close-client-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
             <div id="client-modal-error-message" class="hidden mt-4 p-3 bg-red-100 text-red-700 rounded-md text-sm"></div>
@@ -438,17 +476,60 @@
                         <input type="text" id="client-modal-name-mesa" class="w-full mt-1 p-2 border rounded-md">
                     </div>
                 </div>
-                
-                <!-- NOVO CAMPO DE OBSERVAÇÃO, visível em todos os modos -->
-                <div>
-                    <label for="client-modal-observation" class="block text-sm font-medium text-gray-700">Observação do Cliente (opcional)</label>
+                <!-- Observation Field for all -->
+                 <div class="mt-4">
+                    <label for="client-modal-observation" class="text-sm font-medium text-gray-700">Observação (Geral)</label>
                     <textarea id="client-modal-observation" rows="2" class="w-full mt-1 p-2 border rounded-md"></textarea>
                 </div>
+
+                <!-- Payment Method Fields (NEW SECTION) -->
+                <div class="pt-4 border-t border-gray-200">
+                    <h4 class="text-md font-bold text-gray-800 mb-3">Forma de Pagamento</h4>
+                    <div id="payment-options-container" class="flex flex-col gap-2">
+                        <label class="payment-option selected" data-method="Dinheiro">
+                            <input type="radio" name="modalPaymentMethod" value="Dinheiro" class="form-radio" checked>
+                            <i class="fas fa-money-bill-wave icon"></i>
+                            <div class="text-content">
+                                <h4>Dinheiro</h4>
+                            </div>
+                        </label>
+                        <label class="payment-option" data-method="Cartão de Crédito/Débito">
+                            <input type="radio" name="modalPaymentMethod" value="Cartão de Crédito/Débito" class="form-radio">
+                            <i class="fas fa-credit-card icon"></i>
+                            <div class="text-content">
+                                <h4>Cartão de Crédito/Débito</h4>
+                            </div>
+                        </label>
+                        <label class="payment-option" data-method="Pix">
+                            <input type="radio" name="modalPaymentMethod" value="Pix" class="form-radio">
+                            <i class="fas fa-qrcode icon"></i>
+                            <div class="text-content">
+                                <h4>Pix</h4>
+                            </div>
+                        </label>
+                        <label class="payment-option" data-method="A Definir">
+                            <input type="radio" name="modalPaymentMethod" value="A Definir" class="form-radio">
+                            <i class="fas fa-question-circle icon"></i>
+                            <div class="text-content">
+                                <h4>A Definir</h4>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div id="troco-input-container" class="mt-4 p-3 border border-gray-300 rounded-lg bg-gray-50">
+                        <label for="modal-trocoPara" class="block text-gray-700 text-sm font-medium mb-2">
+                            Troco para (R$):
+                        </label>
+                        <input type="number" id="modal-trocoPara" step="0.01" min="0" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none mb-2" placeholder="0,00">
+                        <p class="text-gray-600 text-sm">
+                            Troco: <span id="modal-trocoTotalDisplay" class="font-bold text-green-600">R$ 0,00</span>
+                        </p>
+                    </div>
+                </div>
             </div>
-            
             <div class="mt-6 flex justify-end space-x-4">
                 <button id="cancel-client-data-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button id="confirm-client-data-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar</button>
+                <button id="confirm-client-data-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar e Finalizar</button>
             </div>
         </div>
     </div>
@@ -479,9 +560,9 @@
         let order = [];
         let currentUserEmail = '';
         let currentOrderType = 'Retirada';
-        let clientData = { name: null, contact: null, address: null, table: null, observation: null }; // Adicionado 'observation'
-        let pauseTime = 2000; // Default 2 seconds
-        let finalizingAfterData = false;
+        let clientData = { name: null, contact: null, address: null, table: null, observation: null };
+        let paymentMethod = null; 
+        let pauseTime = 2000; 
 
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
         let ingredientStatus = {}, ingredientVisibility = {};
@@ -490,9 +571,6 @@
         let isSelectingHalfPizza = false;
         let firstHalfPizza = null;
         let currentPizzaExtrasState = {};
-        
-        // Elemento do campo de observação
-        const clientModalObservationInput = document.getElementById('client-modal-observation');
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -586,6 +664,7 @@
             renderCategories();
             renderProducts();
             setupEventListeners();
+            setupPaymentModalListeners();
         }
 
         function listenToStatusChanges() {
@@ -861,7 +940,7 @@
             });
             document.getElementById('pizza-option-modal').style.display = 'flex';
         }
-
+        
         function openBurgerBuilderModal(burger, editIndex = null, existingItem = null) {
             const modal = document.getElementById('burger-builder-modal');
             modal.dataset.burgerId = burger.id;
@@ -1290,6 +1369,8 @@
             const mainContainer = document.querySelector('.main-container');
             const sidebar = document.querySelector('.sidebar-nav');
             const mainContent = document.querySelector('.main-content');
+            const trocoParaInput = document.getElementById('modal-trocoPara');
+            const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
 
             document.addEventListener('mousemove', (e) => {
                 if (e.clientX < 20) {
@@ -1311,7 +1392,8 @@
                     const confirmed = await showConfirm('Deseja cancelar o pedido atual e limpar os dados do cliente?');
                     if (confirmed) {
                         order = [];
-                        clientData = { name: null, contact: null, address: null, table: null, observation: null }; // Resetar observação
+                        clientData = { name: null, contact: null, address: null, table: null, observation: null };
+                        paymentMethod = null; // NEW: Reset payment method
                         isSelectingHalfPizza = false;
                         firstHalfPizza = null;
                         document.getElementById('product-display').classList.remove('half-pizza-selection-active');
@@ -1320,7 +1402,8 @@
                     }
                 }
             });
-            document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrder);
+            
+            document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrderCheck);
             
             const pizzaModal = document.getElementById('pizza-option-modal');
             document.getElementById('close-pizza-modal-btn').addEventListener('click', () => pizzaModal.style.display = 'none');
@@ -1343,14 +1426,8 @@
             
              document.getElementById('order-type-selector').addEventListener('change', (e) => {
                 currentOrderType = e.target.value;
-                // Mantém o nome e a observação, mas limpa o resto ao trocar o tipo de pedido
-                clientData = { 
-                    name: clientData.name, 
-                    contact: null, 
-                    address: null, 
-                    table: null, 
-                    observation: clientData.observation 
-                }; 
+                clientData = { name: null, contact: null, address: null, table: null, observation: null };
+                paymentMethod = null; // NEW: Reset payment method
                 updateClientDataSummary();
                 updateOrderDisplay();
             });
@@ -1367,145 +1444,181 @@
                 if (e.target === clientModal) clientModal.style.display = 'none';
             });
             
-            document.getElementById('burger-ingredients-container').addEventListener('click', (e) => {
-                const quantityBtn = e.target.closest('.quantity-btn');
-                const radioInput = e.target.closest('.ingredient-option')?.querySelector('input[type="radio"]');
+            document.getElementById('burger-ingredients-container').addEventListener('click', handleBurgerIngredientClick);
+            document.getElementById('pizza-extras-ingredients-container').addEventListener('click', handlePizzaExtrasIngredientClick);
 
-                if (quantityBtn) {
-                    e.stopPropagation();
-                    const container = quantityBtn.closest('[data-ingredient-id]');
-                    const display = container.querySelector('.quantity-display');
-                    const ingredientLimit = parseInt(container.dataset.limit);
-                    let quantity = parseInt(display.textContent);
-
-                    const categoryDiv = container.closest('.ingredient-category');
-                    const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                    
-                    if (quantityBtn.classList.contains('plus-btn')) {
-                        if (quantity === 0) { 
-                            let currentVarietyCount = 0;
-                            categoryDiv.querySelectorAll('.ingredient-option').forEach(opt => {
-                                const radio = opt.querySelector('input[type="radio"]');
-                                const qtyDisplay = opt.querySelector('.quantity-display');
-                                if ((radio && radio.checked) || (qtyDisplay && parseInt(qtyDisplay.textContent) > 0)) {
-                                    currentVarietyCount++;
-                                }
-                            });
-
-                            if (currentVarietyCount >= categoryLimit) {
-                               showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                                return;
-                            }
-                        }
-                        if (quantity < ingredientLimit) {
-                            quantity++;
-                        }
-                    } else if (quantity > 0) {
-                        quantity--;
-                    }
-                    display.textContent = quantity;
-                    container.closest('.ingredient-option').classList.toggle('selected-ingredient', quantity > 0);
-                    updateBurgerPrice();
-
-                } else if (radioInput) {
-                    if (radioInput.disabled) return;
-                    
-                    const categoryDiv = radioInput.closest('.ingredient-category');
-                    const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                    const isReplacing = categoryDiv.querySelector(`input[name="${radioInput.name}"]:checked`);
-
-                    if (!isReplacing) {
-                        let currentVarietyCount = 0;
-                        categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                            if (parseInt(d.textContent) > 0) currentVarietyCount++;
-                        });
-                        
-                        categoryDiv.querySelectorAll('input[type="radio"]:checked').forEach(() => currentVarietyCount++);
-
-                        if ((currentVarietyCount + 1) > categoryLimit) {
-                            showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                            e.preventDefault();
-                            return;
-                        }
-                    }
-                    
-                    setTimeout(() => {
-                        const categoryName = radioInput.name;
-                        document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
-                            r.closest('.ingredient-option').classList.toggle('selected-ingredient', r.checked);
-                        });
-                        updateBurgerPrice();
-                    }, 0);
-                }
-            });
-            
-            document.getElementById('pizza-extras-ingredients-container').addEventListener('click', (e) => {
-                const target = e.target.closest('.quantity-btn');
-                if (!target) return;
-
-                const orderIndex = parseInt(document.getElementById('pizza-extras-builder-modal').dataset.orderIndex);
-                const display = target.parentElement.querySelector('.quantity-display');
-                const extraContainer = target.closest('[data-name]');
-                const ingredientLimit = parseInt(extraContainer.dataset.limit);
-
-                let quantity = parseInt(display.textContent);
-
-                const categoryDiv = extraContainer.closest('.ingredient-category');
-                const categoryLimit = parseInt(categoryDiv.dataset.limit);
-                let currentCategoryVarietyCount = 0;
-                categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
-                    if (parseInt(d.textContent) > 0) {
-                        currentCategoryVarietyCount++;
-                    }
-                });
-
-                if (target.classList.contains('plus-btn')) {
-                    if (quantity >= ingredientLimit) {
-                        showAlert(`O limite para este adicional é ${ingredientLimit}.`);
-                        return;
-                    }
-                    if (quantity === 0 && currentCategoryVarietyCount >= categoryLimit) {
-                        showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
-                        return;
-                    }
-                    quantity++;
-                } else if (target.classList.contains('minus-btn')) {
-                    if (quantity > 0) {
-                        quantity--;
-                    }
-                }
-                display.textContent = quantity;
-
-                const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
-                const extraName = extraContainer.dataset.name;
-                const extraPrice = parseFloat(extraContainer.dataset.price);
-
-                const existingExtraIndex = currentPizzaExtrasState[activeScope].findIndex(ex => ex.name === extraName);
-                
-                if (quantity > 0) {
-                    const placementText = activeScope === 'toda' ? 'Toda' : (activeScope === 'metade1' ? '1ª Metade' : '2ª Metade');
-                    if (existingExtraIndex > -1) {
-                        currentPizzaExtrasState[activeScope][existingExtraIndex].quantity = quantity;
-                    } else {
-                        currentPizzaExtrasState[activeScope].push({ name: extraName, price: extraPrice, placement: placementText, quantity: quantity });
-                    }
-                } else {
-                    if (existingExtraIndex > -1) {
-                        currentPizzaExtrasState[activeScope].splice(existingExtraIndex, 1);
-                    }
-                }
-                updatePizzaExtrasPrice(orderIndex);
-            });
-            
             document.getElementById('close-client-modal-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('cancel-client-data-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
+            
+            // NEW: Payment method listeners inside the modal
+            document.getElementById('payment-options-container').addEventListener('click', (e) => {
+                const label = e.target.closest('.payment-option');
+                if (label) {
+                    document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
+                    label.classList.add('selected');
+
+                    const method = label.dataset.method;
+                    const isCash = method === 'Dinheiro';
+
+                    document.getElementById('troco-input-container').classList.toggle('hidden', !isCash);
+
+                    // Clear troco data if not cash
+                    if (!isCash) {
+                        trocoParaInput.value = '';
+                        trocoTotalDisplay.textContent = 'R$ 0,00';
+                    } else {
+                        // Calculate troco immediately if cash is selected and there's an input value
+                        calculateTroco();
+                    }
+                }
+            });
+
+            // NEW: Troco input listener
+            trocoParaInput.addEventListener('input', calculateTroco);
+        }
+        
+        function handleBurgerIngredientClick(e) {
+            const quantityBtn = e.target.closest('.quantity-btn');
+            const radioInput = e.target.closest('.ingredient-option')?.querySelector('input[type="radio"]');
+
+            if (quantityBtn) {
+                e.stopPropagation();
+                const container = quantityBtn.closest('[data-ingredient-id]');
+                const display = container.querySelector('.quantity-display');
+                const ingredientLimit = parseInt(container.dataset.limit);
+                let quantity = parseInt(display.textContent);
+
+                const categoryDiv = container.closest('.ingredient-category');
+                const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                
+                if (quantityBtn.classList.contains('plus-btn')) {
+                    if (quantity === 0) { 
+                        let currentVarietyCount = 0;
+                        categoryDiv.querySelectorAll('.ingredient-option').forEach(opt => {
+                            const radio = opt.querySelector('input[type="radio"]');
+                            const qtyDisplay = opt.querySelector('.quantity-display');
+                            if ((radio && radio.checked) || (qtyDisplay && parseInt(qtyDisplay.textContent) > 0)) {
+                                currentVarietyCount++;
+                            }
+                        });
+
+                        if (currentVarietyCount >= categoryLimit) {
+                           showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                            return;
+                        }
+                    }
+                    if (quantity < ingredientLimit) {
+                        quantity++;
+                    }
+                } else if (quantity > 0) {
+                    quantity--;
+                }
+                display.textContent = quantity;
+                container.closest('.ingredient-option').classList.toggle('selected-ingredient', quantity > 0);
+                updateBurgerPrice();
+
+            } else if (radioInput) {
+                if (radioInput.disabled) return;
+                
+                const categoryDiv = radioInput.closest('.ingredient-category');
+                const categoryLimit = parseInt(categoryDiv.dataset.limit);
+                const isReplacing = categoryDiv.querySelector(`input[name="${radioInput.name}"]:checked`);
+
+                if (!isReplacing) {
+                    let currentVarietyCount = 0;
+                    categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                        if (parseInt(d.textContent) > 0) currentVarietyCount++;
+                    });
+                    
+                    categoryDiv.querySelectorAll('input[type="radio"]:checked').forEach(() => currentVarietyCount++);
+
+                    if ((currentVarietyCount + 1) > categoryLimit) {
+                        showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                        e.preventDefault();
+                        return;
+                    }
+                }
+                
+                setTimeout(() => {
+                    const categoryName = radioInput.name;
+                    document.querySelectorAll(`input[name="${categoryName}"]`).forEach(r => {
+                        r.closest('.ingredient-option').classList.toggle('selected-ingredient', r.checked);
+                    });
+                    updateBurgerPrice();
+                }, 0);
+            }
         }
 
+        function handlePizzaExtrasIngredientClick(e) {
+            const target = e.target.closest('.quantity-btn');
+            if (!target) return;
+
+            const orderIndex = parseInt(document.getElementById('pizza-extras-builder-modal').dataset.orderIndex);
+            const display = target.parentElement.querySelector('.quantity-display');
+            const extraContainer = target.closest('[data-name]');
+            const ingredientLimit = parseInt(extraContainer.dataset.limit);
+
+            let quantity = parseInt(display.textContent);
+
+            const categoryDiv = extraContainer.closest('.ingredient-category');
+            const categoryLimit = parseInt(categoryDiv.dataset.limit);
+            let currentCategoryVarietyCount = 0;
+            categoryDiv.querySelectorAll('.quantity-display').forEach(d => {
+                if (parseInt(d.textContent) > 0) {
+                    currentCategoryVarietyCount++;
+                }
+            });
+
+            if (target.classList.contains('plus-btn')) {
+                if (quantity >= ingredientLimit) {
+                    showAlert(`O limite para este adicional é ${ingredientLimit}.`);
+                    return;
+                }
+                if (quantity === 0 && currentCategoryVarietyCount >= categoryLimit) {
+                    showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
+                    return;
+                }
+                quantity++;
+            } else if (target.classList.contains('minus-btn')) {
+                if (quantity > 0) {
+                    quantity--;
+                }
+            }
+            display.textContent = quantity;
+
+            const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
+            const extraName = extraContainer.dataset.name;
+            const extraPrice = parseFloat(extraContainer.dataset.price);
+
+            const existingExtraIndex = currentPizzaExtrasState[activeScope].findIndex(ex => ex.name === extraName);
+            
+            if (quantity > 0) {
+                const placementText = activeScope === 'toda' ? 'Toda' : (activeScope === 'metade1' ? '1ª Metade' : '2ª Metade');
+                if (existingExtraIndex > -1) {
+                    currentPizzaExtrasState[activeScope][existingExtraIndex].quantity = quantity;
+                } else {
+                    currentPizzaExtrasState[activeScope].push({ name: extraName, price: extraPrice, placement: placementText, quantity: quantity });
+                }
+            } else {
+                if (existingExtraIndex > -1) {
+                    currentPizzaExtrasState[activeScope].splice(existingExtraIndex, 1);
+                }
+            }
+            updatePizzaExtrasPrice(orderIndex);
+        }
+        
         function openClientDataModal() {
             const modal = document.getElementById('client-data-modal');
             const errorDiv = document.getElementById('client-modal-error-message');
             errorDiv.classList.add('hidden');
+            
+            document.getElementById('client-modal-title').textContent = currentOrderType === 'Delivery' 
+                ? 'Dados do Cliente e Pagamento (Delivery)' 
+                : (currentOrderType === 'Retirada' 
+                    ? 'Dados do Cliente e Pagamento (Retirada)'
+                    : 'Dados da Mesa e Pagamento');
+
             modal.querySelectorAll('#client-modal-retirada-fields, #client-modal-delivery-fields, #client-modal-mesa-fields').forEach(f => f.classList.add('hidden'));
 
             if (currentOrderType === 'Retirada') {
@@ -1525,52 +1638,142 @@
                 document.getElementById('client-modal-name-mesa').value = clientData.name || '';
             }
             
-            // NOVO: Preencher campo de observação
-            clientModalObservationInput.value = clientData.observation || ''; 
+            // Populates Observation
+            document.getElementById('client-modal-observation').value = clientData.observation || '';
             
+            // Populates Payment Method
+            const selectedMethod = paymentMethod ? (typeof paymentMethod === 'object' ? paymentMethod.method : paymentMethod) : 'Dinheiro';
+            document.querySelector(`input[name="modalPaymentMethod"][value="${selectedMethod}"]`).checked = true;
+            document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected')); 
+            document.querySelector(`input[name="modalPaymentMethod"]:checked`).closest('.payment-option').classList.add('selected');
+
+            // Populates Troco
+            const isCash = selectedMethod === 'Dinheiro';
+            const trocoParaInput = document.getElementById('modal-trocoPara');
+            const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
+            document.getElementById('troco-input-container').classList.toggle('hidden', !isCash);
+            
+            if (isCash && typeof paymentMethod === 'object' && paymentMethod.trocoPara) {
+                trocoParaInput.value = paymentMethod.trocoPara;
+            } else {
+                trocoParaInput.value = '';
+            }
+            calculateTroco();
+
+            // Set Total Value for summary
+            const totalValue = order.reduce((sum, item) => sum + item.price, 0) + (currentOrderType === 'Delivery' && clientData.address ? clientData.address.deliveryFee : 0);
+            document.getElementById('payment-modal-total').textContent = `R$ ${totalValue.toFixed(2).replace('.',',')}`;
+
+
             modal.style.display = 'flex';
         }
         
-        function confirmClientData() {
-             const errorDiv = document.getElementById('client-modal-error-message');
-             errorDiv.classList.add('hidden');
+        function calculateTroco() {
+            const trocoParaInput = document.getElementById('modal-trocoPara');
+            const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
+            const totalValue = order.reduce((sum, item) => sum + item.price, 0) + (currentOrderType === 'Delivery' && clientData.address ? clientData.address.deliveryFee : 0);
 
-             if (currentOrderType === 'Retirada') {
-                clientData.name = document.getElementById('client-modal-name-retirada').value.trim();
-                clientData.contact = document.getElementById('client-modal-contact-retirada').value.trim();
-            } else if (currentOrderType === 'Delivery') {
-                clientData.name = document.getElementById('client-modal-name-delivery').value.trim();
-                clientData.contact = document.getElementById('client-modal-contact-delivery').value.trim();
-                const street = document.getElementById('client-modal-street').value.trim();
-                const number = document.getElementById('client-modal-number').value.trim();
-                const neighborhood = document.getElementById('client-modal-neighborhood').value;
-                if (!clientData.name || !clientData.contact || !street || !number || !neighborhood) {
-                    errorDiv.textContent = "Para Delivery, Nome, Contato, Rua, Número e Bairro são obrigatórios.";
+            const trocoPara = parseFloat(trocoParaInput.value.replace(',', '.')) || 0;
+            
+            if (trocoPara > 0 && trocoPara >= totalValue) {
+                const trocoTotal = trocoPara - totalValue;
+                trocoTotalDisplay.textContent = `R$ ${trocoTotal.toFixed(2).replace('.', ',')}`;
+                trocoTotalDisplay.classList.remove('text-red-600'); 
+                trocoTotalDisplay.classList.add('text-green-600'); 
+            } else {
+                trocoTotalDisplay.textContent = 'R$ 0,00';
+                trocoTotalDisplay.classList.remove('text-green-600');
+                trocoTotalDisplay.classList.add('text-red-600'); 
+            }
+        }
+
+
+        function confirmClientData() {
+            if (order.length === 0) {
+                showAlert("O carrinho está vazio.");
+                return;
+            }
+            
+            const errorDiv = document.getElementById('client-modal-error-message');
+            errorDiv.classList.add('hidden');
+            
+            let currentClientData = {};
+            
+            // 1. Coleta Dados do Cliente/Mesa
+            if (currentOrderType === 'Retirada') {
+                currentClientData.name = document.getElementById('client-modal-name-retirada').value.trim();
+                currentClientData.contact = document.getElementById('client-modal-contact-retirada').value.trim();
+                if (!currentClientData.name) {
+                    errorDiv.textContent = "Para Retirada, o nome do cliente é obrigatório.";
                     errorDiv.classList.remove('hidden');
                     return;
                 }
-                clientData.address = { street, number, neighborhood };
+            } else if (currentOrderType === 'Delivery') {
+                currentClientData.name = document.getElementById('client-modal-name-delivery').value.trim();
+                currentClientData.contact = document.getElementById('client-modal-contact-delivery').value.trim();
+                const street = document.getElementById('client-modal-street').value.trim();
+                const number = document.getElementById('client-modal-number').value.trim();
+                const neighborhood = document.getElementById('client-modal-neighborhood').value;
+                if (!currentClientData.name || !currentClientData.contact || !street || !number || !neighborhood) {
+                    errorDiv.textContent = "Para Delivery, todos os campos são obrigatórios (Nome, Contato, Endereço).";
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                const selectedFee = allDeliveryFees.find(fee => fee.neighborhood === neighborhood);
+                currentClientData.address = { 
+                    street, 
+                    number, 
+                    neighborhood, 
+                    deliveryFee: selectedFee ? selectedFee.deliveryFee : 0 
+                };
             } else { // Mesa
-                clientData.table = document.getElementById('client-modal-table-number').value.trim();
-                clientData.name = document.getElementById('client-modal-name-mesa').value.trim();
-                if (!clientData.table) {
+                currentClientData.table = document.getElementById('client-modal-table-number').value.trim();
+                currentClientData.name = document.getElementById('client-modal-name-mesa').value.trim();
+                if (!currentClientData.table) {
                     errorDiv.textContent = "O número da mesa é obrigatório.";
                     errorDiv.classList.remove('hidden');
                     return;
                 }
             }
             
-            // NOVO: Salvar observação
-            clientData.observation = clientModalObservationInput.value.trim();
+            // Coleta Observação
+            currentClientData.observation = document.getElementById('client-modal-observation').value.trim();
+
+            // 2. Coleta Forma de Pagamento
+            const selectedPaymentRadio = document.querySelector('input[name="modalPaymentMethod"]:checked');
+            if (!selectedPaymentRadio) {
+                errorDiv.textContent = "Selecione uma forma de pagamento.";
+                errorDiv.classList.remove('hidden');
+                return;
+            }
             
+            const method = selectedPaymentRadio.value;
+            let finalPaymentData;
+            const totalValue = order.reduce((sum, item) => sum + item.price, 0) + (currentOrderType === 'Delivery' && currentClientData.address ? currentClientData.address.deliveryFee : 0);
+
+            if (method === 'Dinheiro') {
+                const trocoPara = parseFloat(document.getElementById('modal-trocoPara').value.replace(',', '.')) || 0;
+                if (trocoPara > 0 && trocoPara < totalValue) {
+                    errorDiv.textContent = `O valor para troco (R$ ${trocoPara.toFixed(2).replace('.', ',')}) não pode ser menor que o total (R$ ${totalValue.toFixed(2).replace('.', ',')}).`;
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                const trocoTotal = trocoPara > 0 ? trocoPara - totalValue : 0;
+                finalPaymentData = { method: 'Dinheiro', trocoPara: trocoPara, trocoTotal: trocoTotal };
+            } else {
+                finalPaymentData = method;
+            }
+
+            // Atualiza o estado global
+            clientData = currentClientData;
+            paymentMethod = finalPaymentData;
+
             document.getElementById('client-data-modal').style.display = 'none';
             updateClientDataSummary();
             updateOrderDisplay();
-
-            if (finalizingAfterData) {
-                finalizingAfterData = false;
-                finalizeOrder();
-            }
+            
+            // Tenta Finalizar o Pedido
+            finalizeOrder();
         }
 
         function updateClientDataSummary() {
@@ -1581,6 +1784,8 @@
             }
 
             let summaryHtml = '';
+            
+            // 1. Tipo e Nome
             if (currentOrderType === 'Mesa') {
                 summaryHtml = `<strong>Mesa:</strong> ${clientData.table || 'N/A'}`;
                  if(clientData.name) {
@@ -1588,20 +1793,69 @@
                 }
             } else {
                 summaryHtml = `<strong>Cliente:</strong> ${clientData.name || 'N/A'}`;
-                if(clientData.contact) summaryHtml += ` | <strong>Contato:</strong> ${clientData.contact}`;
-                if(clientData.address) {
-                    summaryHtml += `<br><strong>Endereço:</strong> ${clientData.address.street}, ${clientData.address.number} - ${clientData.address.neighborhood}`;
+            }
+
+            // 2. Contato/Endereço
+            if(clientData.contact) summaryHtml += ` | <strong>Contato:</strong> ${clientData.contact}`;
+            if(currentOrderType === 'Delivery' && clientData.address) {
+                summaryHtml += `<br><strong>Endereço:</strong> ${clientData.address.street}, ${clientData.address.number} - ${clientData.address.neighborhood}`;
+            }
+
+            // 3. Pagamento
+            let paymentText = '';
+            if (paymentMethod) {
+                if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
+                    paymentText = `Dinheiro (Troco p/ R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')})`;
+                } else {
+                    paymentText = paymentMethod;
                 }
+            } else {
+                paymentText = 'A DEFINIR';
             }
-            
-            // NOVO: Adicionar observação ao resumo
+            summaryHtml += `<br><strong>Pagamento:</strong> ${paymentText}`;
+
+            // 4. Observação
             if (clientData.observation) {
-                 summaryHtml += `<br><strong>Obs:</strong> ${clientData.observation}`;
+                 summaryHtml += `<br><strong>Obs. Cliente:</strong> ${clientData.observation}`;
             }
-            
+
             summaryDiv.innerHTML = summaryHtml;
             summaryDiv.classList.remove('hidden');
         }
+
+        function finalizeOrderCheck() {
+            if (order.length === 0) {
+                showAlert("O carrinho está vazio.");
+                return;
+            }
+            
+            // Se os dados do cliente não estiverem completos (para o tipo de pedido), abre o modal.
+            let isDataIncomplete = false;
+            
+            if (currentOrderType === 'Retirada' && !clientData.name) {
+                isDataIncomplete = true;
+            } else if (currentOrderType === 'Mesa' && !clientData.table) {
+                isDataIncomplete = true;
+            } else if (currentOrderType === 'Delivery' && (!clientData.name || !clientData.address)) {
+                isDataIncomplete = true;
+            }
+
+            if (isDataIncomplete) {
+                // Abre o modal de dados do cliente, que agora inclui o pagamento
+                openClientDataModal();
+                return;
+            }
+            
+            // Se os dados estão no estado global, mas a forma de pagamento não está definida (o que pode acontecer se o atendente nunca abriu o modal)
+            if (!paymentMethod) {
+                 openClientDataModal();
+                 return;
+            }
+            
+            // Se tudo estiver OK, finaliza
+            finalizeOrder();
+        }
+
 
         async function finalizeOrder() {
             if(order.length === 0) {
@@ -1609,27 +1863,31 @@
                 return;
             }
             
-            if ( (currentOrderType === 'Mesa' && !clientData.table) || (currentOrderType !== 'Mesa' && !clientData.name && clientData.name !== 'Cliente Balcão') ) {
-                finalizingAfterData = true;
-                openClientDataModal();
+            // Revalida dados críticos antes de enviar
+            if ( (currentOrderType === 'Mesa' && !clientData.table) || 
+                 (currentOrderType === 'Retirada' && !clientData.name) || 
+                 (currentOrderType === 'Delivery' && (!clientData.name || !clientData.address)) ||
+                 (!paymentMethod) ) 
+            {
+                showAlert("Dados do cliente ou forma de pagamento incompletos. Tente novamente.");
                 return;
             }
+
 
             let subtotal = order.reduce((sum, item) => sum + item.price, 0);
             let deliveryFee = 0;
             let endereco = {};
-            let status = 'Novo';
+            let status = 'Novo'; 
 
             if(currentOrderType === 'Delivery') {
-                if (!clientData.address) {
-                    finalizingAfterData = true;
-                    openClientDataModal();
-                    return;
-                }
-                const neighborhoodSelect = document.getElementById('client-modal-neighborhood');
-                const selectedOption = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
-                deliveryFee = parseFloat(selectedOption ? selectedOption.dataset.fee : 0) || 0;
-                endereco = { clientName: clientData.name, telefone: clientData.contact, rua: clientData.address.street, numero: clientData.address.number, bairro: clientData.address.neighborhood };
+                deliveryFee = clientData.address.deliveryFee;
+                endereco = { 
+                    clientName: clientData.name, 
+                    telefone: clientData.contact, 
+                    rua: clientData.address.street, 
+                    numero: clientData.address.number, 
+                    bairro: clientData.address.neighborhood 
+                };
             } else if (currentOrderType === 'Mesa') {
                 let clientNameForOrder = `Mesa ${clientData.table}`;
                 if (clientData.name) {
@@ -1638,7 +1896,11 @@
                 endereco = { clientName: clientNameForOrder, rua: 'Mesa' };
                 status = 'Em Preparo';
             } else { // Retirada
-                endereco = { clientName: clientData.name || 'Cliente Balcão', telefone: clientData.contact, rua: 'Retirada no Balcão' };
+                endereco = { 
+                    clientName: clientData.name || 'Cliente Balcão', 
+                    telefone: clientData.contact, 
+                    rua: 'Retirada no Balcão' 
+                };
             }
             
             const cleanedItems = JSON.parse(JSON.stringify(order, (key, value) => {
@@ -1651,10 +1913,9 @@
                 itens: cleanedItems,
                 endereco: endereco,
                 total: { subtotal: subtotal, finalTotal: subtotal + deliveryFee, deliveryFee: deliveryFee, discount: 0 },
-                pagamento: 'A Definir',
+                pagamento: paymentMethod, // NEW: Usando o paymentMethod do estado
                 status: status,
                 criadoEm: serverTimestamp(),
-                // NOVO: Adiciona a observação do cliente ao pedido
                 observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
             };
 
@@ -1662,9 +1923,10 @@
                 await addDoc(collection(db, "pedidos"), newOrder);
                 showTemporaryFeedback(`Pedido para ${clientData.name || `Mesa ${clientData.table}`} finalizado com sucesso!`);
                 
-                // Limpa os dados do pedido após a finalização
+                // Reseta o estado
                 order = [];
-                clientData = { name: null, contact: null, address: null, table: null, observation: null }; // Resetar observação
+                clientData = { name: null, contact: null, address: null, table: null, observation: null };
+                paymentMethod = null;
                 updateOrderDisplay();
                 updateClientDataSummary();
             } catch (error) {
