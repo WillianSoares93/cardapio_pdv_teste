@@ -425,108 +425,114 @@
     <!-- Client Data Modal -->
     <div id="client-data-modal" class="modal">
         <div class="modal-content max-h-[90vh] overflow-y-auto">
+            
+            <!-- HEADER (Fixed) -->
             <div class="flex justify-between items-center pb-3 border-b sticky top-0 bg-white z-20">
                 <h3 id="client-modal-title" class="text-xl font-bold text-gray-900">Dados do Cliente e Pagamento</h3>
                 <button id="close-client-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
-            <div id="client-modal-error-message" class="hidden mt-4 p-3 bg-red-100 text-red-700 rounded-md text-sm"></div>
-            <div class="mt-4 space-y-4">
-                <!-- Fields for Retirada -->
-                <div id="client-modal-retirada-fields" class="hidden space-y-4">
-                    <div>
-                        <label for="client-modal-name-retirada" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
-                        <input type="text" id="client-modal-name-retirada" class="w-full mt-1 p-2 border rounded-md">
+            
+            <!-- SCROLLABLE BODY -->
+            <div class="pt-4">
+                <div id="client-modal-error-message" class="hidden mt-0 p-3 bg-red-100 text-red-700 rounded-md text-sm"></div>
+                <div class="mt-4 space-y-4">
+                    <!-- Fields for Retirada -->
+                    <div id="client-modal-retirada-fields" class="hidden space-y-4">
+                        <div>
+                            <label for="client-modal-name-retirada" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
+                            <input type="text" id="client-modal-name-retirada" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
+                        <div>
+                            <label for="client-modal-contact-retirada" class="text-sm font-medium text-gray-700">Contato (Opcional)</label>
+                            <input type="tel" id="client-modal-contact-retirada" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
                     </div>
-                    <div>
-                        <label for="client-modal-contact-retirada" class="text-sm font-medium text-gray-700">Contato (Opcional)</label>
-                        <input type="tel" id="client-modal-contact-retirada" class="w-full mt-1 p-2 border rounded-md">
+                    <!-- Fields for Delivery -->
+                    <div id="client-modal-delivery-fields" class="hidden space-y-4">
+                        <div>
+                            <label for="client-modal-name-delivery" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
+                            <input type="text" id="client-modal-name-delivery" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
+                        <div>
+                            <label for="client-modal-contact-delivery" class="text-sm font-medium text-gray-700">Contato</label>
+                            <input type="tel" id="client-modal-contact-delivery" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
+                        <div>
+                            <label for="client-modal-street" class="text-sm font-medium text-gray-700">Rua</label>
+                            <input type="text" id="client-modal-street" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
+                        <div>
+                            <label for="client-modal-number" class="text-sm font-medium text-gray-700">Número</label>
+                            <input type="text" id="client-modal-number" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
+                        <div>
+                            <label for="client-modal-neighborhood" class="text-sm font-medium text-gray-700">Bairro</label>
+                            <select id="client-modal-neighborhood" class="w-full mt-1 p-2 border rounded-md"></select>
+                        </div>
                     </div>
-                </div>
-                <!-- Fields for Delivery -->
-                <div id="client-modal-delivery-fields" class="hidden space-y-4">
-                    <div>
-                        <label for="client-modal-name-delivery" class="text-sm font-medium text-gray-700">Nome do Cliente</label>
-                        <input type="text" id="client-modal-name-delivery" class="w-full mt-1 p-2 border rounded-md">
+                    <!-- Fields for Mesa -->
+                    <div id="client-modal-mesa-fields" class="hidden space-y-4">
+                        <div>
+                            <label for="client-modal-table-number" class="text-sm font-medium text-gray-700">Número da Mesa</label>
+                            <input type="number" id="client-modal-table-number" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
+                        <div>
+                            <label for="client-modal-name-mesa" class="text-sm font-medium text-gray-700">Nome do Cliente (Opcional)</label>
+                            <input type="text" id="client-modal-name-mesa" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
                     </div>
-                    <div>
-                        <label for="client-modal-contact-delivery" class="text-sm font-medium text-gray-700">Contato</label>
-                        <input type="tel" id="client-modal-contact-delivery" class="w-full mt-1 p-2 border rounded-md">
-                    </div>
-                    <div>
-                        <label for="client-modal-street" class="text-sm font-medium text-gray-700">Rua</label>
-                        <input type="text" id="client-modal-street" class="w-full mt-1 p-2 border rounded-md">
-                    </div>
-                    <div>
-                        <label for="client-modal-number" class="text-sm font-medium text-gray-700">Número</label>
-                        <input type="text" id="client-modal-number" class="w-full mt-1 p-2 border rounded-md">
-                    </div>
-                    <div>
-                        <label for="client-modal-neighborhood" class="text-sm font-medium text-gray-700">Bairro</label>
-                        <select id="client-modal-neighborhood" class="w-full mt-1 p-2 border rounded-md"></select>
-                    </div>
-                </div>
-                <!-- Fields for Mesa -->
-                <div id="client-modal-mesa-fields" class="hidden space-y-4">
-                    <div>
-                        <label for="client-modal-table-number" class="text-sm font-medium text-gray-700">Número da Mesa</label>
-                        <input type="number" id="client-modal-table-number" class="w-full mt-1 p-2 border rounded-md">
-                    </div>
-                    <div>
-                        <label for="client-modal-name-mesa" class="text-sm font-medium text-gray-700">Nome do Cliente (Opcional)</label>
-                        <input type="text" id="client-modal-name-mesa" class="w-full mt-1 p-2 border rounded-md">
-                    </div>
-                </div>
-                <!-- Observation Field for all -->
-                 <div class="mt-4">
-                    <label for="client-modal-observation" class="text-sm font-medium text-gray-700">Observação (Geral)</label>
-                    <textarea id="client-modal-observation" rows="2" class="w-full mt-1 p-2 border rounded-md"></textarea>
-                </div>
-
-                <!-- Payment Method Fields (NEW SECTION) -->
-                <div class="pt-4 border-t border-gray-200">
-                    <h4 class="text-md font-bold text-gray-800 mb-3">Forma de Pagamento</h4>
-                    <div id="payment-options-container" class="flex flex-col gap-2">
-                        <label class="payment-option selected" data-method="Dinheiro">
-                            <input type="radio" name="modalPaymentMethod" value="Dinheiro" class="form-radio" checked>
-                            <i class="fas fa-money-bill-wave icon"></i>
-                            <div class="text-content">
-                                <h4>Dinheiro</h4>
-                            </div>
-                        </label>
-                        <label class="payment-option" data-method="Cartão de Crédito/Débito">
-                            <input type="radio" name="modalPaymentMethod" value="Cartão de Crédito/Débito" class="form-radio">
-                            <i class="fas fa-credit-card icon"></i>
-                            <div class="text-content">
-                                <h4>Cartão de Crédito/Débito</h4>
-                            </div>
-                        </label>
-                        <label class="payment-option" data-method="Pix">
-                            <input type="radio" name="modalPaymentMethod" value="Pix" class="form-radio">
-                            <i class="fas fa-qrcode icon"></i>
-                            <div class="text-content">
-                                <h4>Pix</h4>
-                            </div>
-                        </label>
-                        <label class="payment-option" data-method="A Definir">
-                            <input type="radio" name="modalPaymentMethod" value="A Definir" class="form-radio">
-                            <i class="fas fa-question-circle icon"></i>
-                            <div class="text-content">
-                                <h4>A Definir</h4>
-                            </div>
-                        </label>
+                    <!-- Observation Field for all -->
+                     <div class="mt-4">
+                        <label for="client-modal-observation" class="text-sm font-medium text-gray-700">Observação (Geral)</label>
+                        <textarea id="client-modal-observation" rows="2" class="w-full mt-1 p-2 border rounded-md"></textarea>
                     </div>
 
-                    <div id="troco-input-container" class="mt-4 p-3 border border-gray-300 rounded-lg bg-gray-50">
-                        <label for="modal-trocoPara" class="block text-gray-700 text-sm font-medium mb-2">
-                            Troco para (R$):
-                        </label>
-                        <input type="number" id="modal-trocoPara" step="0.01" min="0" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none mb-2" placeholder="0,00">
-                        <p class="text-gray-600 text-sm">
-                            Troco: <span id="modal-trocoTotalDisplay" class="font-bold text-green-600">R$ 0,00</span>
-                        </p>
+                    <!-- Payment Method Fields (NEW SECTION) -->
+                    <div class="pt-4 border-t border-gray-200">
+                        <h4 class="text-md font-bold text-gray-800 mb-3">Forma de Pagamento</h4>
+                        <div id="payment-options-container" class="flex flex-col gap-2">
+                            <label class="payment-option selected" data-method="Dinheiro">
+                                <input type="radio" name="modalPaymentMethod" value="Dinheiro" class="form-radio" checked>
+                                <i class="fas fa-money-bill-wave icon"></i>
+                                <div class="text-content">
+                                    <h4>Dinheiro</h4>
+                                </div>
+                            </label>
+                            <label class="payment-option" data-method="Cartão de Crédito/Débito">
+                                <input type="radio" name="modalPaymentMethod" value="Cartão de Crédito/Débito" class="form-radio">
+                                <i class="fas fa-credit-card icon"></i>
+                                <div class="text-content">
+                                    <h4>Cartão de Crédito/Débito</h4>
+                                </div
+                            ></label>
+                            <label class="payment-option" data-method="Pix">
+                                <input type="radio" name="modalPaymentMethod" value="Pix" class="form-radio">
+                                <i class="fas fa-qrcode icon"></i>
+                                <div class="text-content">
+                                    <h4>Pix</h4>
+                                </div>
+                            </label>
+                            <label class="payment-option" data-method="A Definir">
+                                <input type="radio" name="modalPaymentMethod" value="A Definir" class="form-radio">
+                                <i class="fas fa-question-circle icon"></i>
+                                <div class="text-content">
+                                    <h4>A Definir</h4>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div id="troco-input-container" class="mt-4 p-3 border border-gray-300 rounded-lg bg-gray-50">
+                            <label for="modal-trocoPara" class="block text-gray-700 text-sm font-medium mb-2">
+                                Troco para (R$):
+                            </label>
+                            <input type="number" id="modal-trocoPara" step="0.01" min="0" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none mb-2" placeholder="0,00">
+                            <p class="text-gray-600 text-sm">
+                                Troco: <span id="modal-trocoTotalDisplay" class="font-bold text-green-600">R$ 0,00</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            <!-- END OF SCROLLABLE BODY -->
             <div class="mt-6 flex justify-end space-x-4">
                 <button id="cancel-client-data-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
                 <button id="confirm-client-data-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar e Finalizar</button>
