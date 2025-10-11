@@ -70,7 +70,7 @@
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
         .mesa-status-livre { background-color: #dcfce7; border-color: #22c55e; color: #166534; }
-        .mesa-status-ocupada { background-color: #fef3c7; border-color: #f59e0b; color: #b45309; } /* Amarelo: Em Preparo */
+        .mesa-status-ocupada { background-color: #fef3c7; border-color: #f59e0b; color: #b45309; } /* Amarelo: Em Preparo/Novo */
         .mesa-status-pronto { background-color: #dbeafe; border-color: #3b82f6; color: #1e40af; } /* Azul Claro: Pronto p/ Servir */
         .mesa-status-servido { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; } /* Vermelho Claro: Servido (Aguardando Fechamento) */
         .mesa-status-juntada { background-color: #e0e7ff; border-color: #4f46e5; color: #3730a3; }
@@ -1205,7 +1205,7 @@
                  } else if (order.status === 'Saiu para Entrega') {
                     buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn modal-move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
                  } else if (order.status === 'Pronto para Retirada') {
-                    buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn modal-move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-60om">Marcar como Entregue</button>`;
+                    buttonHtml = `<button data-id="${id}" data-status="Entregue" class="move-btn modal-move-btn w-full mt-4 bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Marcar como Entregue</button>`;
                  } else {
                      buttonHtml = `<button disabled class="w-full mt-4 bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed">Status: ${order.status}</button>`;
                  }
