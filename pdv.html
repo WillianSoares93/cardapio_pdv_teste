@@ -968,7 +968,10 @@
                         // Determina o status visual da mesa
                         let mesaStatusClass;
                         let mesaStatusText;
-                        if (orderStatus === 'Novo' || orderStatus === 'Em Preparo') {
+                        if (orderStatus === 'Novo') {
+                             mesaStatusClass = 'mesa-status-juntada';
+                             mesaStatusText = 'Aguardando Pedido';
+                        } else if (orderStatus === 'Em Preparo') {
                              mesaStatusClass = 'mesa-status-ocupada';
                              mesaStatusText = 'Em Preparo';
                         } else if (orderStatus === 'Pronto Para Servir') {
@@ -987,9 +990,8 @@
                         if (sortedGroup.length > 1) {
                             const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
                             if (primaryTableEl) {
-                                primaryTableEl.classList.remove('mesa-status-livre', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido');
-                                primaryTableEl.classList.add('mesa-status-juntada', mesaStatusClass);
-                                primaryTableEl.style.gridColumn = `span ${sortedGroup.length}`;
+                                primaryTableEl.classList.remove('mesa-status-livre', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido', 'mesa-status-juntada');
+                                primaryTableEl.classList.add(mesaStatusClass);
                                 primaryTableEl.querySelector('.status-text').textContent = 'Agrupada';
                                 primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
                                 primaryTableEl.dataset.status = 'juntada';
@@ -2194,7 +2196,7 @@
                 endereco: { clientName: clientName, rua: "Mesa" },
                 total: { subtotal: 0, finalTotal: 0, deliveryFee: 0, discount: 0 },
                 pagamento: 'A Definir',
-                status: 'Em Preparo',
+                status: 'Novo',
                 criadoEm: serverTimestamp(),
                 statusChangedAt: serverTimestamp(),
                 observacao: '',
