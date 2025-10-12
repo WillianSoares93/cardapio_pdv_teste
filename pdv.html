@@ -659,9 +659,12 @@
                         <span class="text-3xl font-bold">${i.toString().padStart(2, '0')}</span>
                         <span class="text-sm font-medium mt-2 block status-text">Livre</span>
                     </div>
-                    <div class="mesa-timer-container hidden">
+                    <div class="mesa-timer-container hidden flex flex-col space-y-1">
                         <div class="timer-container timer-green w-full text-center">
-                            <i class="far fa-clock"></i> Total: <span class="total-timer-value" data-created-at="0">00:00</span>
+                            <i class="far fa-clock"></i> T: <span class="total-timer-value" data-created-at="0">00:00</span>
+                        </div>
+                        <div class="timer-container timer-green w-full text-center">
+                            <i class="fas fa-hourglass-start"></i> E: <span class="status-timer-value" data-status-changed-at="0">00:00</span>
                         </div>
                     </div>
                 `;
@@ -944,6 +947,7 @@
                         const orderStatus = order.status;
                         
                         const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
+                        const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
 
                         // Determina o status visual da mesa
                         let mesaStatusClass;
@@ -976,10 +980,12 @@
                                 primaryTableEl.dataset.orderId = orderId;
                                 
                                 const timerContainer = primaryTableEl.querySelector('.mesa-timer-container');
-                                const timerValue = primaryTableEl.querySelector('.total-timer-value');
-                                if (timerContainer && timerValue) {
+                                const totalTimerValue = primaryTableEl.querySelector('.total-timer-value');
+                                const statusTimerValue = primaryTableEl.querySelector('.status-timer-value');
+                                if (timerContainer && totalTimerValue && statusTimerValue) {
                                     timerContainer.classList.remove('hidden');
-                                    timerValue.dataset.createdAt = createdAtTimestamp;
+                                    totalTimerValue.dataset.createdAt = createdAtTimestamp;
+                                    statusTimerValue.dataset.statusChangedAt = statusChangedAtTimestamp;
                                 }
 
                                 processedTables.add(primaryTableNumber);
@@ -1001,10 +1007,12 @@
                                     mesaEl.dataset.orderId = orderId;
 
                                     const timerContainer = mesaEl.querySelector('.mesa-timer-container');
-                                    const timerValue = mesaEl.querySelector('.total-timer-value');
-                                    if (timerContainer && timerValue) {
+                                    const totalTimerValue = mesaEl.querySelector('.total-timer-value');
+                                    const statusTimerValue = mesaEl.querySelector('.status-timer-value');
+                                    if (timerContainer && totalTimerValue && statusTimerValue) {
                                         timerContainer.classList.remove('hidden');
-                                        timerValue.dataset.createdAt = createdAtTimestamp;
+                                        totalTimerValue.dataset.createdAt = createdAtTimestamp;
+                                        statusTimerValue.dataset.statusChangedAt = statusChangedAtTimestamp;
                                     }
 
                                     processedTables.add(primaryTableNumber);
@@ -1101,7 +1109,7 @@
             const now = new Date();
             document.querySelectorAll('.order-card, .mesa-item').forEach(card => {
                 const totalTimerEl = card.querySelector('.total-timer-value');
-                const statusTimerEl = card.querySelector('.status-timer-value'); // This will be null for tables, which is fine
+                const statusTimerEl = card.querySelector('.status-timer-value'); 
 
                 if (totalTimerEl && totalTimerEl.dataset.createdAt !== "0") {
                     const createdAt = new Date(parseInt(totalTimerEl.dataset.createdAt));
@@ -1122,13 +1130,15 @@
                     }
                 }
 
-                if (statusTimerEl) {
+                if (statusTimerEl && statusTimerEl.dataset.statusChangedAt !== "0") {
                     const statusChangedAt = new Date(parseInt(statusTimerEl.dataset.statusChangedAt));
                     const statusDiff = Math.max(0, Math.floor((now - statusChangedAt) / 1000));
                     statusTimerEl.textContent = formatTime(statusDiff);
                     
                     const statusTimerContainer = statusTimerEl.parentElement;
                     statusTimerContainer.classList.remove('timer-green', 'timer-yellow', 'timer-red');
+
+                    // Different color scale for status timer
                     if (statusDiff < 300) { // Menos de 5 minutos
                         statusTimerContainer.classList.add('timer-green');
                     } else if (statusDiff < 600) { // Menos de 10 minutos
