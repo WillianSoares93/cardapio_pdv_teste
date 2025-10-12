@@ -1107,7 +1107,8 @@
 
         function updateTimers() {
             const now = new Date();
-            document.querySelectorAll('.order-card, .mesa-item').forEach(card => {
+            // CORREÇÃO: Adicionado '.mesa-order-details' para incluir os timers do modal de gerenciamento de mesa.
+            document.querySelectorAll('.order-card, .mesa-item, .mesa-order-details').forEach(card => {
                 const totalTimerEl = card.querySelector('.total-timer-value');
                 const statusTimerEl = card.querySelector('.status-timer-value'); 
 
