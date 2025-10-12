@@ -2295,5 +2295,135 @@
                         amount,
                         reason,
                         userEmail: auth.currentUser.email,
-                        cashRegisterId: currentCash
+                        cashRegisterId: currentCashRegister.id
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Falha ao registrar sangria.');
+                }
+
+                alert("Sangria registrada com sucesso!");
+                sangriaModal.style.display = 'none';
+                // Atualiza a visualização do caixa se estiver aberta
+                if (closeCashModal.style.display === 'flex') {
+                    openCloseCashModal();
+                }
+
+            } catch (error) {
+                console.error("Erro ao registrar sangria:", error);
+                alert(`Erro: ${error.message}`);
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Confirmar Sangria';
+            }
+        });
+        
+        function setupCustomAlertModal() {
+            const modal = document.getElementById('custom-alert-modal');
+            const okBtn = document.getElementById('ok-alert-modal');
+            
+            const closeModal = () => modal.style.display = 'none';
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal || e.target.closest('#ok-alert-modal')) closeModal();
+            });
+        }
+        
+        function showCustomAlert(message) {
+            document.getElementById('custom-alert-message').textContent = message;
+            document.getElementById('custom-alert-modal').style.display = 'flex';
+        }
+        
+        function openTablePaymentModal(orderId, total) {
+            orderIdForPaymentUpdate = orderId;
+            document.getElementById('table-payment-total').textContent = `R$ ${total.toFixed(2).replace(',', '.')}`;
+            
+            // Reset form
+            document.querySelectorAll('input[name="table-payment"]').forEach(radio => radio.checked = false);
+            document.getElementById('table-troco-container').classList.add('hidden');
+            document.getElementById('table-trocoPara').value = '';
+            document.getElementById('table-troco-total').textContent = 'R$ 0,00';
+
+            document.getElementById('table-payment-modal').style.display = 'flex';
+        }
+
+        const tablePaymentModal = document.getElementById('table-payment-modal');
+        const cancelTablePaymentBtn = document.getElementById('cancel-table-payment-btn');
+        const confirmTablePaymentBtn = document.getElementById('confirm-table-payment-btn');
+        const tableTrocoContainer = document.getElementById('table-troco-container');
+        const tableTrocoParaInput = document.getElementById('table-trocoPara');
+
+        document.getElementById('table-payment-options').addEventListener('change', (e) => {
+            if (e.target.value === 'Dinheiro') {
+                tableTrocoContainer.classList.remove('hidden');
+            } else {
+                tableTrocoContainer.classList.add('hidden');
+            }
+        });
+
+        tableTrocoParaInput.addEventListener('input', () => {
+            const total = parseFloat(document.getElementById('table-payment-total').textContent.replace('R$ ', '').replace(',', '.'));
+            const trocoPara = parseFloat(tableTrocoParaInput.value) || 0;
+            const trocoTotal = trocoPara > total ? trocoPara - total : 0;
+            document.getElementById('table-troco-total').textContent = `R$ ${trocoTotal.toFixed(2).replace('.', ',')}`;
+        });
+
+        cancelTablePaymentBtn.addEventListener('click', () => {
+            tablePaymentModal.style.display = 'none';
+        });
+
+        confirmTablePaymentBtn.addEventListener('click', async () => {
+            const selectedPayment = document.querySelector('input[name="table-payment"]:checked');
+            if (!selectedPayment) {
+                showCustomAlert("Por favor, selecione uma forma de pagamento.");
+                return;
+            }
+
+            let paymentData = selectedPayment.value;
+
+            if (paymentData === 'Dinheiro') {
+                const total = parseFloat(document.getElementById('table-payment-total').textContent.replace('R$ ', '').replace(',', '.'));
+                const trocoPara = parseFloat(tableTrocoParaInput.value) || 0;
+                if (trocoPara > 0 && trocoPara < total) {
+                    showCustomAlert("O valor para troco não pode ser menor que o total do pedido.");
+                    return;
+                }
+                paymentData = {
+                    method: 'Dinheiro',
+                    trocoPara: trocoPara,
+                    trocoTotal: trocoPara > total ? trocoPara - total : 0
+                };
+            }
+
+            if (orderIdForPaymentUpdate) {
+                try {
+                    confirmTablePaymentBtn.disabled = true;
+                    confirmTablePaymentBtn.textContent = 'Salvando...';
+                    
+                    const orderRef = doc(db, "pedidos", orderIdForPaymentUpdate);
+                    // First update the payment
+                    await updateDoc(orderRef, { pagamento: paymentData });
+                    // Then update the status
+                    await updateOrderStatus(orderIdForPaymentUpdate, 'Fechado');
+                    
+                    tablePaymentModal.style.display = 'none';
+                    manageTableModal.style.display = 'none'; // Close the original manage modal too
+                    orderIdForPaymentUpdate = null;
+
+                } catch (error) {
+                    console.error("Erro ao atualizar pagamento e fechar conta:", error);
+                    showCustomAlert("Falha ao atualizar o pedido. Tente novamente.");
+                } finally {
+                    confirmTablePaymentBtn.disabled = false;
+                    confirmTablePaymentBtn.textContent = 'Confirmar e Fechar';
+                }
+            }
+        });
+
+
+    </script>
+</body>
+</html>
 
