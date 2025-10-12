@@ -2180,17 +2180,40 @@
 
         joinTablesBtn.addEventListener('click', () => toggleJoinMode(true));
         cancelJoinBtn.addEventListener('click', () => toggleJoinMode(false));
-        confirmJoinBtn.addEventListener('click', () => {
+        confirmJoinBtn.addEventListener('click', async () => {
             if (selectedTablesForJoining.length < 2) {
                 showCustomAlert("Selecione pelo menos duas mesas para juntar.");
                 return;
             }
             const sortedTables = selectedTablesForJoining.sort((a, b) => a - b);
-            const tablesParam = sortedTables.join(',');
             
-            window.open(`atendente.html?grupo=${tablesParam}`, '_blank');
-            
-            toggleJoinMode(false);
+            const clientName = `Mesas ${sortedTables.join(' + ')}`;
+
+            const newOrder = {
+                itens: [],
+                endereco: { clientName: clientName, rua: "Mesa" },
+                total: { subtotal: 0, finalTotal: 0, deliveryFee: 0, discount: 0 },
+                pagamento: 'A Definir',
+                status: 'Em Preparo',
+                criadoEm: serverTimestamp(),
+                statusChangedAt: serverTimestamp(),
+                observacao: '',
+                grupoMesas: sortedTables
+            };
+
+            try {
+                confirmJoinBtn.disabled = true;
+                confirmJoinBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                await addDoc(collection(db, "pedidos"), newOrder);
+                showCustomAlert(`Mesas ${sortedTables.join(' e ')} agrupadas. Clique no grupo para adicionar itens.`);
+            } catch (error) {
+                console.error("Erro ao agrupar mesas:", error);
+                showCustomAlert("Não foi possível agrupar as mesas. Tente novamente.");
+            } finally {
+                confirmJoinBtn.disabled = false;
+                confirmJoinBtn.innerHTML = 'Confirmar Agrupamento';
+                toggleJoinMode(false);
+            }
         });
 
         closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
