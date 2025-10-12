@@ -2164,6 +2164,20 @@
             }
         });
         
+        function toggleJoinMode(enable) {
+            isJoiningTables = enable;
+            mesasGrid.classList.toggle('joining-mode', enable);
+            joinTablesBtn.classList.toggle('hidden', enable);
+            joiningControls.classList.toggle('hidden', !enable);
+
+            if (!enable) {
+                selectedTablesForJoining = [];
+                document.querySelectorAll('.mesa-item.selected-for-join').forEach(el => {
+                    el.classList.remove('selected-for-join');
+                });
+            }
+        }
+
         joinTablesBtn.addEventListener('click', () => toggleJoinMode(true));
         cancelJoinBtn.addEventListener('click', () => toggleJoinMode(false));
         confirmJoinBtn.addEventListener('click', () => {
