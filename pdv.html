@@ -436,6 +436,27 @@
             </form>
         </div>
     </div>
+    
+    <div id="table-payment-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Definir Pagamento Final</h3>
+            <p class="text-gray-600 mb-2">Total do Pedido: <span id="table-payment-total" class="font-bold">R$ 0,00</span></p>
+            <div id="table-payment-options" class="space-y-3">
+                 <label class="flex items-center"><input type="radio" name="table-payment" value="Dinheiro" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Dinheiro</span></label>
+                 <label class="flex items-center"><input type="radio" name="table-payment" value="Cartão de Crédito/Débito" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Cartão</span></label>
+                 <label class="flex items-center"><input type="radio" name="table-payment" value="Pix" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">Pix</span></label>
+            </div>
+             <div id="table-troco-container" class="hidden mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
+                <label for="table-trocoPara" class="block text-sm font-medium text-gray-700">Troco para (R$):</label>
+                <input type="number" id="table-trocoPara" step="0.01" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                <p class="text-sm mt-1">Troco a devolver: <span id="table-troco-total" class="font-bold">R$ 0,00</span></p>
+            </div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button type="button" id="cancel-table-payment-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button type="button" id="confirm-table-payment-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Confirmar e Fechar</button>
+            </div>
+        </div>
+    </div>
 
     <div id="custom-alert-modal" class="modal">
       <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
@@ -585,12 +606,6 @@
         const colRetiradaPronto = document.getElementById('col-retirada-pronto').querySelector('.pdv-column');
         const colRetiradaEntregue = document.getElementById('col-retirada-entregue').querySelector('.pdv-column');
         
-        // Colunas de status de Mesa
-        // REMOVIDAS DA HTML, MANTIDAS PARA O FLUXO DE STATUS MESA APENAS (NÃO USAMOS MAIS NOVO, PREPARO, SERVIDO)
-        // const colMesasPreparo = document.getElementById('col-mesas-preparo').querySelector('.pdv-column');
-        // const colMesasPronto = document.getElementById('col-mesas-pronto').querySelector('.pdv-column');
-        // const colMesasServido = document.getElementById('col-mesas-servido').querySelector('.pdv-column');
-
         const colMesasFechado = document.getElementById('col-mesas-fechado').querySelector('.pdv-column');
         
         const connectionStatus = document.getElementById('connection-status');
@@ -609,6 +624,7 @@
         let orderIdToDelete = null;
         let deliveryFeesData = [];
         let draggedItemId = null;
+        let orderIdForPaymentUpdate = null;
 
         const joinTablesBtn = document.getElementById('join-tables-btn');
         const joiningControls = document.getElementById('joining-controls');
@@ -705,7 +721,7 @@
                     </div>
                 `;
                 
-                attachModalActionListeners(orderId);
+                attachModalActionListeners(orderId, order);
 
                 modal.style.display = 'flex';
 
@@ -1302,7 +1318,7 @@
                 } else {
                      buttonHtml = `<button disabled class="w-full mt-4 bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed">Status: ${order.status}</button>`;
                 }
-            } else { // Delivery/Retirada
+            } else { // Delivery e Retirada
                  if (order.status === 'Novo') {
                     buttonHtml = `<button data-id="${id}" data-status="Em Preparo" class="move-btn modal-move-btn w-full mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600">Iniciar Preparo</button>`;
                  } else if (order.status === 'Em Preparo') {
@@ -1374,8 +1390,7 @@
             `;
         }
 
-        function attachModalActionListeners(orderId) {
-             // Anexa listeners para os botões do MODAL (move-btn, print-btn, close-account-btn)
+        function attachModalActionListeners(orderId, order) {
             const modal = document.getElementById('manage-table-modal');
             if (!modal) return;
 
@@ -1394,8 +1409,12 @@
             const closeBtn = modal.querySelector('#close-account-btn');
             if (closeBtn) {
                 closeBtn.onclick = () => {
-                    updateOrderStatus(orderId, 'Fechado'); // Move para a coluna Fechado
-                    modal.style.display = 'none';
+                    if (order && order.pagamento === 'A Definir') {
+                        openTablePaymentModal(orderId, order.total.finalTotal);
+                    } else {
+                        updateOrderStatus(orderId, 'Fechado');
+                        modal.style.display = 'none';
+                    }
                 };
             }
             
@@ -1415,7 +1434,6 @@
             }
         }
 
-        // **CORREÇÃO**: Lógica de arquivamento movida para o frontend
         async function handleArchiveOrder(orderId) {
             const archiveBtn = document.querySelector(`.archive-btn[data-id="${orderId}"]`);
             if (archiveBtn && archiveBtn.disabled) return;
@@ -1426,35 +1444,29 @@
             }
 
             try {
-                // Etapa 1: Chamar a API para fazer o backup do pedido na planilha
                 const response = await fetch('/api/arquivar-pedido', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ orderId: orderId })
                 });
 
-                // **CORREÇÃO**: Tratamento de erro robusto
                 if (!response.ok) {
                     let errorMsg = `O servidor respondeu com um erro: ${response.statusText}`;
                     try {
                         const errorData = await response.json();
                         errorMsg = `O servidor respondeu com um erro: ${JSON.stringify(errorData)}`;
                     } catch (e) {
-                        // Se a resposta não for JSON, usa o texto puro
                         errorMsg = `O servidor respondeu com um erro: ${await response.text()}`;
                     }
                     throw new Error(errorMsg);
                 }
 
-                // Etapa 2: Se o backup na planilha foi bem-sucedido, apagar do Firebase
                 const orderRef = doc(db, "pedidos", orderId);
                 await deleteDoc(orderRef);
-                
-                // O onSnapshot do Firebase cuidará de remover o card da tela automaticamente.
 
             } catch (error) {
                 console.error("Erro ao arquivar pedido:", error);
-                alert("Não foi possível arquivar o pedido: " + error.message); // Exibe a mensagem de erro detalhada
+                alert("Não foi possível arquivar o pedido: " + error.message);
                 if(archiveBtn){
                     archiveBtn.disabled = false;
                     archiveBtn.innerHTML = `<i class="fas fa-check-circle"></i>`;
@@ -1472,7 +1484,6 @@
             }
             currentManagingOrderData = docSnap.data();
             
-            // Popula o seletor de mesas livres
             const freeTablesSelect = document.getElementById('free-tables-select');
             freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
             document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
@@ -1491,7 +1502,6 @@
             transferTableModal.style.display = 'flex';
         }
 
-        // Listener para CONFIRMAR TRANSFERÊNCIA (AGORA REFORÇADO)
         document.getElementById('confirm-transfer-btn').addEventListener('click', async (e) => {
             e.preventDefault();
             const newTableNumber = document.getElementById('free-tables-select').value;
@@ -1504,33 +1514,27 @@
 
             const newTableNum = parseInt(newTableNumber);
 
-            // 1. Prepara dados para o novo pedido
-            // Remove metadados de controle do Firestore e IDs únicos temporários do front
             const { id, grupoMesas, criadoEm, statusChangedAt, ...transferrableData } = currentManagingOrderData;
             
-            // Cria o novo pedido (que será o pedido ativo na nova mesa)
             const newOrderData = {
                 ...transferrableData,
-                status: currentManagingOrderData.status, // Mantém o status original (Ex: Em Preparo)
+                status: currentManagingOrderData.status,
                 endereco: {
                     ...currentManagingOrderData.endereco,
                     clientName: `Mesa ${newTableNum}`,
-                    rua: 'Mesa' // Garante que seja tratado como pedido de Mesa
+                    rua: 'Mesa'
                 },
                 grupoMesas: null,
                 criadoEm: serverTimestamp(),
                 statusChangedAt: serverTimestamp()
             };
             
-            // 2. Finaliza o pedido antigo e o remove (DELETE DOC)
             try {
-                // Finaliza (Marca como Finalizado, não Fechado)
                 await updateDoc(doc(db, "pedidos", orderIdToTransfer), {
                     status: "Finalizado", 
                     statusChangedAt: serverTimestamp()
                 });
                 
-                // Remove o pedido antigo do Firebase (pois ele foi substituído)
                  await deleteDoc(doc(db, "pedidos", orderIdToTransfer));
 
             } catch (error) {
@@ -1539,7 +1543,6 @@
                 return;
             }
 
-            // 3. Adiciona o novo pedido para a nova mesa
             try {
                 await addDoc(collection(db, "pedidos"), newOrderData);
             } catch (error) {
@@ -1548,15 +1551,11 @@
                  return;
             }
 
-
-            // Sucesso
             showCustomAlert(`Pedido transferido com sucesso para a Mesa ${newTableNumber}`);
             transferTableModal.style.display = 'none';
             manageTableModal.style.display = 'none';
-            // O onSnapshot cuidará da atualização visual da grade
         });
 
-        // Listener para Fechar Conta (Mesa)
         closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
         document.getElementById('cancel-transfer-btn').addEventListener('click', () => transferTableModal.style.display = 'none');
 
@@ -2296,48 +2295,5 @@
                         amount,
                         reason,
                         userEmail: auth.currentUser.email,
-                        cashRegisterId: currentCashRegister.id
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Falha ao registrar sangria.');
-                }
-
-                alert("Sangria registrada com sucesso!");
-                sangriaModal.style.display = 'none';
-                // Atualiza a visualização do caixa se estiver aberta
-                if (closeCashModal.style.display === 'flex') {
-                    openCloseCashModal();
-                }
-
-            } catch (error) {
-                console.error("Erro ao registrar sangria:", error);
-                alert(`Erro: ${error.message}`);
-            } finally {
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = 'Confirmar Sangria';
-            }
-        });
-        
-        function setupCustomAlertModal() {
-            const modal = document.getElementById('custom-alert-modal');
-            const okBtn = document.getElementById('ok-alert-modal');
-            
-            const closeModal = () => modal.style.display = 'none';
-
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal || e.target.closest('#ok-alert-modal')) closeModal();
-            });
-        }
-        
-        function showCustomAlert(message) {
-            document.getElementById('custom-alert-message').textContent = message;
-            document.getElementById('custom-alert-modal').style.display = 'flex';
-        }
-
-    </script>
-</body>
-</html>
+                        cashRegisterId: currentCash
 
