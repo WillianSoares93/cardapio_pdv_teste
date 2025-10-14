@@ -713,9 +713,12 @@
                 
                 modalTitle.textContent = `Gerenciar Mesa(s) ${mesaNumbers}`;
 
+                const hasGroup = order.grupoMesas && order.grupoMesas.length > 1;
+
                 modalBody.innerHTML = `
                     ${createDetailedOrderCardHtml(order, orderId)}
-                    <div class="mt-4 pt-4 border-t grid grid-cols-2 gap-4">
+                    <div class="mt-4 pt-4 border-t grid ${hasGroup ? 'grid-cols-3' : 'grid-cols-2'} gap-4">
+                        ${hasGroup ? '<button id="ungroup-tables-btn" class="w-full px-4 py-2 bg-yellow-500 text-white font-bold rounded-md hover:bg-yellow-600">Desagrupar</button>' : ''}
                         <button id="transfer-table-btn" class="w-full px-4 py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700">Transferir Mesa</button>
                         <button id="close-account-btn" class="w-full px-4 py-2 bg-gray-700 text-white font-bold rounded-md hover:bg-gray-800">Fechar Conta</button>
                     </div>
@@ -1458,6 +1461,28 @@
                 manageBtn.onclick = () => {
                      openEditModal(orderId);
                      modal.style.display = 'none';
+                };
+            }
+
+            const ungroupBtn = modal.querySelector('#ungroup-tables-btn');
+            if (ungroupBtn) {
+                ungroupBtn.onclick = async () => {
+                const primaryTable = order.grupoMesas[0];
+                const confirmed = await showConfirm(`Tem certeza que deseja desagrupar estas mesas? O pedido atual ficará associado apenas à Mesa ${primaryTable}.`);
+                if (confirmed) {
+                    try {
+                        const orderRef = doc(db, "pedidos", orderId);
+                        await updateDoc(orderRef, {
+                            grupoMesas: null,
+                            "endereco.clientName": `Mesa ${primaryTable}`
+                        });
+                        showCustomAlert("Mesas desagrupadas com sucesso.");
+                        modal.style.display = 'none';
+                    } catch (error) {
+                        console.error("Erro ao desagrupar mesas:", error);
+                        showCustomAlert("Não foi possível desagrupar as mesas. Tente novamente.");
+                    }
+                }
                 };
             }
         }
@@ -2400,6 +2425,55 @@
             document.getElementById('custom-alert-message').textContent = message;
             document.getElementById('custom-alert-modal').style.display = 'flex';
         }
+
+        function showConfirm(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('delete-confirm-modal');
+                const titleEl = modal.querySelector('h3');
+                const messageEl = modal.querySelector('p');
+                const yesBtn = modal.querySelector('#confirm-delete-btn');
+                const noBtn = modal.querySelector('#cancel-delete-btn');
+
+                // Store original button classes and text
+                const originalTitle = titleEl.textContent;
+                const originalYesText = yesBtn.textContent;
+                const originalYesClasses = Array.from(yesBtn.classList);
+
+                // Customize for generic confirm
+                titleEl.textContent = "Confirmar Ação";
+                messageEl.textContent = message;
+                yesBtn.textContent = "Sim, Confirmar";
+                yesBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                yesBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+
+                modal.style.display = 'flex';
+
+                const cleanup = (result) => {
+                    modal.style.display = 'none';
+                    // Restore original state
+                    titleEl.textContent = originalTitle;
+                    yesBtn.textContent = originalYesText;
+                    yesBtn.className = originalYesClasses.join(' ');
+                    
+                    yesBtn.removeEventListener('click', yesHandler);
+                    noBtn.removeEventListener('click', noHandler);
+                    modal.removeEventListener('click', modalCloseHandler);
+                    resolve(result);
+                };
+
+                const yesHandler = () => cleanup(true);
+                const noHandler = () => cleanup(false);
+                const modalCloseHandler = (e) => {
+                    if (e.target === modal) {
+                        cleanup(false);
+                    }
+                };
+
+                yesBtn.addEventListener('click', yesHandler, { once: true });
+                noBtn.addEventListener('click', noHandler, { once: true });
+                modal.addEventListener('click', modalCloseHandler);
+            });
+        }
         
         function openTablePaymentModal(orderId, total) {
             orderIdForPaymentUpdate = orderId;
@@ -2491,3 +2565,4 @@
     </script>
 </body>
 </html>
+
