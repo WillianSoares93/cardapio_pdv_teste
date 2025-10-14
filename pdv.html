@@ -754,7 +754,16 @@
                 window.open(`atendente.html?mesa=${numeroMesa}`, '_blank');
             } else {
                 const orderId = mesaEl.dataset.orderId;
-                if (orderId) {
+                const orderStatus = mesaEl.dataset.orderStatus;
+                const grupo = mesaEl.dataset.grupo;
+                
+                if (orderId && orderStatus === 'Novo') {
+                    if (grupo) {
+                        window.open(`atendente.html?grupo=${grupo}`, '_blank');
+                    } else {
+                        window.open(`atendente.html?mesa=${numeroMesa}`, '_blank');
+                    }
+                } else if (orderId) {
                     openManageTableModal(orderId);
                 }
             }
@@ -996,6 +1005,8 @@
                                 primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
                                 primaryTableEl.dataset.status = 'juntada';
                                 primaryTableEl.dataset.orderId = orderId;
+                                primaryTableEl.dataset.orderStatus = order.status;
+                                primaryTableEl.dataset.grupo = sortedGroup.join(',');
                                 
                                 const timerContainer = primaryTableEl.querySelector('.mesa-timer-container');
                                 const totalTimerValue = primaryTableEl.querySelector('.total-timer-value');
@@ -1023,6 +1034,8 @@
                                     mesaEl.querySelector('.status-text').textContent = mesaStatusText;
                                     mesaEl.dataset.status = 'ocupada';
                                     mesaEl.dataset.orderId = orderId;
+                                    mesaEl.dataset.orderStatus = order.status;
+                                    mesaEl.dataset.grupo = '';
 
                                     const timerContainer = mesaEl.querySelector('.mesa-timer-container');
                                     const totalTimerValue = mesaEl.querySelector('.total-timer-value');
@@ -2465,3 +2478,4 @@
     </script>
 </body>
 </html>
+
