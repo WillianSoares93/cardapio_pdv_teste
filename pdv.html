@@ -971,6 +971,9 @@
                         const primaryTableNumber = sortedGroup[0];
                         const orderStatus = order.status;
                         
+                        // CORREÇÃO: Verifica se o pedido tem itens antes de mostrar o cronômetro.
+                        const hasItems = order.itens && order.itens.length > 0;
+                        
                         const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
                         const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
 
@@ -1012,9 +1015,14 @@
                                 const totalTimerValue = primaryTableEl.querySelector('.total-timer-value');
                                 const statusTimerValue = primaryTableEl.querySelector('.status-timer-value');
                                 if (timerContainer && totalTimerValue && statusTimerValue) {
-                                    timerContainer.classList.remove('hidden');
-                                    totalTimerValue.dataset.createdAt = createdAtTimestamp;
-                                    statusTimerValue.dataset.statusChangedAt = statusChangedAtTimestamp;
+                                    // CORREÇÃO: Mostra o cronômetro apenas se houver itens.
+                                    if(hasItems){
+                                        timerContainer.classList.remove('hidden');
+                                        totalTimerValue.dataset.createdAt = createdAtTimestamp;
+                                        statusTimerValue.dataset.statusChangedAt = statusChangedAtTimestamp;
+                                    } else {
+                                        timerContainer.classList.add('hidden');
+                                    }
                                 }
 
                                 processedTables.add(primaryTableNumber);
@@ -1041,9 +1049,14 @@
                                     const totalTimerValue = mesaEl.querySelector('.total-timer-value');
                                     const statusTimerValue = mesaEl.querySelector('.status-timer-value');
                                     if (timerContainer && totalTimerValue && statusTimerValue) {
-                                        timerContainer.classList.remove('hidden');
-                                        totalTimerValue.dataset.createdAt = createdAtTimestamp;
-                                        statusTimerValue.dataset.statusChangedAt = statusChangedAtTimestamp;
+                                        // CORREÇÃO: Mostra o cronômetro apenas se houver itens.
+                                        if(hasItems){
+                                            timerContainer.classList.remove('hidden');
+                                            totalTimerValue.dataset.createdAt = createdAtTimestamp;
+                                            statusTimerValue.dataset.statusChangedAt = statusChangedAtTimestamp;
+                                        } else {
+                                            timerContainer.classList.add('hidden');
+                                        }
                                     }
 
                                     processedTables.add(primaryTableNumber);
@@ -2478,4 +2491,3 @@
     </script>
 </body>
 </html>
-
