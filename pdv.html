@@ -760,14 +760,15 @@
                 const orderStatus = mesaEl.dataset.orderStatus;
                 const grupo = mesaEl.dataset.grupo;
                 
-                if (orderId && orderStatus === 'Novo') {
-                    if (grupo) {
-                        window.open(`atendente.html?grupo=${grupo}`, '_blank');
+                if (orderId) {
+                    // If the table is part of a group, OR if it's already in progress (not 'Novo'), open the management modal.
+                    // This allows ungrouping even for empty groups.
+                    if (grupo || orderStatus !== 'Novo') {
+                        openManageTableModal(orderId);
                     } else {
+                        // For a single table that is new, go directly to add items.
                         window.open(`atendente.html?mesa=${numeroMesa}`, '_blank');
                     }
-                } else if (orderId) {
-                    openManageTableModal(orderId);
                 }
             }
         }
