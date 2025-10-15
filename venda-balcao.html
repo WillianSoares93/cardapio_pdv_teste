@@ -544,7 +544,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -685,7 +685,12 @@
         function updateTableSelector(activeOrders) {
             const tableSelector = document.getElementById('client-modal-table-select');
             const occupiedTables = new Set();
-            activeOrders.filter(order => order.status !== 'Finalizado' && order.endereco && order.endereco.rua === 'Mesa')
+            activeOrders.filter(order => 
+                    order.status !== 'Finalizado' && 
+                    order.endereco && 
+                    order.endereco.rua === 'Mesa' &&
+                    (order.itens && order.itens.length > 0)
+                )
                 .forEach(order => {
                     if (order.grupoMesas && order.grupoMesas.length > 0) {
                         order.grupoMesas.forEach(tableNum => occupiedTables.add(tableNum));
@@ -1501,8 +1506,6 @@
                 paymentMethod = null;
                 updateClientDataSummary();
                 updateOrderDisplay();
-                
-                // This logic is now handled inside openClientDataModal
             });
             
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
@@ -2015,7 +2018,6 @@
                 paymentMethod = null;
                 updateOrderDisplay();
                 updateClientDataSummary();
-                document.getElementById('table-selector').value = '';
             } catch (error) {
                 console.error("Erro ao finalizar pedido:", error);
                 showAlert("Falha ao finalizar o pedido. Tente novamente.");
