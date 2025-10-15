@@ -299,10 +299,6 @@
                     <div id="client-data-summary" class="p-4 border-b hidden bg-blue-50 text-sm text-blue-800">
                         <!-- Summary of client data will go here -->
                     </div>
-                    <div id="table-selector-container" class="p-4 border-b hidden">
-                        <label for="table-selector" class="text-sm font-medium text-gray-700 mb-2 block">Selecionar Mesa</label>
-                        <select id="table-selector" class="w-full p-2 border rounded-md"></select>
-                    </div>
                 </div>
 
                 <div id="order-items-container" class="flex-grow overflow-y-auto p-4 space-y-4">
@@ -477,8 +473,8 @@
                     <!-- Fields for Mesa -->
                     <div id="client-modal-mesa-fields" class="hidden space-y-4">
                         <div>
-                            <label for="client-modal-table-number" class="text-sm font-medium text-gray-700">Número da Mesa</label>
-                            <input type="number" id="client-modal-table-number" class="w-full mt-1 p-2 border rounded-md">
+                            <label for="client-modal-table-select" class="text-sm font-medium text-gray-700">Selecionar Mesa Livre</label>
+                            <select id="client-modal-table-select" class="w-full mt-1 p-2 border rounded-md"></select>
                         </div>
                         <div>
                             <label for="client-modal-name-mesa" class="text-sm font-medium text-gray-700">Nome do Cliente (Opcional)</label>
@@ -687,7 +683,7 @@
         }
 
         function updateTableSelector(activeOrders) {
-            const tableSelector = document.getElementById('table-selector');
+            const tableSelector = document.getElementById('client-modal-table-select');
             const occupiedTables = new Set();
             activeOrders.filter(order => order.status !== 'Finalizado' && order.endereco && order.endereco.rua === 'Mesa')
                 .forEach(order => {
@@ -1444,8 +1440,6 @@
             const mainContent = document.querySelector('.main-content');
             const trocoParaInput = document.getElementById('modal-trocoPara');
             const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
-            const tableSelector = document.getElementById('table-selector');
-            const tableSelectorContainer = document.getElementById('table-selector-container');
             const clientDataBtn = document.getElementById('open-client-data-modal-btn');
 
             document.addEventListener('mousemove', (e) => {
@@ -1475,7 +1469,7 @@
                         document.getElementById('product-display').classList.remove('half-pizza-selection-active');
                         updateOrderDisplay();
                         updateClientDataSummary();
-                        tableSelector.value = '';
+                        document.getElementById('client-modal-table-select').value = '';
                     }
                 }
             });
@@ -1507,30 +1501,8 @@
                 paymentMethod = null;
                 updateClientDataSummary();
                 updateOrderDisplay();
-
-                if (currentOrderType === 'Mesa') {
-                    tableSelectorContainer.classList.remove('hidden');
-                    clientDataBtn.classList.add('hidden');
-                } else {
-                    tableSelectorContainer.classList.add('hidden');
-                    clientDataBtn.classList.remove('hidden');
-                }
-            });
-
-            tableSelector.addEventListener('change', (e) => {
-                const selectedValue = e.target.value;
-                if (selectedValue) {
-                    clientData = {
-                        name: `Mesa ${selectedValue}`,
-                        table: selectedValue,
-                        contact: null,
-                        address: null,
-                        observation: null
-                    };
-                } else {
-                    clientData = { name: null, table: null, contact: null, address: null, observation: null };
-                }
-                updateClientDataSummary();
+                
+                // This logic is now handled inside openClientDataModal
             });
             
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
@@ -1552,7 +1524,7 @@
             document.getElementById('cancel-client-data-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
             
-            setupPaymentModalListeners(); // Chame a nova função aqui
+            setupPaymentModalListeners();
         }
         
         function handleBurgerIngredientClick(e) {
@@ -1711,7 +1683,7 @@
                 document.getElementById('client-modal-neighborhood').value = clientData.address ? clientData.address.neighborhood : '';
             } else { // Mesa
                 document.getElementById('client-modal-mesa-fields').classList.remove('hidden');
-                document.getElementById('client-modal-table-number').value = clientData.table || '';
+                document.getElementById('client-modal-table-select').value = clientData.table || '';
                 document.getElementById('client-modal-name-mesa').value = clientData.name || '';
             }
             
@@ -1837,7 +1809,7 @@
                     deliveryFee: selectedFee ? selectedFee.deliveryFee : 0 
                 };
             } else { // Mesa
-                currentClientData.table = document.getElementById('client-modal-table-number').value.trim();
+                currentClientData.table = document.getElementById('client-modal-table-select').value;
                 currentClientData.name = document.getElementById('client-modal-name-mesa').value.trim();
                 if (!currentClientData.table) {
                     errorDiv.textContent = "O número da mesa é obrigatório.";
@@ -2052,3 +2024,4 @@
     </script>
 </body>
 </html>
+
