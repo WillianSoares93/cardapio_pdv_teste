@@ -299,6 +299,10 @@
                     <div id="client-data-summary" class="p-4 border-b hidden bg-blue-50 text-sm text-blue-800">
                         <!-- Summary of client data will go here -->
                     </div>
+                    <div id="table-selector-container" class="p-4 border-b hidden">
+                        <label for="table-selector" class="text-sm font-medium text-gray-700 mb-2 block">Selecionar Mesa</label>
+                        <select id="table-selector" class="w-full p-2 border rounded-md"></select>
+                    </div>
                 </div>
 
                 <div id="order-items-container" class="flex-grow overflow-y-auto p-4 space-y-4">
@@ -544,7 +548,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -577,6 +581,7 @@
         let isSelectingHalfPizza = false;
         let firstHalfPizza = null;
         let currentPizzaExtrasState = {};
+        const NUMERO_DE_MESAS = 12;
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -670,6 +675,41 @@
             renderCategories();
             renderProducts();
             setupEventListeners();
+            listenToTableStatus();
+        }
+
+        function listenToTableStatus() {
+            const q = query(collection(db, "pedidos"));
+            onSnapshot(q, (snapshot) => {
+                const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateTableSelector(activeOrders);
+            });
+        }
+
+        function updateTableSelector(activeOrders) {
+            const tableSelector = document.getElementById('table-selector');
+            const occupiedTables = new Set();
+            activeOrders.filter(order => order.status !== 'Finalizado' && order.endereco && order.endereco.rua === 'Mesa')
+                .forEach(order => {
+                    if (order.grupoMesas && order.grupoMesas.length > 0) {
+                        order.grupoMesas.forEach(tableNum => occupiedTables.add(tableNum));
+                    } else {
+                        const tableNum = parseInt((order.endereco.clientName || "").replace(/[^0-9]/g, ''));
+                        if (tableNum) occupiedTables.add(tableNum);
+                    }
+                });
+
+            tableSelector.innerHTML = '<option value="">Selecione uma mesa...</option>';
+            for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `Mesa ${i.toString().padStart(2, '0')}`;
+                if (occupiedTables.has(i)) {
+                    option.disabled = true;
+                    option.textContent += ' (Ocupada)';
+                }
+                tableSelector.appendChild(option);
+            }
         }
 
         function setupPaymentModalListeners() {
@@ -1404,6 +1444,9 @@
             const mainContent = document.querySelector('.main-content');
             const trocoParaInput = document.getElementById('modal-trocoPara');
             const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
+            const tableSelector = document.getElementById('table-selector');
+            const tableSelectorContainer = document.getElementById('table-selector-container');
+            const clientDataBtn = document.getElementById('open-client-data-modal-btn');
 
             document.addEventListener('mousemove', (e) => {
                 if (e.clientX < 20) {
@@ -1432,6 +1475,7 @@
                         document.getElementById('product-display').classList.remove('half-pizza-selection-active');
                         updateOrderDisplay();
                         updateClientDataSummary();
+                        tableSelector.value = '';
                     }
                 }
             });
@@ -1460,9 +1504,33 @@
              document.getElementById('order-type-selector').addEventListener('change', (e) => {
                 currentOrderType = e.target.value;
                 clientData = { name: null, contact: null, address: null, table: null, observation: null };
-                paymentMethod = null; // NEW: Reset payment method
+                paymentMethod = null;
                 updateClientDataSummary();
                 updateOrderDisplay();
+
+                if (currentOrderType === 'Mesa') {
+                    tableSelectorContainer.classList.remove('hidden');
+                    clientDataBtn.classList.add('hidden');
+                } else {
+                    tableSelectorContainer.classList.add('hidden');
+                    clientDataBtn.classList.remove('hidden');
+                }
+            });
+
+            tableSelector.addEventListener('change', (e) => {
+                const selectedValue = e.target.value;
+                if (selectedValue) {
+                    clientData = {
+                        name: `Mesa ${selectedValue}`,
+                        table: selectedValue,
+                        contact: null,
+                        address: null,
+                        observation: null
+                    };
+                } else {
+                    clientData = { name: null, table: null, contact: null, address: null, observation: null };
+                }
+                updateClientDataSummary();
             });
             
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
@@ -1699,7 +1767,7 @@
                         const totalDiv = document.createElement('h4');
                         totalDiv.id = 'client-modal-total-display-container';
                         totalDiv.className = 'text-gray-600 text-lg mb-4';
-                        totalDiv.innerHTML = `Total Pedido: <span id="client-modal-total-display" class="font-bold text-green-600">R$ ${totalValue.toFixed(2).replace(',', ',')}</span>`;
+                        totalDiv.innerHTML = `Total Pedido: <span id="client-modal-total-display" class="font-bold text-green-600">R$ ${totalValue.toFixed(2).replace('.', ',')}</span>`;
                         paymentSection.insertAdjacentElement('beforebegin', totalDiv);
                     }
                 }
@@ -1881,7 +1949,7 @@
             if (currentOrderType === 'Retirada' && !clientData.name) {
                 isDataIncomplete = true;
             } else if (currentOrderType === 'Mesa' && !clientData.table) {
-                isDataIncomplete = true;
+                 isDataIncomplete = true;
             } else if (currentOrderType === 'Delivery' && (!clientData.name || !clientData.address)) {
                 isDataIncomplete = true;
             }
@@ -1975,6 +2043,7 @@
                 paymentMethod = null;
                 updateOrderDisplay();
                 updateClientDataSummary();
+                document.getElementById('table-selector').value = '';
             } catch (error) {
                 console.error("Erro ao finalizar pedido:", error);
                 showAlert("Falha ao finalizar o pedido. Tente novamente.");
