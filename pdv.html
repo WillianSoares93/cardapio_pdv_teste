@@ -1450,22 +1450,39 @@
             const ungroupBtn = modal.querySelector('#ungroup-tables-btn');
             if (ungroupBtn) {
                 ungroupBtn.onclick = async () => {
-                const primaryTable = order.grupoMesas[0];
-                const confirmed = await showConfirm(`Tem certeza que deseja desagrupar estas mesas? O pedido atual ficará associado apenas à Mesa ${primaryTable}.`);
-                if (confirmed) {
-                    try {
-                        const orderRef = doc(db, "pedidos", orderId);
-                        await updateDoc(orderRef, {
-                            grupoMesas: null,
-                            "endereco.clientName": `Mesa ${primaryTable}`
-                        });
-                        showCustomAlert("Mesas desagrupadas com sucesso.");
-                        modal.style.display = 'none';
-                    } catch (error) {
-                        console.error("Erro ao desagrupar mesas:", error);
-                        showCustomAlert("Não foi possível desagrupar as mesas. Tente novamente.");
+                    const orderRef = doc(db, "pedidos", orderId);
+                    // Check if the order has items
+                    if (order.itens && order.itens.length === 0) {
+                        // Group is empty, just delete the order
+                        const confirmed = await showConfirm(`Tem certeza que deseja desagrupar estas mesas vazias? A referência do grupo será removida.`);
+                        if (confirmed) {
+                            try {
+                                await deleteDoc(orderRef);
+                                showCustomAlert("Mesas desagrupadas e grupo vazio removido.");
+                                modal.style.display = 'none';
+                            } catch (error) {
+                                console.error("Erro ao remover grupo vazio:", error);
+                                showCustomAlert("Não foi possível remover o grupo de mesas. Tente novamente.");
+                            }
+                        }
+                    } else {
+                        // Group has items, re-associate with the primary table
+                        const primaryTable = order.grupoMesas[0];
+                        const confirmed = await showConfirm(`Tem certeza que deseja desagrupar estas mesas? O pedido atual ficará associado apenas à Mesa ${primaryTable}.`);
+                        if (confirmed) {
+                            try {
+                                await updateDoc(orderRef, {
+                                    grupoMesas: null,
+                                    "endereco.clientName": `Mesa ${primaryTable}`
+                                });
+                                showCustomAlert("Mesas desagrupadas com sucesso.");
+                                modal.style.display = 'none';
+                            } catch (error) {
+                                console.error("Erro ao desagrupar mesas:", error);
+                                showCustomAlert("Não foi possível desagrupar as mesas. Tente novamente.");
+                            }
+                        }
                     }
-                }
                 };
             }
         }
