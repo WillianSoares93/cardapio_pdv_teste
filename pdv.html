@@ -282,6 +282,9 @@
                 <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-4">
                      <div class="lg:col-span-4">
                         <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
+                            <button id="add-table-btn" class="px-4 py-2 bg-green-500 text-white text-sm font-bold rounded-md hover:bg-green-600">
+                                <i class="fas fa-plus mr-2"></i>Adicionar Mesa
+                            </button>
                             <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
                                 <i class="fas fa-link mr-2"></i>Agrupar Mesas
                             </button>
@@ -491,6 +494,7 @@
         let currentCashRegister = null;
         let detailedReportData = {}; 
         let timerIntervalId = null;
+        let numeroDeMesas = 12; // Valor padrão
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -593,8 +597,7 @@
         const mainTabs = document.getElementById('main-tabs');
         const tabContents = document.querySelectorAll('.tab-content');
         const mesasGrid = document.getElementById('mesas-grid');
-        const NUMERO_DE_MESAS = 12;
-
+        
         const colDeliveryNovo = document.getElementById('col-delivery-novo').querySelector('.pdv-column');
         const colDeliveryPreparo = document.getElementById('col-delivery-preparo').querySelector('.pdv-column');
         const colDeliveryPronto = document.getElementById('col-delivery-pronto').querySelector('.pdv-column');
@@ -663,7 +666,7 @@
 
         function initializeMesas() {
             mesasGrid.innerHTML = '';
-            for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
+            for (let i = 1; i <= numeroDeMesas; i++) {
                 const mesaEl = document.createElement('div');
                 mesaEl.id = `mesa-${i}`;
                 mesaEl.className = 'mesa-item flex flex-col justify-center items-center p-4 border-2 rounded-lg cursor-pointer mesa-status-livre';
@@ -784,8 +787,31 @@
             }
         }
 
-        function initializePDV() {
-            loadDeliveryFees();
+        async function initializePDV() {
+            await loadDeliveryFees();
+
+            const settingsRef = doc(db, "config", "system_settings");
+            const settingsSnap = await getDoc(settingsRef);
+            if (settingsSnap.exists() && settingsSnap.data().tableCount) {
+                numeroDeMesas = settingsSnap.data().tableCount;
+            }
+
+            const addTableBtn = document.getElementById('add-table-btn');
+            addTableBtn.addEventListener('click', async () => {
+                numeroDeMesas++;
+                initializeMesas(); // Redesenha a grade com a nova mesa
+                try {
+                    await setDoc(settingsRef, { tableCount: numeroDeMesas }, { merge: true });
+                    showCustomAlert(`Mesa ${numeroDeMesas} adicionada com sucesso.`);
+                } catch (error) {
+                    console.error("Erro ao salvar o número de mesas:", error);
+                    showCustomAlert("Não foi possível salvar a nova mesa.");
+                    numeroDeMesas--; // Reverte em caso de falha
+                    initializeMesas();
+                }
+            });
+
+
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             let audioResumed = false;
             setupCustomAlertModal();
@@ -855,7 +881,6 @@
                     retiradaCounter.textContent = retiradaCount;
                     retiradaNotification.classList.remove('hidden');
                 } else {
-                    retiradaNotification.classList.add('hidden');
                     if(retiradaBell) retiradaBell.classList.remove('notification-bell-ringing');
                 }
             }
@@ -1052,7 +1077,7 @@
                 });
 
                 // Se houver mesas que não foram processadas (eram ocupadas e agora estão livres/finalizadas), redefina o estado
-                for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
+                for (let i = 1; i <= numeroDeMesas; i++) {
                     if (!processedTables.has(i)) {
                          const mesaEl = document.getElementById(`mesa-${i}`);
                         if (mesaEl) {
