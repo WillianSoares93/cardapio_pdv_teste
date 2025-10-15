@@ -974,40 +974,17 @@
                         const sortedGroup = mesaNumbers.sort((a, b) => a - b);
                         const primaryTableNumber = sortedGroup[0];
                         const orderStatus = order.status;
-                        
-                        // CORREÇÃO: Verifica se o pedido tem itens antes de mostrar o cronômetro.
                         const hasItems = order.itens && order.itens.length > 0;
                         
                         const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
                         const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
 
-                        // Determina o status visual da mesa
-                        let mesaStatusClass;
-                        let mesaStatusText;
-                        if (orderStatus === 'Novo') {
-                             mesaStatusClass = 'mesa-status-juntada';
-                             mesaStatusText = 'Aguardando Pedido';
-                        } else if (orderStatus === 'Em Preparo') {
-                             mesaStatusClass = 'mesa-status-ocupada';
-                             mesaStatusText = 'Em Preparo';
-                        } else if (orderStatus === 'Pronto Para Servir') {
-                             mesaStatusClass = 'mesa-status-pronto';
-                             mesaStatusText = 'Pronto P/ Servir';
-                        } else if (orderStatus === 'Servido') {
-                             mesaStatusClass = 'mesa-status-servido';
-                             mesaStatusText = 'Servido';
-                        } else {
-                            // Fallback para pedidos abertos com status inesperado
-                            mesaStatusClass = 'mesa-status-ocupada';
-                            mesaStatusText = 'Ocupada';
-                        }
-
                         // --- ATUALIZAÇÃO DA GRADE DE MESAS (LIVRE/OCUPADA/AGRUPADA) ---
                         if (sortedGroup.length > 1) {
                             const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
                             if (primaryTableEl) {
-                                primaryTableEl.classList.remove('mesa-status-livre', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido', 'mesa-status-juntada');
-                                primaryTableEl.classList.add(mesaStatusClass);
+                                primaryTableEl.classList.remove('mesa-status-livre', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido');
+                                primaryTableEl.classList.add('mesa-status-juntada'); // Sempre azul para grupos
                                 primaryTableEl.querySelector('.status-text').textContent = 'Agrupada';
                                 primaryTableEl.querySelector('span.text-3xl').textContent = sortedGroup.join(' + ');
                                 primaryTableEl.dataset.status = 'juntada';
@@ -1016,17 +993,12 @@
                                 primaryTableEl.dataset.grupo = sortedGroup.join(',');
                                 
                                 const timerContainer = primaryTableEl.querySelector('.mesa-timer-container');
-                                const totalTimerValue = primaryTableEl.querySelector('.total-timer-value');
-                                const statusTimerValue = primaryTableEl.querySelector('.status-timer-value');
-                                if (timerContainer && totalTimerValue && statusTimerValue) {
-                                    // CORREÇÃO: Mostra o cronômetro apenas se houver itens.
-                                    if(hasItems){
-                                        timerContainer.classList.remove('hidden');
-                                        totalTimerValue.dataset.createdAt = createdAtTimestamp;
-                                        statusTimerValue.dataset.statusChangedAt = statusChangedAtTimestamp;
-                                    } else {
-                                        timerContainer.classList.add('hidden');
-                                    }
+                                if (hasItems) {
+                                    timerContainer.classList.remove('hidden');
+                                    primaryTableEl.querySelector('.total-timer-value').dataset.createdAt = createdAtTimestamp;
+                                    primaryTableEl.querySelector('.status-timer-value').dataset.statusChangedAt = statusChangedAtTimestamp;
+                                } else {
+                                    timerContainer.classList.add('hidden');
                                 }
 
                                 processedTables.add(primaryTableNumber);
@@ -1039,32 +1011,42 @@
                             }
                         } else if (mesaNumbers.length === 1 && !processedTables.has(primaryTableNumber)) {
                             // Mesa individual
-                             const mesaEl = document.getElementById(`mesa-${primaryTableNumber}`);
-                                if (mesaEl) {
-                                    mesaEl.classList.remove('mesa-status-livre', 'mesa-status-juntada', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido');
-                                    mesaEl.classList.add(mesaStatusClass);
-                                    mesaEl.querySelector('.status-text').textContent = mesaStatusText;
-                                    mesaEl.dataset.status = 'ocupada';
-                                    mesaEl.dataset.orderId = orderId;
-                                    mesaEl.dataset.orderStatus = order.status;
-                                    mesaEl.dataset.grupo = '';
+                            let mesaStatusClass;
+                            let mesaStatusText;
+                            if (orderStatus === 'Novo' || orderStatus === 'Em Preparo') {
+                                mesaStatusClass = 'mesa-status-ocupada'; // Amarelo
+                                mesaStatusText = orderStatus === 'Novo' ? 'Aguardando Pedido' : 'Em Preparo';
+                            } else if (orderStatus === 'Pronto Para Servir') {
+                                mesaStatusClass = 'mesa-status-pronto';
+                                mesaStatusText = 'Pronto P/ Servir';
+                            } else if (orderStatus === 'Servido') {
+                                mesaStatusClass = 'mesa-status-servido';
+                                mesaStatusText = 'Servido';
+                            } else {
+                                mesaStatusClass = 'mesa-status-ocupada'; // Padrão
+                                mesaStatusText = 'Ocupada';
+                            }
 
-                                    const timerContainer = mesaEl.querySelector('.mesa-timer-container');
-                                    const totalTimerValue = mesaEl.querySelector('.total-timer-value');
-                                    const statusTimerValue = mesaEl.querySelector('.status-timer-value');
-                                    if (timerContainer && totalTimerValue && statusTimerValue) {
-                                        // CORREÇÃO: Mostra o cronômetro apenas se houver itens.
-                                        if(hasItems){
-                                            timerContainer.classList.remove('hidden');
-                                            totalTimerValue.dataset.createdAt = createdAtTimestamp;
-                                            statusTimerValue.dataset.statusChangedAt = statusChangedAtTimestamp;
-                                        } else {
-                                            timerContainer.classList.add('hidden');
-                                        }
-                                    }
+                            const mesaEl = document.getElementById(`mesa-${primaryTableNumber}`);
+                            if (mesaEl) {
+                                mesaEl.classList.remove('mesa-status-livre', 'mesa-status-juntada', 'mesa-status-ocupada', 'mesa-status-pronto', 'mesa-status-servido');
+                                mesaEl.classList.add(mesaStatusClass);
+                                mesaEl.querySelector('.status-text').textContent = mesaStatusText;
+                                mesaEl.dataset.status = 'ocupada';
+                                mesaEl.dataset.orderId = orderId;
+                                mesaEl.dataset.orderStatus = order.status;
+                                mesaEl.dataset.grupo = '';
 
-                                    processedTables.add(primaryTableNumber);
+                                const timerContainer = mesaEl.querySelector('.mesa-timer-container');
+                                if (hasItems) {
+                                    timerContainer.classList.remove('hidden');
+                                    mesaEl.querySelector('.total-timer-value').dataset.createdAt = createdAtTimestamp;
+                                    mesaEl.querySelector('.status-timer-value').dataset.statusChangedAt = statusChangedAtTimestamp;
+                                } else {
+                                    timerContainer.classList.add('hidden');
                                 }
+                                processedTables.add(primaryTableNumber);
+                            }
                         }
                     }
                 });
