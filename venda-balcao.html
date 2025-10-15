@@ -544,7 +544,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -685,33 +685,50 @@
         function updateTableSelector(activeOrders) {
             const tableSelector = document.getElementById('client-modal-table-select');
             const occupiedTables = new Set();
-            
-            // Filtra pedidos que realmente ocupam uma mesa (têm itens)
-            activeOrders.filter(order => 
-                    order.status !== 'Finalizado' && 
-                    order.endereco && 
-                    order.endereco.rua === 'Mesa' &&
-                    order.itens && order.itens.length > 0
-                )
+            const allGroupedTables = new Set();
+
+            // Find all tables that are part of an order with items.
+            activeOrders
+                .filter(order => order.status !== 'Finalizado' && order.itens && order.itens.length > 0)
                 .forEach(order => {
-                    if (order.grupoMesas && order.grupoMesas.length > 0) {
-                        order.grupoMesas.forEach(tableNum => occupiedTables.add(tableNum));
-                    } else {
-                        const tableNum = parseInt((order.endereco.clientName || "").replace(/[^0-9]/g, ''));
-                        if (tableNum) occupiedTables.add(tableNum);
-                    }
+                    const tableNumbers = order.grupoMesas && order.grupoMesas.length > 0
+                        ? order.grupoMesas
+                        : [parseInt((order.endereco.clientName || "").replace(/[^0-9]/g, ''))];
+                    
+                    tableNumbers.forEach(num => num && occupiedTables.add(num));
                 });
 
+            // Find all empty groups and track their tables.
+            const emptyGroups = activeOrders.filter(order =>
+                order.grupoMesas && order.grupoMesas.length > 0 &&
+                (!order.itens || order.itens.length === 0)
+            );
+            emptyGroups.forEach(order => order.grupoMesas.forEach(tableNum => allGroupedTables.add(tableNum)));
+            
             tableSelector.innerHTML = '<option value="">Selecione uma mesa...</option>';
-            for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
+
+            // Add empty groups as selectable options
+            emptyGroups.forEach(groupOrder => {
+                const sortedGroup = groupOrder.grupoMesas.sort((a, b) => a - b);
                 const option = document.createElement('option');
-                option.value = i;
-                option.textContent = `Mesa ${i.toString().padStart(2, '0')}`;
-                if (occupiedTables.has(i)) {
-                    option.disabled = true;
-                    option.textContent += ' (Ocupada)';
-                }
+                option.value = `group_${groupOrder.id}`; // Special value format
+                option.textContent = `Mesas ${sortedGroup.join(' + ')}`;
                 tableSelector.appendChild(option);
+            });
+
+            // Add individual, non-grouped, available tables
+            for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
+                // Only add if it's not part of ANY group (even an empty one)
+                if (!allGroupedTables.has(i)) {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = `Mesa ${i.toString().padStart(2, '0')}`;
+                     if (occupiedTables.has(i)) {
+                        option.disabled = true;
+                        option.textContent += ' (Ocupada)';
+                    }
+                    tableSelector.appendChild(option);
+                }
             }
         }
 
@@ -1953,8 +1970,47 @@
                 showAlert("O carrinho está vazio.");
                 return;
             }
+
+            // Handle special case for grouped tables
+            if (currentOrderType === 'Mesa' && clientData.table && clientData.table.startsWith('group_')) {
+                const orderIdToUpdate = clientData.table.replace('group_', '');
+                
+                const cleanedItems = JSON.parse(JSON.stringify(order, (key, value) => {
+                    const fieldsToExclude = ['originalItem', 'uniqueId', 'firstHalfData', 'secondHalfData', 'acceptsExtras'];
+                    if (fieldsToExclude.includes(key)) return undefined;
+                    return value;
+                }));
+
+                const subtotal = order.reduce((sum, item) => sum + item.price, 0);
+
+                try {
+                    const orderRef = doc(db, "pedidos", orderIdToUpdate);
+                    await updateDoc(orderRef, {
+                        itens: cleanedItems,
+                        total: { subtotal: subtotal, finalTotal: subtotal, deliveryFee: 0, discount: 0 },
+                        pagamento: paymentMethod,
+                        status: 'Em Preparo',
+                        criadoEm: serverTimestamp(), // Update timestamp to when order was actually placed
+                        observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
+                    });
+
+                    showTemporaryFeedback(`Pedido para ${clientData.name || 'Mesas Agrupadas'} finalizado com sucesso!`);
+                    
+                    // Reset state
+                    order = [];
+                    clientData = { name: null, contact: null, address: null, table: null, observation: null };
+                    paymentMethod = null;
+                    updateOrderDisplay();
+                    updateClientDataSummary();
+
+                } catch (error) {
+                    console.error("Erro ao atualizar pedido de mesa agrupada:", error);
+                    showAlert("Falha ao finalizar o pedido. Tente novamente.");
+                }
+                return; 
+            }
             
-            // Revalida dados críticos antes de enviar
+            // Re-validate critical data before sending
             if ( (currentOrderType === 'Mesa' && !clientData.table) || 
                  (currentOrderType === 'Retirada' && !clientData.name) || 
                  (currentOrderType === 'Delivery' && (!clientData.name || !clientData.address)) ||
@@ -1963,7 +2019,6 @@
                 showAlert("Dados do cliente ou forma de pagamento incompletos. Tente novamente.");
                 return;
             }
-
 
             let subtotal = order.reduce((sum, item) => sum + item.price, 0);
             let deliveryFee = 0;
@@ -1980,19 +2035,6 @@
                     bairro: clientData.address.neighborhood 
                 };
             } else if (currentOrderType === 'Mesa') {
-                 // Check if an empty group order exists for this table and delete it
-                const q = query(
-                    collection(db, "pedidos"),
-                    where("grupoMesas", "array-contains", parseInt(clientData.table)),
-                    where("itens", "==", [])
-                );
-                const querySnapshot = await getDocs(q);
-                querySnapshot.forEach(async (doc) => {
-                    console.log(`Deletando pedido de grupo vazio ${doc.id} antes de criar novo pedido.`);
-                    await deleteDoc(doc.ref);
-                });
-
-
                 let clientNameForOrder = `Mesa ${clientData.table}`;
                 if (clientData.name) {
                     clientNameForOrder += ` (${clientData.name})`;
@@ -2017,7 +2059,7 @@
                 itens: cleanedItems,
                 endereco: endereco,
                 total: { subtotal: subtotal, finalTotal: subtotal + deliveryFee, deliveryFee: deliveryFee, discount: 0 },
-                pagamento: paymentMethod, // NEW: Usando o paymentMethod do estado
+                pagamento: paymentMethod, 
                 status: status,
                 criadoEm: serverTimestamp(),
                 observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
@@ -2027,7 +2069,7 @@
                 await addDoc(collection(db, "pedidos"), newOrder);
                 showTemporaryFeedback(`Pedido para ${clientData.name || `Mesa ${clientData.table}`} finalizado com sucesso!`);
                 
-                // Reseta o estado
+                // Reset state
                 order = [];
                 clientData = { name: null, contact: null, address: null, table: null, observation: null };
                 paymentMethod = null;
