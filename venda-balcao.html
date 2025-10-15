@@ -685,11 +685,13 @@
         function updateTableSelector(activeOrders) {
             const tableSelector = document.getElementById('client-modal-table-select');
             const occupiedTables = new Set();
+            
+            // Filtra pedidos que realmente ocupam uma mesa (têm itens)
             activeOrders.filter(order => 
                     order.status !== 'Finalizado' && 
                     order.endereco && 
                     order.endereco.rua === 'Mesa' &&
-                    (order.itens && order.itens.length > 0)
+                    order.itens && order.itens.length > 0
                 )
                 .forEach(order => {
                     if (order.grupoMesas && order.grupoMesas.length > 0) {
@@ -1773,7 +1775,7 @@
         }
 
 
-        function confirmClientData() {
+        async function confirmClientData() {
             if (order.length === 0) {
                 showAlert("O carrinho está vazio.");
                 return;
@@ -1862,7 +1864,7 @@
             updateOrderDisplay();
             
             // Tenta Finalizar o Pedido
-            finalizeOrder();
+            await finalizeOrder();
         }
 
         function updateClientDataSummary() {
@@ -1978,6 +1980,19 @@
                     bairro: clientData.address.neighborhood 
                 };
             } else if (currentOrderType === 'Mesa') {
+                 // Check if an empty group order exists for this table and delete it
+                const q = query(
+                    collection(db, "pedidos"),
+                    where("grupoMesas", "array-contains", parseInt(clientData.table)),
+                    where("itens", "==", [])
+                );
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach(async (doc) => {
+                    console.log(`Deletando pedido de grupo vazio ${doc.id} antes de criar novo pedido.`);
+                    await deleteDoc(doc.ref);
+                });
+
+
                 let clientNameForOrder = `Mesa ${clientData.table}`;
                 if (clientData.name) {
                     clientNameForOrder += ` (${clientData.name})`;
