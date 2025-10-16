@@ -285,6 +285,9 @@
                             <button id="add-table-btn" class="px-4 py-2 bg-green-500 text-white text-sm font-bold rounded-md hover:bg-green-600">
                                 <i class="fas fa-plus mr-2"></i>Adicionar Mesa
                             </button>
+                            <button id="remove-table-btn" class="px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-md hover:bg-red-600">
+                                <i class="fas fa-trash-alt mr-2"></i>Excluir Última Mesa
+                            </button>
                             <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
                                 <i class="fas fa-link mr-2"></i>Agrupar Mesas
                             </button>
@@ -808,6 +811,34 @@
                     showCustomAlert("Não foi possível salvar a nova mesa.");
                     numeroDeMesas--; // Reverte em caso de falha
                     initializeMesas();
+                }
+            });
+
+            document.getElementById('remove-table-btn').addEventListener('click', async () => {
+                if (numeroDeMesas <= 1) {
+                    showCustomAlert("Não é possível remover mais mesas.");
+                    return;
+                }
+
+                const lastTableEl = document.getElementById(`mesa-${numeroDeMesas}`);
+                if (lastTableEl && lastTableEl.dataset.status !== 'livre') {
+                    showCustomAlert(`A Mesa ${numeroDeMesas} está ocupada e não pode ser removida.`);
+                    return;
+                }
+
+                const confirmed = await showConfirm(`Tem certeza que deseja remover a Mesa ${numeroDeMesas}? Esta ação é permanente.`);
+                if (confirmed) {
+                    numeroDeMesas--;
+                    initializeMesas();
+                    try {
+                        await setDoc(settingsRef, { tableCount: numeroDeMesas }, { merge: true });
+                        showCustomAlert(`Mesa removida com sucesso.`);
+                    } catch (error) {
+                        console.error("Erro ao salvar o número de mesas:", error);
+                        showCustomAlert("Não foi possível salvar a remoção da mesa.");
+                        numeroDeMesas++; // Reverte em caso de falha
+                        initializeMesas();
+                    }
                 }
             });
 
