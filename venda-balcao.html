@@ -569,7 +569,7 @@
         let clientData = { name: null, contact: null, address: null, table: null, observation: null };
         let paymentMethod = null; 
         let pauseTime = 2000; 
-        let initialUrlParamCheckDone = false; // NOVA VARIÁVEL
+        let initialUrlParamCheckDone = false; 
 
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
         let ingredientStatus = {}, ingredientVisibility = {};
@@ -732,20 +732,20 @@
                 }
             }
 
-            // NOVA LÓGICA PARA LIDA COM PARÂMETRO DE URL `mesa`
+            // CORREÇÃO: Lógica de tratamento do parâmetro 'mesa' da URL
             if (!initialUrlParamCheckDone) {
-                initialUrlParamCheckDone = true; // Garante que será executado apenas uma vez
+                initialUrlParamCheckDone = true; 
                 const urlParams = new URLSearchParams(window.location.search);
                 const mesaParam = urlParams.get('mesa');
                 if (mesaParam) {
                     const mesaRadio = document.querySelector('input[name="orderType"][value="Mesa"]');
                     if (mesaRadio) {
                         mesaRadio.checked = true;
-                        // Força a atualização da variável de estado global
                         currentOrderType = 'Mesa';
-                        // Abre o modal de dados do cliente. A pré-seleção da mesa
-                        // acontecerá dentro desta função.
-                        openClientDataModal();
+                        // Apenas define a mesa no estado, não abre o modal
+                        clientData.table = mesaParam;
+                        // Atualiza o resumo na tela principal
+                        updateClientDataSummary();
                     }
                 }
             }
@@ -1725,22 +1725,17 @@
             } else { // Mesa
                 document.getElementById('client-modal-mesa-fields').classList.remove('hidden');
                 
-                // LÓGICA ATUALIZADA PARA PRÉ-SELECIONAR A MESA
                 const urlParams = new URLSearchParams(window.location.search);
                 const mesaParam = urlParams.get('mesa');
 
-                // Se o parâmetro 'mesa' existir na URL, ele tem prioridade na abertura do modal
                 if (mesaParam) {
                     document.getElementById('client-modal-table-select').value = mesaParam;
-                    // Atualiza o estado global com a mesa da URL
-                    if (!clientData.table) { // Só atualiza se não tiver uma mesa já definida
+                    if (!clientData.table) {
                         clientData.table = mesaParam;
                     }
                 } else {
-                    // Caso contrário, usa o valor que já está salvo no estado do pedido atual
                     document.getElementById('client-modal-table-select').value = clientData.table || '';
                 }
-                // FIM DA LÓGICA ATUALIZADA
                 
                 document.getElementById('client-modal-name-mesa').value = clientData.name || '';
             }
@@ -1780,16 +1775,10 @@
             // Set Total Value for summary
             const totalValue = order.reduce((sum, item) => sum + item.price, 0) + (currentOrderType === 'Delivery' && clientData.address ? clientData.address.deliveryFee : 0);
             
-            // Corrigindo o erro: O ID 'payment-modal-total' não existe no HTML. 
-            // Vamos usar o total do pedido da tela principal.
-            // Para mostrar o total dentro do modal, adicionaremos um novo elemento H4 com um ID exclusivo no modal.
-            
             const modalTotalDisplay = document.getElementById('client-modal-total-display');
             if(modalTotalDisplay) {
                 modalTotalDisplay.textContent = `R$ ${totalValue.toFixed(2).replace('.', ',')}`;
             } else {
-                // Se o elemento de total ainda não existir (devido à refatoração), precisamos adicioná-lo.
-                // Vou injetar o total do pedido antes da seção de pagamento.
                 const paymentSection = document.querySelector('.pt-4.border-t.border-gray-200');
                 if (paymentSection) {
                     const existingTotal = document.getElementById('client-modal-total-display');
