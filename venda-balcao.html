@@ -569,6 +569,7 @@
         let clientData = { name: null, contact: null, address: null, table: null, observation: null };
         let paymentMethod = null; 
         let pauseTime = 2000; 
+        let initialUrlParamCheckDone = false; // NOVA VARIÁVEL
 
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
         let ingredientStatus = {}, ingredientVisibility = {};
@@ -728,6 +729,24 @@
                         option.textContent += ' (Ocupada)';
                     }
                     tableSelector.appendChild(option);
+                }
+            }
+
+            // NOVA LÓGICA PARA LIDA COM PARÂMETRO DE URL `mesa`
+            if (!initialUrlParamCheckDone) {
+                initialUrlParamCheckDone = true; // Garante que será executado apenas uma vez
+                const urlParams = new URLSearchParams(window.location.search);
+                const mesaParam = urlParams.get('mesa');
+                if (mesaParam) {
+                    const mesaRadio = document.querySelector('input[name="orderType"][value="Mesa"]');
+                    if (mesaRadio) {
+                        mesaRadio.checked = true;
+                        // Força a atualização da variável de estado global
+                        currentOrderType = 'Mesa';
+                        // Abre o modal de dados do cliente. A pré-seleção da mesa
+                        // acontecerá dentro desta função.
+                        openClientDataModal();
+                    }
                 }
             }
         }
@@ -1705,7 +1724,24 @@
                 document.getElementById('client-modal-neighborhood').value = clientData.address ? clientData.address.neighborhood : '';
             } else { // Mesa
                 document.getElementById('client-modal-mesa-fields').classList.remove('hidden');
-                document.getElementById('client-modal-table-select').value = clientData.table || '';
+                
+                // LÓGICA ATUALIZADA PARA PRÉ-SELECIONAR A MESA
+                const urlParams = new URLSearchParams(window.location.search);
+                const mesaParam = urlParams.get('mesa');
+
+                // Se o parâmetro 'mesa' existir na URL, ele tem prioridade na abertura do modal
+                if (mesaParam) {
+                    document.getElementById('client-modal-table-select').value = mesaParam;
+                    // Atualiza o estado global com a mesa da URL
+                    if (!clientData.table) { // Só atualiza se não tiver uma mesa já definida
+                        clientData.table = mesaParam;
+                    }
+                } else {
+                    // Caso contrário, usa o valor que já está salvo no estado do pedido atual
+                    document.getElementById('client-modal-table-select').value = clientData.table || '';
+                }
+                // FIM DA LÓGICA ATUALIZADA
+                
                 document.getElementById('client-modal-name-mesa').value = clientData.name || '';
             }
             
@@ -2083,4 +2119,3 @@
     </script>
 </body>
 </html>
-
