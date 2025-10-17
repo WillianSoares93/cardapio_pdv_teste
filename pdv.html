@@ -12,7 +12,7 @@
         body {
             font-family: 'Roboto', sans-serif;
             visibility: hidden;
-            /* overflow: hidden; foi removido para permitir o scroll da página inteira */
+            overflow: hidden; /* Evita o scroll da página inteira */
         }
         .modal {
             display: none;
@@ -132,6 +132,7 @@
         .main-container {
             display: grid;
             grid-template-columns: 0px 1fr; /* Barra lateral escondida por padrão */
+            height: 100vh; /* Ocupa a altura total da tela */
             transition: grid-template-columns 0.3s ease-in-out;
         }
         .main-container.sidebar-open {
@@ -140,7 +141,6 @@
         .sidebar-nav {
             background-color: #2C3E50;
             overflow: hidden;
-            /* A barra lateral agora rola com a página */
         }
         .sidebar-btn {
             color: #BDC3C7;
@@ -153,10 +153,6 @@
         .sidebar-btn.active {
             background-color: #3b82f6;
             color: white;
-        }
-        /* Estilo para o modal de mesa reestruturado */
-        #manage-table-modal .modal-content {
-            max-width: 400px;
         }
         .mesa-order-details {
             max-height: 400px;
@@ -178,132 +174,145 @@
 
     <div id="pdv-overlay"></div>
 
-    <header class="bg-white shadow-md">
-        <div class="max-w-full mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
-            <div class="flex items-center space-x-2">
-                <a href="atendente.html" target="_blank" class="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700">Lançar Pedido</a>
-                <button id="close-cash-register-btn" class="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700">Ver Caixa</button>
-                <a href="gerenciar.html" target="_blank" class="px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700">Gerenciar Cardápio</a>
-                <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">Sair</button>
-                <div id="connection-status" class="text-sm font-medium text-gray-500">
-                    <i class="fas fa-circle text-red-500 mr-2"></i>Conectando...
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <div class="bg-gray-800 text-white">
-        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center py-4">
-                <div><h3 class="text-sm font-medium text-gray-400">PEDIDOS HOJE</h3><p id="stats-total-orders" class="text-2xl font-bold">0</p></div>
-                <div><h3 class="text-sm font-medium text-gray-400">FATURAMENTO TOTAL</h3><p id="stats-total-revenue" class="text-2xl font-bold">R$ 0,00</p></div>
-                <div><h3 class="text-sm font-medium text-gray-400">TICKET MÉDIO</h3><p id="stats-avg-ticket" class="text-2xl font-bold">R$ 0,00</p></div>
-            </div>
-        </div>
-    </div>
-
     <div class="main-container">
         <!-- Sidebar Vertical Esquerda -->
-        <aside class="sidebar-nav flex flex-col items-center py-4 space-y-4">
-            <a href="pdv.html" class="sidebar-btn active w-full flex flex-col items-center p-3 text-xs" title="Painel de Pedidos">
-                <i class="fas fa-receipt fa-2x"></i>
-                <span>PEDIDOS</span>
-            </a>
-            <a href="venda-balcao.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Venda Balcão">
-                <i class="fas fa-cash-register fa-2x"></i>
-                <span>BALCÃO</span>
-            </a>
-            <a href="editar-cardapio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Editar Cardápio">
-                <i class="fas fa-edit fa-2x"></i>
-                <span>EDITAR</span>
-            </a>
-            <a href="gerenciar.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Gerenciar Itens">
-                <i class="fas fa-tasks fa-2x"></i>
-                <span>GERENCIAR</span>
-            </a>
-            <a href="relatorio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Relatórios">
-                <i class="fas fa-chart-line fa-2x"></i>
-                <span>RELATÓRIOS</span>
-            </a>
+        <aside class="sidebar-nav flex flex-col justify-between py-4">
+            <!-- Main Navigation -->
+            <div>
+                <a href="pdv.html" class="sidebar-btn active w-full flex flex-col items-center p-3 text-xs" title="Painel de Pedidos">
+                    <i class="fas fa-receipt fa-2x"></i>
+                    <span>PEDIDOS</span>
+                </a>
+                <a href="atendente.html" target="_blank" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Lançar Pedido">
+                    <i class="fas fa-plus-circle fa-2x"></i>
+                    <span>LANÇAR</span>
+                </a>
+                <a href="venda-balcao.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Venda Balcão">
+                    <i class="fas fa-cash-register fa-2x"></i>
+                    <span>BALCÃO</span>
+                </a>
+                <a href="editar-cardapio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Editar Cardápio">
+                    <i class="fas fa-edit fa-2x"></i>
+                    <span>EDITAR</span>
+                </a>
+                <a href="gerenciar.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Gerenciar Itens">
+                    <i class="fas fa-tasks fa-2x"></i>
+                    <span>GERENCIAR</span>
+                </a>
+                <a href="relatorio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Relatórios">
+                    <i class="fas fa-chart-line fa-2x"></i>
+                    <span>RELATÓRIOS</span>
+                </a>
+            </div>
+            <!-- Bottom Actions -->
+            <div class="space-y-2">
+                <button id="close-cash-register-btn" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Ver Caixa">
+                    <i class="fas fa-cash-register fa-2x text-green-400"></i>
+                    <span class="text-green-400">CAIXA</span>
+                </button>
+                <button id="logout-btn" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Sair">
+                    <i class="fas fa-sign-out-alt fa-2x text-red-400"></i>
+                    <span class="text-red-400">SAIR</span>
+                </button>
+            </div>
         </aside>
 
-        <main id="main-content" class="py-6 sm:px-6 lg:px-8">
-            <!-- Abas Principais -->
-            <div class="border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
-                <nav id="main-tabs" class="flex -mb-px" aria-label="Tabs">
-                    <button class="main-tab-btn active w-1/3 py-4 px-1 text-center border-b-4 font-medium text-lg relative" data-tab="delivery">
-                        <div class="flex justify-center items-center">
-                            <i class="fas fa-motorcycle mr-2"></i>
-                            <span>Delivery</span>
-                            <div id="delivery-notification" class="ml-2 flex items-center space-x-1 hidden">
-                                <i class="fas fa-bell text-yellow-500"></i>
-                                <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                            </div>
-                        </div>
-                    </button>
-                    <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg relative" data-tab="retirada">
-                        <div class="flex justify-center items-center">
-                            <i class="fas fa-shopping-bag mr-2"></i>
-                            <span>Retirada</span>
-                            <div id="retirada-notification" class="ml-2 flex items-center space-x-1 hidden">
-                                <i class="fas fa-bell text-yellow-500"></i>
-                                <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                            </div>
-                        </div>
-                    </button>
-                    <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg" data-tab="mesas">
-                        <i class="fas fa-utensils mr-2"></i> Mesas
-                    </button>
-                </nav>
-            </div>
-
-            <!-- Conteúdo das Abas -->
-            <div id="tab-content-delivery" class="tab-content">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
-                    <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
-                    <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
-                    <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
-                    <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
-                    <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+        <main id="main-content" class="overflow-y-auto">
+            <div class="py-6 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
+                    <div id="connection-status" class="text-sm font-medium text-gray-500">
+                        <i class="fas fa-circle text-red-500 mr-2"></i>Conectando...
+                    </div>
                 </div>
-            </div>
 
-            <div id="tab-content-retirada" class="tab-content hidden">
-                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
-                    <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
-                    <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
-                    <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
-                    <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
-                </div>
-            </div>
-
-            <div id="tab-content-mesas" class="tab-content hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-4">
-                     <div class="lg:col-span-4">
-                        <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
-                            <button id="add-table-btn" class="px-4 py-2 bg-green-500 text-white text-sm font-bold rounded-md hover:bg-green-600">
-                                <i class="fas fa-plus mr-2"></i>Adicionar Mesa
-                            </button>
-                            <button id="remove-table-btn" class="px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-md hover:bg-red-600">
-                                <i class="fas fa-trash-alt mr-2"></i>Excluir Última Mesa
-                            </button>
-                            <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
-                                <i class="fas fa-link mr-2"></i>Agrupar Mesas
-                            </button>
-                            <div id="joining-controls" class="hidden space-x-2">
-                                <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
-                                <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
-                            </div>
-                        </div>
-                        <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-4">
-                            <!-- As mesas serão inseridas aqui pelo JavaScript -->
+                <div class="bg-gray-800 text-white rounded-lg shadow-md mb-6">
+                    <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center py-4">
+                            <div><h3 class="text-sm font-medium text-gray-400">PEDIDOS HOJE</h3><p id="stats-total-orders" class="text-2xl font-bold">0</p></div>
+                            <div><h3 class="text-sm font-medium text-gray-400">FATURAMENTO TOTAL</h3><p id="stats-total-revenue" class="text-2xl font-bold">R$ 0,00</p></div>
+                            <div><h3 class="text-sm font-medium text-gray-400">TICKET MÉDIO</h3><p id="stats-avg-ticket" class="text-2xl font-bold">R$ 0,00</p></div>
                         </div>
                     </div>
-                     <div class="lg:col-span-1">
-                        <!-- COLUNAS DE STATUS DE PEDIDO DE MESA -->
-                        <div class="grid grid-cols-1 gap-6">
-                            <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                </div>
+
+
+                <!-- Abas Principais -->
+                <div class="border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
+                    <nav id="main-tabs" class="flex -mb-px" aria-label="Tabs">
+                        <button class="main-tab-btn active w-1/3 py-4 px-1 text-center border-b-4 font-medium text-lg relative" data-tab="delivery">
+                            <div class="flex justify-center items-center">
+                                <i class="fas fa-motorcycle mr-2"></i>
+                                <span>Delivery</span>
+                                <div id="delivery-notification" class="ml-2 flex items-center space-x-1 hidden">
+                                    <i class="fas fa-bell text-yellow-500"></i>
+                                    <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                                </div>
+                            </div>
+                        </button>
+                        <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg relative" data-tab="retirada">
+                            <div class="flex justify-center items-center">
+                                <i class="fas fa-shopping-bag mr-2"></i>
+                                <span>Retirada</span>
+                                <div id="retirada-notification" class="ml-2 flex items-center space-x-1 hidden">
+                                    <i class="fas fa-bell text-yellow-500"></i>
+                                    <span class="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                                </div>
+                            </div>
+                        </button>
+                        <button class="main-tab-btn w-1/3 py-4 px-1 text-center border-b-4 border-transparent text-gray-500 hover:text-gray-700 font-medium text-lg" data-tab="mesas">
+                            <i class="fas fa-utensils mr-2"></i> Mesas
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Conteúdo das Abas -->
+                <div id="tab-content-delivery" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-4">
+                        <div id="col-delivery-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Novos Pedidos</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                        <div id="col-delivery-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                        <div id="col-delivery-pronto" data-status="Pronto para Entrega" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Entrega</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                        <div id="col-delivery-entrega" data-status="Saiu para Entrega" class="bg-blue-50 rounded-lg shadow"><div class="p-4 border-b border-blue-200"><h2 class="text-lg font-bold text-blue-800">Saiu para Entrega</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                        <div id="col-delivery-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                    </div>
+                </div>
+
+                <div id="tab-content-retirada" class="tab-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
+                        <div id="col-retirada-novo" data-status="Novo" class="bg-red-50 rounded-lg shadow"><div class="p-4 border-b border-red-200"><h2 class="text-lg font-bold text-red-800">Aguardando Retirada</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                        <div id="col-retirada-preparo" data-status="Em Preparo" class="bg-yellow-50 rounded-lg shadow"><div class="p-4 border-b border-yellow-200"><h2 class="text-lg font-bold text-yellow-800">Em Preparo</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                        <div id="col-retirada-pronto" data-status="Pronto para Retirada" class="bg-green-50 rounded-lg shadow"><div class="p-4 border-b border-green-200"><h2 class="text-lg font-bold text-green-800">Pronto para Retirada</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                        <div id="col-retirada-entregue" data-status="Entregue" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Entregue</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                    </div>
+                </div>
+
+                <div id="tab-content-mesas" class="tab-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-4">
+                        <div class="lg:col-span-4">
+                            <div id="mesas-controls" class="p-2 bg-white rounded-lg shadow-sm flex items-center justify-end space-x-2">
+                                <button id="add-table-btn" class="px-4 py-2 bg-green-500 text-white text-sm font-bold rounded-md hover:bg-green-600">
+                                    <i class="fas fa-plus mr-2"></i>Adicionar Mesa
+                                </button>
+                                <button id="remove-table-btn" class="px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-md hover:bg-red-600">
+                                    <i class="fas fa-trash-alt mr-2"></i>Excluir Última Mesa
+                                </button>
+                                <button id="join-tables-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700">
+                                    <i class="fas fa-link mr-2"></i>Agrupar Mesas
+                                </button>
+                                <div id="joining-controls" class="hidden space-x-2">
+                                    <button id="confirm-join-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-md hover:bg-green-700">Confirmar Agrupamento</button>
+                                    <button id="cancel-join-btn" class="px-4 py-2 bg-gray-500 text-white text-sm font-bold rounded-md hover:bg-gray-600">Cancelar</button>
+                                </div>
+                            </div>
+                            <div id="mesas-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-4">
+                                <!-- As mesas serão inseridas aqui pelo JavaScript -->
+                            </div>
+                        </div>
+                        <div class="lg:col-span-1">
+                            <!-- COLUNAS DE STATUS DE PEDIDO DE MESA -->
+                            <div class="grid grid-cols-1 gap-6">
+                                <div id="col-mesas-fechado" data-status="Fechado" class="bg-gray-100 rounded-lg shadow"><div class="p-4 border-b border-gray-300"><h2 class="text-lg font-bold text-gray-800">Contas Fechadas</h2></div><div class="pdv-column p-4 space-y-4"></div></div>
+                            </div>
                         </div>
                     </div>
                 </div>
