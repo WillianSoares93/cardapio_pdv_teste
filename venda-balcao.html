@@ -283,25 +283,30 @@
             <!-- Coluna da Esquerda: Pedido -->
             <section class="bg-white rounded-lg shadow-md flex flex-col overflow-hidden">
                 <div class="flex-shrink-0">
-                    <div class="p-4 border-b flex justify-between items-start">
-                        <div>
-                            <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
-                            <div id="order-type-selector" class="flex space-x-4">
-                                <label class="flex items-center">
-                                    <input type="radio" name="orderType" value="Retirada" checked class="form-radio text-blue-600">
-                                    <span class="ml-2">Retirada</span>
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="radio" name="orderType" value="Delivery" class="form-radio text-blue-600">
-                                    <span class="ml-2">Delivery</span>
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="radio" name="orderType" value="Mesa" class="form-radio text-blue-600">
-                                    <span class="ml-2">Mesa</span>
-                                </label>
+                    <div class="p-4 border-b">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
+                                <div id="order-type-selector" class="flex space-x-4">
+                                    <label class="flex items-center">
+                                        <input type="radio" name="orderType" value="Retirada" checked class="form-radio text-blue-600">
+                                        <span class="ml-2">Retirada</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" name="orderType" value="Delivery" class="form-radio text-blue-600">
+                                        <span class="ml-2">Delivery</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" name="orderType" value="Mesa" class="form-radio text-blue-600">
+                                        <span class="ml-2">Mesa</span>
+                                    </label>
+                                </div>
                             </div>
+                            <button id="open-client-data-modal-btn" class="px-3 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600 text-sm whitespace-nowrap">Dados do Cliente</button>
                         </div>
-                        <button id="open-client-data-modal-btn" class="px-3 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600 text-sm whitespace-nowrap">Dados do Cliente</button>
+                        <button id="open-ia-modal-btn" class="px-3 py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700 text-sm whitespace-nowrap mt-2 w-full">
+                            <i class="fas fa-robot mr-2"></i>Montar Pedido com IA
+                        </button>
                     </div>
                     <div id="client-data-summary" class="p-4 border-b hidden bg-blue-50 text-sm text-blue-800">
                         <!-- Summary of client data will go here -->
@@ -547,6 +552,32 @@
         </div>
     </div>
 
+    <!-- NOVO: Modal de IA para Pedidos -->
+    <div id="ia-order-modal" class="modal">
+        <div class="modal-content !max-w-3xl">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 class="text-xl font-bold text-gray-900">Montar Pedido com IA</h3>
+                <button id="close-ia-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <div class="mt-4">
+                <label for="whatsapp-conversation-input" class="block text-sm font-medium text-gray-700">Cole a conversa do WhatsApp aqui:</label>
+                <textarea id="whatsapp-conversation-input" rows="8" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 font-mono text-sm" placeholder="Ex: Cliente: Olá, gostaria de uma pizza grande de calabresa..."></textarea>
+                <button id="analyze-conversation-btn" class="mt-2 w-full py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700 transition-colors">Analisar Conversa</button>
+            </div>
+            <div id="ia-loading-indicator" class="hidden text-center py-4">
+                <i class="fas fa-spinner fa-spin text-2xl text-purple-600"></i>
+                <p class="text-sm text-gray-600 mt-2">Analisando pedido...</p>
+            </div>
+            <div id="ia-order-preview" class="hidden mt-4 p-4 border rounded-md bg-gray-50 max-h-64 overflow-y-auto">
+                <!-- O resultado da IA será exibido aqui -->
+            </div>
+            <div id="ia-actions" class="hidden mt-4 flex justify-end gap-4">
+                <button id="cancel-ia-order-btn" class="px-4 py-2 bg-gray-300 text-gray-800 font-bold rounded-md hover:bg-gray-400">Cancelar</button>
+                <button id="confirm-ia-order-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Adicionar ao Pedido</button>
+            </div>
+        </div>
+    </div>
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
@@ -577,15 +608,11 @@
         let paymentMethod = null; 
         let pauseTime = 2000; 
         let initialUrlParamCheckDone = false; 
-
-        // NOVA LÓGICA DE EDIÇÃO
         let currentOrderId = null;
         let isEditing = false;
-
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
         let ingredientStatus = {}, ingredientVisibility = {};
         let extraStatus = {}, extraVisibility = {};
-
         let isSelectingHalfPizza = false;
         let firstHalfPizza = null;
         let currentPizzaExtrasState = {};
@@ -688,7 +715,6 @@
             setupEventListeners();
             listenToTableStatus();
             
-            // LÓGICA DE EDIÇÃO: Verifica se há um ID de pedido na URL
             const urlParams = new URLSearchParams(window.location.search);
             const orderIdFromUrl = urlParams.get('orderId');
             if (orderIdFromUrl) {
@@ -707,7 +733,6 @@
                 if (docSnap.exists()) {
                     const orderData = docSnap.data();
                     
-                    // CORREÇÃO: Enriquece os itens com dados locais necessários
                     order = (orderData.itens || []).map(item => {
                         const uniqueId = item.uniqueId || `${item.id || Date.now()}-${Math.random()}`;
                         let originalItem = null;
@@ -1556,7 +1581,6 @@
 
             document.getElementById('search-product').addEventListener('input', renderProducts);
             document.getElementById('cancel-order-btn').addEventListener('click', async () => {
-                // ALTERAÇÃO: Se estiver editando, apenas fecha a janela.
                 if (isEditing) {
                     window.close();
                     return;
@@ -1572,7 +1596,6 @@
             
             document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrderCheck);
             
-            // CORREÇÃO: Uso de delegação de eventos para os botões dos itens do pedido
             orderItemsContainer.addEventListener('click', (e) => {
                 const removeBtn = e.target.closest('.remove-item-btn');
                 const editExtrasBtn = e.target.closest('.edit-extras-btn');
@@ -1593,7 +1616,6 @@
                         if (itemToEdit.originalItem) {
                             openBurgerBuilderModal(itemToEdit.originalItem, index, itemToEdit);
                         } else {
-                            // Fallback in case originalItem is missing on a loaded order
                             const baseBurger = allItems.find(item => item.isCustomizable);
                             if(baseBurger) openBurgerBuilderModal(baseBurger, index, itemToEdit);
                         }
@@ -1646,6 +1668,15 @@
             document.getElementById('close-client-modal-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('cancel-client-data-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
+
+            // NOVO: Listeners para o modal de IA
+            const iaOrderModal = document.getElementById('ia-order-modal');
+            document.getElementById('open-ia-modal-btn').addEventListener('click', () => iaOrderModal.style.display = 'flex');
+            document.getElementById('close-ia-modal-btn').addEventListener('click', () => iaOrderModal.style.display = 'none');
+            document.getElementById('cancel-ia-order-btn').addEventListener('click', () => iaOrderModal.style.display = 'none');
+            document.getElementById('analyze-conversation-btn').addEventListener('click', analyzeConversationWithAI);
+            document.getElementById('confirm-ia-order-btn').addEventListener('click', confirmIAOrder);
+
             
             setupPaymentModalListeners();
         }
@@ -1822,26 +1853,21 @@
                 document.getElementById('client-modal-name-mesa').value = clientData.name || '';
             }
             
-            // Populates Observation
             document.getElementById('client-modal-observation').value = clientData.observation || '';
             
-            // Populates Payment Method
             const selectedMethod = paymentMethod ? (typeof paymentMethod === 'object' ? paymentMethod.method : paymentMethod) : 'Dinheiro';
             
-            // Remove 'selected' from all and check the correct radio
             document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected')); 
             const paymentRadio = document.querySelector(`input[name="modalPaymentMethod"][value="${selectedMethod}"]`);
             if (paymentRadio) {
                 paymentRadio.checked = true;
                 paymentRadio.closest('.payment-option').classList.add('selected');
             } else {
-                 // Fallback: check 'A Definir' if paymentMethod is invalid
                 document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).checked = true;
                 document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).closest('.payment-option').classList.add('selected');
             }
 
 
-            // Populates Troco
             const isCash = selectedMethod === 'Dinheiro';
             const trocoParaInput = document.getElementById('modal-trocoPara');
             const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
@@ -1854,7 +1880,6 @@
             }
             calculateTroco();
 
-            // Set Total Value for summary
             const totalValue = order.reduce((sum, item) => sum + item.price, 0) + (currentOrderType === 'Delivery' && clientData.address ? clientData.address.deliveryFee : 0);
             
             const modalTotalDisplay = document.getElementById('client-modal-total-display');
@@ -1910,7 +1935,6 @@
             
             let currentClientData = {};
             
-            // 1. Coleta Dados do Cliente/Mesa
             if (currentOrderType === 'Retirada') {
                 currentClientData.name = document.getElementById('client-modal-name-retirada').value.trim();
                 currentClientData.contact = document.getElementById('client-modal-contact-retirada').value.trim();
@@ -1947,10 +1971,8 @@
                 }
             }
             
-            // Coleta Observação
             currentClientData.observation = document.getElementById('client-modal-observation').value.trim();
 
-            // 2. Coleta Forma de Pagamento
             const selectedPaymentRadio = document.querySelector('input[name="modalPaymentMethod"]:checked');
             if (!selectedPaymentRadio) {
                 errorDiv.textContent = "Selecione uma forma de pagamento.";
@@ -1979,7 +2001,6 @@
                 finalPaymentData = method;
             }
 
-            // Atualiza o estado global
             clientData = currentClientData;
             paymentMethod = finalPaymentData;
 
@@ -1987,7 +2008,6 @@
             updateClientDataSummary();
             updateOrderDisplay();
             
-            // Tenta Finalizar o Pedido
             await finalizeOrder();
         }
 
@@ -2000,7 +2020,6 @@
 
             let summaryHtml = '';
             
-            // 1. Tipo e Nome
             if (currentOrderType === 'Mesa') {
                 summaryHtml = `<strong>Mesa:</strong> ${clientData.table || 'N/A'}`;
                  if(clientData.name) {
@@ -2010,13 +2029,11 @@
                 summaryHtml = `<strong>Cliente:</strong> ${clientData.name || 'N/A'}`;
             }
 
-            // 2. Contato/Endereço
             if(clientData.contact) summaryHtml += ` | <strong>Contato:</strong> ${clientData.contact}`;
             if(currentOrderType === 'Delivery' && clientData.address) {
                 summaryHtml += `<br><strong>Endereço:</strong> ${clientData.address.street}, ${clientData.address.number} - ${clientData.address.neighborhood}`;
             }
 
-            // 3. Pagamento
             let paymentText = '';
             if (paymentMethod) {
                 if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
@@ -2029,7 +2046,6 @@
             }
             summaryHtml += `<br><strong>Pagamento:</strong> ${paymentText}`;
 
-            // 4. Observação
             if (clientData.observation) {
                  summaryHtml += `<br><strong>Obs. Cliente:</strong> ${clientData.observation}`;
             }
@@ -2044,7 +2060,6 @@
                 return;
             }
             
-            // Se os dados do cliente não estiverem completos (para o tipo de pedido), abre o modal.
             let isDataIncomplete = false;
             
             if (currentOrderType === 'Retirada' && !clientData.name) {
@@ -2056,18 +2071,15 @@
             }
 
             if (isDataIncomplete) {
-                // Abre o modal de dados do cliente, que agora inclui o pagamento
                 openClientDataModal();
                 return;
             }
             
-            // Se os dados estão no estado global, mas a forma de pagamento não está definida (o que pode acontecer se o atendente nunca abriu o modal)
             if (!paymentMethod) {
                  openClientDataModal();
                  return;
             }
             
-            // Se tudo estiver OK, finaliza
             finalizeOrder();
         }
 
@@ -2080,7 +2092,7 @@
             
             let isMesaGroupUpdate = false;
             if (isEditing) {
-                // No need to re-validate, data is already loaded.
+                // No validation needed, data is loaded
             } else {
                  if ( (currentOrderType === 'Mesa' && !clientData.table) || 
                      (currentOrderType === 'Retirada' && !clientData.name) || 
@@ -2186,6 +2198,178 @@
             paymentMethod = null;
             updateOrderDisplay();
             updateClientDataSummary();
+        }
+
+        // --- LÓGICA DA IA ---
+        let iaOrderData = null;
+        async function analyzeConversationWithAI() {
+            const conversation = document.getElementById('whatsapp-conversation-input').value;
+            if (!conversation.trim()) {
+                showAlert('Por favor, cole a conversa do WhatsApp na área de texto.');
+                return;
+            }
+
+            const loadingIndicator = document.getElementById('ia-loading-indicator');
+            const previewContainer = document.getElementById('ia-order-preview');
+            const actionsContainer = document.getElementById('ia-actions');
+            const analyzeBtn = document.getElementById('analyze-conversation-btn');
+
+            loadingIndicator.style.display = 'block';
+            previewContainer.style.display = 'none';
+            actionsContainer.style.display = 'none';
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Analisando...';
+            iaOrderData = null;
+
+            const apiKey = "AIzaSyCGgZc5sM-7anVDdvXogFR17ELPRwHtEhE";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+
+            const simplifiedMenu = allItems.map(item => ({
+                nome: item.name,
+                categoria: item.category,
+                preco: item.basePrice || item.price4Slices || item.price6Slices || item.price10Slices,
+                isPizza: item.isPizza,
+                isMontavel: item.isCustomizable
+            }));
+            
+            const prompt = `
+                Você é um assistente de ponto de venda para a "Sâmia Pizzaria", especializado em interpretar conversas de WhatsApp para extrair pedidos.
+                
+                CARDÁPIO DISPONÍVEL (em JSON):
+                ${JSON.stringify(simplifiedMenu)}
+
+                CONVERSA DO WHATSAPP:
+                ---
+                ${conversation}
+                ---
+
+                TAREFA:
+                Analise a conversa e extraia os itens do pedido, a quantidade de cada um, e, se possível, o nome do cliente, telefone, endereço (rua, número, bairro) e a forma de pagamento.
+
+                REGRAS IMPORTANTES:
+                1. Combine nomes similares: "calabresa" ou "pizza de calabresa" deve ser mapeado para o item do cardápio que corresponde.
+                2. Quantidade: Se a quantidade não for dita, assuma 1.
+                3. Preço: Use o preço do cardápio que você recebeu. Não invente preços. Para pizzas, use o preço base (8 fatias) se o tamanho não for especificado.
+                4. Dados do Cliente: Extraia o máximo de informações de contato e endereço que conseguir.
+
+                FORMATO DE SAÍDA OBRIGATÓRIO:
+                Sua resposta DEVE ser um objeto JSON bem-formado, sem nenhum texto ou formatação adicional (como \`\`\`json). A estrutura deve ser:
+                {
+                  "itens": [
+                    { "nome": "Nome Exato do Item no Cardápio", "quantidade": 1, "preco": 40.00 }
+                  ],
+                  "cliente": {
+                    "nome": "Nome do Cliente",
+                    "telefone": "Telefone com DDD"
+                  },
+                  "endereco": {
+                    "rua": "Nome da Rua",
+                    "numero": "Número",
+                    "bairro": "Bairro"
+                  },
+                  "pagamento": "Dinheiro, Cartão ou Pix"
+                }
+                Se uma informação não for encontrada, retorne o campo com o valor null. Por exemplo, se não achar o endereço, retorne "endereco": null.
+            `;
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro na API: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                const jsonText = result.candidates[0].content.parts[0].text;
+                iaOrderData = JSON.parse(jsonText);
+                
+                let previewHtml = '<h4>Pedido Identificado:</h4><ul class="list-disc pl-5 mt-2">';
+                (iaOrderData.itens || []).forEach(item => {
+                    previewHtml += `<li>${item.quantidade}x ${item.nome} - R$ ${parseFloat(item.preco || 0).toFixed(2).replace('.', ',')}</li>`;
+                });
+                previewHtml += '</ul>';
+
+                if (iaOrderData.cliente && iaOrderData.cliente.nome) {
+                    previewHtml += `<p class="mt-2"><strong>Cliente:</strong> ${iaOrderData.cliente.nome}</p>`;
+                }
+                 if (iaOrderData.endereco && iaOrderData.endereco.rua) {
+                    previewHtml += `<p><strong>Endereço:</strong> ${iaOrderData.endereco.rua}, ${iaOrderData.endereco.numero || 'S/N'} - ${iaOrderData.endereco.bairro || 'N/A'}</p>`;
+                }
+                if (iaOrderData.pagamento) {
+                    previewHtml += `<p><strong>Pagamento:</strong> ${iaOrderData.pagamento}</p>`;
+                }
+
+                previewContainer.innerHTML = previewHtml;
+                previewContainer.style.display = 'block';
+                actionsContainer.style.display = 'flex';
+
+            } catch (error) {
+                console.error("Erro ao analisar com IA:", error);
+                previewContainer.innerHTML = `<p class="text-red-500">Não foi possível interpretar o pedido. Verifique o texto ou tente novamente. Detalhe: ${error.message}</p>`;
+                previewContainer.style.display = 'block';
+            } finally {
+                loadingIndicator.style.display = 'none';
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Analisar Conversa';
+            }
+        }
+
+        function confirmIAOrder() {
+            if (!iaOrderData || !iaOrderData.itens) {
+                showAlert('Nenhum item válido foi identificado pela IA.');
+                return;
+            }
+
+            iaOrderData.itens.forEach(iaItem => {
+                // Tenta encontrar uma correspondência exata primeiro
+                let matchedItem = allItems.find(menuItem => menuItem.name.toLowerCase() === iaItem.nome.toLowerCase());
+                
+                // Se não encontrar, tenta uma correspondência parcial
+                if (!matchedItem) {
+                    matchedItem = allItems.find(menuItem => menuItem.name.toLowerCase().includes(iaItem.nome.toLowerCase()));
+                }
+
+                if (matchedItem) {
+                    for (let i = 0; i < (iaItem.quantidade || 1); i++) {
+                        // Usamos o item do nosso cardápio para garantir a consistência dos dados
+                        addToOrder({
+                            ...matchedItem,
+                            price: matchedItem.basePrice || matchedItem.price4Slices || 0,
+                            type: 'full'
+                        });
+                    }
+                } else {
+                    console.warn(`Item "${iaItem.nome}" da IA não encontrado no cardápio.`);
+                }
+            });
+
+            if (iaOrderData.cliente) {
+                clientData.name = iaOrderData.cliente.nome;
+                clientData.contact = iaOrderData.cliente.telefone;
+            }
+            if (iaOrderData.endereco && iaOrderData.endereco.bairro) {
+                const matchedFee = allDeliveryFees.find(fee => fee.neighborhood.toLowerCase() === iaOrderData.endereco.bairro.toLowerCase());
+                clientData.address = {
+                    street: iaOrderData.endereco.rua,
+                    number: iaOrderData.endereco.numero,
+                    neighborhood: iaOrderData.endereco.bairro,
+                    deliveryFee: matchedFee ? matchedFee.deliveryFee : 0
+                };
+                document.querySelector('input[name="orderType"][value="Delivery"]').checked = true;
+                currentOrderType = 'Delivery';
+            }
+            if (iaOrderData.pagamento) {
+                paymentMethod = iaOrderData.pagamento;
+            }
+
+            updateOrderDisplay();
+            updateClientDataSummary();
+            showTemporaryFeedback('Itens adicionados com sucesso!');
+            document.getElementById('ia-order-modal').style.display = 'none';
         }
 
     </script>
