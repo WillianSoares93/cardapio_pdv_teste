@@ -696,7 +696,6 @@
             }
         }
         
-        // NOVA FUNÇÃO: Carrega um pedido existente para edição
         async function loadOrderForEditing(orderId) {
             isEditing = true;
             currentOrderId = orderId;
@@ -707,7 +706,22 @@
 
                 if (docSnap.exists()) {
                     const orderData = docSnap.data();
-                    order = orderData.itens || [];
+                    
+                    // CORREÇÃO: Enriquece os itens com dados locais necessários
+                    order = (orderData.itens || []).map(item => {
+                        const uniqueId = item.uniqueId || `${item.id || Date.now()}-${Math.random()}`;
+                        let originalItem = null;
+                        if(item.type === 'custom_burger' && item.originalItem) {
+                             originalItem = allItems.find(i => i.id === item.originalItem.id);
+                        } else {
+                             originalItem = allItems.find(i => i.name === item.name.split(': ')[1] || i.name === item.name);
+                        }
+
+                        const acceptsExtras = originalItem ? (itemExtrasStatus[originalItem.id] === undefined ? originalItem.isPizza : itemExtrasStatus[originalItem.id]) : false;
+                        
+                        return { ...item, uniqueId, originalItem, acceptsExtras };
+                    });
+
                     paymentMethod = orderData.pagamento || null;
 
                     if (orderData.endereco.rua === "Mesa") {
@@ -715,8 +729,8 @@
                         document.querySelector('input[name="orderType"][value="Mesa"]').checked = true;
                         
                         const mesaText = orderData.endereco.clientName || '';
-                        clientData.table = mesaText.match(/\d+/)?.[0]; // Pega o número da mesa
-                        const clientNameMatch = mesaText.match(/\((.*?)\)/); // Pega o nome entre parênteses
+                        clientData.table = mesaText.match(/\d+/)?.[0]; 
+                        const clientNameMatch = mesaText.match(/\((.*?)\)/);
                         clientData.name = clientNameMatch ? clientNameMatch[1] : '';
                     
                     } else if (orderData.endereco.rua === "Retirada no Balcão") {
@@ -791,7 +805,7 @@
             emptyGroups.forEach(groupOrder => {
                 const sortedGroup = groupOrder.grupoMesas.sort((a, b) => a - b);
                 const option = document.createElement('option');
-                option.value = `group_${groupOrder.id}`; // Special value format
+                option.value = `group_${groupOrder.id}`;
                 option.textContent = `Mesas ${sortedGroup.join(' + ')}`;
                 tableSelector.appendChild(option);
             });
@@ -801,7 +815,7 @@
                     const option = document.createElement('option');
                     option.value = i;
                     option.textContent = `Mesa ${i.toString().padStart(2, '0')}`;
-                     if (occupiedTables.has(i) && String(i) !== clientData.table) { // Don't disable the currently edited table
+                     if (occupiedTables.has(i) && String(i) !== clientData.table) {
                         option.disabled = true;
                         option.textContent += ' (Ocupada)';
                     }
@@ -826,7 +840,6 @@
         }
 
         function setupPaymentModalListeners() {
-            // NEW: Payment method listeners inside the modal
             document.getElementById('payment-options-container').addEventListener('click', (e) => {
                 const label = e.target.closest('.payment-option');
                 if (label) {
@@ -838,18 +851,15 @@
 
                     document.getElementById('troco-input-container').classList.toggle('hidden', !isCash);
 
-                    // Clear troco data if not cash
                     if (!isCash) {
                         document.getElementById('modal-trocoPara').value = '';
                         document.getElementById('modal-trocoTotalDisplay').textContent = 'R$ 0,00';
                     } else {
-                        // Calculate troco immediately if cash is selected and there's an input value
                         calculateTroco();
                     }
                 }
             });
 
-            // NEW: Troco input listener
             document.getElementById('modal-trocoPara').addEventListener('input', calculateTroco);
         }
 
@@ -1522,44 +1532,13 @@
             const total = subtotal + deliveryFee;
             totalValueEl.textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
             totalItemsEl.textContent = totalItems;
-            
-            // Re-attach event listeners for dynamic elements
-            if (order.length > 0) {
-                container.querySelectorAll('.remove-item-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const uniqueId = btn.dataset.uniqueId;
-                        order = order.filter(item => item.uniqueId !== uniqueId);
-                        updateOrderDisplay();
-                    });
-                });
-                container.querySelectorAll('.edit-extras-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const uniqueId = btn.dataset.uniqueId;
-                        openPizzaExtrasBuilderModal(uniqueId);
-                    });
-                });
-                container.querySelectorAll('.edit-burger-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const uniqueId = btn.dataset.uniqueId;
-                        const index = order.findIndex(item => item.uniqueId === uniqueId);
-                        if (index !== -1) {
-                            const itemToEdit = order[index];
-                            if (itemToEdit.originalItem) {
-                                openBurgerBuilderModal(itemToEdit.originalItem, index, itemToEdit);
-                            }
-                        }
-                    });
-                });
-            }
         }
         
         async function setupEventListeners() {
             const mainContainer = document.querySelector('.main-container');
             const sidebar = document.querySelector('.sidebar-nav');
             const mainContent = document.querySelector('.main-content');
-            const trocoParaInput = document.getElementById('modal-trocoPara');
-            const trocoTotalDisplay = document.getElementById('modal-trocoTotalDisplay');
-            const clientDataBtn = document.getElementById('open-client-data-modal-btn');
+            const orderItemsContainer = document.getElementById('order-items-container');
 
             document.addEventListener('mousemove', (e) => {
                 if (e.clientX < 20) {
@@ -1586,21 +1565,42 @@
                 if (order.length > 0 || clientData.name || clientData.table) {
                     const confirmed = await showConfirm('Deseja cancelar o pedido atual e limpar os dados do cliente?');
                     if (confirmed) {
-                        order = [];
-                        clientData = { name: null, contact: null, address: null, table: null, observation: null };
-                        paymentMethod = null;
-                        isSelectingHalfPizza = false;
-                        firstHalfPizza = null;
-                        document.getElementById('product-display').classList.remove('half-pizza-selection-active');
-                        updateOrderDisplay();
-                        updateClientDataSummary();
-                        document.getElementById('client-modal-table-select').value = '';
+                        resetOrderState();
                     }
                 }
             });
             
             document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrderCheck);
             
+            // CORREÇÃO: Uso de delegação de eventos para os botões dos itens do pedido
+            orderItemsContainer.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('.remove-item-btn');
+                const editExtrasBtn = e.target.closest('.edit-extras-btn');
+                const editBurgerBtn = e.target.closest('.edit-burger-btn');
+
+                if (removeBtn) {
+                    const uniqueId = removeBtn.dataset.uniqueId;
+                    order = order.filter(item => item.uniqueId !== uniqueId);
+                    updateOrderDisplay();
+                } else if (editExtrasBtn) {
+                    const uniqueId = editExtrasBtn.dataset.uniqueId;
+                    openPizzaExtrasBuilderModal(uniqueId);
+                } else if (editBurgerBtn) {
+                    const uniqueId = editBurgerBtn.dataset.uniqueId;
+                    const index = order.findIndex(item => item.uniqueId === uniqueId);
+                    if (index !== -1) {
+                        const itemToEdit = order[index];
+                        if (itemToEdit.originalItem) {
+                            openBurgerBuilderModal(itemToEdit.originalItem, index, itemToEdit);
+                        } else {
+                            // Fallback in case originalItem is missing on a loaded order
+                            const baseBurger = allItems.find(item => item.isCustomizable);
+                            if(baseBurger) openBurgerBuilderModal(baseBurger, index, itemToEdit);
+                        }
+                    }
+                }
+            });
+
             const pizzaModal = document.getElementById('pizza-option-modal');
             document.getElementById('close-pizza-modal-btn').addEventListener('click', () => pizzaModal.style.display = 'none');
             
