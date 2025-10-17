@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png" type="image/png">
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
         body {
@@ -167,6 +168,15 @@
         }
         .mesa-timer-container .timer-container {
             padding: 2px 4px;
+        }
+        #qrcode-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
         }
     </style>
 </head>
@@ -462,9 +472,24 @@
         <h3 class="text-lg font-bold text-gray-900 mb-4">Atenção</h3>
         <p id="custom-alert-message" class="text-sm text-gray-600 mb-6">Message goes here.</p>
         <div class="flex justify-end">
-            <button id="ok-alert-modal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">OK</button>
+            <button id="ok-alert-modal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-600">OK</button>
         </div>
       </div>
+    </div>
+
+    <!-- NOVO: Modal de confirmação do WhatsApp -->
+    <div id="whatsapp-confirm-modal" class="modal">
+        <div class="modal-content text-center">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900">Confirmar Pedido via WhatsApp</h3>
+                <button id="close-whatsapp-modal-btn" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Use o QR Code abaixo com a câmera do seu celular ou clique no link para enviar a mensagem de confirmação para o cliente.</p>
+            <div id="qrcode-container"></div>
+            <a id="whatsapp-confirm-link" href="#" target="_blank" class="block w-full text-center py-3 bg-green-500 text-white font-bold rounded-md hover:bg-green-600 transition-colors">
+                <i class="fab fa-whatsapp mr-2"></i>Abrir no WhatsApp
+            </a>
+        </div>
     </div>
 
 
@@ -491,6 +516,7 @@
         let detailedReportData = {}; 
         let timerIntervalId = null;
         let numeroDeMesas = 12; // Valor padrão
+        let allOrdersCache = []; // Cache para os pedidos
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -646,11 +672,9 @@
             const tabName = tabButton.dataset.tab;
             document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
             
-            // Remove a animação do sino ao clicar na aba
             const notificationDiv = document.getElementById(`${tabName}-notification`);
             if (notificationDiv) {
                 const bell = notificationDiv.querySelector('.fa-bell');
-                // Apenas remove a animação se a aba foi clicada
                 if (bell) {
                     bell.classList.remove('notification-bell-ringing');
                 }
@@ -753,18 +777,8 @@
                 window.open(`venda-balcao.html?mesa=${numeroMesa}`, '_blank');
             } else {
                 const orderId = mesaEl.dataset.orderId;
-                const orderStatus = mesaEl.dataset.orderStatus;
-                const grupo = mesaEl.dataset.grupo;
-                
                 if (orderId) {
-                    // If the table is part of a group, OR if it's already in progress (not 'Novo'), open the management modal.
-                    // This allows ungrouping even for empty groups.
-                    if (grupo || orderStatus !== 'Novo') {
-                        openManageTableModal(orderId);
-                    } else {
-                        // For a single table that is new, go directly to add items.
-                        window.open(`atendente.html?mesa=${numeroMesa}`, '_blank');
-                    }
+                    openManageTableModal(orderId);
                 }
             }
         }
@@ -792,14 +806,14 @@
             const addTableBtn = document.getElementById('add-table-btn');
             addTableBtn.addEventListener('click', async () => {
                 numeroDeMesas++;
-                initializeMesas(); // Redesenha a grade com a nova mesa
+                initializeMesas();
                 try {
                     await setDoc(settingsRef, { tableCount: numeroDeMesas }, { merge: true });
                     showCustomAlert(`Mesa ${numeroDeMesas} adicionada com sucesso.`);
                 } catch (error) {
                     console.error("Erro ao salvar o número de mesas:", error);
                     showCustomAlert("Não foi possível salvar a nova mesa.");
-                    numeroDeMesas--; // Reverte em caso de falha
+                    numeroDeMesas--;
                     initializeMesas();
                 }
             });
@@ -826,7 +840,7 @@
                     } catch (error) {
                         console.error("Erro ao salvar o número de mesas:", error);
                         showCustomAlert("Não foi possível salvar a remoção da mesa.");
-                        numeroDeMesas++; // Reverte em caso de falha
+                        numeroDeMesas++;
                         initializeMesas();
                     }
                 }
@@ -837,7 +851,6 @@
             let audioResumed = false;
             setupCustomAlertModal();
 
-            // --- LÓGICA DA BARRA LATERAL ---
             const mainContainer = document.querySelector('.main-container');
             const sidebar = document.querySelector('.sidebar-nav');
             const mainContentArea = document.getElementById('main-content'); 
@@ -855,7 +868,6 @@
             mainContentArea.addEventListener('mouseenter', () => {
                 mainContainer.classList.remove('sidebar-open');
             });
-            // --- FIM DA LÓGICA DA BARRA LATERAL ---
 
 
             document.body.addEventListener('click', () => {
@@ -908,7 +920,6 @@
             
             initializeMesas();
 
-            // Lógica de Drag and Drop
             mainContent.addEventListener('dragstart', (e) => {
                 const card = e.target.closest('.order-card');
                 if (card) {
@@ -984,11 +995,10 @@
                         }
                     }
                 });
+                
+                allOrdersCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const activeOrders = allOrdersCache;
 
-                const processedTables = new Set();
-                const activeOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // --- LÓGICA DE ATUALIZAÇÃO DOS CONTADORES NAS ABAS ---
                 let newDeliveryCount = 0;
                 let newRetiradaCount = 0;
                 activeOrders.forEach(order => {
@@ -1000,7 +1010,7 @@
                 });
                 updateTabCounters(newDeliveryCount, newRetiradaCount);
 
-                // Mapeia todos os pedidos de mesa ATIVOS (não finalizados/arquivados/fechados)
+                const processedTables = new Set();
                 const activeTableOrders = activeOrders.filter(order => 
                     identifyOrderType(order) === 'mesa' && 
                     order.status !== 'Finalizado' && 
@@ -1008,7 +1018,6 @@
                     order.status !== 'Fechado' 
                 );
 
-                // Processa grupos de mesas e mesas individuais
                 activeTableOrders.forEach(order => {
                     const orderId = order.id;
                     const mesaNumbers = order.grupoMesas && order.grupoMesas.length > 0
@@ -1024,7 +1033,6 @@
                         const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
                         const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
 
-                        // --- ATUALIZAÇÃO DA GRADE DE MESAS (LIVRE/OCUPADA/AGRUPADA) ---
                         if (sortedGroup.length > 1) {
                             const primaryTableEl = document.getElementById(`mesa-${primaryTableNumber}`);
                             if (primaryTableEl) {
@@ -1055,7 +1063,6 @@
                                 }
                             }
                         } else if (mesaNumbers.length === 1 && !processedTables.has(primaryTableNumber)) {
-                            // Mesa individual
                             let mesaStatusClass;
                             let mesaStatusText;
                             if (orderStatus === 'Novo' || orderStatus === 'Em Preparo') {
@@ -1096,7 +1103,6 @@
                     }
                 });
 
-                // Se houver mesas que não foram processadas (eram ocupadas e agora estão livres/finalizadas), redefina o estado
                 for (let i = 1; i <= numeroDeMesas; i++) {
                     if (!processedTables.has(i)) {
                          const mesaEl = document.getElementById(`mesa-${i}`);
@@ -1117,20 +1123,16 @@
                     }
                 }
                 
-                // --- PROCESSAMENTO DOS OUTROS CARDS (Delivery/Retirada e MESAS FECHADAS) ---
                 activeOrders.forEach(order => {
                     const orderId = order.id;
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
                     const orderType = identifyOrderType(order);
 
-                    // Apenas pedidos concluídos no dia de hoje contam para o faturamento total.
                     const isCompleted = order.status === 'Entregue' || order.status === 'Fechado';
                     
                     if (orderDate === today) {
-                        // Contamos todas as ordens criadas no dia para "PEDIDOS HOJE"
                         totalOrdersToday++;
                         
-                        // Contamos o faturamento apenas se o pedido foi concluído
                         if (isCompleted) {
                             totalRevenueToday += order.total.finalTotal;
                         }
@@ -1140,7 +1142,6 @@
                         return;
                     }
                     
-                    // Adiciona Mesas Fechadas na coluna de Contas Fechadas
                     if (orderType === 'mesa' && order.status === 'Fechado') {
                          colMesasFechado.appendChild(createOrderCard(order, orderId));
                          return;
@@ -1163,7 +1164,6 @@
                     }
                 });
 
-                // Calcula o Ticket Médio apenas com os pedidos CONCLUÍDOS.
                 const totalCompletedOrders = activeOrders.filter(order => {
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
                     return orderDate === today && (order.status === 'Entregue' || order.status === 'Fechado');
@@ -1175,14 +1175,12 @@
                 document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
                 document.getElementById('stats-avg-ticket').textContent = `R$ ${avgTicket.toFixed(2).replace('.', ',')}`;
             });
-            // Iniciar a atualização dos cronômetros
             if (timerIntervalId) clearInterval(timerIntervalId);
             timerIntervalId = setInterval(updateTimers, 1000);
         }
 
         function updateTimers() {
             const now = new Date();
-            // CORREÇÃO: Adicionado '.mesa-order-details' para incluir os timers do modal de gerenciamento de mesa.
             document.querySelectorAll('.order-card, .mesa-item, .mesa-order-details').forEach(card => {
                 const totalTimerEl = card.querySelector('.total-timer-value');
                 const statusTimerEl = card.querySelector('.status-timer-value'); 
@@ -1214,12 +1212,11 @@
                     const statusTimerContainer = statusTimerEl.parentElement;
                     statusTimerContainer.classList.remove('timer-green', 'timer-yellow', 'timer-red');
 
-                    // Different color scale for status timer
-                    if (statusDiff < 300) { // Menos de 5 minutos
+                    if (statusDiff < 300) {
                         statusTimerContainer.classList.add('timer-green');
-                    } else if (statusDiff < 600) { // Menos de 10 minutos
+                    } else if (statusDiff < 600) {
                         statusTimerContainer.classList.add('timer-yellow');
-                    } else { // 10 minutos ou mais
+                    } else {
                         statusTimerContainer.classList.add('timer-red');
                     }
                 }
@@ -1295,6 +1292,8 @@
                     finalStep = true;
                 }
             }
+            
+            const hasPhone = order.endereco && order.endereco.telefone;
 
             let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
             
@@ -1333,12 +1332,13 @@
                         <div class="mt-2 pt-2 border-t">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
-                                <div class="flex items-center space-x-3">
-                                    <button data-id="${id}" data-type="kitchen" class="print-btn text-gray-500"><i class="fas fa-utensils"></i></button>
-                                    <button data-id="${id}" data-type="client" class="print-btn text-gray-500"><i class="fas fa-receipt"></i></button>
+                                <div class="flex items-center space-x-2">
+                                    <button data-id="${id}" class="print-btn text-gray-500" title="Imprimir Comanda Cozinha"><i class="fas fa-utensils"></i></button>
+                                    <button data-id="${id}" class="print-btn text-gray-500" title="Imprimir Recibo Cliente"><i class="fas fa-receipt"></i></button>
+                                    ${hasPhone ? `<button data-id="${id}" class="whatsapp-btn text-green-500" title="Confirmar Pedido no WhatsApp"><i class="fab fa-whatsapp"></i></button>` : ''}
                                     <button class="archive-btn text-green-500 hover:text-green-700 ${!finalStep ? 'opacity-50 cursor-not-allowed' : ''}" data-id="${id}" ${!finalStep ? 'disabled' : ''} title="Finalizar e Arquivar Pedido"><i class="fas fa-check-circle"></i></button>
-                                    <button data-id="${id}" class="delete-btn text-red-500 hover:text-red-700" title="Excluir Pedido"><i class="fas fa-trash-alt"></i></button>
                                     <button data-id="${id}" class="manage-btn text-blue-500" title="Editar Pedido"><i class="fas fa-edit"></i></button>
+                                    <button data-id="${id}" class="delete-btn text-red-500" title="Excluir Pedido"><i class="fas fa-trash-alt"></i></button>
                                 </div>
                             </div>
                             <p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
@@ -1410,13 +1410,14 @@
             }
             let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
             
-            // Renderização do endereço para Mesas
             let addressHtml = '';
             if (orderType === 'mesa' && order.endereco.rua === 'Mesa') {
                  addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua}</p>`;
             } else {
                  addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>`;
             }
+            
+            const hasPhone = order.endereco && order.endereco.telefone;
 
              return `
                 <div class="mesa-order-details">
@@ -1432,12 +1433,13 @@
                         <div class="mt-2 pt-2 border-t">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
-                                <div class="flex items-center space-x-3">
+                                <div class="flex items-center space-x-2">
                                     <button data-id="${id}" data-type="kitchen" class="print-btn modal-print-btn text-gray-500" title="Imprimir Comanda Cozinha"><i class="fas fa-utensils"></i></button>
                                     <button data-id="${id}" data-type="client" class="print-btn modal-print-btn text-gray-500" title="Imprimir Recibo Cliente"><i class="fas fa-receipt"></i></button>
+                                    ${hasPhone ? `<button data-id="${id}" class="whatsapp-btn modal-whatsapp-btn text-green-500" title="Confirmar Pedido no WhatsApp"><i class="fab fa-whatsapp"></i></button>` : ''}
                                     <button class="archive-btn text-green-500 hover:text-green-700 opacity-50 cursor-not-allowed" data-id="${id}" disabled title="Arquivar Pedido"><i class="fas fa-check-circle"></i></button>
-                                    <button data-id="${id}" class="delete-btn modal-delete-btn text-red-500 hover:text-red-700" title="Excluir Pedido"><i class="fas fa-trash-alt"></i></button>
                                     <button data-id="${id}" class="manage-btn modal-manage-btn text-blue-500" title="Editar Pedido"><i class="fas fa-edit"></i></button>
+                                    <button data-id="${id}" class="delete-btn modal-delete-btn text-red-500" title="Excluir Pedido"><i class="fas fa-trash-alt"></i></button>
                                 </div>
                             </div>
                             ${addressHtml}
@@ -1466,10 +1468,17 @@
                     printOrder(btn.dataset.id, btn.dataset.type);
                 };
             });
-             modal.querySelectorAll('.modal-delete-btn').forEach(btn => {
+            
+            modal.querySelectorAll('.modal-whatsapp-btn').forEach(btn => {
                 btn.onclick = () => {
-                    modal.style.display = 'none';
-                    showDeleteConfirmation(btn.dataset.id);
+                    openWhatsappConfirmModal(btn.dataset.id);
+                };
+            });
+
+            modal.querySelectorAll('.modal-delete-btn').forEach(btn => {
+                btn.onclick = () => {
+                    orderIdToDelete = btn.dataset.id;
+                    deleteConfirmModal.style.display = 'flex';
                 };
             });
 
@@ -1494,7 +1503,7 @@
 
             const manageBtn = modal.querySelector('.modal-manage-btn');
             if (manageBtn) {
-                manageBtn.onclick = () => {
+                 manageBtn.onclick = () => {
                      window.open(`venda-balcao.html?orderId=${orderId}`, '_blank');
                      modal.style.display = 'none';
                 };
@@ -1665,8 +1674,16 @@
         closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
         document.getElementById('cancel-transfer-btn').addEventListener('click', () => transferTableModal.style.display = 'none');
 
-        function showDeleteConfirmation(orderId) {
-            orderIdToDelete = orderId;
+
+        async function openEditModal(id) {
+            window.open(`venda-balcao.html?orderId=${id}`, '_blank');
+        }
+
+        async function saveOrderChanges() {
+            // Esta função não é mais necessária aqui, pois a lógica está em venda-balcao.html
+        }
+
+        function showDeleteConfirmation() {
             deleteConfirmModal.style.display = 'flex';
         }
 
@@ -1682,172 +1699,169 @@
             const orderRef = doc(db, "pedidos", id);
             await updateDoc(orderRef, { 
                 status: newStatus,
-                statusChangedAt: serverTimestamp() // Atualiza o timestamp da mudança de status
+                statusChangedAt: serverTimestamp()
             });
         }
         
         function printOrder(id, type) {
-            const orderRef = doc(db, "pedidos", id);
-            getDoc(orderRef).then(docSnap => {
-                if (docSnap.exists()) {
-                    const order = docSnap.data();
+            // A lógica de impressão foi movida para uma função auxiliar para ser reutilizada
+            const order = allOrdersCache.find(o => o.id === id);
+            if (!order) {
+                alert('Erro: Pedido não encontrado para impressão.');
+                return;
+            }
+            printOrderContent(order, id, type);
+        }
 
-                    // --- INÍCIO DA LÓGICA DE IMPRESSÃO OTIMIZADA ---
-                    const styles = `
-                        <style>
-                            @media print {
-                                @page { margin: 0; size: 80mm auto; }
-                                body {
-                                    width: 80mm;
-                                    margin: 0;
-                                    padding: 5mm;
-                                    font-family: 'Courier New', Courier, monospace;
-                                    font-size: 10pt;
-                                    color: #000;
-                                    background-color: #fff;
-                                }
-                                * {
-                                    font-family: 'Courier New', Courier, monospace;
-                                    font-size: 10pt;
-                                }
-                                h1 { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 5px;}
-                                h2 { font-size: 12pt; font-weight: bold; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px dashed #000; padding-bottom: 2px;}
-                                p { margin: 2px 0; }
-                                ul { list-style: none; padding: 0; margin: 0; }
-                                li { margin-bottom: 2px; }
-                                .item-line { display: flex; justify-content: space-between; }
-                                .item-details { padding-left: 15px; font-size: 9pt; color: #333; }
-                                hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
-                                .text-right { text-align: right; }
-                                .font-bold { font-weight: bold; }
-                            }
-                        </style>
-                    `;
-
-                    let printContent = '';
-                    const itemsByCategory = order.itens.reduce((acc, item) => {
-                        const category = item.category || 'Outros';
-                        if (!acc[category]) acc[category] = [];
-                        acc[category].push(item);
-                        return acc;
-                    }, {});
-
-                    if (type === 'kitchen') {
-                        let kitchenHtml = '';
-                        for (const category in itemsByCategory) {
-                            kitchenHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
-                            kitchenHtml += itemsByCategory[category].map(item => {
-                                let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
-                                if (item.extras && item.extras.length > 0) {
-                                    // CORRIGIDO: Adiciona quantidade e garante que cada extra esteja em uma nova linha.
-                                    itemString += `<ul>${item.extras.map(extra => {
-                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
-                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
-                                    }).join('')}</ul>`;
-                                }
-                                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                     // CORRIGIDO: Adiciona quantidade e garante que cada ingrediente esteja em uma nova linha.
-                                     itemString += `<ul>${item.ingredients.map(ing => {
-                                         const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
-                                         return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
-                                     }).join('')}</ul>`;
-                                }
-                                return itemString;
-                            }).join('');
-                            kitchenHtml += '</ul>';
+        function printOrderContent(order, id, type) {
+            const styles = `
+                <style>
+                    @media print {
+                        @page { margin: 0; size: 80mm auto; }
+                        body {
+                            width: 80mm;
+                            margin: 0;
+                            padding: 5mm;
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 10pt;
+                            color: #000;
+                            background-color: #fff;
                         }
-                        
-                        printContent = `
-                            <h1>COMANDA COZINHA</h1>
-                            <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
-                            <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
-                            ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
-                            <hr>
-                            ${kitchenHtml}
-                            ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
-                        `;
-                    } else { // type === 'client'
-                        let clientItemsHtml = '';
-                        for (const category in itemsByCategory) {
-                             clientItemsHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
-                             clientItemsHtml += itemsByCategory[category].map(item => {
-                                let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
-                                if (item.extras && item.extras.length > 0) {
-                                    itemString += `<ul>${item.extras.map(extra => {
-                                        const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
-                                        return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
-                                    }).join('')}</ul>`;
-                                }
-                                // CORREÇÃO AQUI: Adiciona os ingredientes do hambúrguer na comanda do cliente.
-                                if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
-                                     itemString += `<ul>${item.ingredients.map(ing => {
-                                         const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
-                                         return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
-                                     }).join('')}</ul>`;
-                                }
-                                return itemString;
-                            }).join('');
-                            clientItemsHtml += '</ul>';
+                        * {
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 10pt;
                         }
-                        
-                        let paymentDetailsHtml = '';
-                        if (order.pagamento) {
-                            let paymentText = '', changeText = '';
-                            if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
-                                paymentText = 'Dinheiro';
-                                const trocoTotal = (parseFloat(order.pagamento.trocoPara || 0) - parseFloat(order.total.finalTotal || 0));
-                                changeText = `<p class="text-right">Troco p/: R$ ${parseFloat(order.pagamento.trocoPara || 0).toFixed(2).replace('.', ',')}</p>
-                                            <p class="text-right">Troco: R$ ${trocoTotal.toFixed(2).replace('.', ',')}</p>`;
-                            } else {
-                                paymentText = order.pagamento;
-                            }
-                            paymentDetailsHtml = `<hr><p><strong>Pagamento: ${paymentText}</strong></p>${changeText}`;
-                        }
-
-                        printContent = `
-                            <h1>Sâmia Pizzaria</h1>
-                            <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
-                            <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
-                             ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
-                            <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
-                            <hr>
-                            ${clientItemsHtml}
-                            <hr>
-                            <div class="text-right">
-                                <p>Subtotal: R$ ${parseFloat(order.total.subtotal || 0).toFixed(2).replace('.', ',')}</p>
-                                ${order.total.discount > 0 ? `<p>Desconto: -R$ ${parseFloat(order.total.discount || 0).toFixed(2).replace('.', ',')}</p>` : ''}
-                                <p>Taxa Entrega: R$ ${parseFloat(order.total.deliveryFee || 0).toFixed(2).replace('.', ',')}</p>
-                                <p class="font-bold">Total: R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</p>
-                            </div>
-                             ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
-                             ${paymentDetailsHtml}
-                        `;
+                        h1 { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 5px;}
+                        h2 { font-size: 12pt; font-weight: bold; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px dashed #000; padding-bottom: 2px;}
+                        p { margin: 2px 0; }
+                        ul { list-style: none; padding: 0; margin: 0; }
+                        li { margin-bottom: 2px; }
+                        .item-line { display: flex; justify-content: space-between; }
+                        .item-details { padding-left: 15px; font-size: 9pt; color: #333; }
+                        hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+                        .text-right { text-align: right; }
+                        .font-bold { font-weight: bold; }
                     }
-                    
-                    let printFrame = document.getElementById('print-frame');
-                    if (!printFrame) {
-                        printFrame = document.createElement('iframe');
-                        printFrame.id = 'print-frame';
-                        printFrame.style.position = 'absolute';
-                        printFrame.style.width = '0';
-                        printFrame.style.height = '0';
-                        printFrame.style.border = '0';
-                        document.body.appendChild(printFrame);
-                    }
+                </style>
+            `;
 
-                    const frameDoc = printFrame.contentWindow.document;
-                    frameDoc.open();
-                    frameDoc.write(styles + printContent);
-                    frameDoc.close();
-                    
-                    setTimeout(() => {
-                        printFrame.contentWindow.focus();
-                        printFrame.contentWindow.print();
-                    }, 100);
-                    
-                    // --- FIM DA LÓGICA DE IMPRESSÃO OTIMIZADA ---
+            let printContent = '';
+            const itemsByCategory = (order.itens || []).reduce((acc, item) => {
+                const category = item.category || 'Outros';
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(item);
+                return acc;
+            }, {});
+
+            if (type === 'kitchen') {
+                let kitchenHtml = '';
+                for (const category in itemsByCategory) {
+                    kitchenHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
+                    kitchenHtml += itemsByCategory[category].map(item => {
+                        let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
+                        if (item.extras && item.extras.length > 0) {
+                            itemString += `<ul>${item.extras.map(extra => {
+                                const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
+                                return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
+                            }).join('')}</ul>`;
+                        }
+                        if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                             itemString += `<ul>${item.ingredients.map(ing => {
+                                 const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
+                                 return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
+                             }).join('')}</ul>`;
+                        }
+                        return itemString;
+                    }).join('');
+                    kitchenHtml += '</ul>';
                 }
-            });
+                
+                printContent = `
+                    <h1>COMANDA COZINHA</h1>
+                    <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                    <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                    ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
+                    <hr>
+                    ${kitchenHtml}
+                    ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
+                `;
+            } else { // type === 'client'
+                let clientItemsHtml = '';
+                for (const category in itemsByCategory) {
+                     clientItemsHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
+                     clientItemsHtml += itemsByCategory[category].map(item => {
+                        let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
+                        if (item.extras && item.extras.length > 0) {
+                            itemString += `<ul>${item.extras.map(extra => {
+                                const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
+                                return `<li class="item-details">+ ${extra.name}${quantityText} (${extra.placement})</li>`;
+                            }).join('')}</ul>`;
+                        }
+                        if (item.type === 'custom_burger' && item.ingredients && item.ingredients.length > 0) {
+                             itemString += `<ul>${item.ingredients.map(ing => {
+                                 const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
+                                 return `<li class="item-details">- ${ing.name}${quantityText}</li>`;
+                             }).join('')}</ul>`;
+                        }
+                        return itemString;
+                    }).join('');
+                    clientItemsHtml += '</ul>';
+                }
+                
+                let paymentDetailsHtml = '';
+                if (order.pagamento) {
+                    let paymentText = '', changeText = '';
+                    if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                        paymentText = 'Dinheiro';
+                        const trocoTotal = (parseFloat(order.pagamento.trocoPara || 0) - parseFloat(order.total.finalTotal || 0));
+                        changeText = `<p class="text-right">Troco p/: R$ ${parseFloat(order.pagamento.trocoPara || 0).toFixed(2).replace('.', ',')}</p>
+                                    <p class="text-right">Troco: R$ ${trocoTotal.toFixed(2).replace('.', ',')}</p>`;
+                    } else {
+                        paymentText = order.pagamento;
+                    }
+                    paymentDetailsHtml = `<hr><p><strong>Pagamento: ${paymentText}</strong></p>${changeText}`;
+                }
+
+                printContent = `
+                    <h1>Sâmia Pizzaria</h1>
+                    <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
+                    <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
+                     ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
+                    <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                    <hr>
+                    ${clientItemsHtml}
+                    <hr>
+                    <div class="text-right">
+                        <p>Subtotal: R$ ${parseFloat(order.total.subtotal || 0).toFixed(2).replace('.', ',')}</p>
+                        ${order.total.discount > 0 ? `<p>Desconto: -R$ ${parseFloat(order.total.discount || 0).toFixed(2).replace('.', ',')}</p>` : ''}
+                        <p>Taxa Entrega: R$ ${parseFloat(order.total.deliveryFee || 0).toFixed(2).replace('.', ',')}</p>
+                        <p class="font-bold">Total: R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</p>
+                    </div>
+                     ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
+                     ${paymentDetailsHtml}
+                `;
+            }
+            
+            let printFrame = document.getElementById('print-frame');
+            if (!printFrame) {
+                printFrame = document.createElement('iframe');
+                printFrame.id = 'print-frame';
+                printFrame.style.position = 'absolute';
+                printFrame.style.width = '0';
+                printFrame.style.height = '0';
+                printFrame.style.border = '0';
+                document.body.appendChild(printFrame);
+            }
+
+            const frameDoc = printFrame.contentWindow.document;
+            frameDoc.open();
+            frameDoc.write(styles + printContent);
+            frameDoc.close();
+            
+            setTimeout(() => {
+                printFrame.contentWindow.focus();
+                printFrame.contentWindow.print();
+            }, 100);
         }
 
         async function openCloseCashModal() {
@@ -2028,18 +2042,21 @@
             const manageBtn = e.target.closest('.manage-btn');
             const printBtn = e.target.closest('.print-btn');
             const archiveBtn = e.target.closest('.archive-btn');
-            const cardHeader = e.target.closest('.card-header');
             const deleteBtn = e.target.closest('.delete-btn');
+            const whatsappBtn = e.target.closest('.whatsapp-btn');
+            const cardHeader = e.target.closest('.card-header');
 
             if (moveBtn) updateOrderStatus(moveBtn.dataset.id, moveBtn.dataset.status);
-            if (manageBtn) {
-                window.open(`venda-balcao.html?orderId=${manageBtn.dataset.id}`, '_blank');
-            }
-            if (deleteBtn) {
-                showDeleteConfirmation(deleteBtn.dataset.id);
-            }
+            if (manageBtn) window.open(`venda-balcao.html?orderId=${manageBtn.dataset.id}`, '_blank');
             if (printBtn) printOrder(printBtn.dataset.id, printBtn.dataset.type);
             if (archiveBtn) handleArchiveOrder(archiveBtn.dataset.id);
+            if (deleteBtn) {
+                orderIdToDelete = deleteBtn.dataset.id;
+                showDeleteConfirmation();
+            }
+            if(whatsappBtn) {
+                openWhatsappConfirmModal(whatsappBtn.dataset.id);
+            }
             if (cardHeader && !e.target.closest('button, a')) {
                 cardHeader.closest('.order-card').classList.toggle('expanded');
             }
@@ -2091,7 +2108,6 @@
         closeCashForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // --- NOVA VERIFICAÇÃO DE PEDIDOS PENDENTES ---
             const pendingDeliveryColumns = [
                 'col-delivery-novo', 'col-delivery-preparo', 'col-delivery-pronto', 'col-delivery-entrega',
                 'col-retirada-novo', 'col-retirada-preparo', 'col-retirada-pronto'
@@ -2107,9 +2123,8 @@
 
             if (hasPendingDeliveryOrders || hasPendingTableOrders) {
                 showCustomAlert('Não é possível fechar o caixa. Ainda existem pedidos ou mesas em aberto. Finalize todos os pedidos antes de continuar.');
-                return; // Impede o fechamento
+                return;
             }
-            // --- FIM DA NOVA VERIFICAÇÃO ---
 
             const finalValue = parseFloat(finalValueInput.value);
             if (isNaN(finalValue) || finalValue < 0) {
@@ -2141,7 +2156,6 @@
                 await updateDoc(cashRegisterRef, dataToSaveInFirestore);
                 alert("Caixa fechado com sucesso!");
 
-                // Arquiva todos os pedidos finalizados
                 const confirmCloseBtn = document.getElementById('confirm-close-cash-btn');
                 confirmCloseBtn.disabled = true;
                 confirmCloseBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Arquivando Pedidos...';
@@ -2164,7 +2178,6 @@
                      confirmCloseBtn.textContent = 'Confirmar Fechamento';
                 }
                 
-                // Prepara os dados COMPLETOS para arquivamento na planilha
                 const dataToArchive = {
                     ...detailedReportData,
                     id: currentCashRegister.id,
@@ -2174,10 +2187,9 @@
                     usuarioFechamento: auth.currentUser.email,
                     valorFinalContado: finalValue,
                     diferenca: finalValue - expectedValue,
-                    sangrias: detailedReportData.sangriaDetails // Garante que os detalhes da sangria estão aqui
+                    sangrias: detailedReportData.sangriaDetails
                 };
 
-                // Chama a API para arquivar os dados com o objeto correto
                 fetch('/api/arquivar-fechamento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2261,7 +2273,6 @@
         document.getElementById('cancel-transfer-btn').addEventListener('click', () => transferTableModal.style.display = 'none');
 
 
-        // Listener para CONFIRMAR TRANSFERÊNCIA (AGORA REFORÇADO)
         document.getElementById('confirm-transfer-btn').addEventListener('click', async (e) => {
             e.preventDefault();
             const newTableNumber = document.getElementById('free-tables-select').value;
@@ -2274,33 +2285,27 @@
 
             const newTableNum = parseInt(newTableNumber);
 
-            // 1. Prepara dados para o novo pedido
-            // Remove metadados de controle do Firestore e IDs únicos temporários do front
             const { id, grupoMesas, criadoEm, statusChangedAt, ...transferrableData } = currentManagingOrderData;
             
-            // Cria o novo pedido (que será o pedido ativo na nova mesa)
             const newOrderData = {
                 ...transferrableData,
-                status: currentManagingOrderData.status, // Mantém o status original (Ex: Em Preparo)
+                status: currentManagingOrderData.status,
                 endereco: {
                     ...currentManagingOrderData.endereco,
                     clientName: `Mesa ${newTableNum}`,
-                    rua: 'Mesa' // Garante que seja tratado como pedido de Mesa
+                    rua: 'Mesa'
                 },
                 grupoMesas: null,
                 criadoEm: serverTimestamp(),
                 statusChangedAt: serverTimestamp()
             };
             
-            // 2. Finaliza o pedido antigo e o remove (DELETE DOC)
             try {
-                // Finaliza (Marca como Finalizado, não Fechado)
                 await updateDoc(doc(db, "pedidos", orderIdToTransfer), {
                     status: "Finalizado", 
                     statusChangedAt: serverTimestamp()
                 });
                 
-                // Remove o pedido antigo do Firebase (pois ele foi substituído)
                  await deleteDoc(doc(db, "pedidos", orderIdToTransfer));
 
             } catch (error) {
@@ -2309,7 +2314,6 @@
                 return;
             }
 
-            // 3. Adiciona o novo pedido para a nova mesa
             try {
                 await addDoc(collection(db, "pedidos"), newOrderData);
             } catch (error) {
@@ -2319,19 +2323,15 @@
             }
 
 
-            // Sucesso
             showCustomAlert(`Pedido transferido com sucesso para a Mesa ${newTableNumber}`);
             transferTableModal.style.display = 'none';
             manageTableModal.style.display = 'none';
-            // O onSnapshot cuidará da atualização visual da grade
         });
 
 
-        // Lógica da Sangria
         const sangriaModal = document.getElementById('sangria-modal');
         const sangriaForm = document.getElementById('sangria-form');
 
-        // O botão agora está dentro do modal de fechamento
         document.getElementById('close-cash-modal').addEventListener('click', (e) => {
             if (e.target.id === 'register-sangria-btn') {
                  if (!currentCashRegister) {
@@ -2384,7 +2384,6 @@
 
                 alert("Sangria registrada com sucesso!");
                 sangriaModal.style.display = 'none';
-                // Atualiza a visualização do caixa se estiver aberta
                 if (closeCashModal.style.display === 'flex') {
                     openCloseCashModal();
                 }
@@ -2422,12 +2421,10 @@
                 const yesBtn = modal.querySelector('#confirm-delete-btn');
                 const noBtn = modal.querySelector('#cancel-delete-btn');
 
-                // Store original button classes and text
                 const originalTitle = titleEl.textContent;
                 const originalYesText = yesBtn.textContent;
                 const originalYesClasses = Array.from(yesBtn.classList);
 
-                // Customize for generic confirm
                 titleEl.textContent = "Confirmar Ação";
                 messageEl.textContent = message;
                 yesBtn.textContent = "Sim, Confirmar";
@@ -2438,7 +2435,6 @@
 
                 const cleanup = (result) => {
                     modal.style.display = 'none';
-                    // Restore original state
                     titleEl.textContent = originalTitle;
                     yesBtn.textContent = originalYesText;
                     yesBtn.className = originalYesClasses.join(' ');
@@ -2467,7 +2463,6 @@
             orderIdForPaymentUpdate = orderId;
             document.getElementById('table-payment-total').textContent = `R$ ${total.toFixed(2).replace(',', '.')}`;
             
-            // Reset form
             document.querySelectorAll('input[name="table-payment"]').forEach(radio => radio.checked = false);
             document.getElementById('table-troco-container').classList.add('hidden');
             document.getElementById('table-trocoPara').value = '';
@@ -2530,13 +2525,11 @@
                     confirmTablePaymentBtn.textContent = 'Salvando...';
                     
                     const orderRef = doc(db, "pedidos", orderIdForPaymentUpdate);
-                    // First update the payment
                     await updateDoc(orderRef, { pagamento: paymentData });
-                    // Then update the status
                     await updateOrderStatus(orderIdForPaymentUpdate, 'Fechado');
                     
                     tablePaymentModal.style.display = 'none';
-                    manageTableModal.style.display = 'none'; // Close the original manage modal too
+                    manageTableModal.style.display = 'none';
                     orderIdForPaymentUpdate = null;
 
                 } catch (error) {
@@ -2549,7 +2542,83 @@
             }
         });
 
+        // NOVO: Lógica do modal de confirmação do WhatsApp
+        const whatsappConfirmModal = document.getElementById('whatsapp-confirm-modal');
+        const closeWhatsappModalBtn = document.getElementById('close-whatsapp-modal-btn');
+        let qrCodeInstance = null;
+        
+        function formatWhatsappMessage(order) {
+            const itemsText = (order.itens || []).map(item => `  • ${item.name}: R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}`).join('\n');
+            
+            let paymentText = 'A definir';
+            if (order.pagamento) {
+                 if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
+                    paymentText = `Pagamento: *Dinheiro*\n  Troco para: *R$ ${parseFloat(order.pagamento.trocoPara || 0).toFixed(2).replace('.', ',')}*`;
+                } else {
+                    paymentText = `Pagamento: *${order.pagamento}*`;
+                }
+            }
+
+            const addressText = (order.endereco.rua === "Retirada no Balcão" || order.endereco.rua === "Mesa")
+                ? `${order.endereco.rua}`
+                : `${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}`;
+
+            const fullMessage = `
+Olá, *${order.endereco.clientName}*! 👋
+Confirmando seu pedido na Sâmia Pizzaria:
+
+*-- SEU PEDIDO --*
+${itemsText}
+------------------------------------
+Subtotal: R$ ${parseFloat(order.total.subtotal || 0).toFixed(2).replace('.', ',')}
+Taxa de Entrega: R$ ${parseFloat(order.total.deliveryFee || 0).toFixed(2).replace('.', ',')}
+*Total: R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}*
+
+${paymentText}
+
+*Endereço:*
+${addressText}
+
+Seu pedido já está sendo preparado! 😊
+`.trim().replace(/\n\s*\n/g, '\n'); // Remove linhas em branco extras
+
+            return fullMessage;
+        }
+
+        function openWhatsappConfirmModal(orderId) {
+            const order = allOrdersCache.find(o => o.id === orderId);
+            if (!order || !order.endereco.telefone) {
+                showCustomAlert('Este pedido não possui um número de telefone para contato.');
+                return;
+            }
+
+            const message = formatWhatsappMessage(order);
+            const phoneNumber = `55${order.endereco.telefone.replace(/\D/g, '')}`;
+            const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+
+            const qrcodeContainer = document.getElementById('qrcode-container');
+            const link = document.getElementById('whatsapp-confirm-link');
+            
+            qrcodeContainer.innerHTML = '';
+            if (qrCodeInstance) {
+                qrCodeInstance.clear();
+            }
+            qrCodeInstance = new QRCode(qrcodeContainer, {
+                text: whatsappUrl,
+                width: 200,
+                height: 200
+            });
+            
+            link.href = whatsappUrl;
+            whatsappConfirmModal.style.display = 'flex';
+        }
+
+        closeWhatsappModalBtn.addEventListener('click', () => {
+            whatsappConfirmModal.style.display = 'none';
+        });
+
 
     </script>
 </body>
 </html>
+
