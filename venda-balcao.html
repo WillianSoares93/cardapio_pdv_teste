@@ -551,7 +551,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
@@ -578,6 +578,10 @@
         let pauseTime = 2000; 
         let initialUrlParamCheckDone = false; 
 
+        // NOVA LÓGICA DE EDIÇÃO
+        let currentOrderId = null;
+        let isEditing = false;
+
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
         let ingredientStatus = {}, ingredientVisibility = {};
         let extraStatus = {}, extraVisibility = {};
@@ -591,7 +595,6 @@
             if (user) {
                 document.body.style.visibility = 'visible';
                 currentUserEmail = user.email;
-                // CORREÇÃO: Verifica se o elemento existe antes de tentar alterá-lo.
                 const currentUserEl = document.getElementById('current-user');
                 if (currentUserEl) {
                     currentUserEl.textContent = currentUserEmail;
@@ -684,7 +687,75 @@
             renderProducts();
             setupEventListeners();
             listenToTableStatus();
+            
+            // LÓGICA DE EDIÇÃO: Verifica se há um ID de pedido na URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const orderIdFromUrl = urlParams.get('orderId');
+            if (orderIdFromUrl) {
+                loadOrderForEditing(orderIdFromUrl);
+            }
         }
+        
+        // NOVA FUNÇÃO: Carrega um pedido existente para edição
+        async function loadOrderForEditing(orderId) {
+            isEditing = true;
+            currentOrderId = orderId;
+
+            try {
+                const orderRef = doc(db, "pedidos", orderId);
+                const docSnap = await getDoc(orderRef);
+
+                if (docSnap.exists()) {
+                    const orderData = docSnap.data();
+                    order = orderData.itens || [];
+                    paymentMethod = orderData.pagamento || null;
+
+                    if (orderData.endereco.rua === "Mesa") {
+                        currentOrderType = 'Mesa';
+                        document.querySelector('input[name="orderType"][value="Mesa"]').checked = true;
+                        
+                        const mesaText = orderData.endereco.clientName || '';
+                        clientData.table = mesaText.match(/\d+/)?.[0]; // Pega o número da mesa
+                        const clientNameMatch = mesaText.match(/\((.*?)\)/); // Pega o nome entre parênteses
+                        clientData.name = clientNameMatch ? clientNameMatch[1] : '';
+                    
+                    } else if (orderData.endereco.rua === "Retirada no Balcão") {
+                        currentOrderType = 'Retirada';
+                        document.querySelector('input[name="orderType"][value="Retirada"]').checked = true;
+                        clientData.name = orderData.endereco.clientName;
+                        clientData.contact = orderData.endereco.telefone;
+                    } else {
+                        currentOrderType = 'Delivery';
+                        document.querySelector('input[name="orderType"][value="Delivery"]').checked = true;
+                        clientData.name = orderData.endereco.clientName;
+                        clientData.contact = orderData.endereco.telefone;
+                        clientData.address = {
+                            street: orderData.endereco.rua,
+                            number: orderData.endereco.numero,
+                            neighborhood: orderData.endereco.bairro,
+                            deliveryFee: orderData.total.deliveryFee || 0
+                        };
+                    }
+                    clientData.observation = orderData.observacao || '';
+
+                    document.title = `Editando Pedido #${orderId.substring(0, 5)}`;
+                    document.getElementById('finalize-order-btn').textContent = 'Atualizar Pedido';
+                    document.getElementById('cancel-order-btn').textContent = 'Fechar';
+                    
+                    updateOrderDisplay();
+                    updateClientDataSummary();
+                    showTemporaryFeedback('Pedido carregado para edição.');
+                } else {
+                    showAlert('Erro: Pedido não encontrado. Esta janela pode ser fechada.');
+                    document.getElementById('finalize-order-btn').disabled = true;
+                }
+            } catch (error) {
+                console.error("Erro ao carregar pedido para edição:", error);
+                showAlert(`Ocorreu um erro ao carregar o pedido: ${error.message}`);
+                document.getElementById('finalize-order-btn').disabled = true;
+            }
+        }
+
 
         function listenToTableStatus() {
             const q = query(collection(db, "pedidos"));
@@ -699,7 +770,6 @@
             const occupiedTables = new Set();
             const allGroupedTables = new Set();
 
-            // Find all tables that are part of an order with items.
             activeOrders
                 .filter(order => order.status !== 'Finalizado' && order.itens && order.itens.length > 0)
                 .forEach(order => {
@@ -710,7 +780,6 @@
                     tableNumbers.forEach(num => num && occupiedTables.add(num));
                 });
 
-            // Find all empty groups and track their tables.
             const emptyGroups = activeOrders.filter(order =>
                 order.grupoMesas && order.grupoMesas.length > 0 &&
                 (!order.itens || order.itens.length === 0)
@@ -719,7 +788,6 @@
             
             tableSelector.innerHTML = '<option value="">Selecione uma mesa...</option>';
 
-            // Add empty groups as selectable options
             emptyGroups.forEach(groupOrder => {
                 const sortedGroup = groupOrder.grupoMesas.sort((a, b) => a - b);
                 const option = document.createElement('option');
@@ -728,14 +796,12 @@
                 tableSelector.appendChild(option);
             });
 
-            // Add individual, non-grouped, available tables
             for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
-                // Only add if it's not part of ANY group (even an empty one)
                 if (!allGroupedTables.has(i)) {
                     const option = document.createElement('option');
                     option.value = i;
                     option.textContent = `Mesa ${i.toString().padStart(2, '0')}`;
-                     if (occupiedTables.has(i)) {
+                     if (occupiedTables.has(i) && String(i) !== clientData.table) { // Don't disable the currently edited table
                         option.disabled = true;
                         option.textContent += ' (Ocupada)';
                     }
@@ -743,19 +809,16 @@
                 }
             }
 
-            // CORREÇÃO: Lógica de tratamento do parâmetro 'mesa' da URL
             if (!initialUrlParamCheckDone) {
                 initialUrlParamCheckDone = true; 
                 const urlParams = new URLSearchParams(window.location.search);
                 const mesaParam = urlParams.get('mesa');
-                if (mesaParam) {
+                if (mesaParam && !isEditing) {
                     const mesaRadio = document.querySelector('input[name="orderType"][value="Mesa"]');
                     if (mesaRadio) {
                         mesaRadio.checked = true;
                         currentOrderType = 'Mesa';
-                        // Apenas define a mesa no estado, não abre o modal
                         clientData.table = mesaParam;
-                        // Atualiza o resumo na tela principal
                         updateClientDataSummary();
                     }
                 }
@@ -1512,12 +1575,18 @@
 
             document.getElementById('search-product').addEventListener('input', renderProducts);
             document.getElementById('cancel-order-btn').addEventListener('click', async () => {
+                // ALTERAÇÃO: Se estiver editando, apenas fecha a janela.
+                if (isEditing) {
+                    window.close();
+                    return;
+                }
+                
                 if (order.length > 0 || clientData.name || clientData.table) {
                     const confirmed = await showConfirm('Deseja cancelar o pedido atual e limpar os dados do cliente?');
                     if (confirmed) {
                         order = [];
                         clientData = { name: null, contact: null, address: null, table: null, observation: null };
-                        paymentMethod = null; // NEW: Reset payment method
+                        paymentMethod = null;
                         isSelectingHalfPizza = false;
                         firstHalfPizza = null;
                         document.getElementById('product-display').classList.remove('half-pizza-selection-active');
@@ -2006,55 +2075,25 @@
                 showAlert("O carrinho está vazio.");
                 return;
             }
-
-            // Handle special case for grouped tables
-            if (currentOrderType === 'Mesa' && clientData.table && clientData.table.startsWith('group_')) {
-                const orderIdToUpdate = clientData.table.replace('group_', '');
-                
-                const cleanedItems = JSON.parse(JSON.stringify(order, (key, value) => {
-                    const fieldsToExclude = ['originalItem', 'uniqueId', 'firstHalfData', 'secondHalfData', 'acceptsExtras'];
-                    if (fieldsToExclude.includes(key)) return undefined;
-                    return value;
-                }));
-
-                const subtotal = order.reduce((sum, item) => sum + item.price, 0);
-
-                try {
-                    const orderRef = doc(db, "pedidos", orderIdToUpdate);
-                    await updateDoc(orderRef, {
-                        itens: cleanedItems,
-                        total: { subtotal: subtotal, finalTotal: subtotal, deliveryFee: 0, discount: 0 },
-                        pagamento: paymentMethod,
-                        status: 'Em Preparo',
-                        criadoEm: serverTimestamp(), // Update timestamp to when order was actually placed
-                        observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
-                    });
-
-                    showTemporaryFeedback(`Pedido para ${clientData.name || 'Mesas Agrupadas'} finalizado com sucesso!`);
-                    
-                    // Reset state
-                    order = [];
-                    clientData = { name: null, contact: null, address: null, table: null, observation: null };
-                    paymentMethod = null;
-                    updateOrderDisplay();
-                    updateClientDataSummary();
-
-                } catch (error) {
-                    console.error("Erro ao atualizar pedido de mesa agrupada:", error);
-                    showAlert("Falha ao finalizar o pedido. Tente novamente.");
-                }
-                return; 
-            }
             
-            // Re-validate critical data before sending
-            if ( (currentOrderType === 'Mesa' && !clientData.table) || 
-                 (currentOrderType === 'Retirada' && !clientData.name) || 
-                 (currentOrderType === 'Delivery' && (!clientData.name || !clientData.address)) ||
-                 (!paymentMethod) ) 
-            {
-                showAlert("Dados do cliente ou forma de pagamento incompletos. Tente novamente.");
-                return;
+            let isMesaGroupUpdate = false;
+            if (isEditing) {
+                // No need to re-validate, data is already loaded.
+            } else {
+                 if ( (currentOrderType === 'Mesa' && !clientData.table) || 
+                     (currentOrderType === 'Retirada' && !clientData.name) || 
+                     (currentOrderType === 'Delivery' && (!clientData.name || !clientData.address)) ||
+                     (!paymentMethod) ) 
+                {
+                    showAlert("Dados do cliente ou forma de pagamento incompletos. Tente novamente.");
+                    return;
+                }
+                
+                if (currentOrderType === 'Mesa' && clientData.table && clientData.table.startsWith('group_')) {
+                    isMesaGroupUpdate = true;
+                }
             }
+
 
             let subtotal = order.reduce((sum, item) => sum + item.price, 0);
             let deliveryFee = 0;
@@ -2090,32 +2129,64 @@
                 if (fieldsToExclude.includes(key)) return undefined;
                 return value;
             }));
-
-            const newOrder = {
-                itens: cleanedItems,
-                endereco: endereco,
-                total: { subtotal: subtotal, finalTotal: subtotal + deliveryFee, deliveryFee: deliveryFee, discount: 0 },
-                pagamento: paymentMethod, 
-                status: status,
-                criadoEm: serverTimestamp(),
-                observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
-            };
+            
+            const finalTotal = subtotal + deliveryFee;
 
             try {
-                await addDoc(collection(db, "pedidos"), newOrder);
-                showTemporaryFeedback(`Pedido para ${clientData.name || `Mesa ${clientData.table}`} finalizado com sucesso!`);
-                
-                // Reset state
-                order = [];
-                clientData = { name: null, contact: null, address: null, table: null, observation: null };
-                paymentMethod = null;
-                updateOrderDisplay();
-                updateClientDataSummary();
+                if (isEditing && currentOrderId) {
+                    const orderRef = doc(db, "pedidos", currentOrderId);
+                    await updateDoc(orderRef, {
+                        itens: cleanedItems,
+                        endereco: endereco,
+                        total: { subtotal, finalTotal, deliveryFee, discount: 0 },
+                        pagamento: paymentMethod,
+                        observacao: clientData.observation || `Pedido atualizado por ${currentUserEmail}`
+                    });
+
+                    showTemporaryFeedback(`Pedido #${currentOrderId.substring(0,5)} atualizado com sucesso!`);
+                    setTimeout(() => window.close(), 1500);
+
+                } else if (isMesaGroupUpdate) {
+                    const orderIdToUpdate = clientData.table.replace('group_', '');
+                    const orderRef = doc(db, "pedidos", orderIdToUpdate);
+                    await updateDoc(orderRef, {
+                        itens: cleanedItems,
+                        total: { subtotal: subtotal, finalTotal: subtotal, deliveryFee: 0, discount: 0 },
+                        pagamento: paymentMethod,
+                        status: 'Em Preparo',
+                        observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
+                    });
+                    showTemporaryFeedback(`Itens adicionados às Mesas Agrupadas!`);
+                    resetOrderState();
+                } else {
+                    const newOrder = {
+                        itens: cleanedItems,
+                        endereco: endereco,
+                        total: { subtotal, finalTotal, deliveryFee, discount: 0 },
+                        pagamento: paymentMethod,
+                        status: status,
+                        criadoEm: serverTimestamp(),
+                        observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
+                    };
+                    await addDoc(collection(db, "pedidos"), newOrder);
+                    showTemporaryFeedback(`Pedido para ${clientData.name || `Mesa ${clientData.table}`} finalizado com sucesso!`);
+                    resetOrderState();
+                }
             } catch (error) {
-                console.error("Erro ao finalizar pedido:", error);
-                showAlert("Falha ao finalizar o pedido. Tente novamente.");
+                console.error("Erro ao finalizar/atualizar pedido:", error);
+                showAlert("Falha ao processar o pedido. Tente novamente.");
             }
         }
+        
+        function resetOrderState() {
+            order = [];
+            clientData = { name: null, contact: null, address: null, table: null, observation: null };
+            paymentMethod = null;
+            updateOrderDisplay();
+            updateClientDataSummary();
+        }
+
     </script>
 </body>
 </html>
+
