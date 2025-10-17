@@ -267,6 +267,11 @@
             </div>
             <!-- Bottom Actions -->
             <div class="space-y-2">
+                <!-- CORREÇÃO: Elemento para exibir o usuário logado adicionado -->
+                <div class="text-center px-2 py-3 text-xs text-gray-400 overflow-hidden" title="Usuário Logado">
+                    <i class="fas fa-user-circle fa-2x mb-1"></i>
+                    <span id="current-user" class="block truncate"></span>
+                </div>
                 <button id="logout-btn" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Sair">
                     <i class="fas fa-sign-out-alt fa-2x text-red-400"></i>
                     <span class="text-red-400">SAIR</span>
@@ -586,7 +591,11 @@
             if (user) {
                 document.body.style.visibility = 'visible';
                 currentUserEmail = user.email;
-                document.getElementById('current-user').textContent = currentUserEmail;
+                // CORREÇÃO: Verifica se o elemento existe antes de tentar alterá-lo.
+                const currentUserEl = document.getElementById('current-user');
+                if (currentUserEl) {
+                    currentUserEl.textContent = currentUserEmail;
+                }
                 initializeAppLogic();
             } else {
                 window.location.href = 'login.html?redirect=venda-balcao.html';
