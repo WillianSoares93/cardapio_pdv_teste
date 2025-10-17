@@ -18,7 +18,7 @@
         .main-container {
             display: grid;
             grid-template-columns: 0px 1fr; /* Começa com a barra lateral escondida */
-            height: calc(100vh - 57px);
+            height: 100vh;
             transition: grid-template-columns 0.3s ease-in-out;
         }
         .main-container.sidebar-open {
@@ -233,43 +233,45 @@
         }
     </style>
 </head>
-<body class="h-screen flex flex-col">
-
-    <header class="bg-white shadow-sm z-10">
-        <div class="max-w-full mx-auto px-4 py-3 flex justify-between items-center">
-             <div class="flex items-center space-x-4">
-                <i class="fas fa-bars text-xl text-gray-600"></i>
-                <h1 class="text-xl font-bold text-gray-800">VENDA BALCÃO</h1>
-            </div>
-            <div class="flex items-center space-x-4">
-                <span id="current-user" class="text-sm font-medium text-gray-600"></span>
-                <a href="pdv.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">PAINEL PDV</a>
-                <a href="gerenciar.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">GERENCIAR</a>
-                <a href="editar-cardapio.html" class="px-3 py-2 bg-gray-600 text-white text-xs font-bold rounded-md hover:bg-gray-700">EDITAR</a>
-                <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-md hover:bg-red-700">SAIR</button>
-            </div>
-        </div>
-    </header>
+<body class="bg-gray-100">
 
     <div class="main-container">
         <!-- Sidebar Vertical Esquerda -->
-        <aside class="sidebar-nav flex flex-col items-center py-4 space-y-4">
-            <a href="pdv.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Painel de Pedidos">
-                <i class="fas fa-receipt fa-2x"></i>
-                <span>PEDIDOS</span>
-            </a>
-            <a href="venda-balcao.html" class="sidebar-btn active w-full flex flex-col items-center p-3 text-xs" title="Venda Balcão">
-                <i class="fas fa-cash-register fa-2x"></i>
-                <span>BALCÃO</span>
-            </a>
-            <a href="editar-cardapio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Editar Cardápio">
-                <i class="fas fa-edit fa-2x"></i>
-                <span>EDITAR</span>
-            </a>
-            <a href="gerenciar.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Gerenciar Itens">
-                <i class="fas fa-tasks fa-2x"></i>
-                <span>GERENCIAR</span>
-            </a>
+        <aside class="sidebar-nav flex flex-col justify-between py-4">
+            <!-- Main Navigation -->
+            <div>
+                <a href="pdv.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Painel de Pedidos">
+                    <i class="fas fa-receipt fa-2x"></i>
+                    <span>PEDIDOS</span>
+                </a>
+                <a href="atendente.html" target="_blank" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Lançar Pedido">
+                    <i class="fas fa-plus-circle fa-2x"></i>
+                    <span>LANÇAR</span>
+                </a>
+                <a href="venda-balcao.html" class="sidebar-btn active w-full flex flex-col items-center p-3 text-xs" title="Venda Balcão">
+                    <i class="fas fa-cash-register fa-2x"></i>
+                    <span>BALCÃO</span>
+                </a>
+                <a href="editar-cardapio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Editar Cardápio">
+                    <i class="fas fa-edit fa-2x"></i>
+                    <span>EDITAR</span>
+                </a>
+                <a href="gerenciar.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Gerenciar Itens">
+                    <i class="fas fa-tasks fa-2x"></i>
+                    <span>GERENCIAR</span>
+                </a>
+                <a href="relatorio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Relatórios">
+                    <i class="fas fa-chart-line fa-2x"></i>
+                    <span>RELATÓRIOS</span>
+                </a>
+            </div>
+            <!-- Bottom Actions -->
+            <div class="space-y-2">
+                <button id="logout-btn" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Sair">
+                    <i class="fas fa-sign-out-alt fa-2x text-red-400"></i>
+                    <span class="text-red-400">SAIR</span>
+                </button>
+            </div>
         </aside>
 
         <main class="main-content">
