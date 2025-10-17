@@ -1450,9 +1450,11 @@
                     container.appendChild(categoryTitle);
 
                     itemsByCategory[category].forEach(item => {
-                        const currentSubtotal = item.price * item.quantity;
+                        const itemQuantity = item.quantity || 1;
+                        const currentSubtotal = (item.price || 0) * itemQuantity;
+
                         subtotal += currentSubtotal;
-                        totalItems += item.quantity;
+                        totalItems += itemQuantity;
 
                         const itemDiv = document.createElement('div');
                         itemDiv.className = 'py-2';
