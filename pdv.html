@@ -405,16 +405,6 @@
         </div>
     </div>
 
-    <div id="edit-order-modal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">Gerenciar Pedido</h2>
-                <button id="close-edit-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            <div id="edit-modal-body" class="space-y-4"></div>
-        </div>
-    </div>
-
     <div id="delete-confirm-modal" class="modal">
         <div class="modal-content bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
             <h3 class="text-lg font-bold text-gray-900 mb-4">Confirmar Exclusão</h3>
@@ -618,9 +608,6 @@
         const colMesasFechado = document.getElementById('col-mesas-fechado').querySelector('.pdv-column');
         
         const connectionStatus = document.getElementById('connection-status');
-        const editOrderModal = document.getElementById('edit-order-modal');
-        const editModalBody = document.getElementById('edit-modal-body');
-        const closeEditModalBtn = document.getElementById('close-edit-modal');
         const deleteConfirmModal = document.getElementById('delete-confirm-modal');
         const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
         const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
@@ -1346,11 +1333,12 @@
                         <div class="mt-2 pt-2 border-t">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
-                                <div class="flex items-center space-x-2">
+                                <div class="flex items-center space-x-3">
                                     <button data-id="${id}" data-type="kitchen" class="print-btn text-gray-500"><i class="fas fa-utensils"></i></button>
                                     <button data-id="${id}" data-type="client" class="print-btn text-gray-500"><i class="fas fa-receipt"></i></button>
                                     <button class="archive-btn text-green-500 hover:text-green-700 ${!finalStep ? 'opacity-50 cursor-not-allowed' : ''}" data-id="${id}" ${!finalStep ? 'disabled' : ''} title="Finalizar e Arquivar Pedido"><i class="fas fa-check-circle"></i></button>
-                                    <button data-id="${id}" class="manage-btn text-blue-500"><i class="fas fa-edit"></i></button>
+                                    <button data-id="${id}" class="delete-btn text-red-500 hover:text-red-700" title="Excluir Pedido"><i class="fas fa-trash-alt"></i></button>
+                                    <button data-id="${id}" class="manage-btn text-blue-500" title="Editar Pedido"><i class="fas fa-edit"></i></button>
                                 </div>
                             </div>
                             <p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
@@ -1444,10 +1432,11 @@
                         <div class="mt-2 pt-2 border-t">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-xs font-medium text-gray-500">Criado às ${new Date(createdAtTimestamp).toLocaleTimeString('pt-BR')}</span>
-                                <div class="flex items-center space-x-2">
+                                <div class="flex items-center space-x-3">
                                     <button data-id="${id}" data-type="kitchen" class="print-btn modal-print-btn text-gray-500" title="Imprimir Comanda Cozinha"><i class="fas fa-utensils"></i></button>
                                     <button data-id="${id}" data-type="client" class="print-btn modal-print-btn text-gray-500" title="Imprimir Recibo Cliente"><i class="fas fa-receipt"></i></button>
                                     <button class="archive-btn text-green-500 hover:text-green-700 opacity-50 cursor-not-allowed" data-id="${id}" disabled title="Arquivar Pedido"><i class="fas fa-check-circle"></i></button>
+                                    <button data-id="${id}" class="delete-btn modal-delete-btn text-red-500 hover:text-red-700" title="Excluir Pedido"><i class="fas fa-trash-alt"></i></button>
                                     <button data-id="${id}" class="manage-btn modal-manage-btn text-blue-500" title="Editar Pedido"><i class="fas fa-edit"></i></button>
                                 </div>
                             </div>
@@ -1477,6 +1466,12 @@
                     printOrder(btn.dataset.id, btn.dataset.type);
                 };
             });
+             modal.querySelectorAll('.modal-delete-btn').forEach(btn => {
+                btn.onclick = () => {
+                    modal.style.display = 'none';
+                    showDeleteConfirmation(btn.dataset.id);
+                };
+            });
 
             const closeBtn = modal.querySelector('#close-account-btn');
             if (closeBtn) {
@@ -1500,7 +1495,7 @@
             const manageBtn = modal.querySelector('.modal-manage-btn');
             if (manageBtn) {
                 manageBtn.onclick = () => {
-                     openEditModal(orderId);
+                     window.open(`venda-balcao.html?orderId=${orderId}`, '_blank');
                      modal.style.display = 'none';
                 };
             }
@@ -1670,80 +1665,14 @@
         closeManageTableModalBtn.addEventListener('click', () => manageTableModal.style.display = 'none');
         document.getElementById('cancel-transfer-btn').addEventListener('click', () => transferTableModal.style.display = 'none');
 
-
-        async function openEditModal(id) {
-            await loadDeliveryFees();
-            const orderRef = doc(db, "pedidos", id);
-            const docSnap = await getDoc(orderRef);
-
-            if (docSnap.exists()) {
-                const order = docSnap.data();
-                editModalBody.innerHTML = `
-                    <input type="hidden" id="edit-order-id" value="${id}">
-                    <div>
-                        <label for="edit-clientName" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
-                        <input type="text" id="edit-clientName" value="${order.endereco.clientName}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
-                    </div>
-                    <div>
-                        <label for="edit-telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
-                        <input type="tel" id="edit-telefone" value="${order.endereco.telefone || ''}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
-                    </div>
-                    <div>
-                        <label for="edit-rua" class="block text-sm font-medium text-gray-700">Rua</label>
-                        <input type="text" id="edit-rua" value="${order.endereco.rua}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
-                    </div>
-                     <div>
-                        <label for="edit-numero" class="block text-sm font-medium text-gray-700">Número</label>
-                        <input type="text" id="edit-numero" value="${order.endereco.numero}" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm">
-                    </div>
-                    <div>
-                        <label for="edit-bairro" class="block text-sm font-medium text-gray-700">Bairro</label>
-                        <select id="edit-bairro" class="mt-1 p-2 block w-full rounded-md border border-gray-300 shadow-sm"></select>
-                    </div>
-                    <div class="mt-4 flex justify-between">
-                        <button id="save-changes-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar Alterações</button>
-                        <button id="delete-order-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">Excluir Pedido</button>
-                    </div>
-                `;
-
-                const bairroSelect = document.getElementById('edit-bairro');
-                bairroSelect.innerHTML = '<option value="">Selecione um bairro</option>';
-                deliveryFeesData.forEach(fee => {
-                    const option = document.createElement('option');
-                    option.value = fee.neighborhood;
-                    option.textContent = `${fee.neighborhood} (R$ ${parseFloat(fee.deliveryFee || 0).toFixed(2).replace('.', ',')})`;
-                    if (fee.neighborhood === order.endereco.bairro) {
-                        option.selected = true;
-                    }
-                    bairroSelect.appendChild(option);
-                });
-
-                editOrderModal.style.display = 'flex';
-            }
-        }
-
-        async function saveOrderChanges() {
-            const id = document.getElementById('edit-order-id').value;
-            const orderRef = doc(db, "pedidos", id);
-            await updateDoc(orderRef, {
-                "endereco.clientName": document.getElementById('edit-clientName').value,
-                "endereco.telefone": document.getElementById('edit-telefone').value,
-                "endereco.rua": document.getElementById('edit-rua').value,
-                "endereco.numero": document.getElementById('edit-numero').value,
-                "endereco.bairro": document.getElementById('edit-bairro').value
-            });
-            editOrderModal.style.display = 'none';
-        }
-
-        function showDeleteConfirmation() {
-            orderIdToDelete = document.getElementById('edit-order-id').value;
+        function showDeleteConfirmation(orderId) {
+            orderIdToDelete = orderId;
             deleteConfirmModal.style.display = 'flex';
         }
 
         async function executeDelete() {
             if (orderIdToDelete) {
                 await deleteDoc(doc(db, "pedidos", orderIdToDelete));
-                editOrderModal.style.display = 'none';
                 deleteConfirmModal.style.display = 'none';
                 orderIdToDelete = null;
             }
@@ -2100,9 +2029,15 @@
             const printBtn = e.target.closest('.print-btn');
             const archiveBtn = e.target.closest('.archive-btn');
             const cardHeader = e.target.closest('.card-header');
+            const deleteBtn = e.target.closest('.delete-btn');
 
             if (moveBtn) updateOrderStatus(moveBtn.dataset.id, moveBtn.dataset.status);
-            if (manageBtn) openEditModal(manageBtn.dataset.id);
+            if (manageBtn) {
+                window.open(`venda-balcao.html?orderId=${manageBtn.dataset.id}`, '_blank');
+            }
+            if (deleteBtn) {
+                showDeleteConfirmation(deleteBtn.dataset.id);
+            }
             if (printBtn) printOrder(printBtn.dataset.id, printBtn.dataset.type);
             if (archiveBtn) handleArchiveOrder(archiveBtn.dataset.id);
             if (cardHeader && !e.target.closest('button, a')) {
@@ -2110,11 +2045,6 @@
             }
         });
 
-        closeEditModalBtn.addEventListener('click', () => editOrderModal.style.display = 'none');
-        editModalBody.addEventListener('click', (e) => {
-            if (e.target.id === 'save-changes-btn') saveOrderChanges();
-            if (e.target.id === 'delete-order-btn') showDeleteConfirmation();
-        });
         cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.style.display = 'none');
         confirmDeleteBtn.addEventListener('click', executeDelete);
         
