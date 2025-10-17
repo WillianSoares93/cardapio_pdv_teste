@@ -219,12 +219,6 @@
 
         <main id="main-content" class="overflow-y-auto">
             <div class="py-6 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center mb-4">
-                    <h1 class="text-2xl font-bold text-gray-800">Painel de Pedidos - Sâmia Pizzaria</h1>
-                    <div id="connection-status" class="text-sm font-medium text-gray-500">
-                        <i class="fas fa-circle text-red-500 mr-2"></i>Conectando...
-                    </div>
-                </div>
 
                 <div class="bg-gray-800 text-white rounded-lg shadow-md mb-6">
                     <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
@@ -976,7 +970,6 @@
             const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
 
             onSnapshot(q, (snapshot) => {
-                connectionStatus.innerHTML = '<i class="fas fa-circle text-green-500 mr-2"></i>Conectado';
                 
                 [colDeliveryNovo, colDeliveryPreparo, colDeliveryPronto, colDeliveryEntrega, colDeliveryEntregue, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto, colRetiradaEntregue, colMesasFechado]
                  .forEach(col => col.innerHTML = '');
