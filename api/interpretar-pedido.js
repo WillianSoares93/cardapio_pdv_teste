@@ -58,7 +58,6 @@ export default async function handler(req, res) {
 
 // --- FUNÇÃO DE CHAMADA À API (Vertex AI) ---
 async function callVertexAIGemini(userMessage, systemData) {
-    // ... (O código desta função é idêntico ao de `whatsapp-webhook.js` para chamar a IA)
     if (!GOOGLE_CREDENTIALS_BASE64) {
         throw new Error("Credenciais do Google Cloud (GOOGLE_CREDENTIALS_BASE64) não estão configuradas na Vercel.");
     }
@@ -186,3 +185,4 @@ function validateAndStructureOrder(aiResponse, menu) {
         paymentMethod: aiResponse.paymentMethod || null
     };
 }
+
