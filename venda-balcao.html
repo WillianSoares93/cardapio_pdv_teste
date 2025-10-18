@@ -590,7 +590,7 @@
            projectId: "pizzaria-pdv",
            storageBucket: "pizzaria-pdv.firebasestorage.app",
            messagingSenderId: "304171744691",
-           appId: "1:304171744691:web:e54d7f9fe55c7a75485fc6"
+           appId: "1:304171744691:web:e54d7ffe55c7a75485fc6"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -1655,11 +1655,13 @@
 
             window.addEventListener('click', (e) => {
                 const clientModal = document.getElementById('client-data-modal');
+                const iaModal = document.getElementById('ia-order-modal');
                 if (e.target === pizzaModal) pizzaModal.style.display = 'none';
                 if (e.target === burgerModal) burgerModal.style.display = 'none';
                 if (e.target === extrasModal) extrasModal.style.display = 'none';
                 if (e.target === askExtrasModal) askExtrasModal.style.display = 'none';
                 if (e.target === clientModal) clientModal.style.display = 'none';
+                if (e.target === iaModal) iaModal.style.display = 'none';
             });
             
             document.getElementById('burger-ingredients-container').addEventListener('click', handleBurgerIngredientClick);
@@ -1669,7 +1671,7 @@
             document.getElementById('cancel-client-data-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
 
-            // NOVO: Listeners para o modal de IA
+            // Listeners para o modal de IA
             const iaOrderModal = document.getElementById('ia-order-modal');
             document.getElementById('open-ia-modal-btn').addEventListener('click', () => iaOrderModal.style.display = 'flex');
             document.getElementById('close-ia-modal-btn').addEventListener('click', () => iaOrderModal.style.display = 'none');
