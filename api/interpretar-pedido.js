@@ -162,13 +162,54 @@ function validateAndStructureOrder(aiResponse, menu) {
         };
 
         let itemNameLower = aiItem.name.toLowerCase();
-        let foundItem = null;
         
-        // Melhora a busca pelo item base, ignorando tamanhos e "meia"
-        let baseNameSearch = itemNameLower.split(': ').pop(); // Remove "8 FATIAS: "
-        
-        foundItem = menu.find(menuItem => 
-            baseNameSearch.includes(menuItem.name.toLowerCase())
+        // --- LÓGICA MELHORADA PARA PIZZA MEIA A MEIA ---
+        if (itemNameLower.includes('meia ') && (itemNameLower.includes('&') || itemNameLower.includes(' e '))) {
+            let sizeKey = 'basePrice'; // Padrão
+            let sizeLabel = '8 Fatias';
+            for (const sizeText in sizeMap) {
+                if (itemNameLower.includes(sizeText)) {
+                    sizeKey = sizeMap[sizeText];
+                    sizeLabel = sizeText.charAt(0).toUpperCase() + sizeText.slice(1);
+                    break;
+                }
+            }
+
+            // Extrair os nomes dos sabores
+            const nameParts = aiItem.name.split(/&| e /);
+            const flavor1Name = nameParts[0].replace(/.*meia/i, '').trim();
+            const flavor2Name = nameParts[1].replace(/meia/i, '').trim();
+
+            const flavor1Item = menu.find(m => m.name.toLowerCase() === flavor1Name.toLowerCase());
+            const flavor2Item = menu.find(m => m.name.toLowerCase() === flavor2Name.toLowerCase());
+
+            if (flavor1Item && flavor2Item) {
+                const price1 = flavor1Item[sizeKey] || 0;
+                const price2 = flavor2Item[sizeKey] || 0;
+
+                if (price1 === 0 || price2 === 0) return null; // Tamanho inválido para um dos sabores
+
+                const finalPrice = (price1 / 2) + (price2 / 2);
+
+                return {
+                    ...flavor1Item, // Usa o primeiro item como base
+                    name: aiItem.name,
+                    price: finalPrice,
+                    quantity: aiItem.quantity || 1,
+                    notes: aiItem.notes || "",
+                    type: 'split',
+                    originalItem: null, // É uma combinação, não um item único
+                    firstHalfData: { ...flavor1Item, selectedSize: { label: sizeLabel, priceKey: sizeKey } },
+                    secondHalfData: { ...flavor2Item, selectedSize: { label: sizeLabel, priceKey: sizeKey } }
+                };
+            } else {
+                return null; // Um ou ambos os sabores não foram encontrados
+            }
+        }
+
+        // --- LÓGICA EXISTENTE PARA ITENS NORMAIS ---
+        let foundItem = menu.find(menuItem => 
+            itemNameLower.includes(menuItem.name.toLowerCase())
         );
 
         if (!foundItem) {
@@ -197,7 +238,7 @@ function validateAndStructureOrder(aiResponse, menu) {
             price: itemPrice,
             quantity: aiItem.quantity || 1,
             notes: aiItem.notes || "",
-            type: foundItem.isCustomizable ? 'custom_burger' : (foundItem.isPizza ? 'full' : 'full'),
+            type: foundItem.isCustomizable ? 'custom_burger' : 'full',
             originalItem: foundItem 
         };
 
