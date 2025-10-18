@@ -283,30 +283,25 @@
             <!-- Coluna da Esquerda: Pedido -->
             <section class="bg-white rounded-lg shadow-md flex flex-col overflow-hidden">
                 <div class="flex-shrink-0">
-                    <div class="p-4 border-b">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
-                                <div id="order-type-selector" class="flex space-x-4">
-                                    <label class="flex items-center">
-                                        <input type="radio" name="orderType" value="Retirada" checked class="form-radio text-blue-600">
-                                        <span class="ml-2">Retirada</span>
-                                    </label>
-                                    <label class="flex items-center">
-                                        <input type="radio" name="orderType" value="Delivery" class="form-radio text-blue-600">
-                                        <span class="ml-2">Delivery</span>
-                                    </label>
-                                    <label class="flex items-center">
-                                        <input type="radio" name="orderType" value="Mesa" class="form-radio text-blue-600">
-                                        <span class="ml-2">Mesa</span>
-                                    </label>
-                                </div>
+                    <div class="p-4 border-b flex justify-between items-start">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
+                            <div id="order-type-selector" class="flex space-x-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="orderType" value="Retirada" checked class="form-radio text-blue-600">
+                                    <span class="ml-2">Retirada</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="orderType" value="Delivery" class="form-radio text-blue-600">
+                                    <span class="ml-2">Delivery</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="orderType" value="Mesa" class="form-radio text-blue-600">
+                                    <span class="ml-2">Mesa</span>
+                                </label>
                             </div>
-                            <button id="open-client-data-modal-btn" class="px-3 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600 text-sm whitespace-nowrap">Dados do Cliente</button>
                         </div>
-                        <button id="open-ia-modal-btn" class="px-3 py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700 text-sm whitespace-nowrap mt-2 w-full">
-                            <i class="fas fa-robot mr-2"></i>Montar Pedido com IA
-                        </button>
+                        <button id="open-client-data-modal-btn" class="px-3 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600 text-sm whitespace-nowrap">Dados do Cliente</button>
                     </div>
                     <div id="client-data-summary" class="p-4 border-b hidden bg-blue-50 text-sm text-blue-800">
                         <!-- Summary of client data will go here -->
@@ -551,33 +546,6 @@
             </div>
         </div>
     </div>
-
-    <!-- NOVO: Modal de IA para Pedidos -->
-    <div id="ia-order-modal" class="modal">
-        <div class="modal-content !max-w-3xl">
-            <div class="flex justify-between items-center pb-3 border-b">
-                <h3 class="text-xl font-bold text-gray-900">Montar Pedido com IA</h3>
-                <button id="close-ia-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
-            </div>
-            <div class="mt-4">
-                <label for="whatsapp-conversation-input" class="block text-sm font-medium text-gray-700">Cole a conversa do WhatsApp aqui:</label>
-                <textarea id="whatsapp-conversation-input" rows="8" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 font-mono text-sm" placeholder="Ex: Cliente: Olá, gostaria de uma pizza grande de calabresa..."></textarea>
-                <button id="analyze-conversation-btn" class="mt-2 w-full py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700 transition-colors">Analisar Conversa</button>
-            </div>
-            <div id="ia-loading-indicator" class="hidden text-center py-4">
-                <i class="fas fa-spinner fa-spin text-2xl text-purple-600"></i>
-                <p class="text-sm text-gray-600 mt-2">Analisando pedido...</p>
-            </div>
-            <div id="ia-order-preview" class="hidden mt-4 p-4 border rounded-md bg-gray-50 max-h-64 overflow-y-auto">
-                <!-- O resultado da IA será exibido aqui -->
-            </div>
-            <div id="ia-actions" class="hidden mt-4 flex justify-end gap-4">
-                <button id="cancel-ia-order-btn" class="px-4 py-2 bg-gray-300 text-gray-800 font-bold rounded-md hover:bg-gray-400">Cancelar</button>
-                <button id="confirm-ia-order-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Adicionar ao Pedido</button>
-            </div>
-        </div>
-    </div>
-
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
