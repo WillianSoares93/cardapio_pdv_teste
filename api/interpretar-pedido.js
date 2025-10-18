@@ -88,7 +88,7 @@ async function callVertexAIGemini(userMessage, systemData) {
         .replace(/\${ESTADO_PEDIDO}/g, '[]') // Começa com o pedido vazio
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
-    const modelId = "gemini-1.5-pro-latest";
+    const modelId = "gemini-1.5-flash-latest"; // CORREÇÃO: Usando um modelo estável e disponível.
     const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:streamGenerateContent`;
 
     try {
