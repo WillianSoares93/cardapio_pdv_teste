@@ -141,16 +141,8 @@
 
         <main id="main-content" class="overflow-y-auto">
             <header class="bg-white shadow-md">
-                <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-                    <h1 class="text-2xl font-bold text-gray-800">Gerenciador de Cardápio</h1>
-                    <div class="flex items-center space-x-4">
-                         <a href="pdv.html" class="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-md hover:bg-blue-700 transition-colors">
-                            <i class="fas fa-clipboard-list mr-2"></i>Ir para o PDV
-                        </a>
-                        <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">
-                            <i class="fas fa-sign-out-alt mr-2"></i>Sair
-                        </button>
-                    </div>
+                <div class="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8 flex justify-start items-center">
+                    <h1 class="text-xl font-bold text-gray-800">Edição de Cardapio</h1>
                 </div>
             </header>
 
@@ -316,7 +308,6 @@
                 }
             });
 
-            document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
             document.getElementById('logout-btn-sidebar').addEventListener('click', () => signOut(auth));
         });
 
