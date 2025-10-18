@@ -13,6 +13,7 @@
             font-family: 'Roboto', sans-serif;
             background-color: #f3f4f6;
             visibility: hidden; /* Esconde o corpo até a autenticação */
+            overflow: hidden; /* Impede o scroll do body */
         }
         .tab-btn.active {
             border-color: #ef4444;
@@ -69,56 +70,124 @@
             color: #4f46e5;
             font-weight: 600;
         }
+        /* --- ESTILOS PARA BARRA LATERAL AJUSTADOS --- */
+        .main-container {
+            display: grid;
+            grid-template-columns: 0px 1fr; /* Barra lateral escondida por padrão */
+            height: 100vh; /* Ocupa a altura total da tela */
+            transition: grid-template-columns 0.3s ease-in-out;
+        }
+        .main-container.sidebar-open {
+            grid-template-columns: 80px 1fr; /* Mostra a barra lateral */
+        }
+        .sidebar-nav {
+            background-color: #2C3E50;
+            overflow: hidden;
+        }
+        .sidebar-btn {
+            color: #BDC3C7;
+            transition: all 0.2s ease-in-out;
+        }
+        .sidebar-btn:hover {
+            background-color: #34495E;
+            color: white;
+        }
+        .sidebar-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
 
-    <header class="bg-white shadow-md">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800">Gerenciador de Cardápio</h1>
-            <div class="flex items-center space-x-4">
-                 <a href="pdv.html" class="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-md hover:bg-blue-700 transition-colors">
-                    <i class="fas fa-clipboard-list mr-2"></i>Ir para o PDV
+    <div class="main-container">
+        <!-- Sidebar Vertical Esquerda -->
+        <aside class="sidebar-nav flex flex-col justify-between py-4">
+            <!-- Main Navigation -->
+            <div>
+                <a href="pdv.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Painel de Pedidos">
+                    <i class="fas fa-receipt fa-2x"></i>
+                    <span>PEDIDOS</span>
                 </a>
-                <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">
-                    <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                <a href="venda-balcao.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Venda Balcão">
+                    <i class="fas fa-cash-register fa-2x"></i>
+                    <span>BALCÃO</span>
+                </a>
+                <a href="editar-cardapio.html" class="sidebar-btn active w-full flex flex-col items-center p-3 text-xs" title="Editar Cardápio">
+                    <i class="fas fa-edit fa-2x"></i>
+                    <span>EDITAR</span>
+                </a>
+                <a href="gerenciar.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Gerenciar Itens">
+                    <i class="fas fa-tasks fa-2x"></i>
+                    <span>GERENCIAR</span>
+                </a>
+                <a href="relatorio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Relatórios">
+                    <i class="fas fa-chart-line fa-2x"></i>
+                    <span>RELATÓRIOS</span>
+                </a>
+            </div>
+            <!-- Bottom Actions -->
+            <div class="space-y-2">
+                 <div class="text-center px-2 py-3 text-xs text-gray-400 overflow-hidden" title="Usuário Logado">
+                    <i class="fas fa-user-circle fa-2x mb-1"></i>
+                    <span id="current-user" class="block truncate"></span>
+                </div>
+                <button id="logout-btn-sidebar" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Sair">
+                    <i class="fas fa-sign-out-alt fa-2x text-red-400"></i>
+                    <span class="text-red-400">SAIR</span>
                 </button>
             </div>
-        </div>
-    </header>
+        </aside>
 
-    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <div id="loading-state" class="text-center py-10">
-            <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
-            <p class="mt-4 text-gray-600">Carregando dados da planilha...</p>
-        </div>
-
-        <div id="editor-content" class="hidden">
-            <div class="bg-white p-4 rounded-lg shadow mb-6 space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="search-filter" class="text-sm font-medium text-gray-700">Pesquisar na Tabela</label>
-                        <input type="text" id="search-filter" class="mt-1 w-full p-2 border border-gray-300 rounded-md" placeholder="Digite para pesquisar...">
-                    </div>
-                    <div id="advanced-filters-container">
-                        <!-- Filtros avançados (como categorias) serão inseridos aqui -->
+        <main id="main-content" class="overflow-y-auto">
+            <header class="bg-white shadow-md">
+                <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <h1 class="text-2xl font-bold text-gray-800">Gerenciador de Cardápio</h1>
+                    <div class="flex items-center space-x-4">
+                         <a href="pdv.html" class="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-md hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-clipboard-list mr-2"></i>Ir para o PDV
+                        </a>
+                        <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                        </button>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <div class="mb-6">
-                <div class="border-b border-gray-200">
-                    <nav id="editor-tabs" class="-mb-px flex space-x-4 overflow-x-auto">
-                        <!-- As abas serão geradas aqui -->
-                    </nav>
+            <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+                <div id="loading-state" class="text-center py-10">
+                    <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+                    <p class="mt-4 text-gray-600">Carregando dados da planilha...</p>
                 </div>
-            </div>
 
-            <div id="tab-panels">
-                <!-- Os painéis com as tabelas de edição serão gerados aqui -->
-            </div>
-        </div>
-    </main>
+                <div id="editor-content" class="hidden">
+                    <div class="bg-white p-4 rounded-lg shadow mb-6 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="search-filter" class="text-sm font-medium text-gray-700">Pesquisar na Tabela</label>
+                                <input type="text" id="search-filter" class="mt-1 w-full p-2 border border-gray-300 rounded-md" placeholder="Digite para pesquisar...">
+                            </div>
+                            <div id="advanced-filters-container">
+                                <!-- Filtros avançados (como categorias) serão inseridos aqui -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <div class="border-b border-gray-200">
+                            <nav id="editor-tabs" class="-mb-px flex space-x-4 overflow-x-auto">
+                                <!-- As abas serão geradas aqui -->
+                            </nav>
+                        </div>
+                    </div>
+
+                    <div id="tab-panels">
+                        <!-- Os painéis com as tabelas de edição serão gerados aqui -->
+                    </div>
+                </div>
+            </main>
+        </main>
+    </div>
     
     <!-- Modal de Ações em Massa -->
     <div id="bulk-actions-modal" class="modal">
@@ -237,6 +306,10 @@
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     document.body.style.visibility = 'visible';
+                    const currentUserEl = document.getElementById('current-user');
+                    if (currentUserEl) {
+                        currentUserEl.textContent = user.email;
+                    }
                     loadEditorData(); 
                 } else {
                     window.location.href = `login.html?redirect=editar-cardapio.html`;
@@ -244,6 +317,7 @@
             });
 
             document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+            document.getElementById('logout-btn-sidebar').addEventListener('click', () => signOut(auth));
         });
 
         async function loadEditorData() {
@@ -422,8 +496,25 @@
         }
 
         function setupEventListeners() {
-            document.getElementById('search-filter').addEventListener('input', applyFilters);
+            // Sidebar logic
+            const mainContainer = document.querySelector('.main-container');
+            const sidebar = document.querySelector('.sidebar-nav');
+            const mainContent = document.getElementById('main-content'); 
 
+            document.addEventListener('mousemove', (e) => {
+                if (e.clientX < 20) {
+                    mainContainer.classList.add('sidebar-open');
+                }
+            });
+            sidebar.addEventListener('mouseleave', () => {
+                mainContainer.classList.remove('sidebar-open');
+            });
+            mainContent.addEventListener('mouseenter', () => {
+                mainContainer.classList.remove('sidebar-open');
+            });
+            
+            // Page logic
+            document.getElementById('search-filter').addEventListener('input', applyFilters);
             document.getElementById('editor-tabs').addEventListener('click', (e) => {
                 const tab = e.target.closest('.tab-btn');
                 if(!tab) return;
@@ -940,4 +1031,3 @@
     </script>
 </body>
 </html>
-
