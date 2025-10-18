@@ -13,6 +13,7 @@
             font-family: 'Roboto', sans-serif;
             background-color: #f3f4f6;
             visibility: hidden; /* Esconde o corpo até a autenticação ser verificada */
+            overflow: hidden;
         }
         .tab-btn {
             transition: all 0.2s ease-in-out;
@@ -48,102 +49,169 @@
             cursor: not-allowed;
             background-color: #d1d5db; /* gray-400 */
         }
+        /* --- ESTILOS PARA BARRA LATERAL AJUSTADOS --- */
+        .main-container {
+            display: grid;
+            grid-template-columns: 0px 1fr; /* Barra lateral escondida por padrão */
+            height: 100vh; /* Ocupa a altura total da tela */
+            transition: grid-template-columns 0.3s ease-in-out;
+        }
+        .main-container.sidebar-open {
+            grid-template-columns: 80px 1fr; /* Mostra a barra lateral */
+        }
+        .sidebar-nav {
+            background-color: #2C3E50;
+            overflow: hidden;
+        }
+        .sidebar-btn {
+            color: #BDC3C7;
+            transition: all 0.2s ease-in-out;
+        }
+        .sidebar-btn:hover {
+            background-color: #34495E;
+            color: white;
+        }
+        .sidebar-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
-
-    <header class="bg-white shadow-md">
-        <div class="max-w-5xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800">Gerenciar Disponibilidade</h1>
-            <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">
-                <i class="fas fa-sign-out-alt mr-2"></i>Sair
-            </button>
-        </div>
-    </header>
-
-    <main class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-        <div class="bg-white p-6 rounded-lg shadow-lg">
-            
-            <div class="border-b border-gray-200 mb-4">
-                <nav id="availability-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
-                    <button class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="item-panel">
-                        Itens do Cardápio
-                    </button>
-                    <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="ingredient-panel">
-                        Ingredientes Hambúrguer
-                    </button>
-                    <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="extras-panel">
-                        Adicionais
-                    </button>
-                </nav>
+    <div class="main-container">
+        <!-- Sidebar Vertical Esquerda -->
+        <aside class="sidebar-nav flex flex-col justify-between py-4">
+            <!-- Main Navigation -->
+            <div>
+                <a href="pdv.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Painel de Pedidos">
+                    <i class="fas fa-receipt fa-2x"></i>
+                    <span>PEDIDOS</span>
+                </a>
+                <a href="venda-balcao.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Venda Balcão">
+                    <i class="fas fa-cash-register fa-2x"></i>
+                    <span>BALCÃO</span>
+                </a>
+                <a href="editar-cardapio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Editar Cardápio">
+                    <i class="fas fa-edit fa-2x"></i>
+                    <span>EDITAR</span>
+                </a>
+                <a href="gerenciar.html" class="sidebar-btn active w-full flex flex-col items-center p-3 text-xs" title="Gerenciar Itens">
+                    <i class="fas fa-tasks fa-2x"></i>
+                    <span>GERENCIAR</span>
+                </a>
+                <a href="relatorio.html" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Relatórios">
+                    <i class="fas fa-chart-line fa-2x"></i>
+                    <span>RELATÓRIOS</span>
+                </a>
             </div>
-
-            <div id="availability-container">
-                <div id="item-panel" class="tab-panel">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <input type="text" id="search-item" placeholder="Buscar item..." class="md:col-span-1 p-2 border rounded-md">
-                        <select id="item-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
-                        <div id="item-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
-                    </div>
-                    <div class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
-                        <div class="flex items-center justify-between p-3 border-b sticky top-0 bg-gray-50 z-10">
-                            <span class="font-bold text-gray-600 w-2/6">Item</span>
-                            <div class="flex items-center justify-around w-4/6">
-                                <span class="font-bold text-gray-600 w-1/4 text-center">Disponível</span>
-                                <span class="font-bold text-gray-600 w-1/4 text-center">Visível</span>
-                                <span class="font-bold text-gray-600 w-1/4 text-center">Aceita Adicionais</span>
-                                <span class="font-bold text-gray-600 w-1/4 text-center">Permite Meia</span>
-                            </div>
-                        </div>
-                        <div id="item-availability-list" class="space-y-4">
-                            <p class="text-gray-500">Carregando itens...</p>
-                        </div>
-                    </div>
+            <!-- Bottom Actions -->
+            <div class="space-y-2">
+                 <div class="text-center px-2 py-3 text-xs text-gray-400 overflow-hidden" title="Usuário Logado">
+                    <i class="fas fa-user-circle fa-2x mb-1"></i>
+                    <span id="current-user" class="block truncate"></span>
                 </div>
-
-                <div id="ingredient-panel" class="tab-panel hidden">
-                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <input type="text" id="search-ingredient" placeholder="Buscar ingrediente..." class="md:col-span-1 p-2 border rounded-md">
-                        <select id="ingredient-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
-                        <div id="ingredient-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
-                    </div>
-                     <div class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
-                        <div class="flex items-center justify-between p-3 border-b sticky top-0 bg-gray-50 z-10">
-                            <span class="font-bold text-gray-600 w-2/5">Ingrediente</span>
-                            <div class="flex items-center justify-around w-3/5">
-                                <span class="font-bold text-gray-600 w-1/2 text-center">Disponível</span>
-                                <span class="font-bold text-gray-600 w-1/2 text-center">Visível</span>
-                            </div>
-                        </div>
-                        <div id="ingredient-availability-list" class="space-y-4">
-                            <p class="text-gray-500">Carregando ingredientes...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="extras-panel" class="tab-panel hidden">
-                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <input type="text" id="search-extra" placeholder="Buscar adicional..." class="md:col-span-1 p-2 border rounded-md">
-                        <select id="extra-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
-                        <div id="extra-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
-                    </div>
-                     <div class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
-                        <div class="flex items-center justify-between p-3 border-b sticky top-0 bg-gray-50 z-10">
-                            <span class="font-bold text-gray-600 w-2/5">Adicional</span>
-                            <div class="flex items-center justify-around w-3/5">
-                                <span class="font-bold text-gray-600 w-1/2 text-center">Disponível</span>
-                                <span class="font-bold text-gray-600 w-1/2 text-center">Visível</span>
-                            </div>
-                        </div>
-                        <div id="extra-availability-list" class="space-y-4">
-                            <p class="text-gray-500">Carregando adicionais...</p>
-                        </div>
-                    </div>
-                </div>
-
+                <button id="logout-btn-sidebar" class="sidebar-btn w-full flex flex-col items-center p-3 text-xs" title="Sair">
+                    <i class="fas fa-sign-out-alt fa-2x text-red-400"></i>
+                    <span class="text-red-400">SAIR</span>
+                </button>
             </div>
-        </div>
-    </main>
+        </aside>
+
+        <main id="main-content" class="overflow-y-auto">
+            <header class="bg-white shadow-md">
+                <div class="max-w-5xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <h1 class="text-2xl font-bold text-gray-800">Gerenciar Disponibilidade</h1>
+                    <button id="logout-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-md hover:bg-red-700 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                    </button>
+                </div>
+            </header>
+
+            <main class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    
+                    <div class="border-b border-gray-200 mb-4">
+                        <nav id="availability-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
+                            <button class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="item-panel">
+                                Itens do Cardápio
+                            </button>
+                            <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="ingredient-panel">
+                                Ingredientes Hambúrguer
+                            </button>
+                            <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="extras-panel">
+                                Adicionais
+                            </button>
+                        </nav>
+                    </div>
+
+                    <div id="availability-container">
+                        <div id="item-panel" class="tab-panel">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <input type="text" id="search-item" placeholder="Buscar item..." class="md:col-span-1 p-2 border rounded-md">
+                                <select id="item-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
+                                <div id="item-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
+                            </div>
+                            <div class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
+                                <div class="flex items-center justify-between p-3 border-b sticky top-0 bg-gray-50 z-10">
+                                    <span class="font-bold text-gray-600 w-2/6">Item</span>
+                                    <div class="flex items-center justify-around w-4/6">
+                                        <span class="font-bold text-gray-600 w-1/4 text-center">Disponível</span>
+                                        <span class="font-bold text-gray-600 w-1/4 text-center">Visível</span>
+                                        <span class="font-bold text-gray-600 w-1/4 text-center">Aceita Adicionais</span>
+                                        <span class="font-bold text-gray-600 w-1/4 text-center">Permite Meia</span>
+                                    </div>
+                                </div>
+                                <div id="item-availability-list" class="space-y-4">
+                                    <p class="text-gray-500">Carregando itens...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="ingredient-panel" class="tab-panel hidden">
+                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <input type="text" id="search-ingredient" placeholder="Buscar ingrediente..." class="md:col-span-1 p-2 border rounded-md">
+                                <select id="ingredient-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
+                                <div id="ingredient-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
+                            </div>
+                             <div class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
+                                <div class="flex items-center justify-between p-3 border-b sticky top-0 bg-gray-50 z-10">
+                                    <span class="font-bold text-gray-600 w-2/5">Ingrediente</span>
+                                    <div class="flex items-center justify-around w-3/5">
+                                        <span class="font-bold text-gray-600 w-1/2 text-center">Disponível</span>
+                                        <span class="font-bold text-gray-600 w-1/2 text-center">Visível</span>
+                                    </div>
+                                </div>
+                                <div id="ingredient-availability-list" class="space-y-4">
+                                    <p class="text-gray-500">Carregando ingredientes...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="extras-panel" class="tab-panel hidden">
+                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <input type="text" id="search-extra" placeholder="Buscar adicional..." class="md:col-span-1 p-2 border rounded-md">
+                                <select id="extra-category-select" class="md:col-span-1 p-2 border rounded-md"></select>
+                                <div id="extra-status-filters" class="md:col-span-1 flex items-center justify-around bg-gray-100 p-1 rounded-md"></div>
+                            </div>
+                             <div class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
+                                <div class="flex items-center justify-between p-3 border-b sticky top-0 bg-gray-50 z-10">
+                                    <span class="font-bold text-gray-600 w-2/5">Adicional</span>
+                                    <div class="flex items-center justify-around w-3/5">
+                                        <span class="font-bold text-gray-600 w-1/2 text-center">Disponível</span>
+                                        <span class="font-bold text-gray-600 w-1/2 text-center">Visível</span>
+                                    </div>
+                                </div>
+                                <div id="extra-availability-list" class="space-y-4">
+                                    <p class="text-gray-500">Carregando adicionais...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </main>
+        </main>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -164,17 +232,41 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                document.body.style.visibility = 'visible';
-                initializeManager();
-            } else {
-                window.location.href = `login.html?redirect=gerenciar.html`;
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    document.body.style.visibility = 'visible';
+                     const currentUserEl = document.getElementById('current-user');
+                    if (currentUserEl) {
+                        currentUserEl.textContent = user.email;
+                    }
+                    initializeManager();
+                } else {
+                    window.location.href = `login.html?redirect=gerenciar.html`;
+                }
+            });
+
+            document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+            document.getElementById('logout-btn-sidebar').addEventListener('click', () => signOut(auth));
+
+            // Sidebar logic
+            const mainContainer = document.querySelector('.main-container');
+            const sidebar = document.querySelector('.sidebar-nav');
+            const mainContent = document.getElementById('main-content'); 
+
+            document.addEventListener('mousemove', (e) => {
+                if (e.clientX < 20) {
+                    mainContainer.classList.add('sidebar-open');
+                }
+            });
+            sidebar.addEventListener('mouseleave', () => {
+                mainContainer.classList.remove('sidebar-open');
+            });
+            mainContent.addEventListener('mouseenter', () => {
+                mainContainer.classList.remove('sidebar-open');
+            });
         });
 
-        const logoutBtn = document.getElementById('logout-btn');
-        logoutBtn.addEventListener('click', () => signOut(auth));
 
         const itemAvailabilityList = document.getElementById('item-availability-list');
         const ingredientAvailabilityList = document.getElementById('ingredient-availability-list');
