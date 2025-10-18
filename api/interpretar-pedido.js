@@ -83,7 +83,7 @@ async function callVertexAIGemini(userMessage, systemData) {
 
     const prompt = promptTemplate
         .replace(/\${CARDAPIO}/g, JSON.stringify(simplifiedMenu))
-        .replace(/\${INGREDIENTES}/g, JSON.stringify(allIngredients))
+        .replace(/\${INGREDIENTES}/g, JSON.stringify(allIngredients || [])) // Fallback para array vazio
         .replace(/\${HISTORICO}/g, '[]') // Sem histórico para análise única
         .replace(/\${ESTADO_PEDIDO}/g, '[]') // Começa com o pedido vazio
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
@@ -108,7 +108,8 @@ async function callVertexAIGemini(userMessage, systemData) {
 
         if (!response.ok) {
             const errorBody = await response.text();
-            throw new Error(`Erro na API Vertex AI: ${response.status}. Detalhes: ${errorBody}`);
+            console.error("Erro da API Vertex AI (corpo da resposta):", errorBody);
+            throw new Error(`Erro na API Vertex AI: ${response.status}. Verifique se a API "Vertex AI" está ATIVA e se o FATURAMENTO está configurado no seu projeto Google Cloud.`);
         }
 
         const data = await response.json();
@@ -121,7 +122,7 @@ async function callVertexAIGemini(userMessage, systemData) {
         return JSON.parse(jsonString);
 
     } catch (error) {
-        console.error("Erro ao chamar ou processar a resposta do Vertex AI Gemini:", error);
+        console.error("Erro detalhado ao chamar a API Vertex AI:", error);
         throw new Error("Falha na comunicação com a IA.");
     }
 }
@@ -153,25 +154,53 @@ async function getActivePrompt() {
 
 function validateAndStructureOrder(aiResponse, menu) {
     const validatedItems = aiResponse.itens.map(aiItem => {
-        // Lógica simples de matching: encontra o item no menu cujo nome está contido no nome do item da IA
-        const foundItem = menu.find(menuItem => 
-            aiItem.name.toLowerCase().includes(menuItem.name.toLowerCase())
+        const sizeMap = {
+            '4 fatias': 'price4Slices',
+            '6 fatias': 'price6Slices',
+            '8 fatias': 'basePrice',
+            '10 fatias': 'price10Slices'
+        };
+
+        let itemNameLower = aiItem.name.toLowerCase();
+        let foundItem = null;
+        
+        // Melhora a busca pelo item base, ignorando tamanhos e "meia"
+        let baseNameSearch = itemNameLower.split(': ').pop(); // Remove "8 FATIAS: "
+        
+        foundItem = menu.find(menuItem => 
+            baseNameSearch.includes(menuItem.name.toLowerCase())
         );
 
-        if (foundItem) {
-            // Se encontrou, usa os dados do menu, que são a fonte da verdade
-            return {
-                ...foundItem, // Pega todos os dados do item do menu (id, category, etc)
-                name: aiItem.name, // Mantém o nome completo que a IA gerou (ex: com tamanho ou "meia a meia")
-                price: foundItem.basePrice, // Usa o preço base do menu como padrão
-                quantity: aiItem.quantity || 1,
-                notes: aiItem.notes || "",
-                type: foundItem.isCustomizable ? 'custom_burger' : (foundItem.isPizza ? 'full' : 'full'),
-                 // Adiciona dados originais para referência no frontend
-                originalItem: foundItem 
-            };
+        if (!foundItem) {
+            return null; // Item não existe no cardápio
         }
-        return null; // Descarta itens que não foram encontrados no cardápio
+
+        let itemPrice = 0;
+        // Se encontrou, determina o preço correto
+        if (foundItem.isPizza) {
+            let sizeKey = 'basePrice'; // Padrão para 8 fatias se nenhum tamanho for encontrado
+            for (const sizeText in sizeMap) {
+                if (itemNameLower.includes(sizeText)) {
+                    sizeKey = sizeMap[sizeText];
+                    break;
+                }
+            }
+            itemPrice = foundItem[sizeKey] || foundItem.basePrice;
+        } else {
+            itemPrice = foundItem.basePrice;
+        }
+
+        // Retorna o item estruturado com o preço correto
+        return {
+            ...foundItem,
+            name: aiItem.name,
+            price: itemPrice,
+            quantity: aiItem.quantity || 1,
+            notes: aiItem.notes || "",
+            type: foundItem.isCustomizable ? 'custom_burger' : (foundItem.isPizza ? 'full' : 'full'),
+            originalItem: foundItem 
+        };
+
     }).filter(Boolean); // Remove os nulos
 
     return {
@@ -179,7 +208,6 @@ function validateAndStructureOrder(aiResponse, menu) {
         clientData: {
             name: aiResponse.clientName || null,
             address: aiResponse.address || null,
-            // A IA pode não extrair o contato, então deixamos como nulo
             contact: aiResponse.contact || null 
         },
         paymentMethod: aiResponse.paymentMethod || null
