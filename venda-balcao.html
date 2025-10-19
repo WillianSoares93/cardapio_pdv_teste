@@ -600,8 +600,6 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-        console.log("--- TESTE 1: Módulo de script carregado ---"); // <-- ADICIONADO AQUI
-
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
            authDomain: "pizzaria-pdv.firebaseapp.com",
@@ -635,12 +633,10 @@
         let firstHalfPizza = null;
         let currentPizzaExtrasState = {};
         const NUMERO_DE_MESAS = 12;
-        let parsedAiOrder = null; // Variável para armazenar o pedido da IA
+        let parsedAiOrder = null; 
 
         onAuthStateChanged(auth, (user) => {
-            console.log("--- TESTE 2: onAuthStateChanged disparado ---"); // <-- ADICIONADO AQUI
             if (user) {
-                console.log("--- TESTE 3: Usuário AUTENTICADO. Chamando AppLogic... ---"); // <-- ADICIONADO AQUI
                 document.body.style.visibility = 'visible';
                 currentUserEmail = user.email;
                 const currentUserEl = document.getElementById('current-user');
@@ -729,7 +725,6 @@
 
 
         async function initializeAppLogic() {
-            console.log("--- TESTE 4: initializeAppLogic() INICIADA. ---"); // <-- ADICIONADO AQUI
             listenToStatusChanges();
             await fetchMenu();
             renderCategories();
@@ -1580,12 +1575,22 @@
             totalValueEl.textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
             totalItemsEl.textContent = totalItems;
         }
+
+        function openAiModal() {
+            const modal = document.getElementById('ai-order-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+                modal.querySelector('#whatsapp-paste-area').value = '';
+                modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+                modal.querySelector('#ai-error-message').classList.add('hidden');
+                modal.querySelector('#confirm-ai-order-btn').disabled = true;
+                parsedAiOrder = null;
+            }
+        }
         
         // CÓDIGO CORRIGIDO E SEGURO ABAIXO
         async function setupEventListeners() {
             try {
-                console.log("--- TESTE 5: setupEventListeners() INICIADA. ---"); // <-- ADICIONADO AQUI
-
                 // --- Elementos Principais ---
                 const mainContainer = document.querySelector('.main-container');
                 const sidebar = document.querySelector('.sidebar-nav');
@@ -1597,7 +1602,6 @@
                 const orderTypeSelector = document.getElementById('order-type-selector');
                 const clientDataModalBtn = document.getElementById('open-client-data-modal-btn');
                 const aiModalBtn = document.getElementById('open-ai-modal-btn');
-                const aiModal = document.getElementById('ai-order-modal');
 
                 // --- Lógica da Sidebar ---
                 if (mainContainer && sidebar && mainContent) {
@@ -1606,8 +1610,6 @@
                     });
                     sidebar.addEventListener('mouseleave', () => mainContainer.classList.remove('sidebar-open'));
                     mainContent.addEventListener('mouseenter', () => mainContainer.classList.remove('sidebar-open'));
-                } else {
-                    console.warn('Elementos da sidebar não encontrados.');
                 }
 
                 // --- Listener de Busca ---
@@ -1671,36 +1673,16 @@
                             }
                         }
                     });
-                } else {
-                    console.error("CRÍTICO: 'order-items-container' não foi encontrado. Os cliques nos itens do pedido não funcionarão.");
                 }
 
                 // --- Botão Modal Dados do Cliente ---
                 if (clientDataModalBtn) {
-                    clientDataModalBtn.addEventListener('click', () => {
-                        console.log("--- TESTE: Botão 'Dados do Cliente' CLICADO ---"); // <-- ADICIONADO AQUI
-                        openClientDataModal();
-                    });
-                } else {
-                    console.error("Botão 'Dados do Cliente' não encontrado.");
-                }
+                    clientDataModalBtn.addEventListener('click', openClientDataModal);
+                } 
 
                 // --- Botão Modal Pedido com IA ---
-                if (aiModalBtn && aiModal) {
-                    aiModalBtn.addEventListener('click', (e) => {
-                        console.log("--- TESTE: Botão 'Pedido com IA' CLICADO ---"); // <-- ADICIONADO AQUI
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        aiModal.style.display = 'flex';
-                        aiModal.querySelector('#whatsapp-paste-area').value = '';
-                        aiModal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-                        aiModal.querySelector('#ai-error-message').classList.add('hidden');
-                        aiModal.querySelector('#confirm-ai-order-btn').disabled = true;
-                        parsedAiOrder = null;
-                    });
-                } else {
-                    console.error("Botão 'Pedido com IA' ou seu modal não foram encontrados.");
+                if (aiModalBtn) {
+                    aiModalBtn.addEventListener('click', openAiModal);
                 }
 
                 // --- Outros Listeners (Extras) ---
@@ -2576,4 +2558,5 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
+" to answer the following query: "os logs do console deram esse resultado:"
 
