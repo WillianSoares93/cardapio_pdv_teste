@@ -600,6 +600,8 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
+        console.log("--- TESTE 1: Módulo de script carregado ---"); // <-- ADICIONADO AQUI
+
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
            authDomain: "pizzaria-pdv.firebaseapp.com",
@@ -636,7 +638,9 @@
         let parsedAiOrder = null; // Variável para armazenar o pedido da IA
 
         onAuthStateChanged(auth, (user) => {
+            console.log("--- TESTE 2: onAuthStateChanged disparado ---"); // <-- ADICIONADO AQUI
             if (user) {
+                console.log("--- TESTE 3: Usuário AUTENTICADO. Chamando AppLogic... ---"); // <-- ADICIONADO AQUI
                 document.body.style.visibility = 'visible';
                 currentUserEmail = user.email;
                 const currentUserEl = document.getElementById('current-user');
@@ -725,6 +729,7 @@
 
 
         async function initializeAppLogic() {
+            console.log("--- TESTE 4: initializeAppLogic() INICIADA. ---"); // <-- ADICIONADO AQUI
             listenToStatusChanges();
             await fetchMenu();
             renderCategories();
@@ -1576,116 +1581,151 @@
             totalItemsEl.textContent = totalItems;
         }
         
+        // CÓDIGO CORRIGIDO E SEGURO ABAIXO
         async function setupEventListeners() {
-            const mainContainer = document.querySelector('.main-container');
-            const sidebar = document.querySelector('.sidebar-nav');
-            const mainContent = document.querySelector('.main-content');
-            const orderItemsContainer = document.getElementById('order-items-container');
+            try {
+                console.log("--- TESTE 5: setupEventListeners() INICIADA. ---"); // <-- ADICIONADO AQUI
 
-            // --- Sidebar Logic ---
-            document.addEventListener('mousemove', (e) => {
-                if (e.clientX < 20) mainContainer.classList.add('sidebar-open');
-            });
-            sidebar.addEventListener('mouseleave', () => mainContainer.classList.remove('sidebar-open'));
-            mainContent.addEventListener('mouseenter', () => mainContainer.classList.remove('sidebar-open'));
+                // --- Elementos Principais ---
+                const mainContainer = document.querySelector('.main-container');
+                const sidebar = document.querySelector('.sidebar-nav');
+                const mainContent = document.querySelector('.main-content');
+                const orderItemsContainer = document.getElementById('order-items-container');
+                const searchProduct = document.getElementById('search-product');
+                const cancelOrderBtn = document.getElementById('cancel-order-btn');
+                const finalizeOrderBtn = document.getElementById('finalize-order-btn');
+                const orderTypeSelector = document.getElementById('order-type-selector');
+                const clientDataModalBtn = document.getElementById('open-client-data-modal-btn');
+                const aiModalBtn = document.getElementById('open-ai-modal-btn');
+                const aiModal = document.getElementById('ai-order-modal');
 
-            // --- Main Page UI Listeners ---
-            document.getElementById('search-product').addEventListener('input', renderProducts);
-            document.getElementById('cancel-order-btn').addEventListener('click', async () => {
-                if (isEditing) {
-                    window.close();
-                    return;
+                // --- Lógica da Sidebar ---
+                if (mainContainer && sidebar && mainContent) {
+                    document.addEventListener('mousemove', (e) => {
+                        if (e.clientX < 20) mainContainer.classList.add('sidebar-open');
+                    });
+                    sidebar.addEventListener('mouseleave', () => mainContainer.classList.remove('sidebar-open'));
+                    mainContent.addEventListener('mouseenter', () => mainContainer.classList.remove('sidebar-open'));
+                } else {
+                    console.warn('Elementos da sidebar não encontrados.');
                 }
-                if (order.length > 0 || clientData.name || clientData.table) {
-                    const confirmed = await showConfirm('Deseja cancelar o pedido atual e limpar os dados do cliente?');
-                    if (confirmed) resetOrderState();
-                }
-            });
-            document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrderCheck);
-            document.getElementById('order-type-selector').addEventListener('change', (e) => {
-                currentOrderType = e.target.value;
-                clientData = { name: null, contact: null, address: null, table: null, observation: null };
-                paymentMethod = null;
-                updateClientDataSummary();
-                updateOrderDisplay();
-            });
-            orderItemsContainer.addEventListener('click', (e) => {
-                const removeBtn = e.target.closest('.remove-item-btn');
-                const editExtrasBtn = e.target.closest('.edit-extras-btn');
-                const editBurgerBtn = e.target.closest('.edit-burger-btn');
 
-                if (removeBtn) {
-                    const uniqueId = removeBtn.dataset.uniqueId;
-                    order = order.filter(item => item.uniqueId !== uniqueId);
-                    updateOrderDisplay();
-                } else if (editExtrasBtn) {
-                    const uniqueId = editExtrasBtn.dataset.uniqueId;
-                    openPizzaExtrasBuilderModal(uniqueId);
-                } else if (editBurgerBtn) {
-                    const uniqueId = editBurgerBtn.dataset.uniqueId;
-                    const index = order.findIndex(item => item.uniqueId === uniqueId);
-                    if (index !== -1) {
-                        const itemToEdit = order[index];
-                        if (itemToEdit.originalItem) openBurgerBuilderModal(itemToEdit.originalItem, index, itemToEdit);
-                        else {
-                            const baseBurger = allItems.find(item => item.isCustomizable);
-                            if(baseBurger) openBurgerBuilderModal(baseBurger, index, itemToEdit);
+                // --- Listener de Busca ---
+                if (searchProduct) {
+                    searchProduct.addEventListener('input', renderProducts);
+                }
+
+                // --- Botões de Ação Principais ---
+                if (cancelOrderBtn) {
+                    cancelOrderBtn.addEventListener('click', async () => {
+                        if (isEditing) {
+                            window.close();
+                            return;
                         }
+                        if (order.length > 0 || clientData.name || clientData.table) {
+                            const confirmed = await showConfirm('Deseja cancelar o pedido atual e limpar os dados do cliente?');
+                            if (confirmed) resetOrderState();
+                        }
+                    });
+                }
+
+                if (finalizeOrderBtn) {
+                    finalizeOrderBtn.addEventListener('click', finalizeOrderCheck);
+                }
+
+                // --- Seletor de Tipo de Pedido ---
+                if (orderTypeSelector) {
+                    orderTypeSelector.addEventListener('change', (e) => {
+                        currentOrderType = e.target.value;
+                        clientData = { name: null, contact: null, address: null, table: null, observation: null };
+                        paymentMethod = null;
+                        updateClientDataSummary();
+                        updateOrderDisplay();
+                    });
+                }
+
+                // --- Container de Itens do Pedido ---
+                if (orderItemsContainer) {
+                    orderItemsContainer.addEventListener('click', (e) => {
+                        const removeBtn = e.target.closest('.remove-item-btn');
+                        const editExtrasBtn = e.target.closest('.edit-extras-btn');
+                        const editBurgerBtn = e.target.closest('.edit-burger-btn');
+
+                        if (removeBtn) {
+                            const uniqueId = removeBtn.dataset.uniqueId;
+                            order = order.filter(item => item.uniqueId !== uniqueId);
+                            updateOrderDisplay();
+                        } else if (editExtrasBtn) {
+                            const uniqueId = editExtrasBtn.dataset.uniqueId;
+                            openPizzaExtrasBuilderModal(uniqueId);
+                        } else if (editBurgerBtn) {
+                            const uniqueId = editBurgerBtn.dataset.uniqueId;
+                            const index = order.findIndex(item => item.uniqueId === uniqueId);
+                            if (index !== -1) {
+                                const itemToEdit = order[index];
+                                if (itemToEdit.originalItem) openBurgerBuilderModal(itemToEdit.originalItem, index, itemToEdit);
+                                else {
+                                    const baseBurger = allItems.find(item => item.isCustomizable);
+                                    if(baseBurger) openBurgerBuilderModal(baseBurger, index, itemToEdit);
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    console.error("CRÍTICO: 'order-items-container' não foi encontrado. Os cliques nos itens do pedido não funcionarão.");
+                }
+
+                // --- Botão Modal Dados do Cliente ---
+                if (clientDataModalBtn) {
+                    clientDataModalBtn.addEventListener('click', openClientDataModal);
+                } else {
+                    console.error("Botão 'Dados do Cliente' não encontrado.");
+                }
+
+                // --- Botão Modal Pedido com IA ---
+                if (aiModalBtn && aiModal) {
+                    aiModalBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        aiModal.style.display = 'flex';
+                        aiModal.querySelector('#whatsapp-paste-area').value = '';
+                        aiModal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+                        aiModal.querySelector('#ai-error-message').classList.add('hidden');
+                        aiModal.querySelector('#confirm-ai-order-btn').disabled = true;
+                        parsedAiOrder = null;
+                    });
+                } else {
+                    console.error("Botão 'Pedido com IA' ou seu modal não foram encontrados.");
+                }
+
+                // --- Outros Listeners (Extras) ---
+                document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
+                    const askModal = document.getElementById('ask-pizza-extras-modal');
+                    const uniqueId = askModal.dataset.uniqueId;
+                    openPizzaExtrasBuilderModal(uniqueId);
+                    askModal.style.display = 'none';
+                });
+                
+                document.getElementById('add-custom-burger-btn').addEventListener('click', () => addCustomBurgerToOrder(document.getElementById('burger-builder-modal').dataset.editIndex || null));
+                document.getElementById('add-pizza-with-extras-btn').addEventListener('click', confirmPizzaExtras);
+                document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
+                document.getElementById('analyze-ai-btn').addEventListener('click', handleAnalyzeAI);
+                document.getElementById('confirm-ai-order-btn').addEventListener('click', handleConfirmAIOrder);
+                document.getElementById('burger-ingredients-container').addEventListener('click', handleBurgerIngredientClick);
+                document.getElementById('pizza-extras-ingredients-container').addEventListener('click', handlePizzaExtrasIngredientClick);
+                setupPaymentModalListeners();
+                
+                window.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('modal')) {
+                        e.target.style.display = 'none';
                     }
-                }
-            });
+                });
 
-// --- Modal IA (Lógica de abertura segura) ---
-const aiModalBtn = document.getElementById('open-ai-modal-btn');
-const aiModal = document.getElementById('ai-order-modal');
-
-if (aiModalBtn && aiModal) {
-    // A verificação acima garante que o botão e o modal existem antes de
-    // adicionar o clique, evitando que o script quebre.
-
-    aiModalBtn.addEventListener('click', (e) => {
-        e.preventDefault(); // Boa prática para botões
-        e.stopPropagation(); // Boa prática para modais
-
-        // Esta é a sua lógica original do venda-balcao.html,
-        // que limpa o modal corretamente antes de abrir.
-        aiModal.style.display = 'flex';
-        aiModal.querySelector('#whatsapp-paste-area').value = '';
-        aiModal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-        aiModal.querySelector('#ai-error-message').classList.add('hidden');
-        aiModal.querySelector('#confirm-ai-order-btn').disabled = true;
-        parsedAiOrder = null;
-    });
-} else {
-    // Isso avisará no console se um dos elementos não for encontrado
-    console.error("Botão 'Pedido com IA' ou seu modal não foram encontrados no HTML.");
-}
-
-            // --- Listeners for buttons INSIDE modals (that don't close them) ---
-            document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
-                const askModal = document.getElementById('ask-pizza-extras-modal');
-                const uniqueId = askModal.dataset.uniqueId;
-                openPizzaExtrasBuilderModal(uniqueId);
-                askModal.style.display = 'none';
-            });
-            
-            document.getElementById('add-custom-burger-btn').addEventListener('click', () => addCustomBurgerToOrder(document.getElementById('burger-builder-modal').dataset.editIndex || null));
-            document.getElementById('add-pizza-with-extras-btn').addEventListener('click', confirmPizzaExtras);
-            document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
-            document.getElementById('analyze-ai-btn').addEventListener('click', handleAnalyzeAI);
-            document.getElementById('confirm-ai-order-btn').addEventListener('click', handleConfirmAIOrder);
-
-            // --- Other listeners for functionality inside modals ---
-            document.getElementById('burger-ingredients-container').addEventListener('click', handleBurgerIngredientClick);
-            document.getElementById('pizza-extras-ingredients-container').addEventListener('click', handlePizzaExtrasIngredientClick);
-            setupPaymentModalListeners();
-            
-            // --- Global listener to close any modal when clicking its background ---
-            window.addEventListener('click', (e) => {
-                if (e.target.classList.contains('modal')) {
-                    e.target.style.display = 'none';
-                }
-            });
+            } catch (err) {
+                console.error("Erro fatal ao configurar os event listeners:", err);
+                showAlert("Erro crítico na interface. Recarregue a página.");
+            }
         }
         
         // --- Gemini AI Functions ---
@@ -2532,4 +2572,3 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
-
