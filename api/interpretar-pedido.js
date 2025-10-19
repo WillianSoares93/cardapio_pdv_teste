@@ -89,7 +89,7 @@ async function callVertexAIGemini(userMessage, systemData) {
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
     const modelId = "gemini-pro"; // CORREÇÃO: Usando um modelo estável e garantido.
-    const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1beta/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:generateContent`;
+    const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:generateContent`;
 
     try {
         const response = await fetch(apiEndpoint, {
@@ -255,4 +255,5 @@ function validateAndStructureOrder(aiResponse, menu) {
         paymentMethod: aiResponse.paymentMethod || null
     };
 }
+
 
