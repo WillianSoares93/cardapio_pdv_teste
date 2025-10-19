@@ -1264,7 +1264,7 @@
                 total += parseFloat(radio.dataset.price);
             });
             
-            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace(',',',')}`;
+            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
         }
 
         function addCustomBurgerToOrder(editIndex = null) {
@@ -1637,33 +1637,15 @@
 
             // --- SETUP ALL MODAL LISTENERS (Simplified) ---
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
-            
-            // --- CORREÇÃO APLICADA AQUI ---
-            const aiModalBtn = document.getElementById('open-ai-modal-btn');
-            const aiModal = document.getElementById('ai-order-modal');
-            if (aiModalBtn && aiModal) {
-                aiModalBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation(); // Impede que o clique "borbulhe" para outros elementos
-                    
-                    // Limpa o estado do modal de IA antes de abrir
-                    const pasteArea = aiModal.querySelector('#whatsapp-paste-area');
-                    const resultContent = aiModal.querySelector('#ai-result-content');
-                    const errorMessage = aiModal.querySelector('#ai-error-message');
-                    const confirmBtn = aiModal.querySelector('#confirm-ai-order-btn');
-                    
-                    if (pasteArea) pasteArea.value = '';
-                    if (resultContent) resultContent.innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-                    if (errorMessage) errorMessage.classList.add('hidden');
-                    if (confirmBtn) confirmBtn.disabled = true;
-                    
-                    parsedAiOrder = null; // Reseta os dados da última análise
-                    
-                    aiModal.style.display = 'flex';
-                });
-            } else {
-                console.error("Botão ou modal de IA não encontrado.");
-            }
+            document.getElementById('open-ai-modal-btn').addEventListener('click', () => {
+                 const modal = document.getElementById('ai-order-modal');
+                modal.style.display = 'flex';
+                modal.querySelector('#whatsapp-paste-area').value = '';
+                modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+                modal.querySelector('#ai-error-message').classList.add('hidden');
+                modal.querySelector('#confirm-ai-order-btn').disabled = true;
+                parsedAiOrder = null;
+            });
 
             // --- Listeners for buttons INSIDE modals (that don't close them) ---
             document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
