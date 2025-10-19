@@ -1668,10 +1668,11 @@
             });
             
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
-            
-            const aiOrderModal = document.getElementById('ai-order-modal');
+
+
             window.addEventListener('click', (e) => {
                 const clientModal = document.getElementById('client-data-modal');
+                const aiOrderModal = document.getElementById('ai-order-modal');
                 if (e.target === pizzaModal) pizzaModal.style.display = 'none';
                 if (e.target === burgerModal) burgerModal.style.display = 'none';
                 if (e.target === extrasModal) extrasModal.style.display = 'none';
@@ -2550,4 +2551,5 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
+
 
