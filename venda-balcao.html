@@ -1741,7 +1741,7 @@
                         return `- ${item.name} (${item.category}): ${priceInfo}`;
                     }).join('\n');
 
-                const systemPrompt = `Você é um assistente especialista em processar pedidos para a Sâmia Pizzaria. Sua única função é analisar uma conversa de WhatsApp e extrair os itens do pedido, quantidades, e se possível, dados do cliente (nome, telefone, endereço completo) e forma de pagamento. Você DEVE retornar a resposta em formato JSON, seguindo estritamente o schema fornecido. Baseie-se APENAS no cardápio fornecido. Não adicione itens que não estão no cardápio. Para pizzas, se o tamanho não for claro, assuma o tamanho padrão (8 fatias). Para sabores meio a meio, combine os nomes.
+                const systemPrompt = `Você é um assistente especialista em processar pedidos para a Sâmia Pizzaria. Sua única função é analisar uma conversa de WhatsApp e extrair os itens do pedido, quantidades, e se possível, dados do cliente (nome, telefone, endereço completo) e forma de pagamento. Você DEVE retornar a resposta em formato JSON, seguindo estritamente o schema fornecido. Baseie-se APENAS no cardápio fornecido. Não adicione itens que não estão no cardápio. Para pizzas, se o tamanho não for claro, assuma o tamanho padrão (8 fatias). Para pizzas meio a meio, separe os nomes dos sabores com uma barra '/'.
 
 Cardápio disponível para consulta:
 ${menuForAI}`;
@@ -1761,7 +1761,7 @@ ${menuForAI}`;
                                     "items": {
                                         "type": "OBJECT",
                                         "properties": {
-                                            "name": { "type": "STRING", "description": "Nome exato do item como no cardápio." },
+                                            "name": { "type": "STRING", "description": "Nome exato do item como no cardápio. Para pizzas meio a meio, separe os sabores com uma barra '/'. Ex: Calabresa/Frango" },
                                             "quantity": { "type": "NUMBER" },
                                             "size": { "type": "STRING", "description": "Para pizzas, o número de fatias (ex: '4 fatias', '8 fatias')." },
                                             "notes": { "type": "STRING", "description": "Observações como 'sem cebola' ou sabores de pizza meio a meio." }
@@ -1898,29 +1898,81 @@ ${menuForAI}`;
 
             // Processa itens
             parsedAiOrder.items.forEach(itemFromAI => {
-                const matchedItem = findItemInMenu(itemFromAI.name);
-                if (matchedItem) {
+                 const addSingleItem = (matchedItem, itemDetails) => {
                     let price = matchedItem.basePrice;
                     let name = matchedItem.name;
 
                     if (matchedItem.isPizza) {
-                        const size = itemFromAI.size;
+                        const size = itemDetails.size || '8 fatias';
                         let priceKey = 'basePrice'; // 8 fatias
                         if (size && size.includes('4')) priceKey = 'price4Slices';
                         if (size && size.includes('6')) priceKey = 'price6Slices';
                         if (size && size.includes('10')) priceKey = 'price10Slices';
-                        price = matchedItem[priceKey];
+                        price = matchedItem[priceKey] || matchedItem.basePrice;
                         name = `${size || '8 fatias'}: ${matchedItem.name}`;
                     }
 
-                    for (let i = 0; i < itemFromAI.quantity; i++) {
+                    for (let i = 0; i < itemDetails.quantity; i++) {
                         addToOrder({
                             ...matchedItem,
                             name: name,
                             price: price,
                             type: 'full',
-                            notes: itemFromAI.notes
+                            notes: itemDetails.notes
                         });
+                    }
+                };
+
+                if (itemFromAI.name.includes('/')) {
+                    const flavors = itemFromAI.name.split('/').map(f => f.trim());
+                    if (flavors.length === 2) {
+                        const item1 = findItemInMenu(flavors[0]);
+                        const item2 = findItemInMenu(flavors[1]);
+
+                        if (item1 && item2 && item1.isPizza && item2.isPizza) {
+                            const size = itemFromAI.size || '8 fatias';
+                            let priceKey = 'basePrice';
+                            let slices = 8;
+                            if (size.includes('4')) { priceKey = 'price4Slices'; slices = 4; }
+                            if (size.includes('6')) { priceKey = 'price6Slices'; slices = 6; }
+                            if (size.includes('10')) { priceKey = 'price10Slices'; slices = 10; }
+
+                            if (item1[priceKey] > 0 && item2[priceKey] > 0) {
+                                const price1 = item1[priceKey] / 2;
+                                const price2 = item2[priceKey] / 2;
+                                const combinedPrice = price1 + price2;
+                                const combinedName = `${slices} FATIAS: Meia ${item1.name} & Meia ${item2.name}`;
+                                
+                                for (let i = 0; i < itemFromAI.quantity; i++) {
+                                    addToOrder({
+                                        id: `${item1.id}+${item2.id}-${Date.now()}`,
+                                        type: 'split',
+                                        name: combinedName,
+                                        price: combinedPrice,
+                                        category: 'PIZZA(s) MEIA A MEIA',
+                                        selected_slices: slices,
+                                        firstHalfData: { ...item1, price: price1 },
+                                        secondHalfData: { ...item2, price: price2 },
+                                        acceptsExtras: item1.acceptsExtras || item2.acceptsExtras,
+                                        notes: itemFromAI.notes
+                                    });
+                                }
+                            } else {
+                                const matchedItem = findItemInMenu(itemFromAI.name);
+                                if (matchedItem) addSingleItem(matchedItem, itemFromAI);
+                            }
+                        } else {
+                             const matchedItem = findItemInMenu(itemFromAI.name);
+                             if (matchedItem) addSingleItem(matchedItem, itemFromAI);
+                        }
+                    } else {
+                        const matchedItem = findItemInMenu(itemFromAI.name);
+                        if (matchedItem) addSingleItem(matchedItem, itemFromAI);
+                    }
+                } else {
+                    const matchedItem = findItemInMenu(itemFromAI.name);
+                    if (matchedItem) {
+                        addSingleItem(matchedItem, itemFromAI);
                     }
                 }
             });
@@ -1931,19 +1983,30 @@ ${menuForAI}`;
             showTemporaryFeedback("Pedido montado com IA e adicionado ao carrinho!");
         }
 
+        function cleanItemNameForMatching(name) {
+            return name
+                .toLowerCase()
+                .replace(/pizza de/g, '')
+                .replace(/coca-cola/g, 'coca')
+                .replace(/pet\.?/g, '')
+                .replace(/litros?/g, 'l')
+                .replace(/\s+/g, ' ') // normalize spaces
+                .trim();
+        }
+
         function findItemInMenu(itemNameFromAI) {
-            const cleanName = itemNameFromAI.toLowerCase().replace('pizza de', '').trim();
-            // Tentativa de correspondência exata
-            let match = allItems.find(item => item.name.toLowerCase() === cleanName);
+            const cleanNameAI = cleanItemNameForMatching(itemNameFromAI);
+
+            // Prioritize exact match on cleaned names
+            let match = allItems.find(item => cleanItemNameForMatching(item.name) === cleanNameAI);
             if (match) return match;
 
-            // Tentativa de correspondência parcial
-            match = allItems.find(item => item.name.toLowerCase().includes(cleanName));
+            // Then try partial match
+            match = allItems.find(item => cleanItemNameForMatching(item.name).includes(cleanNameAI));
             if (match) return match;
-
-            // Tentativa de correspondência parcial inversa
-            match = allItems.find(item => cleanName.includes(item.name.toLowerCase()));
-            return match; // Retorna o melhor que encontrou ou null
+            
+            match = allItems.find(item => cleanNameAI.includes(cleanItemNameForMatching(item.name)));
+            return match;
         }
         
         function findBestNeighborhoodMatch(address) {
@@ -2486,4 +2549,5 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
+
 
