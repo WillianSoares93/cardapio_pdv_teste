@@ -363,7 +363,7 @@
         <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="modal-pizza-name" class="text-xl font-bold text-gray-900"></h3>
-                <button data-modal-close class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
             </div>
             <div id="pizza-size-options" class="mt-4 space-y-2"></div>
         </div>
@@ -374,7 +374,7 @@
         <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="modal-burger-name" class="text-xl font-bold text-gray-900">Monte seu Hambúrguer</h3>
-                <button data-modal-close class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
             </div>
             <div id="burger-ingredients-container" class="mt-4 mb-4 max-h-80 overflow-y-auto p-2 space-y-4"></div>
             <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
@@ -382,7 +382,7 @@
                 <span id="burger-total-price" class="text-2xl font-bold text-blue-600">R$ 0,00</span>
             </div>
             <div class="mt-6 flex justify-end space-x-4">
-                <button data-modal-close class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" onclick="this.closest('.modal').style.display='none'">Cancelar</button>
                 <button id="add-custom-burger-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Adicionar ao Pedido</button>
             </div>
         </div>
@@ -393,7 +393,7 @@
          <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="pizza-extras-builder-title" class="text-xl font-bold text-gray-900">Adicionais para a Pizza</h3>
-                <button data-modal-close class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
             </div>
             <div id="pizza-extras-scope-buttons" class="flex flex-wrap gap-2 my-4 border-b pb-4"></div>
             <div id="pizza-extras-ingredients-container" class="mb-4 max-h-80 overflow-y-auto p-2"></div>
@@ -412,7 +412,7 @@
         <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
              <p class="text-lg font-semibold text-gray-800 mb-4 text-center">Deseja adicionar ingredientes extras?</p>
             <div class="flex justify-center gap-4">
-                <button data-modal-close class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold hover:bg-gray-400 transition">Não, obrigado</button>
+                <button class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold hover:bg-gray-400 transition" onclick="this.closest('.modal').style.display='none'">Não, obrigado</button>
                 <button id="ask-extras-yes-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition">Sim, quero!</button>
             </div>
         </div>
@@ -446,7 +446,7 @@
             <!-- HEADER (Fixed) -->
             <div class="flex justify-between items-center pb-3 border-b sticky top-0 bg-white z-20">
                 <h3 id="client-modal-title" class="text-xl font-bold text-gray-900">Dados do Cliente e Pagamento</h3>
-                <button data-modal-close class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
             </div>
             
             <!-- SCROLLABLE BODY -->
@@ -551,7 +551,7 @@
                 </div>
             <!-- END OF SCROLLABLE BODY -->
             <div class="mt-6 flex justify-end space-x-4">
-                <button data-modal-close class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" onclick="this.closest('.modal').style.display='none'">Cancelar</button>
                 <button id="confirm-client-data-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar e Finalizar</button>
             </div>
         </div>
@@ -562,7 +562,7 @@
         <div class="modal-content !max-w-3xl">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 class="text-xl font-bold text-gray-900">Montar Pedido com IA</h3>
-                <button data-modal-close class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
             </div>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Coluna de Entrada -->
@@ -1576,48 +1576,6 @@
             totalItemsEl.textContent = totalItems;
         }
         
-        function setupModalListeners() {
-            document.body.addEventListener('click', (e) => {
-                // Handle opening modals
-                const openTrigger = e.target.closest('[data-modal-trigger]');
-                if (openTrigger) {
-                    const modalId = openTrigger.dataset.modalTrigger;
-                    if (modalId === 'client-data-modal') {
-                        openClientDataModal(); // This one has special logic before opening
-                    } else {
-                        const modal = document.getElementById(modalId);
-                        if (modal) {
-                            modal.style.display = 'flex';
-                            // Special reset logic for AI modal
-                            if (modalId === 'ai-order-modal') {
-                                modal.querySelector('#whatsapp-paste-area').value = '';
-                                modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-                                modal.querySelector('#ai-error-message').classList.add('hidden');
-                                modal.querySelector('#confirm-ai-order-btn').disabled = true;
-                                parsedAiOrder = null;
-                            }
-                        }
-                    }
-                }
-
-                // Handle closing modals (buttons)
-                const closeTrigger = e.target.closest('[data-modal-close]');
-                if (closeTrigger) {
-                    const modal = closeTrigger.closest('.modal');
-                    if (modal) {
-                        modal.style.display = 'none';
-                    }
-                }
-            });
-
-            // Global listener to close modals by clicking the background
-            window.addEventListener('click', (e) => {
-                if (e.target.classList.contains('modal')) {
-                    e.target.style.display = 'none';
-                }
-            });
-        }
-
         async function setupEventListeners() {
             const mainContainer = document.querySelector('.main-container');
             const sidebar = document.querySelector('.sidebar-nav');
@@ -1677,8 +1635,17 @@
                 }
             });
 
-            // --- SETUP ALL MODAL LISTENERS ---
-            setupModalListeners();
+            // --- SETUP ALL MODAL LISTENERS (Simplified) ---
+            document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
+            document.getElementById('open-ai-modal-btn').addEventListener('click', () => {
+                 const modal = document.getElementById('ai-order-modal');
+                modal.style.display = 'flex';
+                modal.querySelector('#whatsapp-paste-area').value = '';
+                modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+                modal.querySelector('#ai-error-message').classList.add('hidden');
+                modal.querySelector('#confirm-ai-order-btn').disabled = true;
+                parsedAiOrder = null;
+            });
 
             // --- Listeners for buttons INSIDE modals (that don't close them) ---
             document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
@@ -1698,6 +1665,13 @@
             document.getElementById('burger-ingredients-container').addEventListener('click', handleBurgerIngredientClick);
             document.getElementById('pizza-extras-ingredients-container').addEventListener('click', handlePizzaExtrasIngredientClick);
             setupPaymentModalListeners();
+            
+            // --- Global listener to close any modal when clicking its background ---
+            window.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal')) {
+                    e.target.style.display = 'none';
+                }
+            });
         }
         
         // --- Gemini AI Functions ---
