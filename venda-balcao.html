@@ -600,6 +600,8 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
+        console.log("--- TESTE 1: Módulo de script carregado ---");
+
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
            authDomain: "pizzaria-pdv.firebaseapp.com",
@@ -636,7 +638,9 @@
         let parsedAiOrder = null; 
 
         onAuthStateChanged(auth, (user) => {
+            console.log("--- TESTE 2: onAuthStateChanged disparado ---");
             if (user) {
+                console.log("--- TESTE 3: Usuário AUTENTICADO. Chamando AppLogic... ---");
                 document.body.style.visibility = 'visible';
                 currentUserEmail = user.email;
                 const currentUserEl = document.getElementById('current-user');
@@ -725,6 +729,7 @@
 
 
         async function initializeAppLogic() {
+            console.log("--- TESTE 4: initializeAppLogic() INICIADA. ---");
             listenToStatusChanges();
             await fetchMenu();
             renderCategories();
@@ -1577,9 +1582,12 @@
         }
 
         function openAiModal() {
+            console.log("--- openAiModal() CHAMADA ---");
             const modal = document.getElementById('ai-order-modal');
+            console.log("Elemento do modal AI encontrado:", modal);
             if (modal) {
                 modal.style.display = 'flex';
+                console.log("Estilo do modal AI alterado para 'flex'. O modal deveria estar visível agora.");
                 modal.querySelector('#whatsapp-paste-area').value = '';
                 modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
                 modal.querySelector('#ai-error-message').classList.add('hidden');
@@ -1588,9 +1596,9 @@
             }
         }
         
-        // CÓDIGO CORRIGIDO E SEGURO ABAIXO
         async function setupEventListeners() {
             try {
+                console.log("--- TESTE 5: setupEventListeners() INICIADA. ---");
                 // --- Elementos Principais ---
                 const mainContainer = document.querySelector('.main-container');
                 const sidebar = document.querySelector('.sidebar-nav');
@@ -1704,6 +1712,7 @@
                 
                 window.addEventListener('click', (e) => {
                     if (e.target.classList.contains('modal')) {
+                        console.warn("--- ALERTA: Clique detectado no fundo de um modal. Fechando o modal:", e.target.id);
                         e.target.style.display = 'none';
                     }
                 });
@@ -2167,7 +2176,9 @@ ${menuForAI}`;
         }
         
         function openClientDataModal() {
+            console.log("--- openClientDataModal() CHAMADA ---");
             const modal = document.getElementById('client-data-modal');
+            console.log("Elemento do modal Cliente encontrado:", modal);
             const errorDiv = document.getElementById('client-modal-error-message');
             errorDiv.classList.add('hidden');
             
@@ -2256,6 +2267,7 @@ ${menuForAI}`;
             
             
             modal.style.display = 'flex';
+            console.log("Estilo do modal Cliente alterado para 'flex'. O modal deveria estar visível agora.");
         }
         
         function calculateTroco() {
@@ -2558,5 +2570,4 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
-" to answer the following query: "os logs do console deram esse resultado:"
 
