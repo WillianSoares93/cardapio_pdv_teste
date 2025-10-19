@@ -1264,7 +1264,7 @@
                 total += parseFloat(radio.dataset.price);
             });
             
-            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
+            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace(',',',')}`;
         }
 
         function addCustomBurgerToOrder(editIndex = null) {
@@ -1635,58 +1635,35 @@
                 }
             });
 
-            // --- INÍCIO DA CORREÇÃO: MODAL LISTENERS ---
+            // --- SETUP ALL MODAL LISTENERS (Simplified) ---
+            document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
             
-            // Botão: Dados do Cliente
-            const openClientDataBtn = document.getElementById('open-client-data-modal-btn');
-            if (openClientDataBtn) {
-                openClientDataBtn.addEventListener('click', (e) => {
+            // --- CORREÇÃO APLICADA AQUI ---
+            const aiModalBtn = document.getElementById('open-ai-modal-btn');
+            const aiModal = document.getElementById('ai-order-modal');
+            if (aiModalBtn && aiModal) {
+                aiModalBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[v0] Botão Dados do Cliente clicado');
-                    openClientDataModal();
+                    e.stopPropagation(); // Impede que o clique "borbulhe" para outros elementos
+                    
+                    // Limpa o estado do modal de IA antes de abrir
+                    const pasteArea = aiModal.querySelector('#whatsapp-paste-area');
+                    const resultContent = aiModal.querySelector('#ai-result-content');
+                    const errorMessage = aiModal.querySelector('#ai-error-message');
+                    const confirmBtn = aiModal.querySelector('#confirm-ai-order-btn');
+                    
+                    if (pasteArea) pasteArea.value = '';
+                    if (resultContent) resultContent.innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+                    if (errorMessage) errorMessage.classList.add('hidden');
+                    if (confirmBtn) confirmBtn.disabled = true;
+                    
+                    parsedAiOrder = null; // Reseta os dados da última análise
+                    
+                    aiModal.style.display = 'flex';
                 });
             } else {
-                console.error('[v0] Botão "Dados do Cliente" não encontrado no DOM');
+                console.error("Botão ou modal de IA não encontrado.");
             }
-
-            // Botão: Pedido com IA
-            const openAIModalBtn = document.getElementById('open-ai-modal-btn');
-            if (openAIModalBtn) {
-                openAIModalBtn.addEventListener('click', (e) => {
-                    // Previne comportamento padrão e propagação
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    console.log('[v0] Botão Pedido com IA clicado');
-                    
-                    const modal = document.getElementById('ai-order-modal');
-                    if (modal) {
-                        modal.style.display = 'flex';
-                        
-                        // Limpa campos do modal
-                        const pasteArea = document.getElementById('whatsapp-paste-area');
-                        const resultContent = document.getElementById('ai-result-content');
-                        const errorMessage = document.getElementById('ai-error-message');
-                        const confirmBtn = document.getElementById('confirm-ai-order-btn');
-                        
-                        if (pasteArea) pasteArea.value = '';
-                        if (resultContent) resultContent.innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-                        if (errorMessage) errorMessage.classList.add('hidden');
-                        if (confirmBtn) confirmBtn.disabled = true;
-
-                        parsedAiOrder = null;
-                        
-                        console.log('[v0] Modal de IA aberto com sucesso');
-                    } else {
-                        console.error('[v0] Modal de IA não encontrado no DOM');
-                    }
-                });
-            } else {
-                console.error('[v0] Botão "Pedido com IA" não encontrado no DOM');
-            }
-            // --- FIM DA CORREÇÃO ---
-
 
             // --- Listeners for buttons INSIDE modals (that don't close them) ---
             document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
