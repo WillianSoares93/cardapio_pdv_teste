@@ -303,7 +303,14 @@
                                     </label>
                                 </div>
                             </div>
-                            <button id="open-client-data-modal-btn" class="px-3 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600 text-sm whitespace-nowrap">Dados do Cliente</button>
+                            <div class="flex flex-col space-y-2">
+                                <button id="open-client-data-modal-btn" class="px-3 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600 text-sm whitespace-nowrap">
+                                    <i class="fas fa-user mr-1"></i> Dados do Cliente
+                                </button>
+                                <button id="open-ai-modal-btn" class="px-3 py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700 text-sm whitespace-nowrap">
+                                    <i class="fas fa-robot mr-1"></i> Pedido com IA
+                                </button>
+                            </div>
                         </div>
                         <div id="client-data-summary" class="p-4 border-b hidden bg-blue-50 text-sm text-blue-800">
                             <!-- Summary of client data will go here -->
@@ -549,6 +556,44 @@
             </div>
         </div>
     </div>
+    
+    <!-- Modal Pedido com IA -->
+    <div id="ai-order-modal" class="modal">
+        <div class="modal-content !max-w-3xl">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 class="text-xl font-bold text-gray-900">Montar Pedido com IA</h3>
+                <button id="close-ai-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Coluna de Entrada -->
+                <div>
+                    <label for="whatsapp-paste-area" class="block text-sm font-medium text-gray-700 mb-2">Cole a conversa do WhatsApp aqui:</label>
+                    <textarea id="whatsapp-paste-area" rows="10" class="w-full p-2 border rounded-md focus:ring-2 focus:ring-purple-500" placeholder="Ex: Olá, gostaria de uma pizza grande de calabresa e um refrigerante..."></textarea>
+                    <button id="analyze-ai-btn" class="mt-4 w-full py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700 flex items-center justify-center">
+                        <i class="fas fa-magic mr-2"></i> Analisar Pedido
+                    </button>
+                </div>
+                <!-- Coluna de Resultado -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pedido Interpretado:</label>
+                    <div id="ai-result-area" class="p-4 border rounded-md bg-gray-50 min-h-[240px]">
+                        <div id="ai-loading" class="hidden text-center text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl"></i>
+                            <p class="mt-2">Analisando conversa...</p>
+                        </div>
+                        <div id="ai-result-content">
+                             <p class="text-gray-400">Aguardando análise...</p>
+                        </div>
+                    </div>
+                    <button id="confirm-ai-order-btn" class="mt-4 w-full py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                        <i class="fas fa-check mr-2"></i> Confirmar e Adicionar
+                    </button>
+                </div>
+            </div>
+            <div id="ai-error-message" class="mt-4 hidden p-3 bg-red-100 text-red-700 rounded-md text-sm"></div>
+        </div>
+    </div>
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
@@ -588,6 +633,7 @@
         let firstHalfPizza = null;
         let currentPizzaExtrasState = {};
         const NUMERO_DE_MESAS = 12;
+        let parsedAiOrder = null; // Variável para armazenar o pedido da IA
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -1640,9 +1686,284 @@
             document.getElementById('cancel-client-data-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
 
+            // --- Gemini AI Modal Listeners ---
+            document.getElementById('open-ai-modal-btn').addEventListener('click', () => {
+                document.getElementById('ai-order-modal').style.display = 'flex';
+                document.getElementById('whatsapp-paste-area').value = '';
+                document.getElementById('ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+                document.getElementById('ai-error-message').classList.add('hidden');
+                document.getElementById('confirm-ai-order-btn').disabled = true;
+                parsedAiOrder = null;
+            });
+            document.getElementById('close-ai-modal-btn').addEventListener('click', () => {
+                document.getElementById('ai-order-modal').style.display = 'none';
+            });
+            document.getElementById('analyze-ai-btn').addEventListener('click', handleAnalyzeAI);
+            document.getElementById('confirm-ai-order-btn').addEventListener('click', handleConfirmAIOrder);
+
+
             setupPaymentModalListeners();
         }
         
+        // --- Gemini AI Functions ---
+        async function handleAnalyzeAI() {
+            const analyzeBtn = document.getElementById('analyze-ai-btn');
+            const loadingDiv = document.getElementById('ai-loading');
+            const resultDiv = document.getElementById('ai-result-content');
+            const errorDiv = document.getElementById('ai-error-message');
+            const confirmBtn = document.getElementById('confirm-ai-order-btn');
+            const pastedText = document.getElementById('whatsapp-paste-area').value;
+
+            if (!pastedText.trim()) {
+                showAlert("Por favor, cole a conversa do WhatsApp na área de texto.");
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Analisando...';
+            loadingDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '';
+            errorDiv.classList.add('hidden');
+            confirmBtn.disabled = true;
+            parsedAiOrder = null;
+
+            try {
+                const menuForAI = allItems
+                    .filter(item => itemVisibility[item.id] !== false && itemStatus[item.id] !== false)
+                    .map(item => {
+                        let priceInfo = `Preço Base: R$${item.basePrice}`;
+                        if (item.isPizza) {
+                            const prices = ['price4Slices', 'price6Slices', 'basePrice', 'price10Slices']
+                                .map(key => item[key] > 0 ? `R$${item[key]}` : null)
+                                .filter(Boolean).join(', ');
+                            priceInfo = `Preços: ${prices}`;
+                        }
+                        return `- ${item.name} (${item.category}): ${priceInfo}`;
+                    }).join('\n');
+
+                const systemPrompt = `Você é um assistente especialista em processar pedidos para a Sâmia Pizzaria. Sua única função é analisar uma conversa de WhatsApp e extrair os itens do pedido, quantidades, e se possível, dados do cliente (nome, telefone, endereço completo) e forma de pagamento. Você DEVE retornar a resposta em formato JSON, seguindo estritamente o schema fornecido. Baseie-se APENAS no cardápio fornecido. Não adicione itens que não estão no cardápio. Para pizzas, se o tamanho não for claro, assuma o tamanho padrão (8 fatias). Para sabores meio a meio, combine os nomes.
+
+Cardápio disponível para consulta:
+${menuForAI}`;
+
+                const userQuery = `Analise a conversa abaixo e extraia o pedido no formato JSON.\n\nCONVERSA:\n${pastedText}`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "items": {
+                                    "type": "ARRAY",
+                                    "items": {
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "name": { "type": "STRING", "description": "Nome exato do item como no cardápio." },
+                                            "quantity": { "type": "NUMBER" },
+                                            "size": { "type": "STRING", "description": "Para pizzas, o número de fatias (ex: '4 fatias', '8 fatias')." },
+                                            "notes": { "type": "STRING", "description": "Observações como 'sem cebola' ou sabores de pizza meio a meio." }
+                                        }
+                                    }
+                                },
+                                "client": {
+                                    "type": "OBJECT",
+                                    "properties": {
+                                        "name": { "type": "STRING" },
+                                        "contact": { "type": "STRING" },
+                                        "address": { "type": "STRING", "description": "Endereço completo, incluindo rua, número e bairro." }
+                                    }
+                                },
+                                "payment": { "type": "STRING", "description": "Método de pagamento e detalhes de troco. Ex: 'Dinheiro, troco para 50'." }
+                            }
+                        }
+                    }
+                };
+                
+                const apiKey = "";
+                const apiUrl = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=\${apiKey}\`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error: ${response.status} ${errorText}`);
+                }
+
+                const result = await response.json();
+                const jsonText = result.candidates[0].content.parts[0].text;
+                parsedAiOrder = JSON.parse(jsonText);
+                
+                displayAIResult(parsedAiOrder);
+                confirmBtn.disabled = false;
+
+            } catch (error) {
+                console.error("Erro na análise com IA:", error);
+                errorDiv.textContent = `Ocorreu um erro ao analisar o pedido. Verifique o texto ou tente novamente. Detalhes: ${error.message}`;
+                errorDiv.classList.remove('hidden');
+                resultDiv.innerHTML = '<p class="text-red-500">Falha na análise.</p>';
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i> Analisar Pedido';
+                loadingDiv.classList.add('hidden');
+            }
+        }
+        
+        function displayAIResult(data) {
+            const resultDiv = document.getElementById('ai-result-content');
+            let html = '';
+
+            if (data.client && (data.client.name || data.client.contact || data.client.address)) {
+                html += '<h4 class="font-bold text-sm mb-1">Dados do Cliente</h4>';
+                html += '<ul class="list-disc list-inside text-sm mb-3 bg-gray-100 p-2 rounded">';
+                if (data.client.name) html += `<li><strong>Nome:</strong> ${data.client.name}</li>`;
+                if (data.client.contact) html += `<li><strong>Contato:</strong> ${data.client.contact}</li>`;
+                if (data.client.address) html += `<li><strong>Endereço:</strong> ${data.client.address}</li>`;
+                html += '</ul>';
+            }
+
+            if (data.items && data.items.length > 0) {
+                html += '<h4 class="font-bold text-sm mb-1">Itens do Pedido</h4>';
+                html += '<ul class="list-disc list-inside text-sm mb-3 space-y-1">';
+                data.items.forEach(item => {
+                    html += `<li><strong>${item.quantity}x</strong> ${item.name} ${item.size ? `(${item.size})` : ''} ${item.notes ? `<span class="text-xs italic text-gray-500">- ${item.notes}</span>` : ''}</li>`;
+                });
+                html += '</ul>';
+            } else {
+                 html += '<p class="text-red-500 text-sm">Nenhum item do cardápio foi identificado.</p>';
+            }
+
+            if (data.payment) {
+                html += '<h4 class="font-bold text-sm mb-1">Pagamento</h4>';
+                html += `<p class="text-sm">${data.payment}</p>`;
+            }
+
+            resultDiv.innerHTML = html;
+        }
+
+        function handleConfirmAIOrder() {
+            if (!parsedAiOrder || !parsedAiOrder.items || parsedAiOrder.items.length === 0) {
+                showAlert("Nenhum item válido para adicionar ao pedido.");
+                return;
+            }
+
+            resetOrderState(); // Limpa o pedido atual antes de adicionar o novo
+
+            // Processa dados do cliente
+            if (parsedAiOrder.client) {
+                const { name, contact, address } = parsedAiOrder.client;
+                if (address) {
+                    currentOrderType = 'Delivery';
+                    document.querySelector('input[name="orderType"][value="Delivery"]').checked = true;
+                    clientData.name = name;
+                    clientData.contact = contact;
+                    
+                    const bestMatch = findBestNeighborhoodMatch(address);
+                    clientData.address = {
+                        street: address.split(',')[0] || address,
+                        number: address.match(/,\s*(\d+)/)?.[1] || 'S/N',
+                        neighborhood: bestMatch.neighborhood,
+                        deliveryFee: bestMatch.fee
+                    };
+                } else {
+                    currentOrderType = 'Retirada';
+                    document.querySelector('input[name="orderType"][value="Retirada"]').checked = true;
+                    clientData.name = name;
+                    clientData.contact = contact;
+                }
+            }
+            
+            // Processa forma de pagamento
+            if (parsedAiOrder.payment) {
+                const paymentText = parsedAiOrder.payment.toLowerCase();
+                if (paymentText.includes('cartão') || paymentText.includes('cartao')) {
+                    paymentMethod = 'Cartão de Crédito/Débito';
+                } else if (paymentText.includes('pix')) {
+                    paymentMethod = 'Pix';
+                } else if (paymentText.includes('dinheiro')) {
+                    const trocoMatch = paymentText.match(/troco para (\d+)/);
+                    if (trocoMatch) {
+                        paymentMethod = { method: 'Dinheiro', trocoPara: parseFloat(trocoMatch[1]) };
+                    } else {
+                        paymentMethod = 'Dinheiro';
+                    }
+                }
+            }
+
+            // Processa itens
+            parsedAiOrder.items.forEach(itemFromAI => {
+                const matchedItem = findItemInMenu(itemFromAI.name);
+                if (matchedItem) {
+                    let price = matchedItem.basePrice;
+                    let name = matchedItem.name;
+
+                    if (matchedItem.isPizza) {
+                        const size = itemFromAI.size;
+                        let priceKey = 'basePrice'; // 8 fatias
+                        if (size && size.includes('4')) priceKey = 'price4Slices';
+                        if (size && size.includes('6')) priceKey = 'price6Slices';
+                        if (size && size.includes('10')) priceKey = 'price10Slices';
+                        price = matchedItem[priceKey];
+                        name = `${size || '8 fatias'}: ${matchedItem.name}`;
+                    }
+
+                    for (let i = 0; i < itemFromAI.quantity; i++) {
+                        addToOrder({
+                            ...matchedItem,
+                            name: name,
+                            price: price,
+                            type: 'full',
+                            notes: itemFromAI.notes
+                        });
+                    }
+                }
+            });
+
+            updateClientDataSummary();
+            updateOrderDisplay();
+            document.getElementById('ai-order-modal').style.display = 'none';
+            showTemporaryFeedback("Pedido montado com IA e adicionado ao carrinho!");
+        }
+
+        function findItemInMenu(itemNameFromAI) {
+            const cleanName = itemNameFromAI.toLowerCase().replace('pizza de', '').trim();
+            // Tentativa de correspondência exata
+            let match = allItems.find(item => item.name.toLowerCase() === cleanName);
+            if (match) return match;
+
+            // Tentativa de correspondência parcial
+            match = allItems.find(item => item.name.toLowerCase().includes(cleanName));
+            if (match) return match;
+
+            // Tentativa de correspondência parcial inversa
+            match = allItems.find(item => cleanName.includes(item.name.toLowerCase()));
+            return match; // Retorna o melhor que encontrou ou null
+        }
+        
+        function findBestNeighborhoodMatch(address) {
+            const addressLower = address.toLowerCase();
+            let bestMatch = { neighborhood: 'N/A', fee: 0, score: 0 };
+            
+            allDeliveryFees.forEach(feeInfo => {
+                const neighborhoodLower = feeInfo.neighborhood.toLowerCase();
+                if (addressLower.includes(neighborhoodLower)) {
+                    // Dá um bônus se o nome do bairro for mais longo (mais específico)
+                    const score = neighborhoodLower.length;
+                    if (score > bestMatch.score) {
+                        bestMatch = { neighborhood: feeInfo.neighborhood, fee: feeInfo.deliveryFee, score: score };
+                    }
+                }
+            });
+            
+            return bestMatch;
+        }
+
         function handleBurgerIngredientClick(e) {
             const quantityBtn = e.target.closest('.quantity-btn');
             const radioInput = e.target.closest('.ingredient-option')?.querySelector('input[type="radio"]');
@@ -2165,4 +2486,3 @@
     </script>
 </body>
 </html>
-
