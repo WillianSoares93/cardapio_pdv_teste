@@ -1264,7 +1264,7 @@
                 total += parseFloat(radio.dataset.price);
             });
             
-            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace(',',',')}`;
+            modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
         }
 
         function addCustomBurgerToOrder(editIndex = null) {
@@ -1635,35 +1635,31 @@
                 }
             });
 
-            // --- SETUP ALL MODAL LISTENERS (Simplified) ---
-            document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
-            
-            // CORREÇÃO APLICADA AQUI
-            const aiModalBtn = document.getElementById('open-ai-modal-btn');
-            const aiModal = document.getElementById('ai-order-modal');
-            if (aiModalBtn && aiModal) {
-                aiModalBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Limpa o estado do modal de IA antes de abrir
-                    const pasteArea = aiModal.querySelector('#whatsapp-paste-area');
-                    const resultContent = aiModal.querySelector('#ai-result-content');
-                    const errorMessage = aiModal.querySelector('#ai-error-message');
-                    const confirmBtn = aiModal.querySelector('#confirm-ai-order-btn');
-                    
-                    if (pasteArea) pasteArea.value = '';
-                    if (resultContent) resultContent.innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-                    if (errorMessage) errorMessage.classList.add('hidden');
-                    if (confirmBtn) confirmBtn.disabled = true;
-                    
-                    parsedAiOrder = null; // Reseta os dados da última análise
-                    
-                    aiModal.style.display = 'flex';
-                });
-            } else {
-                console.error("Botão ou modal de IA não encontrado.");
-            }
+// --- Modal IA (Lógica de abertura segura) ---
+const aiModalBtn = document.getElementById('open-ai-modal-btn');
+const aiModal = document.getElementById('ai-order-modal');
+
+if (aiModalBtn && aiModal) {
+    // A verificação acima garante que o botão e o modal existem antes de
+    // adicionar o clique, evitando que o script quebre.
+
+    aiModalBtn.addEventListener('click', (e) => {
+        e.preventDefault(); // Boa prática para botões
+        e.stopPropagation(); // Boa prática para modais
+
+        // Esta é a sua lógica original do venda-balcao.html,
+        // que limpa o modal corretamente antes de abrir.
+        aiModal.style.display = 'flex';
+        aiModal.querySelector('#whatsapp-paste-area').value = '';
+        aiModal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+        aiModal.querySelector('#ai-error-message').classList.add('hidden');
+        aiModal.querySelector('#confirm-ai-order-btn').disabled = true;
+        parsedAiOrder = null;
+    });
+} else {
+    // Isso avisará no console se um dos elementos não for encontrado
+    console.error("Botão 'Pedido com IA' ou seu modal não foram encontrados no HTML.");
+}
 
             // --- Listeners for buttons INSIDE modals (that don't close them) ---
             document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
@@ -2536,3 +2532,4 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
+
