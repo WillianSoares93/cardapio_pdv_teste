@@ -1677,7 +1677,10 @@
 
                 // --- Botão Modal Dados do Cliente ---
                 if (clientDataModalBtn) {
-                    clientDataModalBtn.addEventListener('click', openClientDataModal);
+                    clientDataModalBtn.addEventListener('click', () => {
+                        console.log("--- TESTE: Botão 'Dados do Cliente' CLICADO ---"); // <-- ADICIONADO AQUI
+                        openClientDataModal();
+                    });
                 } else {
                     console.error("Botão 'Dados do Cliente' não encontrado.");
                 }
@@ -1685,6 +1688,7 @@
                 // --- Botão Modal Pedido com IA ---
                 if (aiModalBtn && aiModal) {
                     aiModalBtn.addEventListener('click', (e) => {
+                        console.log("--- TESTE: Botão 'Pedido com IA' CLICADO ---"); // <-- ADICIONADO AQUI
                         e.preventDefault();
                         e.stopPropagation();
 
@@ -2572,3 +2576,4 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
+
