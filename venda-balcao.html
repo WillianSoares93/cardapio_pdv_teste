@@ -285,7 +285,7 @@
                 <!-- Coluna da Esquerda: Pedido -->
                 <section class="bg-white rounded-lg shadow-md flex flex-col overflow-hidden">
                     <div class="flex-shrink-0">
-                        <div class="p-4 border-b flex justify-between items-center flex-wrap gap-2">
+                        <div class="p-4 border-b flex justify-between items-start">
                             <div>
                                 <label class="text-sm font-medium text-gray-700 mb-2 block">Tipo de Pedido</label>
                                 <div id="order-type-selector" class="flex space-x-4">
@@ -303,12 +303,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <button id="open-ai-modal-btn" class="px-3 py-2 bg-purple-600 text-white font-bold rounded-md hover:bg-purple-700 text-sm whitespace-nowrap" title="Montar Pedido com Inteligência Artificial">
-                                    <i class="fas fa-robot"></i>
-                                </button>
-                                <button id="open-client-data-modal-btn" class="px-3 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600 text-sm whitespace-nowrap">Dados do Cliente</button>
-                            </div>
+                            <button id="open-client-data-modal-btn" class="px-3 py-2 bg-blue-500 text-white font-bold rounded-md hover:bg-blue-600 text-sm whitespace-nowrap">Dados do Cliente</button>
                         </div>
                         <div id="client-data-summary" class="p-4 border-b hidden bg-blue-50 text-sm text-blue-800">
                             <!-- Summary of client data will go here -->
@@ -551,28 +546,6 @@
             <div class="mt-6 flex justify-end space-x-4">
                 <button id="cancel-client-data-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
                 <button id="confirm-client-data-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar e Finalizar</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal para Montagem de Pedido com IA -->
-    <div id="ai-order-modal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center pb-3 border-b">
-                <h3 class="text-xl font-bold text-gray-900">Montar Pedido com IA</h3>
-                <button id="close-ai-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
-            </div>
-            <div class="mt-4">
-                <p class="text-sm text-gray-600 mb-2">Cole a conversa do WhatsApp abaixo para que a inteligência artificial possa montar o pedido automaticamente.</p>
-                <textarea id="whatsapp-conversation-input" class="w-full h-48 p-2 border rounded-md" placeholder="Cole a conversa aqui..."></textarea>
-                <div id="ai-modal-feedback" class="hidden mt-2 p-3 bg-red-100 text-red-700 rounded-md text-sm"></div>
-            </div>
-            <div class="mt-6 flex justify-end space-x-4">
-                <button id="cancel-ai-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button id="process-ai-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700 flex items-center">
-                    <span id="ai-btn-text">Analisar Pedido</span>
-                    <i id="ai-spinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
-                </button>
             </div>
         </div>
     </div>
@@ -1653,13 +1626,11 @@
 
             window.addEventListener('click', (e) => {
                 const clientModal = document.getElementById('client-data-modal');
-                const aiModal = document.getElementById('ai-order-modal');
                 if (e.target === pizzaModal) pizzaModal.style.display = 'none';
                 if (e.target === burgerModal) burgerModal.style.display = 'none';
                 if (e.target === extrasModal) extrasModal.style.display = 'none';
                 if (e.target === askExtrasModal) askExtrasModal.style.display = 'none';
                 if (e.target === clientModal) clientModal.style.display = 'none';
-                if (e.target === aiModal) aiModal.style.display = 'none';
             });
             
             document.getElementById('burger-ingredients-container').addEventListener('click', handleBurgerIngredientClick);
@@ -1668,91 +1639,8 @@
             document.getElementById('close-client-modal-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('cancel-client-data-btn').addEventListener('click', () => document.getElementById('client-data-modal').style.display = 'none');
             document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
-            
-            // AI Modal Listeners
-            document.getElementById('open-ai-modal-btn').addEventListener('click', () => {
-                document.getElementById('ai-order-modal').style.display = 'flex';
-            });
-            document.getElementById('close-ai-modal-btn').addEventListener('click', () => {
-                document.getElementById('ai-order-modal').style.display = 'none';
-            });
-            document.getElementById('cancel-ai-btn').addEventListener('click', () => {
-                document.getElementById('ai-order-modal').style.display = 'none';
-            });
-            document.getElementById('process-ai-btn').addEventListener('click', processAIOrder);
-
 
             setupPaymentModalListeners();
-        }
-
-        async function processAIOrder() {
-            const processBtn = document.getElementById('process-ai-btn');
-            const btnText = document.getElementById('ai-btn-text');
-            const spinner = document.getElementById('ai-spinner');
-            const feedbackDiv = document.getElementById('ai-modal-feedback');
-            const conversationText = document.getElementById('whatsapp-conversation-input').value;
-
-            if (!conversationText.trim()) {
-                feedbackDiv.textContent = 'Por favor, cole o texto da conversa.';
-                feedbackDiv.classList.remove('hidden');
-                return;
-            }
-
-            processBtn.disabled = true;
-            btnText.textContent = 'Analisando...';
-            spinner.classList.remove('hidden');
-            feedbackDiv.classList.add('hidden');
-
-            try {
-                const response = await fetch('/api/interpretar-pedido', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ conversationText })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'A IA não conseguiu processar o pedido.');
-                }
-
-                const data = await response.json();
-                
-                // Limpa o estado atual e preenche com os dados da IA
-                order = data.itens.map(item => ({ ...item, uniqueId: `${item.id}-${Date.now()}-${Math.random()}` }));
-                
-                // Simplesmente pega os dados do cliente, sem lógica complexa de tipo de pedido por enquanto
-                clientData.name = data.clientData.name;
-                clientData.contact = data.clientData.contact;
-                if (data.clientData.address) {
-                    // Tenta encontrar o bairro para calcular o frete
-                    const feeData = allDeliveryFees.find(fee => data.clientData.address.toLowerCase().includes(fee.neighborhood.toLowerCase()));
-                    clientData.address = {
-                        street: data.clientData.address, // A IA pode retornar o endereço completo
-                        number: '',
-                        neighborhood: feeData ? feeData.neighborhood : 'N/A',
-                        deliveryFee: feeData ? feeData.deliveryFee : 0
-                    };
-                    // Força o tipo de pedido para Delivery se um endereço for detectado
-                    document.querySelector('input[name="orderType"][value="Delivery"]').checked = true;
-                    currentOrderType = 'Delivery';
-                }
-                
-                paymentMethod = data.paymentMethod;
-
-                updateOrderDisplay();
-                updateClientDataSummary();
-                document.getElementById('ai-order-modal').style.display = 'none';
-                showTemporaryFeedback('Pedido montado pela IA com sucesso!');
-
-            } catch (error) {
-                console.error("Erro ao processar pedido com IA:", error);
-                feedbackDiv.textContent = `Erro: ${error.message}`;
-                feedbackDiv.classList.remove('hidden');
-            } finally {
-                processBtn.disabled = false;
-                btnText.textContent = 'Analisar Pedido';
-                spinner.classList.add('hidden');
-            }
         }
         
         function handleBurgerIngredientClick(e) {
@@ -2277,3 +2165,4 @@
     </script>
 </body>
 </html>
+
