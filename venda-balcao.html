@@ -1668,8 +1668,8 @@
             });
             
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
-
-
+            
+            const aiOrderModal = document.getElementById('ai-order-modal');
             window.addEventListener('click', (e) => {
                 const clientModal = document.getElementById('client-data-modal');
                 if (e.target === pizzaModal) pizzaModal.style.display = 'none';
@@ -1677,6 +1677,7 @@
                 if (e.target === extrasModal) extrasModal.style.display = 'none';
                 if (e.target === askExtrasModal) askExtrasModal.style.display = 'none';
                 if (e.target === clientModal) clientModal.style.display = 'none';
+                if (e.target === aiOrderModal) aiOrderModal.style.display = 'none';
             });
             
             document.getElementById('burger-ingredients-container').addEventListener('click', handleBurgerIngredientClick);
@@ -2549,5 +2550,4 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
-
 
