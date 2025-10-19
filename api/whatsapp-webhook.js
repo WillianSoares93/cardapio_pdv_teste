@@ -1,10 +1,9 @@
-// Arquivo: /api/whatsapp-webhook.js
-// VERSÃO FINAL: Utiliza a conexão oficial do Vertex AI com o modelo gemini-1.5-pro-latest.
+// Arquivo: /api/interpretar-pedido.js
+// Nova API para interpretar um texto de conversa e retornar um pedido estruturado.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import fetch from 'node-fetch';
-import { SpeechClient } from '@google-cloud/speech';
 import { GoogleAuth } from 'google-auth-library';
 
 // --- CONFIGURAÇÃO ---
@@ -20,113 +19,45 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const {
-    WHATSAPP_API_TOKEN,
-    WHATSAPP_VERIFY_TOKEN,
-    WHATSAPP_PHONE_NUMBER_ID,
-    GOOGLE_CREDENTIALS_BASE64, // Usado para autenticação na Vertex AI e no Speech
-} = process.env;
-
+const { GOOGLE_CREDENTIALS_BASE64 } = process.env;
 const GOOGLE_PROJECT_ID = firebaseConfig.projectId;
-const GOOGLE_CLOUD_REGION = 'us-central1'; // Região padrão para a Vertex AI
+const GOOGLE_CLOUD_REGION = 'us-central1';
 
-let speechClientInstance = null;
-
-function getSpeechClient() {
-    if (speechClientInstance) return speechClientInstance;
-    console.log("[LOG] Tentando inicializar o cliente Google Speech...");
-    if (GOOGLE_CREDENTIALS_BASE64) {
-        try {
-            const credentialsJson = Buffer.from(GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
-            const credentials = JSON.parse(credentialsJson);
-            speechClientInstance = new SpeechClient({ credentials });
-            console.log("[LOG] Cliente Google Speech inicializado com sucesso.");
-            return speechClientInstance;
-        } catch (e) {
-            console.error("[ERRO CRÍTICO] Falha ao processar as credenciais do Google Cloud:", e);
-            return null;
-        }
-    } else {
-        console.warn("[AVISO] Variável de ambiente GOOGLE_CREDENTIALS_BASE64 não encontrada. Transcrição de áudio estará desativada.");
-        return null;
-    }
-}
-
-// --- FUNÇÃO PRINCIPAL DO WEBHOOK ---
+// --- FUNÇÃO PRINCIPAL DO HANDLER ---
 export default async function handler(req, res) {
-    console.log("--- INÍCIO DA EXECUÇÃO DO WEBHOOK ---");
-
-    if (req.method === 'GET') {
-        const mode = req.query['hub.mode'];
-        const token = req.query['hub.verify_token'];
-        const challenge = req.query['hub.challenge'];
-        if (mode === 'subscribe' && token === WHATSAPP_VERIFY_TOKEN) {
-            console.log("Verificação do Webhook BEM-SUCEDIDA.");
-            return res.status(200).send(challenge);
-        } else {
-            console.error("Falha na verificação do Webhook: Token ou modo inválido.");
-            return res.status(403).send('Forbidden');
-        }
+    if (req.method !== 'POST') {
+        return res.status(405).send('Method Not Allowed');
     }
 
-    if (req.method === 'POST') {
-        const body = req.body;
-        if (!body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
-            return res.status(200).send('EVENT_RECEIVED');
+    try {
+        const { conversationText } = req.body;
+        if (!conversationText) {
+            return res.status(400).json({ error: 'O texto da conversa é obrigatório.' });
         }
 
-        const messageData = body.entry[0].changes[0].value.messages[0];
-        const userPhoneNumber = messageData.from;
-        console.log(`[LOG] Processando mensagem de: ${userPhoneNumber}`);
-        await markMessageAsRead(messageData.id);
-
-        try {
-            let userMessage = await getUserMessage(messageData, userPhoneNumber);
-            if (userMessage === null) return res.status(200).send('EVENT_RECEIVED');
-            
-            console.log(`[LOG] Mensagem do usuário: "${userMessage}"`);
-
-            const [conversationState, systemData] = await Promise.all([
-                getConversationState(userPhoneNumber),
-                getSystemData(req)
-            ]);
-
-            if (!systemData.availableMenu || !systemData.promptTemplate) {
-                 throw new Error('Não foi possível carregar os dados do sistema (cardápio ou prompt).');
-            }
-            console.log("[LOG] Dados do sistema carregados com sucesso.");
-
-            conversationState.history.push({ role: 'user', content: userMessage });
-            
-            console.log("[LOG] Chamando a API do Gemini via Vertex AI...");
-            const responseFromAI = await callVertexAIGemini(userMessage, systemData, conversationState);
-            console.log("[LOG] Resposta recebida do Gemini:", JSON.stringify(responseFromAI));
-            
-            conversationState.history.push({ role: 'assistant', content: JSON.stringify(responseFromAI) });
-
-            if (responseFromAI.action === "PROCESS_ORDER") {
-                await processOrderAction(userPhoneNumber, responseFromAI, conversationState);
-            } else if (responseFromAI.action === "ANSWER_QUESTION") {
-                await saveConversationState(userPhoneNumber, conversationState);
-                await sendWhatsAppMessage(userPhoneNumber, responseFromAI.answer);
-            } else {
-                await sendWhatsAppMessage(userPhoneNumber, "Desculpe, não entendi. Pode repetir, por favor?");
-            }
-
-        } catch (error) {
-            console.error('[ERRO CRÍTICO NO HANDLER]', error);
-            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, ocorreu um erro inesperado no nosso sistema.');
+        const systemData = await getSystemData(req);
+        if (!systemData.availableMenu || !systemData.promptTemplate) {
+            throw new Error('Não foi possível carregar os dados do sistema (cardápio ou prompt).');
         }
 
-        console.log("--- FIM DA EXECUÇÃO DO WEBHOOK ---");
-        return res.status(200).send('EVENT_RECEIVED');
+        const responseFromAI = await callVertexAIGemini(conversationText, systemData);
+        
+        if (responseFromAI.action !== "PROCESS_ORDER" || !responseFromAI.itens) {
+            return res.status(400).json({ error: "Não consegui identificar um pedido no texto fornecido. Tente novamente com mais detalhes." });
+        }
+
+        const validatedOrder = validateAndStructureOrder(responseFromAI, systemData.availableMenu);
+        
+        res.status(200).json(validatedOrder);
+
+    } catch (error) {
+        console.error('[ERRO EM /api/interpretar-pedido]', error);
+        res.status(500).json({ error: `Ocorreu um erro interno: ${error.message}` });
     }
-
-    return res.status(405).send('Method Not Allowed');
 }
 
 // --- FUNÇÃO DE CHAMADA À API (Vertex AI) ---
-async function callVertexAIGemini(userMessage, systemData, conversationState) {
+async function callVertexAIGemini(userMessage, systemData) {
     if (!GOOGLE_CREDENTIALS_BASE64) {
         throw new Error("Credenciais do Google Cloud (GOOGLE_CREDENTIALS_BASE64) não estão configuradas na Vercel.");
     }
@@ -152,13 +83,13 @@ async function callVertexAIGemini(userMessage, systemData, conversationState) {
 
     const prompt = promptTemplate
         .replace(/\${CARDAPIO}/g, JSON.stringify(simplifiedMenu))
-        .replace(/\${INGREDIENTES}/g, JSON.stringify(allIngredients))
-        .replace(/\${HISTORICO}/g, JSON.stringify(conversationState.history.slice(-6)))
-        .replace(/\${ESTADO_PEDIDO}/g, JSON.stringify(conversationState.itens || []))
+        .replace(/\${INGREDIENTES}/g, JSON.stringify(allIngredients || [])) // Fallback para array vazio
+        .replace(/\${HISTORICO}/g, '[]') // Sem histórico para análise única
+        .replace(/\${ESTADO_PEDIDO}/g, '[]') // Começa com o pedido vazio
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
-    const modelId = "gemini-1.5-pro-latest"; // Modelo mais recente e poderoso
-    const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:streamGenerateContent`;
+    const modelId = "gemini-pro"; // CORREÇÃO: Usando um modelo estável e garantido.
+    const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1beta/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:generateContent`;
 
     try {
         const response = await fetch(apiEndpoint, {
@@ -183,49 +114,25 @@ async function callVertexAIGemini(userMessage, systemData, conversationState) {
 
         const data = await response.json();
         
-        if (!data[0]?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+             console.error("Estrutura de resposta inesperada da Vertex AI:", JSON.stringify(data, null, 2));
              throw new Error("Resposta inesperada ou vazia da API Vertex AI.");
         }
 
-        const jsonString = data[0].candidates[0].content.parts[0].text;
+        const jsonString = data.candidates[0].content.parts[0].text;
         return JSON.parse(jsonString);
 
     } catch (error) {
-        console.error("Erro ao chamar ou processar a resposta do Vertex AI Gemini:", error);
-        return { action: "ANSWER_QUESTION", answer: 'Desculpe, tive um problema para processar sua solicitação. Pode tentar de outra forma?' };
+        console.error("Erro detalhado ao chamar a API Vertex AI:", error);
+        throw new Error("Falha na comunicação com a IA.");
     }
 }
 
-// --- DEMAIS FUNÇÕES (permanecem as mesmas) ---
-async function getUserMessage(messageData, userPhoneNumber) {
-    if (messageData.type === 'text') return messageData.text.body.trim();
-    if (messageData.type === 'audio') {
-        await sendWhatsAppMessage(userPhoneNumber, 'Ok, processando seu áudio...');
-        const transcription = await transcribeWithGoogle(messageData.audio.id);
-        if (!transcription) {
-            await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, não consegui entender o áudio. Pode tentar de novo ou enviar por texto?');
-            return null;
-        }
-        return transcription;
-    }
-    await sendWhatsAppMessage(userPhoneNumber, 'Desculpe, no momento só consigo processar pedidos por texto ou áudio.');
-    return null;
-}
-async function getConversationState(phoneNumber) {
-    const stateRef = doc(db, 'pedidos_pendentes_whatsapp', phoneNumber);
-    const docSnap = await getDoc(stateRef);
-    return docSnap.exists() ? docSnap.data() : { history: [], itens: [], subtotal: 0, endereco: null, pagamento: null };
-}
-async function saveConversationState(phoneNumber, state) {
-    if (state.history.length > 20) state.history = state.history.slice(-20);
-    const stateRef = doc(db, 'pedidos_pendentes_whatsapp', phoneNumber);
-    await setDoc(stateRef, state);
-}
+// --- FUNÇÕES DE APOIO ---
 async function getSystemData(req) {
     const protocol = req.headers['x-forwarded-proto'] || 'http';
     const host = req.headers.host;
     const apiUrl = `${protocol}://${host}/api/menu`;
-    console.log(`[LOG] Buscando dados do sistema em: ${apiUrl}`);
     const [menuData, promptData] = await Promise.all([
         fetch(apiUrl).then(res => res.json()),
         getActivePrompt()
@@ -236,96 +143,116 @@ async function getSystemData(req) {
         promptTemplate: promptData.promptTemplate
     };
 }
-async function processOrderAction(userPhoneNumber, aiResponse, conversationState) {
-    console.log("[LOG] Processando ação de pedido...");
-    if (aiResponse.itens?.length > 0) conversationState.itens.push(...aiResponse.itens);
-    if (aiResponse.address) conversationState.endereco = { rua: aiResponse.address };
-    if (aiResponse.paymentMethod) conversationState.pagamento = aiResponse.paymentMethod;
-    conversationState.subtotal = conversationState.itens.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    let nextStepMessage = '';
-    if (conversationState.itens.length === 0) {
-        nextStepMessage = "Não entendi quais itens você gostaria de pedir. Poderia me dizer?";
-    } else if (!conversationState.endereco) {
-        nextStepMessage = `Ótimo, seu pedido tem ${conversationState.itens.length} item(ns), totalizando ${conversationState.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}. Qual o seu endereço para entrega?`;
-    } else if (!conversationState.pagamento) {
-        nextStepMessage = `Endereço anotado! Qual será a forma de pagamento? (Dinheiro, Cartão ou Pix)`;
-    } else {
-        await finalizeOrder(userPhoneNumber, conversationState);
-        return;
-    }
-    if (aiResponse.clarification_question) nextStepMessage = aiResponse.clarification_question;
-    await saveConversationState(userPhoneNumber, conversationState);
-    await sendWhatsAppMessage(userPhoneNumber, nextStepMessage);
-}
-async function finalizeOrder(userPhoneNumber, conversationState) {
-    const finalOrder = {
-        itens: conversationState.itens,
-        endereco: {
-            clientName: `Cliente WhatsApp ${userPhoneNumber.slice(-4)}`,
-            telefone: userPhoneNumber, ...conversationState.endereco
-        },
-        total: {
-            subtotal: conversationState.subtotal, deliveryFee: 0, discount: 0, finalTotal: conversationState.subtotal
-        },
-        pagamento: conversationState.pagamento, status: 'Novo', criadoEm: serverTimestamp()
-    };
-    await addDoc(collection(db, "pedidos"), finalOrder);
-    await deleteDoc(doc(db, 'pedidos_pendentes_whatsapp', userPhoneNumber));
-    await sendWhatsAppMessage(userPhoneNumber, '✅ Pedido confirmado e enviado para a cozinha! Agradecemos a preferência.');
-}
-async function transcribeWithGoogle(mediaId) {
-    const speechClient = getSpeechClient();
-    if (!speechClient) return null;
-    try {
-        const audioBuffer = await downloadWhatsAppMedia(mediaId);
-        const [response] = await speechClient.recognize({
-            audio: { content: audioBuffer.toString('base64') },
-            config: { encoding: 'OGG_OPUS', sampleRateHertz: 16000, languageCode: 'pt-BR' },
-        });
-        return response.results.map(r => r.alternatives[0].transcript).join('\n');
-    } catch (error) {
-        console.error("Erro na transcrição com Google:", error);
-        return null;
-    }
-}
-async function downloadWhatsAppMedia(mediaId) {
-    const mediaUrlResponse = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, { headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` } });
-    if (!mediaUrlResponse.ok) throw new Error('Falha ao obter URL da mídia da Meta');
-    const { url } = await mediaUrlResponse.json();
-    const audioResponse = await fetch(url, { headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}` } });
-    if (!audioResponse.ok) throw new Error('Falha ao fazer download do áudio da Meta');
-    return audioResponse.buffer();
-}
+
 async function getActivePrompt() {
     const promptRef = doc(db, "config", "bot_prompt_active");
     const docSnap = await getDoc(promptRef);
     if (docSnap.exists() && docSnap.data().template) {
         return { promptTemplate: docSnap.data().template };
     }
-    throw new Error("Prompt da IA não encontrado no Firestore. Configure-o na página 'memoria.html'.");
+    throw new Error("Prompt da IA não encontrado no Firestore.");
 }
-async function sendWhatsAppMessage(to, text) {
-    const whatsappURL = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
-    try {
-        await fetch(whatsappURL, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messaging_product: 'whatsapp', to, text: { body: text } })
-        });
-    } catch (error) {
-        console.error('Erro ao enviar mensagem pelo WhatsApp:', error);
-    }
-}
-async function markMessageAsRead(messageId) {
-    const whatsappURL = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
-    try {
-        await fetch(whatsappURL, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: messageId })
-        });
-    } catch (error) {
-        console.warn('Não foi possível marcar a mensagem como lida:', error);
-    }
+
+function validateAndStructureOrder(aiResponse, menu) {
+    const validatedItems = aiResponse.itens.map(aiItem => {
+        const sizeMap = {
+            '4 fatias': 'price4Slices',
+            '6 fatias': 'price6Slices',
+            '8 fatias': 'basePrice',
+            '10 fatias': 'price10Slices'
+        };
+
+        let itemNameLower = aiItem.name.toLowerCase();
+        
+        // --- LÓGICA MELHORADA PARA PIZZA MEIA A MEIA ---
+        if (itemNameLower.includes('meia ') && (itemNameLower.includes('&') || itemNameLower.includes(' e '))) {
+            let sizeKey = 'basePrice'; // Padrão
+            let sizeLabel = '8 Fatias';
+            for (const sizeText in sizeMap) {
+                if (itemNameLower.includes(sizeText)) {
+                    sizeKey = sizeMap[sizeText];
+                    sizeLabel = sizeText.charAt(0).toUpperCase() + sizeText.slice(1);
+                    break;
+                }
+            }
+
+            // Extrair os nomes dos sabores
+            const nameParts = aiItem.name.split(/&| e /);
+            const flavor1Name = nameParts[0].replace(/.*meia/i, '').trim();
+            const flavor2Name = nameParts[1].replace(/meia/i, '').trim();
+
+            const flavor1Item = menu.find(m => m.name.toLowerCase() === flavor1Name.toLowerCase());
+            const flavor2Item = menu.find(m => m.name.toLowerCase() === flavor2Name.toLowerCase());
+
+            if (flavor1Item && flavor2Item) {
+                const price1 = flavor1Item[sizeKey] || 0;
+                const price2 = flavor2Item[sizeKey] || 0;
+
+                if (price1 === 0 || price2 === 0) return null; // Tamanho inválido para um dos sabores
+
+                const finalPrice = (price1 / 2) + (price2 / 2);
+
+                return {
+                    ...flavor1Item, // Usa o primeiro item como base
+                    name: aiItem.name,
+                    price: finalPrice,
+                    quantity: aiItem.quantity || 1,
+                    notes: aiItem.notes || "",
+                    type: 'split',
+                    originalItem: null, // É uma combinação, não um item único
+                    firstHalfData: { ...flavor1Item, selectedSize: { label: sizeLabel, priceKey: sizeKey } },
+                    secondHalfData: { ...flavor2Item, selectedSize: { label: sizeLabel, priceKey: sizeKey } }
+                };
+            } else {
+                return null; // Um ou ambos os sabores não foram encontrados
+            }
+        }
+
+        // --- LÓGICA EXISTENTE PARA ITENS NORMAIS ---
+        let foundItem = menu.find(menuItem => 
+            itemNameLower.includes(menuItem.name.toLowerCase())
+        );
+
+        if (!foundItem) {
+            return null; // Item não existe no cardápio
+        }
+
+        let itemPrice = 0;
+        // Se encontrou, determina o preço correto
+        if (foundItem.isPizza) {
+            let sizeKey = 'basePrice'; // Padrão para 8 fatias se nenhum tamanho for encontrado
+            for (const sizeText in sizeMap) {
+                if (itemNameLower.includes(sizeText)) {
+                    sizeKey = sizeMap[sizeText];
+                    break;
+                }
+            }
+            itemPrice = foundItem[sizeKey] || foundItem.basePrice;
+        } else {
+            itemPrice = foundItem.basePrice;
+        }
+
+        // Retorna o item estruturado com o preço correto
+        return {
+            ...foundItem,
+            name: aiItem.name,
+            price: itemPrice,
+            quantity: aiItem.quantity || 1,
+            notes: aiItem.notes || "",
+            type: foundItem.isCustomizable ? 'custom_burger' : 'full',
+            originalItem: foundItem 
+        };
+
+    }).filter(Boolean); // Remove os nulos
+
+    return {
+        itens: validatedItems,
+        clientData: {
+            name: aiResponse.clientName || null,
+            address: aiResponse.address || null,
+            contact: aiResponse.contact || null 
+        },
+        paymentMethod: aiResponse.paymentMethod || null
+    };
 }
 
