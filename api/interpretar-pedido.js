@@ -88,8 +88,8 @@ async function callVertexAIGemini(userMessage, systemData) {
         .replace(/\${ESTADO_PEDIDO}/g, '[]') // Começa com o pedido vazio
         .replace(/\${MENSAGEM_CLIENTE}/g, userMessage);
 
-    const modelId = "gemini-1.5-flash-latest"; // CORREÇÃO: Usando um modelo estável e disponível.
-    const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:streamGenerateContent`;
+    const modelId = "gemini-pro"; // CORREÇÃO: Usando um modelo estável e garantido.
+    const apiEndpoint = `https://${GOOGLE_CLOUD_REGION}-aiplatform.googleapis.com/v1beta/projects/${GOOGLE_PROJECT_ID}/locations/${GOOGLE_CLOUD_REGION}/publishers/google/models/${modelId}:generateContent`;
 
     try {
         const response = await fetch(apiEndpoint, {
@@ -114,11 +114,12 @@ async function callVertexAIGemini(userMessage, systemData) {
 
         const data = await response.json();
         
-        if (!data[0]?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+             console.error("Estrutura de resposta inesperada da Vertex AI:", JSON.stringify(data, null, 2));
              throw new Error("Resposta inesperada ou vazia da API Vertex AI.");
         }
 
-        const jsonString = data[0].candidates[0].content.parts[0].text;
+        const jsonString = data.candidates[0].content.parts[0].text;
         return JSON.parse(jsonString);
 
     } catch (error) {
