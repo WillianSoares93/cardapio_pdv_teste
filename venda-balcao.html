@@ -1635,59 +1635,31 @@
                 }
             });
 
-            // --- INÍCIO DA CORREÇÃO DOS EVENT LISTENERS DOS MODAIS ---
+            // --- SETUP ALL MODAL LISTENERS (Simplified) ---
+            document.getElementById('open-client-data-modal-btn').addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openClientDataModal();
+            });
 
-            // Botão: Dados do Cliente (código robusto)
-            const openClientDataBtn = document.getElementById('open-client-data-modal-btn');
-            if (openClientDataBtn) {
-                openClientDataBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[v0] Botão Dados do Cliente clicado');
-                    openClientDataModal();
-                });
-            } else {
-                console.error('[v0] Botão "Dados do Cliente" não encontrado no DOM');
-            }
-            
-            // Botão: Pedido com IA (código robusto e com IDs corretos)
-            const openAIModalBtn = document.getElementById('open-ai-modal-btn');
-            if (openAIModalBtn) {
-                openAIModalBtn.addEventListener('click', (e) => {
-                    // Previne comportamento padrão e propagação
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    console.log('[v0] Botão Pedido com IA clicado');
-                    
-                    const modal = document.getElementById('ai-order-modal');
-                    if (modal) {
-                        modal.style.display = 'flex';
-                        
-                        // Limpa campos do modal usando os IDs corretos
-                        const inputArea = modal.querySelector('#whatsapp-paste-area');
-                        const resultContent = modal.querySelector('#ai-result-content');
-                        const errorDiv = modal.querySelector('#ai-error-message');
-                        const confirmBtn = modal.querySelector('#confirm-ai-order-btn');
+            // ---------- INÍCIO DA CORREÇÃO ----------
+            document.getElementById('open-ai-modal-btn').addEventListener('click', (event) => {
+                // Previne o comportamento padrão do clique, como seguir um link (se fosse um <a>)
+                event.preventDefault(); 
+                // Impede que o evento "borbulhe" para elementos pai, evitando que outros
+                // event listeners sejam acionados acidentalmente.
+                event.stopPropagation(); 
 
-                        if (inputArea) inputArea.value = '';
-                        if (resultContent) resultContent.innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-                        if (errorDiv) errorDiv.classList.add('hidden');
-                        if (confirmBtn) confirmBtn.disabled = true;
-
-                        parsedAiOrder = null; // Reseta o estado do pedido da IA
-                        
-                        console.log('[v0] Modal de IA aberto com sucesso');
-                    } else {
-                        console.error('[v0] Modal de IA não encontrado no DOM');
-                    }
-                });
-            } else {
-                console.error('[v0] Botão "Pedido com IA" não encontrado no DOM');
-            }
-            
-            // --- FIM DA CORREÇÃO ---
-
+                const modal = document.getElementById('ai-order-modal');
+                modal.style.display = 'flex';
+                // Reseta os campos do modal para um novo uso
+                modal.querySelector('#whatsapp-paste-area').value = '';
+                modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+                modal.querySelector('#ai-error-message').classList.add('hidden');
+                modal.querySelector('#confirm-ai-order-btn').disabled = true;
+                parsedAiOrder = null;
+            });
+            // ---------- FIM DA CORREÇÃO ----------
 
             // --- Listeners for buttons INSIDE modals (that don't close them) ---
             document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
