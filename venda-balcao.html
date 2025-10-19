@@ -788,12 +788,14 @@
                     card.classList.add('unavailable');
                 }
 
+                const itemPrice = item.price || item.basePrice || 0;
+
                 card.innerHTML = `
                     <img src="${item.imageUrl || 'https://via.placeholder.com/120'}" alt="${item.name}" class="w-full h-24 object-cover rounded-t-md">
                     <div class="p-2 flex-grow flex flex-col justify-between">
                         <h4 class="text-xs font-bold text-gray-800 truncate">${item.name}</h4>
                         <p class="text-xs text-gray-500">${item.category}</p>
-                        <p class="text-sm font-bold text-green-600 mt-1">R$ ${item.price.toFixed(2).replace('.', ',')}</p>
+                        <p class="text-sm font-bold text-green-600 mt-1">R$ ${itemPrice.toFixed(2).replace('.', ',')}</p>
                     </div>
                 `;
 
