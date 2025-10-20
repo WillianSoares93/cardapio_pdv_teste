@@ -600,6 +600,8 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
+        console.log("--- TESTE 1: Módulo de script carregado ---");
+
         const firebaseConfig = {
            apiKey: "AIzaSyBJ44RVDGhBIlQBTx-pyIUp47XDKzRXk84",
            authDomain: "pizzaria-pdv.firebaseapp.com",
@@ -636,7 +638,9 @@
         let parsedAiOrder = null; 
 
         onAuthStateChanged(auth, (user) => {
+            console.log("--- TESTE 2: onAuthStateChanged disparado ---");
             if (user) {
+                console.log("--- TESTE 3: Usuário AUTENTICADO. Chamando AppLogic... ---");
                 document.body.style.visibility = 'visible';
                 currentUserEmail = user.email;
                 const currentUserEl = document.getElementById('current-user');
@@ -661,6 +665,8 @@
 
             const closeHandler = () => {
                 modal.style.display = 'none';
+                modal.removeEventListener('click', modalCloseHandler);
+                okBtn.removeEventListener('click', closeHandler);
             };
 
             const modalCloseHandler = (e) => {
@@ -670,7 +676,7 @@
             };
             
             okBtn.addEventListener('click', closeHandler, { once: true });
-            modal.addEventListener('click', modalCloseHandler, { once: true });
+            modal.addEventListener('click', modalCloseHandler);
         }
 
         function showTemporaryFeedback(message) {
@@ -719,12 +725,13 @@
 
                 yesBtn.addEventListener('click', yesHandler, { once: true });
                 noBtn.addEventListener('click', noHandler, { once: true });
-                modal.addEventListener('click', modalCloseHandler, { once: true });
+                modal.addEventListener('click', modalCloseHandler);
             });
         }
 
 
         async function initializeAppLogic() {
+            console.log("--- TESTE 4: initializeAppLogic() INICIADA. ---");
             listenToStatusChanges();
             await fetchMenu();
             renderCategories();
@@ -2567,5 +2574,4 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
-" because I have the following query: "os logs do console deram esse resultado:"
 
