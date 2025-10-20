@@ -671,6 +671,7 @@
 
             const modalCloseHandler = (e) => {
                 if (e.target === modal) {
+                    console.warn("--> Fechando modal 'alert-modal' via clique no fundo.");
                     closeHandler();
                 }
             };
@@ -719,6 +720,7 @@
                 const noHandler = () => close(false);
                  const modalCloseHandler = (e) => {
                     if (e.target === modal) {
+                        console.warn("--> Fechando modal 'confirm-modal' via clique no fundo.");
                         close(false);
                     }
                 };
@@ -1584,9 +1586,14 @@
         }
 
         function openAiModal() {
+            console.log("A. Entrou na função openAiModal.");
             const modal = document.getElementById('ai-order-modal');
+            console.log("B. Elemento do modal AI encontrado:", modal);
+
             if (modal) {
                 modal.style.display = 'flex';
+                console.log("C. Estilo do modal AI alterado para 'flex'.");
+
                 modal.querySelector('#whatsapp-paste-area').value = '';
                 modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
                 modal.querySelector('#ai-error-message').classList.add('hidden');
@@ -1595,8 +1602,11 @@
 
                 const closeHandler = (e) => {
                     if (e.target === modal) {
+                        console.warn(`--> Fechando modal '${modal.id}' devido a clique no fundo.`);
                         modal.style.display = 'none';
                         modal.removeEventListener('click', closeHandler);
+                    } else {
+                        console.log(`--> Clique detectado DENTRO do modal '${modal.id}'. Nenhuma ação tomada.`);
                     }
                 };
                 modal.addEventListener('click', closeHandler);
@@ -1605,6 +1615,7 @@
         
         async function setupEventListeners() {
             try {
+                console.log("--- TESTE 5: setupEventListeners() INICIADA. ---");
                 // --- Elementos Principais ---
                 const mainContainer = document.querySelector('.main-container');
                 const sidebar = document.querySelector('.sidebar-nav');
@@ -1690,13 +1701,23 @@
                 }
 
                 // --- Botão Modal Dados do Cliente ---
+                console.log("-> Configurando listener para 'Dados do Cliente'...");
                 if (clientDataModalBtn) {
-                    clientDataModalBtn.addEventListener('click', openClientDataModal);
+                    clientDataModalBtn.addEventListener('click', () => {
+                        console.log("--- TESTE: Botão 'Dados do Cliente' CLICADO ---");
+                        openClientDataModal();
+                    });
+                    console.log("-> Listener para 'Dados do Cliente' configurado.");
                 } 
 
                 // --- Botão Modal Pedido com IA ---
+                console.log("-> Configurando listener para 'Pedido com IA'...");
                 if (aiModalBtn) {
-                    aiModalBtn.addEventListener('click', openAiModal);
+                    aiModalBtn.addEventListener('click', () => {
+                        console.log("--- TESTE: Botão 'Pedido com IA' CLICADO ---");
+                        openAiModal();
+                    });
+                    console.log("-> Listener para 'Pedido com IA' configurado.");
                 }
 
                 // --- Outros Listeners (Extras) ---
@@ -1715,6 +1736,8 @@
                 document.getElementById('burger-ingredients-container').addEventListener('click', handleBurgerIngredientClick);
                 document.getElementById('pizza-extras-ingredients-container').addEventListener('click', handlePizzaExtrasIngredientClick);
                 setupPaymentModalListeners();
+
+                console.log("--- TESTE 6: setupEventListeners() CONCLUÍDA. ---");
                 
             } catch (err) {
                 console.error("Erro fatal ao configurar os event listeners:", err);
@@ -2175,7 +2198,10 @@ ${menuForAI}`;
         }
         
         function openClientDataModal() {
+            console.log("1. Entrou na função openClientDataModal.");
             const modal = document.getElementById('client-data-modal');
+            console.log("2. Elemento do modal Cliente encontrado:", modal);
+            
             const errorDiv = document.getElementById('client-modal-error-message');
             errorDiv.classList.add('hidden');
             
@@ -2262,13 +2288,16 @@ ${menuForAI}`;
                 }
             }
             
-            
             modal.style.display = 'flex';
+            console.log("3. Estilo do modal Cliente alterado para 'flex'.");
             
             const closeHandler = (e) => {
                 if (e.target === modal) {
+                    console.warn(`--> Fechando modal '${modal.id}' devido a clique no fundo.`);
                     modal.style.display = 'none';
                     modal.removeEventListener('click', closeHandler);
+                } else {
+                    console.log(`--> Clique detectado DENTRO do modal '${modal.id}'. Nenhuma ação tomada.`);
                 }
             };
             modal.addEventListener('click', closeHandler);
