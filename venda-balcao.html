@@ -1592,7 +1592,8 @@
 
             if (modal) {
                 modal.style.display = 'flex';
-                console.log("C. Estilo do modal AI alterado para 'flex'.");
+                void modal.offsetWidth; // FORÇA O REPAINT/REFLOW
+                console.log("C. Estilo do modal AI alterado para 'flex' e repaint forçado.");
 
                 modal.querySelector('#whatsapp-paste-area').value = '';
                 modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
@@ -2289,7 +2290,8 @@ ${menuForAI}`;
             }
             
             modal.style.display = 'flex';
-            console.log("3. Estilo do modal Cliente alterado para 'flex'.");
+            void modal.offsetWidth; // FORÇA O REPAINT/REFLOW
+            console.log("3. Estilo do modal Cliente alterado para 'flex' e repaint forçado.");
             
             const closeHandler = (e) => {
                 if (e.target === modal) {
