@@ -1686,14 +1686,22 @@
                 modal.style.display = 'flex';
                 modal.style.visibility = 'visible';
                 
-                console.log('[v0] Computed styles depois:', window.getComputedStyle(modal).display, window.getComputedStyle(modal).visibility, window.getComputedStyle(modal).zIndex);
-                console.log('[v0] Position:', window.getComputedStyle(modal).position);
-                console.log('[v0] Top/Left:', window.getComputedStyle(modal).top, window.getComputedStyle(modal).left);
-                console.log('[v0] Width/Height:', window.getComputedStyle(modal).width, window.getComputedStyle(modal).height);
+                const computedStyle = window.getComputedStyle(modal);
+                console.log('[v0] Computed styles depois:', computedStyle.display, computedStyle.visibility, computedStyle.zIndex);
+                console.log('[v0] Position:', computedStyle.position);
+                console.log('[v0] Top/Left:', computedStyle.top, computedStyle.left);
+                console.log('[v0] Width/Height:', computedStyle.width, computedStyle.height);
+                console.log('[v0] Opacity:', computedStyle.opacity);
+                console.log('[v0] Background-color:', computedStyle.backgroundColor);
+                console.log('[v0] Bounding rect:', modal.getBoundingClientRect());
                 
                 const modalContent = modal.querySelector('.modal-content');
-                console.log('[v0] Modal content display:', window.getComputedStyle(modalContent).display);
-                console.log('[v0] Modal content visibility:', window.getComputedStyle(modalContent).visibility);
+                const contentStyle = window.getComputedStyle(modalContent);
+                console.log('[v0] Modal content display:', contentStyle.display);
+                console.log('[v0] Modal content visibility:', contentStyle.visibility);
+                console.log('[v0] Modal content opacity:', contentStyle.opacity);
+                console.log('[v0] Modal content background:', contentStyle.backgroundColor);
+                console.log('[v0] Modal content rect:', modalContent.getBoundingClientRect());
                 
                 modal.querySelector('#whatsapp-paste-area').value = '';
                 modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
