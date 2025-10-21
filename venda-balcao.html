@@ -1610,7 +1610,8 @@
                         console.log(`--> Clique detectado DENTRO do modal '${modal.id}'. Nenhuma ação tomada.`);
                     }
                 };
-                modal.addEventListener('click', closeHandler);
+                // CORREÇÃO: Adiciona o event listener no próximo ciclo de eventos para evitar problemas de renderização.
+                setTimeout(() => modal.addEventListener('click', closeHandler), 0);
             }
         }
         
@@ -2302,7 +2303,8 @@ ${menuForAI}`;
                     console.log(`--> Clique detectado DENTRO do modal '${modal.id}'. Nenhuma ação tomada.`);
                 }
             };
-            modal.addEventListener('click', closeHandler);
+            // CORREÇÃO: Adiciona o event listener no próximo ciclo de eventos para evitar problemas de renderização.
+            setTimeout(() => modal.addEventListener('click', closeHandler), 0);
         }
         
         function calculateTroco() {
@@ -2605,4 +2607,3 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
-
