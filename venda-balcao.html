@@ -627,8 +627,8 @@
         let currentOrderId = null;
         let isEditing = false;
         let itemStatus = {}, itemVisibility = {}, itemExtrasStatus = {}, pizzaHalfStatus = {};
-        let ingredientStatus, ingredientVisibility = {};
-        let extraStatus, extraVisibility = {};
+        let ingredientStatus = {}, ingredientVisibility = {};
+        let extraStatus = {}, extraVisibility = {};
         let isSelectingHalfPizza = false;
         let firstHalfPizza = null;
         let currentPizzaExtrasState = {};
@@ -772,7 +772,7 @@
                         
                         const mesaText = orderData.endereco.clientName || '';
                         clientData.table = mesaText.match(/\d+/)?.[0]; 
-                        const clientNameMatch = mesaText.match(/$$(.*?)$$/);
+                        const clientNameMatch = mesaText.match(/\((.*?)\)/);
                         clientData.name = clientNameMatch ? clientNameMatch[1] : '';
                     
                     } else if (orderData.endereco.rua === "Retirada no Balcão") {
@@ -1149,7 +1149,7 @@
                         </div>
                         <div class="flex gap-2">
                            <button class="add-full-pizza-btn px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button>
-                           <button class="add-half-pizza-btn px-3 py-1 ${allowsHalf ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}" ${!allowsHalf ? 'disabled' : ''}>Meia</button>
+                           <button class="add-half-pizza-btn px-3 py-1 ${allowsHalf ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'} text-white text-xs rounded" ${!allowsHalf ? 'disabled' : ''}>Meia</button>
                         </div>
                     `;
                     optionDiv.querySelector('.add-full-pizza-btn').addEventListener('click', () => {
@@ -1182,7 +1182,6 @@
         function openBurgerBuilderModal(burger, editIndex = null, existingItem = null) {
             const modal = document.getElementById('burger-builder-modal');
             modal.dataset.burgerId = burger.id;
-            modal.dataset.editIndex = editIndex; // Armazena o índice para edição
             const ingredientsContainer = modal.querySelector('#burger-ingredients-container');
             ingredientsContainer.innerHTML = '';
 
@@ -1200,18 +1199,10 @@
                 ingredients.forEach(ing => {
                     const isUnavailable = ingredientStatus[ing.id] === false;
                     const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
-                    let quantity = 0;
-                    if (existingItem && existingItem.ingredients) {
-                        const existingIng = existingItem.ingredients.find(i => i.name.startsWith(ing.name));
-                        if (existingIng) {
-                            quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/$$x(\d+)$$/)[1]) : 1;
-                        }
-                    }
-
                     if (isSingleChoice) {
                         const isChecked = existingItem && existingItem.ingredients.some(i => i.name === ing.name);
                         categoryHtml += `
-                            <label class="ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''} ${isChecked ? 'selected-ingredient' : ''}">
+                            <label class="ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''}">
                                 <div>
                                     <input type="radio" name="${categoryName}" class="form-radio" data-price="${ing.price}" value="${ing.name}" ${isUnavailable ? 'disabled' : ''} ${isChecked ? 'checked' : ''}>
                                     <span class="ml-2">${ing.name}</span>
@@ -1220,7 +1211,14 @@
                             </label>`;
                     } else {
                         const ingredientLimit = ing.ingredientLimit || 1;
-                        categoryHtml += `
+                        let quantity = 0;
+                        if (existingItem && existingItem.ingredients) {
+                            const existingIng = existingItem.ingredients.find(i => i.name.startsWith(ing.name));
+                            if(existingIng) {
+                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/\(x(\d+)\)/)[1]) : 1;
+                            }
+                        }
+                         categoryHtml += `
                             <div class="ingredient-option ${isUnavailable ? 'opacity-50' : ''}">
                                 <div class="flex-grow">
                                     <span class="ml-2">${ing.name}</span>
@@ -1316,8 +1314,8 @@
             
             const newBurger = {
                 ...burger,
-                id: editIndex !== null ? order[editIndex].id : `${burger.id}-${Date.now()}`, // Usa o ID original se estiver editando
-                uniqueId: editIndex !== null ? order[editIndex].uniqueId : `${burger.id}-${Date.now()}`, // Usa o uniqueId original se estiver editando
+                id: editIndex !== null ? order[editIndex].id : `${burger.id}-${Date.now()}`,
+                uniqueId: editIndex !== null ? order[editIndex].uniqueId : `${burger.id}-${Date.now()}`,
                 name: `Hambúrguer Montável`,
                 price: finalPrice,
                 ingredients: selectedIngredients,
@@ -1350,8 +1348,8 @@
             if (pizzaItem.extras && pizzaItem.extras.length > 0) {
                 pizzaItem.extras.forEach(extra => {
                     let placement = 'toda';
-                    if (extra.placement && extra.placement.includes('1ª Metade')) placement = 'metade1';
-                    else if (extra.placement && extra.placement.includes('2ª Metade')) placement = 'metade2';
+                    if (extra.placement.includes('1ª Metade')) placement = 'metade1';
+                    else if (extra.placement.includes('2ª Metade')) placement = 'metade2';
                     if (currentPizzaExtrasState[placement]) currentPizzaExtrasState[placement].push({ ...extra });
                 });
             }
@@ -1371,8 +1369,6 @@
                         renderPizzaExtrasList(orderIndex);
                     });
                 });
-            } else { // Pizza inteira ou item não-pizza que aceita extras
-                 scopeButtonsContainer.innerHTML = `<button class="scope-button active" data-scope="toda">Pizza Toda</button>`;
             }
 
             renderPizzaExtrasList(orderIndex);
@@ -1384,44 +1380,8 @@
             const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
             const container = document.getElementById('pizza-extras-ingredients-container');
             container.innerHTML = '';
-            
-            const pizzaItem = order[orderIndex];
-            const applicableExtras = pizzaItem.type === 'split' ? 
-                (activeScope === 'metade1' ? pizzaItem.firstHalfData.applicableExtras : 
-                 activeScope === 'metade2' ? pizzaItem.secondHalfData.applicableExtras : 
-                 pizzaItem.applicableExtras) : 
-                pizzaItem.applicableExtras;
-
-            let availableExtras = [];
-            if (applicableExtras) {
-                availableExtras = applicableExtras.map(extId => allPizzaExtras[Object.keys(allPizzaExtras).find(key => allPizzaExtras[key].some(e => e.id === extId))].find(e => e.id === extId));
-            } else {
-                availableExtras = allItems.find(item => item.id === pizzaItem.id)?.applicableExtras || [];
-                if (availableExtras.length === 0) {
-                    for (const categoryName in allPizzaExtras) {
-                        availableExtras.push(...allPizzaExtras[categoryName].filter(ext => extraVisibility[ext.id] !== false));
-                    }
-                } else {
-                    availableExtras = availableExtras.map(extId => {
-                        let foundExtra = null;
-                        for (const category in allPizzaExtras) {
-                            foundExtra = allPizzaExtras[category].find(e => e.id === extId);
-                            if (foundExtra) break;
-                        }
-                        return foundExtra;
-                    }).filter(Boolean);
-                }
-            }
-
-            const extrasByCategory = availableExtras.reduce((acc, extra) => {
-                const category = extra.category || 'Adicionais';
-                if (!acc[category]) acc[category] = [];
-                acc[category].push(extra);
-                return acc;
-            }, {});
-            
-            for (const categoryName in extrasByCategory) {
-                const extras = extrasByCategory[categoryName].filter(ext => extraVisibility[ext.id] !== false);
+             for (const categoryName in allPizzaExtras) {
+                const extras = allPizzaExtras[categoryName].filter(ext => extraVisibility[ext.id] !== false);
                  if (extras.length === 0) continue;
                 
                 const firstExtra = extras[0] || {};
@@ -1432,7 +1392,7 @@
                 extras.forEach(extra => {
                     const isUnavailable = extraStatus[extra.id] === false;
                     const priceDisplay = extra.price > 0 ? `+ R$ ${extra.price.toFixed(2).replace('.', ',')}` : '';
-                    const existingExtra = currentPizzaExtrasState[activeScope]?.find(e => e.id === extra.id);
+                    const existingExtra = currentPizzaExtrasState[activeScope]?.find(e => e.name === extra.name);
                     const quantity = existingExtra ? existingExtra.quantity : 0;
                     const individualLimit = extra.limit || 1;
                     
@@ -1443,7 +1403,7 @@
                             </div>
                            <div class="flex items-center space-x-2">
                                 <span class="font-medium text-sm">${priceDisplay}</span>
-                                <div class="flex items-center space-x-2" data-id="${extra.id}" data-name="${extra.name}" data-price="${extra.price}" data-limit="${individualLimit}">
+                                <div class="flex items-center space-x-2" data-name="${extra.name}" data-price="${extra.price}" data-limit="${individualLimit}">
                                     <button type="button" class="quantity-btn minus-btn" ${isUnavailable ? 'disabled' : ''}>-</button>
                                     <span class="quantity-display font-bold text-base w-6 text-center">${quantity}</span>
                                     <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
@@ -1563,7 +1523,7 @@
                         }
                         
                         let actionButtonHtml = '';
-                        if (item.acceptsExtras && item.type !== 'custom_burger') { // Don't show extras for burgers here, handled by edit button
+                        if (item.acceptsExtras) {
                             const hasExtras = item.extras && item.extras.length > 0;
                             const buttonText = hasExtras ? 'Editar Adicionais' : 'Incluir Adicionais';
                             const iconClass = hasExtras ? 'fas fa-pencil-alt' : 'fas fa-plus';
@@ -1646,8 +1606,8 @@
                 currentOrderType = e.target.value;
                 clientData = { name: null, contact: null, address: null, table: null, observation: null };
                 paymentMethod = null;
-                updateOrderDisplay();
                 updateClientDataSummary();
+                updateOrderDisplay();
             });
             orderItemsContainer.addEventListener('click', (e) => {
                 const removeBtn = e.target.closest('.remove-item-btn');
@@ -1667,7 +1627,7 @@
                     if (index !== -1) {
                         const itemToEdit = order[index];
                         if (itemToEdit.originalItem) openBurgerBuilderModal(itemToEdit.originalItem, index, itemToEdit);
-                        else { // Caso o item original não esteja disponível, tente usar um hambúrguer genérico como base
+                        else {
                             const baseBurger = allItems.find(item => item.isCustomizable);
                             if(baseBurger) openBurgerBuilderModal(baseBurger, index, itemToEdit);
                         }
@@ -1677,38 +1637,24 @@
 
             // --- SETUP ALL MODAL LISTENERS (Simplified) ---
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
-            document.getElementById('open-ai-modal-btn').addEventListener('click', () => {
-                console.log('[v0] Botão IA clicado');
-                const modal = document.getElementById('ai-order-modal');
-                console.log('[v0] Modal encontrado:', modal);
-                console.log('[v0] Computed styles antes:', window.getComputedStyle(modal).display, window.getComputedStyle(modal).visibility, window.getComputedStyle(modal).zIndex);
-                
-                modal.style.display = 'flex';
-                modal.style.visibility = 'visible';
-                
-                const computedStyle = window.getComputedStyle(modal);
-                console.log('[v0] Computed styles depois:', computedStyle.display, computedStyle.visibility, computedStyle.zIndex);
-                console.log('[v0] Position:', computedStyle.position);
-                console.log('[v0] Top/Left:', computedStyle.top, computedStyle.left);
-                console.log('[v0] Width/Height:', computedStyle.width, computedStyle.height);
-                console.log('[v0] Opacity:', computedStyle.opacity);
-                console.log('[v0] Background-color:', computedStyle.backgroundColor);
-                console.log('[v0] Bounding rect:', modal.getBoundingClientRect());
-                
-                const modalContent = modal.querySelector('.modal-content');
-                const contentStyle = window.getComputedStyle(modalContent);
-                console.log('[v0] Modal content display:', contentStyle.display);
-                console.log('[v0] Modal content visibility:', contentStyle.visibility);
-                console.log('[v0] Modal content opacity:', contentStyle.opacity);
-                console.log('[v0] Modal content background:', contentStyle.backgroundColor);
-                console.log('[v0] Modal content rect:', modalContent.getBoundingClientRect());
-                
-                modal.querySelector('#whatsapp-paste-area').value = '';
-                modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-                modal.querySelector('#ai-error-message').classList.add('hidden');
-                modal.querySelector('#confirm-ai-order-btn').disabled = true;
-                parsedAiOrder = null;
-            });
+            
+            const aiModalBtn = document.getElementById('open-ai-modal-btn');
+            if (aiModalBtn) {
+                 aiModalBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const modal = document.getElementById('ai-order-modal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        modal.querySelector('#whatsapp-paste-area').value = '';
+                        modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+                        modal.querySelector('#ai-error-message').classList.add('hidden');
+                        modal.querySelector('#confirm-ai-order-btn').disabled = true;
+                        parsedAiOrder = null;
+                    }
+                });
+            }
 
             // --- Listeners for buttons INSIDE modals (that don't close them) ---
             document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
@@ -1983,8 +1929,8 @@ ${menuForAI}`;
                                         price: combinedPrice,
                                         category: 'PIZZA(s) MEIA A MEIA',
                                         selected_slices: slices,
-                                        firstHalfData: { ...item1, price: price1, applicableExtras: item1.applicableExtras || [] }, // Pass applicableExtras
-                                        secondHalfData: { ...item2, price: price2, applicableExtras: item2.applicableExtras || [] }, // Pass applicableExtras
+                                        firstHalfData: { ...item1, price: price1 },
+                                        secondHalfData: { ...item2, price: price2 },
                                         acceptsExtras: item1.acceptsExtras || item2.acceptsExtras,
                                         notes: itemFromAI.notes
                                     });
@@ -2137,7 +2083,7 @@ ${menuForAI}`;
 
             const orderIndex = parseInt(document.getElementById('pizza-extras-builder-modal').dataset.orderIndex);
             const display = target.parentElement.querySelector('.quantity-display');
-            const extraContainer = target.closest('[data-id]'); // Use data-id for extras
+            const extraContainer = target.closest('[data-name]');
             const ingredientLimit = parseInt(extraContainer.dataset.limit);
 
             let quantity = parseInt(display.textContent);
@@ -2171,16 +2117,15 @@ ${menuForAI}`;
             const activeScope = document.querySelector('#pizza-extras-scope-buttons .active')?.dataset.scope || 'toda';
             const extraName = extraContainer.dataset.name;
             const extraPrice = parseFloat(extraContainer.dataset.price);
-            const extraId = extraContainer.dataset.id; // Get the ID
 
-            const existingExtraIndex = currentPizzaExtrasState[activeScope].findIndex(ex => ex.id === extraId); // Match by ID
+            const existingExtraIndex = currentPizzaExtrasState[activeScope].findIndex(ex => ex.name === extraName);
             
             if (quantity > 0) {
                 const placementText = activeScope === 'toda' ? 'Toda' : (activeScope === 'metade1' ? '1ª Metade' : '2ª Metade');
                 if (existingExtraIndex > -1) {
                     currentPizzaExtrasState[activeScope][existingExtraIndex].quantity = quantity;
                 } else {
-                    currentPizzaExtrasState[activeScope].push({ id: extraId, name: extraName, price: extraPrice, placement: placementText, quantity: quantity });
+                    currentPizzaExtrasState[activeScope].push({ name: extraName, price: extraPrice, placement: placementText, quantity: quantity });
                 }
             } else {
                 if (existingExtraIndex > -1) {
@@ -2392,7 +2337,7 @@ ${menuForAI}`;
 
         function updateClientDataSummary() {
             const summaryDiv = document.getElementById('client-data-summary');
-            if (!clientData.name && !clientData.table && !clientData.address) { // Check for address too
+            if (!clientData.name && !clientData.table) {
                 summaryDiv.classList.add('hidden');
                 return;
             }
@@ -2582,3 +2527,4 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
+
