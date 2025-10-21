@@ -17,12 +17,12 @@
         }
         .main-container {
             display: grid;
-            grid-template-columns: 0px 1fr; /* Começa com a barra lateral escondida */
+            grid-template-columns: 0px 1fr;
             height: 100vh;
             transition: grid-template-columns: 0.3s ease-in-out;
         }
         .main-container.sidebar-open {
-            grid-template-columns: 80px 1fr; /* Mostra a barra lateral */
+            grid-template-columns: 80px 1fr;
         }
         .main-content {
             display: grid;
@@ -113,6 +113,14 @@
             background-color: rgba(0,0,0,0.5);
             justify-content: center;
             align-items: center;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+        .modal.modal-visible {
+            display: flex;
+        }
+        .modal.modal-show {
+            opacity: 1;
         }
         .modal-content {
              background-color: #fff;
@@ -582,7 +590,6 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, query, getDocs, deleteDoc, where, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-        // CORREÇÃO: Envolver toda a lógica em 'DOMContentLoaded' para garantir que o DOM esteja pronto.
         document.addEventListener('DOMContentLoaded', () => {
             console.log("--- DOM totalmente carregado e analisado ---");
 
@@ -599,7 +606,7 @@
             const auth = getAuth(app);
             const db = getFirestore(app);
 
-            // Variáveis de estado da aplicação
+            // Variáveis de estado
             let allItems = [], allIngredients = {}, allPizzaExtras = {}, allDeliveryFees = [];
             let order = [];
             let currentUserEmail = '';
@@ -619,7 +626,7 @@
             const NUMERO_DE_MESAS = 12;
             let parsedAiOrder = null; 
 
-            // Referências aos modais (preenchidas em initializeAppLogic)
+            // Referências aos modais
             let aiOrderModal, clientDataModal, pizzaOptionModal, burgerBuilderModal, pizzaExtrasBuilderModal, askPizzaExtrasModal, alertModal, confirmModal;
 
             onAuthStateChanged(auth, (user) => {
@@ -638,13 +645,34 @@
 
             document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
             
+            // --- Funções de Modal Genéricas (CORRIGIDAS) ---
+            function openModal(modal) {
+                if (!modal) {
+                    console.error("Tentativa de abrir um modal nulo.");
+                    return;
+                }
+                modal.classList.add('modal-visible');
+                // Força o navegador a processar o 'display' antes de aplicar a opacidade
+                void modal.offsetHeight; 
+                modal.classList.add('modal-show');
+            }
+
+            function closeModal(modal) {
+                if (!modal) return;
+                modal.classList.remove('modal-show');
+                // Espera a transição de opacidade terminar para remover o display
+                setTimeout(() => {
+                    modal.classList.remove('modal-visible');
+                }, 200); // Deve corresponder à duração da transição no CSS
+            }
+            
             function showAlert(message) {
                 if(!alertModal) return;
                 const messageEl = alertModal.querySelector('#alert-message');
                 const okBtn = alertModal.querySelector('#alert-ok-btn');
                 messageEl.textContent = message;
-                alertModal.style.display = 'flex';
-                const closeHandler = () => alertModal.style.display = 'none';
+                openModal(alertModal);
+                const closeHandler = () => closeModal(alertModal);
                 okBtn.addEventListener('click', closeHandler, { once: true });
             }
 
@@ -671,9 +699,9 @@
                     const yesBtn = confirmModal.querySelector('#confirm-yes-btn');
                     const noBtn = confirmModal.querySelector('#confirm-no-btn');
                     messageEl.textContent = message;
-                    confirmModal.style.display = 'flex';
+                    openModal(confirmModal);
                     const close = (result) => {
-                        confirmModal.style.display = 'none';
+                        closeModal(confirmModal);
                         yesBtn.removeEventListener('click', yesHandler);
                         noBtn.removeEventListener('click', noHandler);
                         resolve(result);
@@ -688,7 +716,6 @@
             async function initializeAppLogic() {
                 console.log("--- TESTE 4: initializeAppLogic() INICIADA. ---");
                 
-                // CORREÇÃO: Buscar referências para todos os modais uma vez na inicialização.
                 aiOrderModal = document.getElementById('ai-order-modal');
                 clientDataModal = document.getElementById('client-data-modal');
                 pizzaOptionModal = document.getElementById('pizza-option-modal');
@@ -699,7 +726,6 @@
                 confirmModal = document.getElementById('confirm-modal');
                 
                 if (!aiOrderModal) console.error("Modal de IA não encontrado!");
-
 
                 listenToStatusChanges();
                 await fetchMenu();
@@ -1038,8 +1064,8 @@
                 order.push(itemWithId);
                 updateOrderDisplay();
                 if(acceptsExtras && (product.type === 'full' || product.type === 'split')){
+                     openModal(askPizzaExtrasModal);
                      askPizzaExtrasModal.dataset.uniqueId = uniqueId;
-                     askPizzaExtrasModal.style.display = 'flex';
                 }
             }
 
@@ -1071,7 +1097,7 @@
                         `;
                         optionDiv.querySelector('.add-full-pizza-btn').addEventListener('click', () => {
                              addToOrder({ ...pizza, id: pizza.id, name: `${size.label}: ${pizza.name}`, price: pizza[size.priceKey], type: 'full' });
-                             pizzaOptionModal.style.display = 'none';
+                             closeModal(pizzaOptionModal);
                         });
                         if(allowsHalf) {
                             optionDiv.querySelector('.add-half-pizza-btn').addEventListener('click', () => {
@@ -1080,13 +1106,13 @@
                                 firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: isPromotional };
                                 document.getElementById('product-display').classList.add('half-pizza-selection-active');
                                 showTemporaryFeedback(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
-                                pizzaOptionModal.style.display = 'none';
+                                closeModal(pizzaOptionModal);
                             });
                         }
                         sizeContainer.appendChild(optionDiv);
                     }
                 });
-                pizzaOptionModal.style.display = 'flex';
+                openModal(pizzaOptionModal);
             }
             
             function openBurgerBuilderModal(burger, editIndex = null, existingItem = null) {
@@ -1143,7 +1169,7 @@
                 addBtn.onclick = () => addCustomBurgerToOrder(editIndex);
                 addBtn.textContent = editIndex !== null ? 'Atualizar Hambúrguer' : 'Adicionar ao Pedido';
                 updateBurgerPrice();
-                burgerBuilderModal.style.display = 'flex';
+                openModal(burgerBuilderModal);
             }
             
             function updateBurgerPrice() {
@@ -1217,7 +1243,7 @@
                 };
                 if (editIndex !== null) order[editIndex] = newBurger;
                 else addToOrder(newBurger);
-                burgerBuilderModal.style.display = 'none';
+                closeModal(burgerBuilderModal);
                 updateOrderDisplay();
             }
 
@@ -1256,7 +1282,7 @@
                 }
                 renderPizzaExtrasList(orderIndex);
                 updatePizzaExtrasPrice(orderIndex);
-                pizzaExtrasBuilderModal.style.display = 'flex';
+                openModal(pizzaExtrasBuilderModal);
             }
             
             function renderPizzaExtrasList(orderIndex) {
@@ -1335,7 +1361,7 @@
                 pizzaItem.extras = finalExtras;
                 pizzaItem.price = basePrice + finalExtrasPrice;
                 updateOrderDisplay();
-                pizzaExtrasBuilderModal.style.display = 'none';
+                closeModal(pizzaExtrasBuilderModal);
             }
 
             function updateOrderDisplay() {
@@ -1429,8 +1455,8 @@
                     aiOrderModal.querySelector('#ai-error-message').classList.add('hidden');
                     aiOrderModal.querySelector('#confirm-ai-order-btn').disabled = true;
                     parsedAiOrder = null;
-                    aiOrderModal.style.display = 'flex';
-                    console.log("C. Estilo do modal AI alterado para 'flex'.");
+                    openModal(aiOrderModal);
+                    console.log("C. Função openModal chamada para o modal de IA.");
                 } else {
                      console.error("ERRO CRÍTICO: A variável do modal de IA é nula.");
                 }
@@ -1441,11 +1467,11 @@
                     console.log("--- TESTE 5: setupEventListeners() INICIADA. ---");
                     
                     document.body.addEventListener('click', (e) => {
-                        if (e.target.matches('.modal')) e.target.style.display = 'none';
+                        if (e.target.matches('.modal')) closeModal(e.target);
                         const closeModalBtn = e.target.closest('.close-modal-btn');
                         if (closeModalBtn) {
                             const modalToClose = closeModalBtn.closest('.modal');
-                            if(modalToClose) modalToClose.style.display = 'none';
+                            if(modalToClose) closeModal(modalToClose);
                         }
                     });
 
@@ -1503,7 +1529,7 @@
                     document.getElementById('ask-extras-yes-btn')?.addEventListener('click', () => {
                         const uniqueId = askPizzaExtrasModal.dataset.uniqueId;
                         openPizzaExtrasBuilderModal(uniqueId);
-                        askPizzaExtrasModal.style.display = 'none';
+                        closeModal(askPizzaExtrasModal);
                     });
                     
                     document.getElementById('add-pizza-with-extras-btn')?.addEventListener('click', confirmPizzaExtras);
@@ -1676,7 +1702,7 @@
                 });
                 updateClientDataSummary();
                 updateOrderDisplay();
-                aiOrderModal.style.display = 'none';
+                closeModal(aiOrderModal);
                 showTemporaryFeedback("Pedido montado com IA e adicionado ao carrinho!");
             }
 
@@ -1830,8 +1856,8 @@
                     if (isCash && paymentMethod && typeof paymentMethod === 'object' && paymentMethod.trocoPara) trocoParaInput.value = paymentMethod.trocoPara;
                     else trocoParaInput.value = '';
                     calculateTroco();
-                    clientDataModal.style.display = 'flex';
-                    console.log("3. Estilo do modal Cliente alterado para 'flex'.");
+                    openModal(clientDataModal);
+                    console.log("3. Função openModal chamada para o modal de cliente.");
                 } else {
                      console.error("ERRO CRÍTICO: A variável do modal de cliente é nula.");
                 }
@@ -1893,7 +1919,7 @@
                 } else { finalPaymentData = method; }
                 clientData = currentClientData;
                 paymentMethod = finalPaymentData;
-                clientDataModal.style.display = 'none';
+                closeModal(clientDataModal);
                 updateClientDataSummary();
                 updateOrderDisplay();
                 await finalizeOrder();
