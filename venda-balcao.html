@@ -102,7 +102,7 @@
             color: white;
         }
         .modal {
-            display: none; /* Inicia oculto */
+            display: flex;
             position: fixed;
             z-index: 1000;
             left: 0;
@@ -113,9 +113,13 @@
             background-color: rgba(0,0,0,0.5);
             justify-content: center;
             align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s;
         }
         .modal.show {
-            display: flex !important; /* Força a exibição */
+            opacity: 1;
+            visibility: visible;
         }
         .modal-content {
              background-color: #fff;
@@ -2004,6 +2008,4 @@
     </script>
 </body>
 </html>
-"
-I have provided my feedback in the following user query.
 
