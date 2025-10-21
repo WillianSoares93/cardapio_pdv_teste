@@ -790,11 +790,20 @@
 
                 const itemPrice = item.price || item.basePrice || 0;
 
+                const trimmedImageUrl = String(item.imageUrl || '').trim();
+                let imageElement = '';
+
+                if (trimmedImageUrl.toLowerCase() === 'sem imagem' || !trimmedImageUrl) {
+                    imageElement = `<div class="w-full h-24 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm rounded-t-md">Sâmia</div>`;
+                } else {
+                    imageElement = `<img src="${trimmedImageUrl}" alt="${item.name}" class="w-full h-24 object-cover rounded-t-md" onerror="this.onerror=null; this.parentElement.innerHTML = '<div class=\\'w-full h-24 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm rounded-t-md\\'>Sâmia</div>';">`;
+                }
+
                 card.innerHTML = `
-                    <img src="${item.imageUrl || 'https://via.placeholder.com/120'}" alt="${item.name}" class="w-full h-24 object-cover rounded-t-md">
+                    ${imageElement}
                     <div class="p-2 flex-grow flex flex-col justify-between">
                         <h4 class="text-xs font-bold text-gray-800 truncate">${item.name}</h4>
-                        <p class="text-xs text-gray-500">${item.category}</p>
+                        <p class="text-xs text-gray-500">${item.category || ''}</p>
                         <p class="text-sm font-bold text-green-600 mt-1">R$ ${itemPrice.toFixed(2).replace('.', ',')}</p>
                     </div>
                 `;
@@ -1029,7 +1038,8 @@
                             openPizzaExtrasBuilderModal(uniqueId);
                         } else {
                             // Outros itens customizáveis (se houver)
-                            addItemToOrder(itemToEdit, 1, itemToEdit.options); // Simplesmente re-adiciona, pode ser refatorado
+                            // Pode ser necessário um modal genérico de edição de item
+                            console.warn("Edição de item simples não implementada.");
                         }
                     }
                 });
@@ -2121,26 +2131,19 @@
                 );
 
                 if (itemInMenu) {
-                    // Cria um item para adicionar ao pedido
+                    const itemPriceInMenu = itemInMenu.price || itemInMenu.basePrice;
+
                     const newItem = {
-                        ...itemInMenu, // Mantém todas as propriedades do item do cardápio
-                        uniqueId: `${itemInMenu.id}-${Date.now()}`, // ID único temporário
+                        ...itemInMenu, 
+                        uniqueId: `${itemInMenu.id}-${Date.now()}`,
                         quantity: aiItem.quantity,
-                        price: itemInMenu.price, // Usa o preço do cardápio como base
-                        options: { // Inicializa opções
-                             // Tenta extrair adicionais ou detalhes se estiverem na descrição do AI
-                             // Isso pode exigir processamento mais avançado da resposta da IA
-                        }
+                        price: itemPriceInMenu, 
+                        options: {}
                     };
                     
-                    // Se o item da IA especifica um preço e é diferente do cardápio, pode haver uma consideração.
-                    // Por segurança, usamos o preço do cardápio, a menos que seja uma promoção explícita.
-                    if (aiItem.price && aiItem.price !== itemInMenu.price && !itemInMenu.isPromotion) {
-                        console.warn(`Preço do item AI (${aiItem.name}) é diferente do cardápio. Usando preço do cardápio: R$ ${itemInMenu.price.toFixed(2).replace('.', ',')}`);
-                        // Poderia habilitar o uso do preço da IA com confirmação, se necessário:
-                        // newItem.price = aiItem.price;
+                    if (aiItem.price && itemPriceInMenu !== undefined && aiItem.price !== itemPriceInMenu && !itemInMenu.isPromotion) {
+                        console.warn(`Preço do item AI (${aiItem.name}) é diferente do cardápio. Usando preço do cardápio: R$ ${itemPriceInMenu.toFixed(2).replace('.', ',')}`);
                     } else if (aiItem.price && itemInMenu.isPromotion) {
-                        // Se for promoção, usa o preço da promoção
                         newItem.price = aiItem.promoPrice || aiItem.price;
                     }
 
@@ -2148,7 +2151,6 @@
                     successfullyAddedCount++;
                 } else {
                     console.warn(`Item da IA "${aiItem.name}" não encontrado no cardápio.`);
-                    // Poderia adicionar um item "genérico" ou notificar o usuário
                 }
             }
 
