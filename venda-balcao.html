@@ -102,7 +102,7 @@
             color: white;
         }
         .modal {
-            display: flex;
+            display: none; /* Inicia oculto */
             position: fixed;
             z-index: 1000;
             left: 0;
@@ -113,14 +113,9 @@
             background-color: rgba(0,0,0,0.5);
             justify-content: center;
             align-items: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s ease-in-out, visibility 0s linear 0.2s; /* Oculta após o fade out */
         }
         .modal.show {
-            opacity: 1;
-            visibility: visible;
-            transition: opacity 0.2s ease-in-out; /* Fade in */
+            display: flex !important; /* Força a exibição */
         }
         .modal-content {
              background-color: #fff;
