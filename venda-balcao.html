@@ -113,6 +113,13 @@
             background-color: rgba(0,0,0,0.5);
             justify-content: center;
             align-items: center;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            pointer-events: none;
+        }
+        .modal.show {
+            opacity: 1;
+            pointer-events: auto;
         }
         .modal-content {
              background-color: #fff;
@@ -363,7 +370,7 @@
         <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="modal-pizza-name" class="text-xl font-bold text-gray-900"></h3>
-                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
+                <button class="close-modal-btn text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
             <div id="pizza-size-options" class="mt-4 space-y-2"></div>
         </div>
@@ -374,7 +381,7 @@
         <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="modal-burger-name" class="text-xl font-bold text-gray-900">Monte seu Hambúrguer</h3>
-                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
+                <button class="close-modal-btn text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
             <div id="burger-ingredients-container" class="mt-4 mb-4 max-h-80 overflow-y-auto p-2 space-y-4"></div>
             <div class="flex justify-between items-center bg-gray-100 p-4 rounded-lg mt-4">
@@ -382,7 +389,7 @@
                 <span id="burger-total-price" class="text-2xl font-bold text-blue-600">R$ 0,00</span>
             </div>
             <div class="mt-6 flex justify-end space-x-4">
-                <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" onclick="this.closest('.modal').style.display='none'">Cancelar</button>
+                <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
                 <button id="add-custom-burger-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Adicionar ao Pedido</button>
             </div>
         </div>
@@ -393,7 +400,7 @@
          <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="pizza-extras-builder-title" class="text-xl font-bold text-gray-900">Adicionais para a Pizza</h3>
-                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
+                <button class="close-modal-btn text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
             <div id="pizza-extras-scope-buttons" class="flex flex-wrap gap-2 my-4 border-b pb-4"></div>
             <div id="pizza-extras-ingredients-container" class="mb-4 max-h-80 overflow-y-auto p-2"></div>
@@ -412,7 +419,7 @@
         <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
              <p class="text-lg font-semibold text-gray-800 mb-4 text-center">Deseja adicionar ingredientes extras?</p>
             <div class="flex justify-center gap-4">
-                <button class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold hover:bg-gray-400 transition" onclick="this.closest('.modal').style.display='none'">Não, obrigado</button>
+                <button class="close-modal-btn px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold hover:bg-gray-400 transition">Não, obrigado</button>
                 <button id="ask-extras-yes-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition">Sim, quero!</button>
             </div>
         </div>
@@ -446,7 +453,7 @@
             <!-- HEADER (Fixed) -->
             <div class="flex justify-between items-center pb-3 border-b sticky top-0 bg-white z-20">
                 <h3 id="client-modal-title" class="text-xl font-bold text-gray-900">Dados do Cliente e Pagamento</h3>
-                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
+                <button class="close-modal-btn text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
             
             <!-- SCROLLABLE BODY -->
@@ -551,7 +558,7 @@
                 </div>
             <!-- END OF SCROLLABLE BODY -->
             <div class="mt-6 flex justify-end space-x-4">
-                <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" onclick="this.closest('.modal').style.display='none'">Cancelar</button>
+                <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
                 <button id="confirm-client-data-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700">Confirmar e Finalizar</button>
             </div>
         </div>
@@ -562,7 +569,7 @@
         <div class="modal-content !max-w-3xl">
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 class="text-xl font-bold text-gray-900">Montar Pedido com IA</h3>
-                <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold" onclick="this.closest('.modal').style.display='none'">&times;</button>
+                <button class="close-modal-btn text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Coluna de Entrada -->
@@ -654,6 +661,23 @@
         });
 
         document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+        
+        // --- Funções de Modal Genéricas ---
+        function openModal(modal) {
+            if (!modal) return;
+            modal.style.display = 'flex';
+            setTimeout(() => { // Garante que a transição CSS seja acionada
+                modal.classList.add('show');
+            }, 10);
+        }
+
+        function closeModal(modal) {
+            if (!modal) return;
+            modal.classList.remove('show');
+            setTimeout(() => { // Aguarda a transição terminar antes de esconder
+                modal.style.display = 'none';
+            }, 200); // Deve corresponder à duração da transição no CSS
+        }
 
         function showAlert(message) {
             const modal = document.getElementById('alert-modal');
@@ -661,17 +685,16 @@
             const okBtn = document.getElementById('alert-ok-btn');
 
             messageEl.textContent = message;
-            modal.style.display = 'flex';
+            openModal(modal);
 
             const closeHandler = () => {
-                modal.style.display = 'none';
+                closeModal(modal)
                 modal.removeEventListener('click', modalCloseHandler);
                 okBtn.removeEventListener('click', closeHandler);
             };
 
             const modalCloseHandler = (e) => {
                 if (e.target === modal) {
-                    console.warn("--> Fechando modal 'alert-modal' via clique no fundo.");
                     closeHandler();
                 }
             };
@@ -706,10 +729,10 @@
                 const noBtn = document.getElementById('confirm-no-btn');
 
                 messageEl.textContent = message;
-                modal.style.display = 'flex';
+                openModal(modal);
 
                 const close = (result) => {
-                    modal.style.display = 'none';
+                    closeModal(modal);
                     yesBtn.removeEventListener('click', yesHandler);
                     noBtn.removeEventListener('click', noHandler);
                     modal.removeEventListener('click', modalCloseHandler);
@@ -720,7 +743,6 @@
                 const noHandler = () => close(false);
                  const modalCloseHandler = (e) => {
                     if (e.target === modal) {
-                        console.warn("--> Fechando modal 'confirm-modal' via clique no fundo.");
                         close(false);
                     }
                 };
@@ -1129,12 +1151,13 @@
                 setTimeout(() => {
                     const askModal = document.getElementById('ask-pizza-extras-modal');
                     askModal.dataset.uniqueId = uniqueId;
-                    askModal.style.display = 'flex';
+                    openModal(askModal);
                 }, 100);
             }
         }
 
         function openPizzaOptionsModal(pizza) {
+            const modal = document.getElementById('pizza-option-modal');
             document.getElementById('modal-pizza-name').textContent = pizza.name;
             const sizeContainer = document.getElementById('pizza-size-options');
             sizeContainer.innerHTML = '';
@@ -1169,7 +1192,7 @@
                             price: pizza[size.priceKey],
                             type: 'full'
                         });
-                        document.getElementById('pizza-option-modal').style.display = 'none';
+                        closeModal(modal);
                     });
 
                     if(allowsHalf) {
@@ -1179,13 +1202,13 @@
                             firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: isPromotional };
                             document.getElementById('product-display').classList.add('half-pizza-selection-active');
                             showTemporaryFeedback(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
-                            document.getElementById('pizza-option-modal').style.display = 'none';
+                            closeModal(modal);
                         });
                     }
                     sizeContainer.appendChild(optionDiv);
                 }
             });
-            document.getElementById('pizza-option-modal').style.display = 'flex';
+            openModal(modal);
         }
         
         function openBurgerBuilderModal(burger, editIndex = null, existingItem = null) {
@@ -1253,7 +1276,7 @@
             addBtn.textContent = editIndex !== null ? 'Atualizar Hambúrguer' : 'Adicionar ao Pedido';
             
             updateBurgerPrice();
-            modal.style.display = 'flex';
+            openModal(modal);
         }
         
         function updateBurgerPrice() {
@@ -1339,7 +1362,7 @@
                 addToOrder(newBurger);
             }
 
-            modal.style.display = 'none';
+            closeModal(modal);
             updateOrderDisplay();
         }
 
@@ -1382,7 +1405,7 @@
 
             renderPizzaExtrasList(orderIndex);
             updatePizzaExtrasPrice(orderIndex);
-            modal.style.display = 'flex';
+            openModal(modal);
         }
         
         function renderPizzaExtrasList(orderIndex) {
@@ -1447,7 +1470,8 @@
         }
         
         function confirmPizzaExtras() {
-            const orderIndex = parseInt(document.getElementById('pizza-extras-builder-modal').dataset.orderIndex);
+            const modal = document.getElementById('pizza-extras-builder-modal');
+            const orderIndex = parseInt(modal.dataset.orderIndex);
             if (isNaN(orderIndex)) return;
             
             const pizzaItem = order[orderIndex];
@@ -1472,7 +1496,7 @@
             pizzaItem.price = basePrice + finalExtrasPrice;
             
             updateOrderDisplay();
-            document.getElementById('pizza-extras-builder-modal').style.display = 'none';
+            closeModal(modal);
         }
 
         function updateOrderDisplay() {
@@ -1588,36 +1612,30 @@
         function openAiModal() {
             console.log("A. Entrou na função openAiModal.");
             const modal = document.getElementById('ai-order-modal');
-            console.log("B. Elemento do modal AI encontrado:", modal);
-
+            
             if (modal) {
-                modal.style.display = 'flex';
-                void modal.offsetWidth; // FORÇA O REPAINT/REFLOW
-                console.log("C. Estilo do modal AI alterado para 'flex' e repaint forçado.");
-
                 modal.querySelector('#whatsapp-paste-area').value = '';
                 modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
                 modal.querySelector('#ai-error-message').classList.add('hidden');
                 modal.querySelector('#confirm-ai-order-btn').disabled = true;
                 parsedAiOrder = null;
-
-                const closeHandler = (e) => {
-                    if (e.target === modal) {
-                        console.warn(`--> Fechando modal '${modal.id}' devido a clique no fundo.`);
-                        modal.style.display = 'none';
-                        modal.removeEventListener('click', closeHandler);
-                    } else {
-                        console.log(`--> Clique detectado DENTRO do modal '${modal.id}'. Nenhuma ação tomada.`);
-                    }
-                };
-                // CORREÇÃO: Adiciona o event listener no próximo ciclo de eventos para evitar problemas de renderização.
-                setTimeout(() => modal.addEventListener('click', closeHandler), 0);
+                openModal(modal);
             }
         }
         
         async function setupEventListeners() {
             try {
                 console.log("--- TESTE 5: setupEventListeners() INICIADA. ---");
+                
+                document.body.addEventListener('click', (e) => {
+                    // Lógica para fechar modais
+                    const closeModalBtn = e.target.closest('.close-modal-btn');
+                    if (closeModalBtn) {
+                        const modalToClose = e.target.closest('.modal');
+                        closeModal(modalToClose);
+                    }
+                });
+
                 // --- Elementos Principais ---
                 const mainContainer = document.querySelector('.main-container');
                 const sidebar = document.querySelector('.sidebar-nav');
@@ -1727,10 +1745,9 @@
                     const askModal = document.getElementById('ask-pizza-extras-modal');
                     const uniqueId = askModal.dataset.uniqueId;
                     openPizzaExtrasBuilderModal(uniqueId);
-                    askModal.style.display = 'none';
+                    closeModal(askModal);
                 });
                 
-                document.getElementById('add-custom-burger-btn').addEventListener('click', () => addCustomBurgerToOrder(document.getElementById('burger-builder-modal').dataset.editIndex || null));
                 document.getElementById('add-pizza-with-extras-btn').addEventListener('click', confirmPizzaExtras);
                 document.getElementById('confirm-client-data-btn').addEventListener('click', confirmClientData);
                 document.getElementById('analyze-ai-btn').addEventListener('click', handleAnalyzeAI);
@@ -2021,7 +2038,7 @@ ${menuForAI}`;
 
             updateClientDataSummary();
             updateOrderDisplay();
-            document.getElementById('ai-order-modal').style.display = 'none';
+            closeModal(document.getElementById('ai-order-modal'));
             showTemporaryFeedback("Pedido montado com IA e adicionado ao carrinho!");
         }
 
@@ -2290,21 +2307,7 @@ ${menuForAI}`;
                 }
             }
             
-            modal.style.display = 'flex';
-            void modal.offsetWidth; // FORÇA O REPAINT/REFLOW
-            console.log("3. Estilo do modal Cliente alterado para 'flex' e repaint forçado.");
-            
-            const closeHandler = (e) => {
-                if (e.target === modal) {
-                    console.warn(`--> Fechando modal '${modal.id}' devido a clique no fundo.`);
-                    modal.style.display = 'none';
-                    modal.removeEventListener('click', closeHandler);
-                } else {
-                    console.log(`--> Clique detectado DENTRO do modal '${modal.id}'. Nenhuma ação tomada.`);
-                }
-            };
-            // CORREÇÃO: Adiciona o event listener no próximo ciclo de eventos para evitar problemas de renderização.
-            setTimeout(() => modal.addEventListener('click', closeHandler), 0);
+            openModal(modal);
         }
         
         function calculateTroco() {
@@ -2408,7 +2411,7 @@ ${menuForAI}`;
             clientData = currentClientData;
             paymentMethod = finalPaymentData;
 
-            document.getElementById('client-data-modal').style.display = 'none';
+            closeModal(document.getElementById('client-data-modal'));
             updateClientDataSummary();
             updateOrderDisplay();
             
@@ -2607,3 +2610,4 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
+
