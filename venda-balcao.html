@@ -102,7 +102,7 @@
             color: white;
         }
         .modal {
-            display: flex;
+            display: none; /* Inicia oculto */
             position: fixed;
             z-index: 1000;
             left: 0;
@@ -113,13 +113,9 @@
             background-color: rgba(0,0,0,0.5);
             justify-content: center;
             align-items: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s ease, visibility 0.2s;
         }
         .modal.show {
-            opacity: 1;
-            visibility: visible;
+            display: flex !important; /* Força a exibição */
         }
         .modal-content {
              background-color: #fff;
@@ -633,6 +629,7 @@
                 if (user) {
                     console.log("--- TESTE 3: Usuário AUTENTICADO. Chamando AppLogic... ---");
                     document.body.style.visibility = 'visible';
+                    document.body.style.overflow = 'auto'; // CORREÇÃO: Remove o overflow hidden
                     currentUserEmail = user.email;
                     const currentUserEl = document.getElementById('current-user');
                     if (currentUserEl) currentUserEl.textContent = currentUserEmail;
@@ -644,7 +641,7 @@
 
             document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
             
-            // --- Funções de Modal Genéricas (CORRIGIDAS) ---
+            // --- Funções de Modal Genéricas (SIMPLIFICADAS) ---
             function openModal(modal) {
                 if (!modal) {
                     console.error("Tentativa de abrir um modal nulo.");
