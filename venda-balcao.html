@@ -102,7 +102,7 @@
             color: white;
         }
         .modal {
-            display: none;
+            display: flex;
             position: fixed;
             z-index: 1000;
             left: 0;
@@ -114,13 +114,13 @@
             justify-content: center;
             align-items: center;
             opacity: 0;
-            transition: opacity 0.2s ease-in-out;
+            visibility: hidden;
+            transition: opacity 0.2s ease-in-out, visibility 0s linear 0.2s; /* Oculta após o fade out */
         }
-        .modal.modal-visible {
-            display: flex;
-        }
-        .modal.modal-show {
+        .modal.show {
             opacity: 1;
+            visibility: visible;
+            transition: opacity 0.2s ease-in-out; /* Fade in */
         }
         .modal-content {
              background-color: #fff;
@@ -651,19 +651,12 @@
                     console.error("Tentativa de abrir um modal nulo.");
                     return;
                 }
-                modal.classList.add('modal-visible');
-                // Força o navegador a processar o 'display' antes de aplicar a opacidade
-                void modal.offsetHeight; 
-                modal.classList.add('modal-show');
+                modal.classList.add('show');
             }
 
             function closeModal(modal) {
                 if (!modal) return;
-                modal.classList.remove('modal-show');
-                // Espera a transição de opacidade terminar para remover o display
-                setTimeout(() => {
-                    modal.classList.remove('modal-visible');
-                }, 200); // Deve corresponder à duração da transição no CSS
+                modal.classList.remove('show');
             }
             
             function showAlert(message) {
@@ -2016,4 +2009,6 @@
     </script>
 </body>
 </html>
+"
+I have provided my feedback in the following user query.
 
