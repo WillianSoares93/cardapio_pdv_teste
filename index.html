@@ -3435,8 +3435,12 @@
             closeConfirmNoDrinkModalBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
             confirmNoDrinkYesBtn.addEventListener('click', function() {
                 confirmNoDrinkModal.style.display = 'none';
-                if (selectedPaymentMethod) { proceedToWhatsappCheckout(); }
-                else { isCheckoutInitiated = true; openPaymentMethodModal(true); }
+                if (selectedPaymentMethod) {
+                    proceedToWhatsappCheckout(); // Chama a função aqui
+                } else {
+                    isCheckoutInitiated = true;
+                    openPaymentMethodModal(true);
+                }
             });
             confirmNoDrinkNoBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
             closePaymentMethodModalBtn.addEventListener('click', closePaymentMethodModal);
