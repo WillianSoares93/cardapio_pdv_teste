@@ -771,8 +771,8 @@
                         document.querySelector('input[name="orderType"][value="Mesa"]').checked = true;
                         
                         const mesaText = orderData.endereco.clientName || '';
-                        clientData.table = mesaText.match(/\d+/)?.[0]; 
-                        const clientNameMatch = mesaText.match(/\((.*?)\)/);
+                        clientData.table = mesaText.match(/d+/)?.[0]; 
+                        const clientNameMatch = mesaText.match(/((.*?))/);
                         clientData.name = clientNameMatch ? clientNameMatch[1] : '';
                     
                     } else if (orderData.endereco.rua === "Retirada no Balcão") {
@@ -1215,7 +1215,7 @@
                         if (existingItem && existingItem.ingredients) {
                             const existingIng = existingItem.ingredients.find(i => i.name.startsWith(ing.name));
                             if(existingIng) {
-                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/\(x(\d+)\)/)[1]) : 1;
+                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/(x(d+))/)[1]) : 1;
                             }
                         }
                          categoryHtml += `
@@ -1718,14 +1718,14 @@
                             priceInfo = `Preços: ${prices}`;
                         }
                         return `- ${item.name} (${item.category}): ${priceInfo}`;
-                    }).join('\n');
+                    }).join('n');
 
                 const systemPrompt = `Você é um assistente especialista em processar pedidos para a Sâmia Pizzaria. Sua única função é analisar uma conversa de WhatsApp e extrair os itens do pedido, quantidades, e se possível, dados do cliente (nome, telefone, endereço completo) e forma de pagamento. Você DEVE retornar a resposta em formato JSON, seguindo estritamente o schema fornecido. Baseie-se APENAS no cardápio fornecido. Não adicione itens que não estão no cardápio. Para pizzas, se o tamanho não for claro, assuma o tamanho padrão (8 fatias). Para pizzas meio a meio, separe os nomes dos sabores com uma barra '/'.
 
 Cardápio disponível para consulta:
 ${menuForAI}`;
 
-                const userQuery = `Analise a conversa abaixo e extraia o pedido no formato JSON.\n\nCONVERSA:\n${pastedText}`;
+                const userQuery = `Analise a conversa abaixo e extraia o pedido no formato JSON.nnCONVERSA:n${pastedText}`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -1846,7 +1846,7 @@ ${menuForAI}`;
                     const bestMatch = findBestNeighborhoodMatch(address);
                     clientData.address = {
                         street: address.split(',')[0] || address,
-                        number: address.match(/,\s*(\d+)/)?.[1] || 'S/N',
+                        number: address.match(/,s*(d+)/)?.[1] || 'S/N',
                         neighborhood: bestMatch.neighborhood,
                         deliveryFee: bestMatch.fee
                     };
@@ -1866,7 +1866,7 @@ ${menuForAI}`;
                 } else if (paymentText.includes('pix')) {
                     paymentMethod = 'Pix';
                 } else if (paymentText.includes('dinheiro')) {
-                    const trocoMatch = paymentText.match(/troco para (\d+)/);
+                    const trocoMatch = paymentText.match(/troco para (d+)/);
                     if (trocoMatch) {
                         paymentMethod = { method: 'Dinheiro', trocoPara: parseFloat(trocoMatch[1]) };
                     } else {
@@ -1967,9 +1967,9 @@ ${menuForAI}`;
                 .toLowerCase()
                 .replace(/pizza de/g, '')
                 .replace(/coca-cola/g, 'coca')
-                .replace(/pet\.?/g, '')
+                .replace(/pet.?/g, '')
                 .replace(/litros?/g, 'l')
-                .replace(/\s+/g, ' ') // normalize spaces
+                .replace(/s+/g, ' ') // normalize spaces
                 .trim();
         }
 
