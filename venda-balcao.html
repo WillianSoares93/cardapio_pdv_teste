@@ -771,8 +771,8 @@
                         document.querySelector('input[name="orderType"][value="Mesa"]').checked = true;
                         
                         const mesaText = orderData.endereco.clientName || '';
-                        clientData.table = mesaText.match(/d+/)?.[0]; 
-                        const clientNameMatch = mesaText.match(/((.*?))/);
+                        clientData.table = mesaText.match(/\d+/)?.[0]; 
+                        const clientNameMatch = mesaText.match(/\((.*?)\)/);
                         clientData.name = clientNameMatch ? clientNameMatch[1] : '';
                     
                     } else if (orderData.endereco.rua === "Retirada no Balcão") {
@@ -1215,7 +1215,7 @@
                         if (existingItem && existingItem.ingredients) {
                             const existingIng = existingItem.ingredients.find(i => i.name.startsWith(ing.name));
                             if(existingIng) {
-                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/(x(d+))/)[1]) : 1;
+                                quantity = existingIng.name.includes('(x') ? parseInt(existingIng.name.match(/\(x(\d+)\)/)[1]) : 1;
                             }
                         }
                          categoryHtml += `
@@ -1577,24 +1577,15 @@
         }
         
         async function setupEventListeners() {
-    const aiBtn = document.getElementById("open-ai-modal-btn");
-    const aiModal = document.getElementById("ai-order-modal");
-    const clientDataBtn = document.getElementById("open-client-data-modal-btn");
-    const clientDataModal = document.getElementById("client-data-modal");
+            const mainContainer = document.querySelector('.main-container');
+            const sidebar = document.querySelector('.sidebar-nav');
+            const mainContent = document.querySelector('.main-content');
+            const orderItemsContainer = document.getElementById('order-items-container');
 
-    // Abrir popup de Pedido com IA
-    if (aiBtn && aiModal) {
-        aiBtn.addEventListener("click", () => {
-            aiModal.style.display = "flex";
-        });
-    }
-
-    // Abrir popup de Dados do Cliente
-    if (clientDataBtn && clientDataModal) {
-        clientDataBtn.addEventListener("click", () => {
-            clientDataModal.style.display = "flex";
-        });
-    }
+            // --- Sidebar Logic ---
+            document.addEventListener('mousemove', (e) => {
+                if (e.clientX < 20) mainContainer.classList.add('sidebar-open');
+            });
             sidebar.addEventListener('mouseleave', () => mainContainer.classList.remove('sidebar-open'));
             mainContent.addEventListener('mouseenter', () => mainContainer.classList.remove('sidebar-open'));
 
@@ -1717,14 +1708,14 @@
                             priceInfo = `Preços: ${prices}`;
                         }
                         return `- ${item.name} (${item.category}): ${priceInfo}`;
-                    }).join('n');
+                    }).join('\n');
 
                 const systemPrompt = `Você é um assistente especialista em processar pedidos para a Sâmia Pizzaria. Sua única função é analisar uma conversa de WhatsApp e extrair os itens do pedido, quantidades, e se possível, dados do cliente (nome, telefone, endereço completo) e forma de pagamento. Você DEVE retornar a resposta em formato JSON, seguindo estritamente o schema fornecido. Baseie-se APENAS no cardápio fornecido. Não adicione itens que não estão no cardápio. Para pizzas, se o tamanho não for claro, assuma o tamanho padrão (8 fatias). Para pizzas meio a meio, separe os nomes dos sabores com uma barra '/'.
 
 Cardápio disponível para consulta:
 ${menuForAI}`;
 
-                const userQuery = `Analise a conversa abaixo e extraia o pedido no formato JSON.nnCONVERSA:n${pastedText}`;
+                const userQuery = `Analise a conversa abaixo e extraia o pedido no formato JSON.\n\nCONVERSA:\n${pastedText}`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -1845,7 +1836,7 @@ ${menuForAI}`;
                     const bestMatch = findBestNeighborhoodMatch(address);
                     clientData.address = {
                         street: address.split(',')[0] || address,
-                        number: address.match(/,s*(d+)/)?.[1] || 'S/N',
+                        number: address.match(/,\s*(\d+)/)?.[1] || 'S/N',
                         neighborhood: bestMatch.neighborhood,
                         deliveryFee: bestMatch.fee
                     };
@@ -1865,7 +1856,7 @@ ${menuForAI}`;
                 } else if (paymentText.includes('pix')) {
                     paymentMethod = 'Pix';
                 } else if (paymentText.includes('dinheiro')) {
-                    const trocoMatch = paymentText.match(/troco para (d+)/);
+                    const trocoMatch = paymentText.match(/troco para (\d+)/);
                     if (trocoMatch) {
                         paymentMethod = { method: 'Dinheiro', trocoPara: parseFloat(trocoMatch[1]) };
                     } else {
@@ -1966,9 +1957,9 @@ ${menuForAI}`;
                 .toLowerCase()
                 .replace(/pizza de/g, '')
                 .replace(/coca-cola/g, 'coca')
-                .replace(/pet.?/g, '')
+                .replace(/pet\.?/g, '')
                 .replace(/litros?/g, 'l')
-                .replace(/s+/g, ' ') // normalize spaces
+                .replace(/\s+/g, ' ') // normalize spaces
                 .trim();
         }
 
@@ -2524,53 +2515,7 @@ ${menuForAI}`;
             updateClientDataSummary();
         }
 
-    
-// --- Fix definitivo para o botão "Pedido com IA" ---
-(function ensureAiModalWorks() {
-    function registerAiHandlers() {
-        const aiBtn = document.querySelector("#open-ai-modal-btn");
-        const clientDataBtn = document.querySelector("#open-client-data-modal-btn");
+    </script>
+</body>
+</html>
 
-        if (aiBtn) {
-            aiBtn.replaceWith(aiBtn.cloneNode(true));
-            const freshAiBtn = document.querySelector("#open-ai-modal-btn");
-
-            freshAiBtn.addEventListener("click", (ev) => {
-                ev.preventDefault();
-                console.log("[DEBUG] open-ai-modal-btn clicado");
-                const aiModal = document.getElementById("ai-order-modal");
-                if (!aiModal) {
-                    console.error("[DEBUG] ai-order-modal NÃO encontrado no DOM");
-                    return;
-                }
-                aiModal.style.display = "flex";
-                console.log("[DEBUG] ai-order-modal mostrado");
-            });
-        } else {
-            console.warn("[DEBUG] Botão #open-ai-modal-btn não encontrado ao registrar handlers");
-        }
-
-        if (clientDataBtn) {
-            clientDataBtn.replaceWith(clientDataBtn.cloneNode(true));
-            const freshClientBtn = document.querySelector("#open-client-data-modal-btn");
-            freshClientBtn.addEventListener("click", (ev) => {
-                ev.preventDefault();
-                console.log("[DEBUG] open-client-data-modal-btn clicado");
-                const clientModal = document.getElementById("client-data-modal");
-                if (!clientModal) {
-                    console.error("[DEBUG] client-data-modal NÃO encontrado no DOM");
-                    return;
-                }
-                clientModal.style.display = "flex";
-            });
-        }
-    }
-
-    if (document.readyState === "complete" || document.readyState === "interactive") {
-        registerAiHandlers();
-    } else {
-        document.addEventListener("DOMContentLoaded", registerAiHandlers);
-    }
-})();
-
-</script>
