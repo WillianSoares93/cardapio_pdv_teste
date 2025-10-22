@@ -312,10 +312,7 @@
                     </div>
 
                     <div id="order-items-container" class="flex-grow overflow-y-auto p-4 space-y-4">
-                         <div id="empty-cart-message" class="text-center text-gray-400 p-10 flex flex-col items-center justify-center h-full">
-                            <i class="fas fa-shopping-cart fa-3x mb-4"></i>
-                            <p class="font-medium">Carrinho Vazio</p>
-                        </div>
+                         <!-- A mensagem de carrinho vazio será adicionada aqui pelo JS -->
                     </div>
                     
                     <div class="flex-shrink-0 p-4 border-t bg-gray-50">
@@ -854,7 +851,7 @@
                  // Se o item é customizável, o preço pode precisar ser recalculado
                  if (itemToAdd.isCustomizable || itemToAdd.isPizza) {
                      // Recalcula o preço unitário base (importante para pizzas com metades/adicionais)
-                     let basePriceForRecalc = itemToAdd.price; // Preço base do item (seja pizza, burger, etc.)
+                     let basePriceForRecalc = itemToAdd.price || itemToAdd.basePrice || 0; // CORREÇÃO: Usa basePrice como fallback
                      
                      if (options.halfPizzas && options.halfPizzas.length > 0) {
                          options.halfPizzas.forEach(half => basePriceForRecalc += half.price);
@@ -871,36 +868,27 @@
 
             } else {
                 // Adiciona novo item
+                const itemPrice = itemToAdd.price !== undefined ? itemToAdd.price : itemToAdd.basePrice; // CORREÇÃO: Pega price ou basePrice
+                
                 const newItemInstance = {
                     ...itemToAdd,
                     quantity: quantity,
-                    price: itemToAdd.price, // Preço unitário
+                    price: itemPrice || 0, // Garante que price seja um número
                     options: options || {},
-                    isCustomizable: itemToAdd.isCustomizable || false, // Garante que as flags estejam presentes
+                    isCustomizable: itemToAdd.isCustomizable || false,
                     isPizza: itemToAdd.isPizza || false,
                     isBurger: itemToAdd.isBurger || false,
-                    category: itemToAdd.category || (itemInMenu ? itemInMenu.category : 'Outros'),
-                    imageUrl: itemToAdd.imageUrl || (itemInMenu ? itemInMenu.imageUrl : undefined)
+                    category: itemToAdd.category || 'Outros',
+                    imageUrl: itemToAdd.imageUrl
                 };
                 
-                // Define o preço unitário corretamente para pizzas customizáveis
-                if ((newItemInstance.isPizza || newItemInstance.isCustomizable) && newItemInstance.price === undefined) {
-                    // Tenta pegar o preço do tamanho selecionado ou o preço base do item
-                    let defaultPizzaPrice = itemToAdd.price || 0; // Tenta pegar o preço do item base
-                    // Se for uma pizza com tamanhos pré-definidos, pega o preço do tamanho
-                    if (itemToAdd.sizes && itemToAdd.sizes.length > 0) {
-                        const selectedSize = itemToAdd.sizes.find(s => s.name === itemToAdd.size); // Assumindo que o tamanho está setado
-                        if (selectedSize) defaultPizzaPrice = selectedSize.price;
-                    }
-                     newItemInstance.price = defaultPizzaPrice;
-                }
-
                 order.push(newItemInstance);
             }
             
             updateOrderDisplay();
             showTemporaryFeedback(`${item.name} adicionado ao pedido.`);
         }
+
 
         function updateOrderDisplay() {
             const orderItemsContainer = document.getElementById('order-items-container');
@@ -930,7 +918,7 @@
 
             order.forEach((item, index) => {
                 totalItems += item.quantity;
-                let itemTotalPrice = item.price * item.quantity;
+                let itemTotalPrice = (item.price || 0) * item.quantity; // CORREÇÃO: Garante que item.price é um número
                 totalPrice += itemTotalPrice;
 
                 const itemElement = document.createElement('div');
@@ -939,7 +927,7 @@
                 let itemDetailsHtml = `
                     <div class="flex-grow mr-4">
                         <p class="font-medium text-gray-800">${item.name}${item.options.observation ? ` (${item.options.observation})` : ''}</p>
-                        <p class="text-xs text-gray-500">${item.quantity}x - R$ ${item.price.toFixed(2).replace('.', ',')}</p>
+                        <p class="text-xs text-gray-500">${item.quantity}x - R$ ${(item.price || 0).toFixed(2).replace('.', ',')}</p> <!-- CORREÇÃO -->
                 `;
 
                 // Adiciona detalhes de adicionais ou customizações
