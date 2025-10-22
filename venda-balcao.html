@@ -906,7 +906,6 @@
             const orderItemsContainer = document.getElementById('order-items-container');
             const totalItemsEl = document.getElementById('total-items');
             const totalValueEl = document.getElementById('total-value');
-            const emptyCartMessage = document.getElementById('empty-cart-message');
             const deliveryFeeSummaryEl = document.getElementById('delivery-fee-summary');
             const deliveryFeeValueEl = document.getElementById('delivery-fee-value');
 
@@ -917,13 +916,16 @@
             let deliveryFee = 0;
 
             if (order.length === 0) {
-                emptyCartMessage.classList.remove('hidden');
+                orderItemsContainer.innerHTML = `
+                    <div id="empty-cart-message" class="text-center text-gray-400 p-10 flex flex-col items-center justify-center h-full">
+                        <i class="fas fa-shopping-cart fa-3x mb-4"></i>
+                        <p class="font-medium">Carrinho Vazio</p>
+                    </div>
+                `;
                 totalItemsEl.textContent = '0';
                 totalValueEl.textContent = 'R$ 0,00';
                 deliveryFeeSummaryEl.classList.add('hidden');
                 return;
-            } else {
-                emptyCartMessage.classList.add('hidden');
             }
 
             order.forEach((item, index) => {
@@ -2411,3 +2413,4 @@
     </script>
 </body>
 </html>
+
