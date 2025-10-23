@@ -2432,6 +2432,7 @@
                             closeOrderSidebar(); // Fecha a sidebar
                             // Fallback: Se window.open falhou (bloqueado), tenta redirecionar a aba atual
                             if (!whatsappWindow) {
+                                // Tentar redirecionar a página atual como fallback
                                 window.location.href = data.whatsappUrl;
                             }
                         }, 300); // Atraso de 300ms
@@ -3490,8 +3491,7 @@
             });
             closeConfirmNoDrinkModalBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
 
-            // ** CORREÇÃO ERRO ReferenceError **
-            // Mover este listener específico para garantir que proceedToWhatsappCheckout está definida
+            // ** CORREÇÃO ERRO ReferenceError - Mover este listener para cá **
             confirmNoDrinkNoBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
 
             closePaymentMethodModalBtn.addEventListener('click', closePaymentMethodModal);
@@ -3572,16 +3572,23 @@
             // Esconde botões flutuantes ao rolar até o final da página
             window.addEventListener('scroll', () => { const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 10; cartButton.style.opacity = isAtBottom ? '0' : '1'; cartButton.style.pointerEvents = isAtBottom ? 'none' : 'auto'; promotionButton.style.opacity = isAtBottom ? '0' : '1'; promotionButton.style.pointerEvents = isAtBottom ? 'none' : 'auto'; if(!isAtBottom) updatePromotionButtonVisibility(); });
 
-            // ** CORREÇÃO ERRO ReferenceError - Mover listener para o final **
-            confirmNoDrinkYesBtn.addEventListener('click', function() {
+            // ** CORREÇÃO ERRO ReferenceError - Mover este listener para cá **
+             confirmNoDrinkYesBtn.addEventListener('click', function() {
                 confirmNoDrinkModal.style.display = 'none';
                 if (selectedPaymentMethod) {
-                    proceedToWhatsappCheckout(); // Chama a função aqui
+                    // Garante que a função está acessível neste ponto
+                    if (typeof proceedToWhatsappCheckout === 'function') {
+                        proceedToWhatsappCheckout();
+                    } else {
+                        console.error("Erro: Função proceedToWhatsappCheckout não encontrada ao clicar no botão.");
+                        showMessageModal("Ocorreu um erro interno. Tente finalizar o pedido novamente.");
+                    }
                 } else {
                     isCheckoutInitiated = true;
                     openPaymentMethodModal(true);
                 }
             });
+
 
         }); // FIM DO DOMContentLoaded
     </script>
