@@ -2400,8 +2400,7 @@
                 }
             }
 
-            // ** CORREÇÃO iOS/WhatsApp: Função modificada **
-            // Envia o pedido para a API e tenta redirecionar para o WhatsApp
+            // Envia o pedido para a API e tenta redirecionar para o WhatsApp (com verificação de duplicidade)
             function proceedToWhatsappCheckout() {
                 const checkoutButton = document.getElementById('checkoutButton');
                 checkoutButton.disabled = true;
@@ -2423,16 +2422,21 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data && data.whatsappUrl) {
-                        // Tenta abrir o WhatsApp em uma nova aba/app
+                    if (data.duplicateFound) {
+                        // --- DUPLICIDADE ENCONTRADA ---
+                        showMessageModal('Um pedido muito semelhante foi registrado recentemente. Verifique seus pedidos anteriores ou entre em contato conosco se acredita ser um erro.');
+                        // Reativa o botão imediatamente pois não vamos prosseguir
+                        checkoutButton.disabled = false;
+                        updateCheckoutButtonText();
+                    } else if (data && data.whatsappUrl) {
+                        // --- SUCESSO (SEM DUPLICIDADE) ---
                         const whatsappWindow = window.open(data.whatsappUrl, '_blank');
-                        // Adiciona um pequeno delay antes de limpar, para dar tempo ao iOS
+                        // Adiciona um pequeno delay antes de limpar, para dar tempo ao iOS/outros
                         setTimeout(() => {
                             clearOrder(); // Limpa o pedido localmente
                             closeOrderSidebar(); // Fecha a sidebar
                             // Fallback: Se window.open falhou (bloqueado), tenta redirecionar a aba atual
                             if (!whatsappWindow) {
-                                // Tentar redirecionar a página atual como fallback
                                 window.location.href = data.whatsappUrl;
                             }
                         }, 300); // Atraso de 300ms
@@ -2440,21 +2444,26 @@
                         // Loga aviso se falhou ao salvar no PDV (Firestore)
                         if (data.pdvSaved === false) {
                             console.warn('[PDV] Pedido enviado ao WhatsApp, mas falhou ao salvar no PDV.', data.pdvError ? { error: data.pdvError } : {});
+                            // Poderia informar o usuário aqui, mas pode ser confuso.
+                            // showMessageModal('Seu pedido foi enviado via WhatsApp, mas houve um problema ao registrá-lo em nosso sistema. Por favor, confirme o recebimento conosco.');
                         }
                     } else {
-                        // Mostra erro se a API não retornou a URL
-                        showMessageModal('Erro ao gerar o link do WhatsApp. Por favor, tente novamente.');
+                        // --- OUTRO ERRO DA API ---
+                        showMessageModal('Erro ao processar o pedido. Por favor, tente novamente.');
+                        // Reativa o botão em caso de erro
+                        checkoutButton.disabled = false;
+                        updateCheckoutButtonText();
                     }
                 })
                 .catch((error) => {
-                    console.error('Erro:', error);
+                    // --- ERRO DE REDE OU FETCH ---
+                    console.error('Erro ao chamar /api/criar-pedido:', error);
                     showMessageModal('Erro de conexão ao enviar o pedido. Verifique sua internet.');
-                })
-                .finally(() => {
-                    // Reabilita o botão e reseta o texto (mesmo se falhar, para permitir nova tentativa)
+                    // Reativa o botão em caso de erro de conexão
                     checkoutButton.disabled = false;
                     updateCheckoutButtonText();
                 });
+                // Note: O .finally foi removido pois a reativação do botão é tratada nos casos específicos (erro ou duplicidade)
             }
 
 
@@ -3490,18 +3499,15 @@
                 else { proceedToWhatsappCheckout(); }
             });
             closeConfirmNoDrinkModalBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
-
-            // ** CORREÇÃO ERRO ReferenceError **
             confirmNoDrinkNoBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
-             confirmNoDrinkYesBtn.addEventListener('click', function() {
-                confirmNoDrinkModal.style.display = 'none';
+            confirmNoDrinkYesBtn.addEventListener('click', function() {
+                 confirmNoDrinkModal.style.display = 'none';
                 if (selectedPaymentMethod) {
-                    // Garante que a função está acessível neste ponto
                     if (typeof proceedToWhatsappCheckout === 'function') {
                         proceedToWhatsappCheckout();
                     } else {
-                        console.error("Erro: Função proceedToWhatsappCheckout não encontrada ao clicar no botão 'Sim, finalizar'.");
-                        showMessageModal("Ocorreu um erro interno. Tente finalizar o pedido novamente.");
+                        console.error("Erro: Função proceedToWhatsappCheckout não encontrada.");
+                        showMessageModal("Ocorreu um erro interno. Tente finalizar novamente.");
                     }
                 } else {
                     isCheckoutInitiated = true;
