@@ -1,7 +1,7 @@
 // service-worker.js
 
 // É importante mudar a versão do cache para que o navegador saiba que precisa atualizar.
-const CACHE_NAME = 'testepdv-v1'; 
+const CACHE_NAME = 'testepdv-v2'; 
 
 // Lista de arquivos essenciais para o funcionamento offline do app.
 const urlsToCache = [
