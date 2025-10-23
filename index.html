@@ -2400,6 +2400,62 @@
                 }
             }
 
+            // ** CORREÇÃO iOS/WhatsApp: Função modificada **
+            // Envia o pedido para a API e tenta redirecionar para o WhatsApp
+            function proceedToWhatsappCheckout() {
+                const checkoutButton = document.getElementById('checkoutButton');
+                checkoutButton.disabled = true;
+                checkoutButton.textContent = 'Enviando...';
+
+                // Calcula totais finais
+                let subtotal = 0;
+                order.forEach(item => { subtotal += item.price; });
+                let finalDiscountAmount = 0;
+                if (discountPromotion) { finalDiscountAmount = subtotal * (discountPromotion.promoPrice / 100); }
+                const totalData = { subtotal, discount: finalDiscountAmount, deliveryFee: selectedAddress.deliveryFee, finalTotal: subtotal - finalDiscountAmount + (selectedAddress.deliveryFee || 0) };
+                const observation = document.getElementById('order-observation').value.trim();
+
+                // Chama a API para criar o pedido e obter o link do WhatsApp
+                fetch('/api/criar-pedido', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order, selectedAddress, total: totalData, paymentMethod: selectedPaymentMethod, whatsappNumber: contactInfo.whatsapp, observation }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.whatsappUrl) {
+                        // Tenta abrir o WhatsApp em uma nova aba/app
+                        const whatsappWindow = window.open(data.whatsappUrl, '_blank');
+                        // Adiciona um pequeno delay antes de limpar, para dar tempo ao iOS
+                        setTimeout(() => {
+                            clearOrder(); // Limpa o pedido localmente
+                            closeOrderSidebar(); // Fecha a sidebar
+                            // Fallback: Se window.open falhou (bloqueado), tenta redirecionar a aba atual
+                            if (!whatsappWindow) {
+                                window.location.href = data.whatsappUrl;
+                            }
+                        }, 300); // Atraso de 300ms
+
+                        // Loga aviso se falhou ao salvar no PDV (Firestore)
+                        if (data.pdvSaved === false) {
+                            console.warn('[PDV] Pedido enviado ao WhatsApp, mas falhou ao salvar no PDV.', data.pdvError ? { error: data.pdvError } : {});
+                        }
+                    } else {
+                        // Mostra erro se a API não retornou a URL
+                        showMessageModal('Erro ao gerar o link do WhatsApp. Por favor, tente novamente.');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Erro:', error);
+                    showMessageModal('Erro de conexão ao enviar o pedido. Verifique sua internet.');
+                })
+                .finally(() => {
+                    // Reabilita o botão e reseta o texto (mesmo se falhar, para permitir nova tentativa)
+                    checkoutButton.disabled = false;
+                    updateCheckoutButtonText();
+                });
+            }
+
 
             // Calcula o valor total final do pedido
             function calculateOrderTotal() {
@@ -3433,16 +3489,11 @@
                 else { proceedToWhatsappCheckout(); }
             });
             closeConfirmNoDrinkModalBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
-            confirmNoDrinkYesBtn.addEventListener('click', function() {
-                confirmNoDrinkModal.style.display = 'none';
-                if (selectedPaymentMethod) {
-                    proceedToWhatsappCheckout(); // Chama a função aqui
-                } else {
-                    isCheckoutInitiated = true;
-                    openPaymentMethodModal(true);
-                }
-            });
+
+            // ** CORREÇÃO ERRO ReferenceError **
+            // Mover este listener específico para garantir que proceedToWhatsappCheckout está definida
             confirmNoDrinkNoBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
+
             closePaymentMethodModalBtn.addEventListener('click', closePaymentMethodModal);
             paymentOptionsContainer.addEventListener('click', (event) => { // Seleção de método de pagamento
                 const label = event.target.closest('.payment-option');
@@ -3520,7 +3571,19 @@
 
             // Esconde botões flutuantes ao rolar até o final da página
             window.addEventListener('scroll', () => { const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 10; cartButton.style.opacity = isAtBottom ? '0' : '1'; cartButton.style.pointerEvents = isAtBottom ? 'none' : 'auto'; promotionButton.style.opacity = isAtBottom ? '0' : '1'; promotionButton.style.pointerEvents = isAtBottom ? 'none' : 'auto'; if(!isAtBottom) updatePromotionButtonVisibility(); });
-        });
+
+            // ** CORREÇÃO ERRO ReferenceError - Mover listener para o final **
+            confirmNoDrinkYesBtn.addEventListener('click', function() {
+                confirmNoDrinkModal.style.display = 'none';
+                if (selectedPaymentMethod) {
+                    proceedToWhatsappCheckout(); // Chama a função aqui
+                } else {
+                    isCheckoutInitiated = true;
+                    openPaymentMethodModal(true);
+                }
+            });
+
+        }); // FIM DO DOMContentLoaded
     </script>
 </body>
 </html>
