@@ -1,4 +1,3 @@
-teste1
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -3492,8 +3491,24 @@ teste1
             });
             closeConfirmNoDrinkModalBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
 
-            // ** CORREÇÃO ERRO ReferenceError - Mover este listener para cá **
+            // ** CORREÇÃO ERRO ReferenceError **
             confirmNoDrinkNoBtn.addEventListener('click', function() { confirmNoDrinkModal.style.display = 'none'; updatePromotionButtonVisibility(); drinkSuggestionModal.style.display = 'flex'; });
+             confirmNoDrinkYesBtn.addEventListener('click', function() {
+                confirmNoDrinkModal.style.display = 'none';
+                if (selectedPaymentMethod) {
+                    // Garante que a função está acessível neste ponto
+                    if (typeof proceedToWhatsappCheckout === 'function') {
+                        proceedToWhatsappCheckout();
+                    } else {
+                        console.error("Erro: Função proceedToWhatsappCheckout não encontrada ao clicar no botão 'Sim, finalizar'.");
+                        showMessageModal("Ocorreu um erro interno. Tente finalizar o pedido novamente.");
+                    }
+                } else {
+                    isCheckoutInitiated = true;
+                    openPaymentMethodModal(true);
+                }
+            });
+
 
             closePaymentMethodModalBtn.addEventListener('click', closePaymentMethodModal);
             paymentOptionsContainer.addEventListener('click', (event) => { // Seleção de método de pagamento
@@ -3564,31 +3579,51 @@ teste1
             addPizzaWithExtrasBtn.addEventListener('click', confirmPizzaExtras);
 
             // --- LÓGICA DO PWA ---
-            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('service-worker.js').then(reg => console.log('SW registered.')).catch(err => console.error('SW registration failed:', err)); }
-            window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; if (!isPwaInstalled()) { setTimeout(() => { if(deferredPrompt) { installPromptModal.style.display = 'flex'; } }, 2000); } });
-            installAppButton.addEventListener('click', () => { installPromptModal.style.display = 'none'; if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then((choice) => { deferredPrompt = null; }); } });
-            closeInstallPromptModalBtn.addEventListener('click', () => { installPromptModal.style.display = 'none'; });
-            window.addEventListener('appinstalled', () => { installPromptModal.style.display = 'none'; });
+            if ('serviceWorker' in navigator) {
+                 navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('SW registered.'))
+                    .catch(err => console.error('SW registration failed:', err));
+            }
+            window.addEventListener('beforeinstallprompt', (e) => {
+                console.log('beforeinstallprompt fired');
+                e.preventDefault(); // Previne o mini-infobar padrão (mas permite "Adicionar à tela inicial" no menu)
+                deferredPrompt = e;
+                // ** CORREÇÃO PWA POPUP **
+                // Mostra o modal customizado imediatamente se o app não estiver instalado
+                if (!isPwaInstalled() && deferredPrompt) {
+                     console.log('App not installed, showing custom prompt modal.');
+                     installPromptModal.style.display = 'flex';
+                } else {
+                    console.log('App already installed or prompt not available.');
+                }
+            });
+            installAppButton.addEventListener('click', () => {
+                installPromptModal.style.display = 'none';
+                if (deferredPrompt) {
+                    deferredPrompt.prompt(); // Mostra o prompt de instalação nativo
+                    deferredPrompt.userChoice.then((choice) => {
+                        if (choice.outcome === 'accepted') {
+                            console.log('User accepted the install prompt');
+                             showMessageModal('Sâmia Cardápio está sendo instalado!');
+                        } else {
+                            console.log('User dismissed the install prompt');
+                             showMessageModal('Você pode instalar o app a qualquer momento pelo menu do navegador.');
+                        }
+                        deferredPrompt = null; // Limpa o prompt
+                    });
+                }
+            });
+            closeInstallPromptModalBtn.addEventListener('click', () => {
+                installPromptModal.style.display = 'none';
+            });
+            window.addEventListener('appinstalled', () => {
+                console.log('App installed successfully');
+                installPromptModal.style.display = 'none'; // Esconde o modal se for instalado
+            });
+
 
             // Esconde botões flutuantes ao rolar até o final da página
             window.addEventListener('scroll', () => { const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 10; cartButton.style.opacity = isAtBottom ? '0' : '1'; cartButton.style.pointerEvents = isAtBottom ? 'none' : 'auto'; promotionButton.style.opacity = isAtBottom ? '0' : '1'; promotionButton.style.pointerEvents = isAtBottom ? 'none' : 'auto'; if(!isAtBottom) updatePromotionButtonVisibility(); });
-
-            // ** CORREÇÃO ERRO ReferenceError - Mover este listener para cá **
-             confirmNoDrinkYesBtn.addEventListener('click', function() {
-                confirmNoDrinkModal.style.display = 'none';
-                if (selectedPaymentMethod) {
-                    // Garante que a função está acessível neste ponto
-                    if (typeof proceedToWhatsappCheckout === 'function') {
-                        proceedToWhatsappCheckout();
-                    } else {
-                        console.error("Erro: Função proceedToWhatsappCheckout não encontrada ao clicar no botão.");
-                        showMessageModal("Ocorreu um erro interno. Tente finalizar o pedido novamente.");
-                    }
-                } else {
-                    isCheckoutInitiated = true;
-                    openPaymentMethodModal(true);
-                }
-            });
 
 
         }); // FIM DO DOMContentLoaded
