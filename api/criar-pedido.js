@@ -2,9 +2,9 @@
 // --- IMPORTS (usando ES Module syntax) ---
 import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import path from 'path'; // Usando import padrão para path
+import { fileURLToPath } from 'url'; // Necessário para __dirname em ESM
+import { dirname } from 'path'; // Necessário para __dirname em ESM
 
 // --- CONFIGURAÇÃO DE LOGS ---
 const log = (message, ...args) => console.log(`[LOG ${new Date().toISOString()}] ${message}`, args.length > 0 ? args : '');
@@ -83,10 +83,84 @@ if (getApps().length === 0) {
 }
 // --- FIM DA INICIALIZAÇÃO ---
 
-// --- FUNÇÕES HELPER --- (Inalteradas)
-const createSubItemString = (subItems = []) => { /* ... */ };
-const createOrderHash = (items = []) => { /* ... */ };
-function generateOrderId() { /* ... */ }
+// --- FUNÇÕES HELPER (ATUALIZADAS COM MAIS VERIFICAÇÕES E LOGS) ---
+const createSubItemString = (subItems) => {
+  // Verifica se subItems é realmente um array
+  if (!Array.isArray(subItems)) {
+      log('createSubItemString recebeu algo que não é array:', subItems); // Log do input inválido
+      // Retorna uma string vazia ou um placeholder para evitar erro
+      return ''; // Ou talvez 'invalid_subitems' se preferir identificar no hash
+  }
+  // Se for array vazio, retorna string vazia (comportamento anterior mantido)
+  if (subItems.length === 0) {
+      return '';
+  }
+
+  try {
+      return subItems
+        // Garante estrutura mínima e converte para string ANTES de ordenar
+        .map(si => ({
+            name: String(si?.name || ''), // Garante que name é string
+            quantity: si?.quantity || 1,
+            price: si?.price || 0,
+            placement: String(si?.placement || '') // Garante que placement é string
+        }))
+        // Ordena por nome
+        .sort((a, b) => a.name.localeCompare(b.name))
+        // Cria string para cada subitem
+        .map(si => `${si.name}:${si.quantity}:${si.price}:${si.placement}`)
+        .join(','); // Junta com vírgula
+  } catch (err) {
+      errorLog('Erro dentro de createSubItemString ao processar subItems:', err, { subItems });
+      return 'error_processing_subitems'; // Retorna string indicando erro
+  }
+};
+
+// --- FUNÇÃO HELPER createOrderHash (ATUALIZADA) ---
+const createOrderHash = (items) => {
+  if (!Array.isArray(items)) {
+      log('createOrderHash recebeu algo que não é array:', items);
+      return '';
+  }
+   if (items.length === 0) {
+       return '';
+   }
+
+   try {
+      return items
+        .map(item => {
+          if (typeof item !== 'object' || item === null) {
+              log('createOrderHash encontrou um item inválido no array:', item);
+              return 'invalid_item';
+          }
+          const name = String(item.name || '');
+          const slices = item.selected_slices || '';
+          const price = item.price || 0;
+          // MODIFICAÇÃO AQUI: Garante que um array vazio seja passado se a propriedade não existir
+          const ingredientsString = createSubItemString(item.ingredients || []);
+          const extrasString = createSubItemString(item.extras || []);
+          // --- FIM DA MODIFICAÇÃO ---
+          return `${name}|${slices}|${price}|${ingredientsString}|${extrasString}`;
+        })
+        .sort((a, b) => a.localeCompare(b))
+        .join(';');
+   } catch (err) {
+       errorLog('Erro dentro de createOrderHash ao processar items:', err, { items });
+       return 'error_processing_items';
+   }
+};
+// --- FIM FUNÇÃO HELPER createOrderHash ATUALIZADA ---
+
+function generateOrderId() {
+    const now = new Date();
+    const datePart = now.getFullYear().toString().slice(-2) +
+                     (now.getMonth() + 1).toString().padStart(2, '0') +
+                     now.getDate().toString().padStart(2, '0');
+    const timePart = now.getHours().toString().padStart(2, '0') +
+                     now.getMinutes().toString().padStart(2, '0');
+    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${datePart}-${timePart}-${randomPart}`;
+}
 // --- FIM FUNÇÕES HELPER ---
 
 
@@ -122,25 +196,32 @@ export default async function handler(req, res) {
         }
         log("Validação inicial dos dados passou.");
 
-        // --- Verificação de Duplicidade (lógica inalterada) ---
+        // --- Verificação de Duplicidade ---
         log("Iniciando verificação de duplicidade...");
         const customerName = selectedAddress.clientName?.trim() || 'Nome não informado';
         const customerPhone = selectedAddress.telefone?.trim() || '';
         const isPickup = selectedAddress.bairro === 'Retirada';
         const orderHash = createOrderHash(order);
 
-        if (order.length > 0 && !orderHash) {
-             errorLog("Falha ao gerar o hash do pedido para verificação de duplicidade.", { order });
-            return res.status(500).json({ message: 'Erro interno ao processar itens do pedido (hash).' });
+        // Validação do hash (revisada)
+        if (order.length > 0 && (!orderHash || orderHash === 'error_processing_items' || orderHash.includes('invalid_item'))) {
+            errorLog("Falha ao gerar o hash do pedido para verificação de duplicidade ou hash inválido.", { order, generatedHash: orderHash });
+            return res.status(500).json({ message: 'Erro interno ao processar itens do pedido (hash inválido).' });
         }
-        log(`Hash do pedido gerado (prefixo): ${orderHash.substring(0, 50)}...`);
+         // Log apenas se o hash for válido
+        if(orderHash) {
+             log(`Hash do pedido gerado (prefixo): ${orderHash.substring(0, 50)}...`);
+        } else if (order.length === 0) {
+             log("Pedido vazio, pulando geração de hash.");
+        }
+
 
         const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 3 * 60 * 60 * 1000));
         log(`Janela de tempo para duplicidade inicia em: ${checkTimeframe.toDate().toISOString()}`);
 
         let duplicateQuery = db.collection('pedidos')
             .where('customerName', '==', customerName)
-            .where('orderHash', '==', orderHash)
+            .where('orderHash', '==', orderHash) // Comparação de hash só faz sentido se hash for válido
             .where('timestamp', '>=', checkTimeframe);
 
         if (customerPhone) {
@@ -166,14 +247,12 @@ export default async function handler(req, res) {
         log("Nenhum pedido duplicado encontrado.");
         // --- Fim Verificação de Duplicidade ---
 
-
-        // --- Processamento Normal (lógica inalterada) ---
+        // --- Processamento Normal ---
         const orderId = generateOrderId();
         const timestamp = Timestamp.now();
         log(`ID do Pedido Gerado: ${orderId}`);
 
         let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId})*\n\n`;
-        // ... (restante da formatação da mensagem) ...
         orderMessage += `*Cliente:* ${customerName}\n`;
         if (customerPhone) { orderMessage += `*Contato:* ${customerPhone}\n`; }
         if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
