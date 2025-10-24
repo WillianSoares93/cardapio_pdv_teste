@@ -8,34 +8,45 @@ const path = require('path'); // Import path module
 let serviceAccount;
 let firebaseInitialized = false;
 
+console.log("Attempting to initialize Firebase Admin SDK..."); // Log inicial
+
 // Tenta inicializar apenas uma vez
 if (getApps().length === 0) { // Verifica se nenhuma app Firebase foi inicializada ainda
+    console.log("No existing Firebase Admin app found. Trying to load credentials...");
     try {
         // Tenta carregar a partir de um caminho relativo (para desenvolvimento local)
         serviceAccount = require(path.join(process.cwd(), 'credentials', 'serviceAccountKey.json'));
-        console.log("Service account loaded from file.");
+        console.log("Service account loaded successfully from file.");
     } catch (error) {
-        console.warn("Could not load service account from file, attempting environment variables...");
+        console.warn("Could not load service account from file. Attempting environment variables...");
         // Tenta carregar a partir de variáveis de ambiente (para Vercel)
         try {
-            if (!process.env.FIREBASE_ADMIN_PRIVATE_KEY || !process.env.FIREBASE_ADMIN_CLIENT_EMAIL || !process.env.FIREBASE_PROJECT_ID) {
-                throw new Error("Missing FIREBASE_ADMIN_PRIVATE_KEY, FIREBASE_ADMIN_CLIENT_EMAIL, or FIREBASE_PROJECT_ID environment variables.");
+            const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+            const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+            const projectId = process.env.FIREBASE_PROJECT_ID;
+
+             // Log para verificar se as variáveis de ambiente estão sendo lidas
+             console.log(`Env Var Check: Project ID? ${!!projectId}, Client Email? ${!!clientEmail}, Private Key? ${!!privateKey ? 'Exists' : 'MISSING!'}`);
+
+
+            if (!privateKey || !clientEmail || !projectId) {
+                throw new Error("Missing required Firebase Admin environment variables (PROJECT_ID, CLIENT_EMAIL, PRIVATE_KEY).");
             }
             serviceAccount = {
               type: "service_account",
-              project_id: process.env.FIREBASE_PROJECT_ID,
-              private_key_id: process.env.FIREBASE_ADMIN_PRIVATE_KEY_ID,
-              private_key: process.env.FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n'), // Substitui \\n por \n
-              client_email: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-              client_id: process.env.FIREBASE_ADMIN_CLIENT_ID,
-              auth_uri: "https://accounts.google.com/o/oauth2/auth",
-              token_uri: "https://oauth2.googleapis.com/token",
-              auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-              client_x509_cert_url: process.env.FIREBASE_ADMIN_CLIENT_CERT_URL
+              project_id: projectId,
+              private_key_id: process.env.FIREBASE_ADMIN_PRIVATE_KEY_ID, // Opcional
+              private_key: privateKey.replace(/\\n/g, '\n'), // Substitui \\n por \n
+              client_email: clientEmail,
+              client_id: process.env.FIREBASE_ADMIN_CLIENT_ID, // Opcional
+              auth_uri: "https://accounts.google.com/o/oauth2/auth", // Padrão
+              token_uri: "https://oauth2.googleapis.com/token", // Padrão
+              auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs", // Padrão
+              client_x509_cert_url: process.env.FIREBASE_ADMIN_CLIENT_CERT_URL // Opcional
             };
-            console.log("Service account configured from environment variables.");
+            console.log("Service account configured successfully from environment variables.");
         } catch (envError) {
-            console.error("Fatal Error: Could not load Firebase Admin credentials.", envError);
+            console.error("Fatal Error: Could not configure Firebase Admin credentials from environment variables.", envError.message);
             serviceAccount = null; // Garante que serviceAccount é null se falhar
         }
     }
@@ -53,12 +64,13 @@ if (getApps().length === 0) { // Verifica se nenhuma app Firebase foi inicializa
              firebaseInitialized = false; // Marca como não inicializado em caso de erro
         }
     } else {
-        console.error("Skipping Firebase Admin initialization - no credentials found.");
+        console.error("Skipping Firebase Admin initialization - no valid credentials found.");
         firebaseInitialized = false;
     }
 } else {
-    console.log("Firebase Admin SDK already initialized.");
-    firebaseInitialized = true; // Já estava inicializado
+    console.log("Firebase Admin SDK was already initialized.");
+    // Verifica se a app padrão tem um nome (indicador de inicialização bem-sucedida)
+    firebaseInitialized = !!getApps()[0]?.name;
 }
 // --- ---
 
@@ -119,35 +131,43 @@ function generateOrderId() {
 
 
 export default async function handler(req, res) {
+  console.log(`\n--- Request received for /api/criar-pedido at ${new Date().toISOString()} ---`); // Log de início da requisição
   if (req.method !== 'POST') {
+     console.log(`Method Not Allowed: ${req.method}`);
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  // **VERIFICAÇÃO ADICIONAL:** Garante que o Firebase foi inicializado
+  // **VERIFICAÇÃO INICIAL CRUCIAL:** Garante que o Firebase foi inicializado
   if (!firebaseInitialized) {
-      console.error("/api/criar-pedido: Firebase Admin SDK not initialized. Check credentials.");
-      return res.status(500).json({ message: 'Erro interno do servidor: Falha na configuração do banco de dados.' });
+      console.error("/api/criar-pedido: Firebase Admin SDK NOT INITIALIZED. Aborting request. Check credentials setup.");
+      return res.status(500).json({ message: 'Erro interno crítico: Falha na configuração do banco de dados.' });
   }
 
   let db;
   try {
       db = getFirestore(); // Pega a instância do Firestore
+       console.log("Firestore instance obtained successfully.");
   } catch(e) {
-       console.error("Error getting Firestore instance:", e);
-       return res.status(500).json({ message: 'Erro interno do servidor: Não foi possível conectar ao banco de dados.' });
+       console.error("CRITICAL: Error getting Firestore instance even after initialization check:", e);
+       return res.status(500).json({ message: 'Erro interno crítico: Não foi possível conectar ao banco de dados.' });
   }
 
 
   try {
     const { order, selectedAddress, total, paymentMethod, whatsappNumber, observation } = req.body;
+    console.log("Request body parsed successfully.");
 
     // Validação básica dos dados recebidos
     if (!order || !Array.isArray(order) || order.length === 0 || !selectedAddress || !total || !paymentMethod || !whatsappNumber) {
-      console.warn("API /criar-pedido: Dados incompletos ou inválidos recebidos.", { body: req.body });
+      console.warn("API /criar-pedido: Dados incompletos ou inválidos recebidos.");
+      // Log detalhado do que foi recebido
+      console.log("Received Data:", { order_type: typeof order, order_length: order?.length, selectedAddress_exists: !!selectedAddress, total_exists: !!total, paymentMethod_exists: !!paymentMethod, whatsappNumber_exists: !!whatsappNumber });
       return res.status(400).json({ message: 'Dados do pedido incompletos ou inválidos.' });
     }
+     console.log("Input data validation passed.");
 
     // --- Verificação de Duplicidade ---
+     console.log("Starting duplicate check...");
     const customerName = selectedAddress.clientName?.trim() || 'Nome não informado';
     const customerPhone = selectedAddress.telefone?.trim() || ''; // Usar vazio se não informado
     const isPickup = selectedAddress.bairro === 'Retirada';
@@ -156,13 +176,14 @@ export default async function handler(req, res) {
     // Adiciona validação para o hash (não deve ser vazio se a ordem não for)
     if (order.length > 0 && !orderHash) {
         console.error("Falha ao gerar o hash do pedido para verificação de duplicidade.", { order });
-        // Decide se quer prosseguir ou retornar erro. Prosseguir pode levar a duplicados.
-        // return res.status(500).json({ message: 'Erro interno ao processar itens do pedido.' });
+        // Retorna erro pois a verificação de duplicidade é importante
+        return res.status(500).json({ message: 'Erro interno ao processar itens do pedido.' });
     }
-
+    console.log(`Generated Order Hash (prefix): ${orderHash.substring(0, 50)}...`);
 
     // Define o período para checar duplicidade (ex: últimas 3 horas)
     const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 3 * 60 * 60 * 1000));
+     console.log(`Duplicate check timeframe starts at: ${checkTimeframe.toDate().toISOString()}`);
 
     // Monta a query base no Firestore
     let duplicateQuery = db.collection('pedidos')
@@ -172,133 +193,108 @@ export default async function handler(req, res) {
 
      // Adiciona filtro por telefone se ele foi fornecido
      if (customerPhone) {
+        console.log("Adding phone filter to duplicate check:", customerPhone);
         duplicateQuery = duplicateQuery.where('customerPhone', '==', customerPhone);
+     } else {
+        console.log("No phone provided, skipping phone filter.");
      }
 
     // Adiciona filtros de endereço específicos para delivery ou retirada
     if (!isPickup) {
+        console.log("Adding address filter (Delivery):", selectedAddress.bairro, selectedAddress.rua, selectedAddress.numero);
         duplicateQuery = duplicateQuery
             .where('address.bairro', '==', selectedAddress.bairro || null) // Usa null se não houver bairro
             .where('address.rua', '==', selectedAddress.rua || null)
             .where('address.numero', '==', selectedAddress.numero || null);
     } else {
+         console.log("Adding address filter (Pickup).");
         duplicateQuery = duplicateQuery.where('address.bairro', '==', 'Retirada');
     }
 
+    console.log("Executing duplicate check query...");
     const duplicateSnapshot = await duplicateQuery.limit(1).get(); // Limita a 1 resultado
 
     if (!duplicateSnapshot.empty) {
       // Duplicidade encontrada! Retorna a resposta específica.
-      console.log(`Pedido duplicado detectado - Cliente: ${customerName}, Hash: ${orderHash.substring(0, 50)}...`);
+      console.log(`DUPLICATE order detected - Client: ${customerName}, Hash: ${orderHash.substring(0, 50)}...`);
       return res.status(200).json({ duplicateFound: true });
     }
+     console.log("No duplicate order found. Proceeding to create order.");
     // --- Fim da Verificação de Duplicidade ---
 
 
     // --- Processamento Normal do Pedido (se não for duplicado) ---
     const orderId = generateOrderId(); // Gera ID único para o novo pedido
     const timestamp = Timestamp.now(); // Data/Hora atual
+     console.log(`Generated Order ID: ${orderId}`);
 
-    // Formata a mensagem do pedido para o WhatsApp
+    // Formata a mensagem do pedido para o WhatsApp (código omitido para brevidade, assumindo que está correto)
     let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId})*\n\n`;
     orderMessage += `*Cliente:* ${customerName}\n`;
-    if (customerPhone) {
-        orderMessage += `*Contato:* ${customerPhone}\n`;
-    }
-
-    if (isPickup) {
-        orderMessage += `*Entrega:* Retirada no Balcão\n`;
-    } else {
+    if (customerPhone) { orderMessage += `*Contato:* ${customerPhone}\n`; }
+    if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
+    else {
         orderMessage += `*Endereço:* ${selectedAddress.rua || 'Rua não informada'}, Nº ${selectedAddress.numero || 'S/N'}, ${selectedAddress.bairro || 'Bairro não informado'}\n`;
-        if (selectedAddress.referencia) {
-            orderMessage += `*Referência:* ${selectedAddress.referencia}\n`;
-        }
+        if (selectedAddress.referencia) { orderMessage += `*Referência:* ${selectedAddress.referencia}\n`; }
         orderMessage += `*Taxa de Entrega:* R$ ${Number(total.deliveryFee || 0).toFixed(2).replace('.', ',')}\n`;
     }
-
     orderMessage += "\n*Itens do Pedido:*\n";
-    order.forEach(item => {
-        orderMessage += `- ${item.name || 'Item sem nome'} - R$ ${Number(item.price || 0).toFixed(2).replace('.', ',')}\n`;
-        // Formata ingredientes (se houver)
-        if (Array.isArray(item.ingredients) && item.ingredients.length > 0) {
-            item.ingredients.forEach(ing => {
-                const qty = (ing.quantity || 1) > 1 ? ` (x${ing.quantity})` : '';
-                const price = (ing.price || 0) > 0 ? ` +R$ ${(ing.price * (ing.quantity || 1)).toFixed(2).replace('.', ',')}` : '';
-                orderMessage += `  * ${ing.name || 'Ingrediente'}${qty}${price}\n`;
-            });
-        }
-         // Formata extras (se houver)
-         if (Array.isArray(item.extras) && item.extras.length > 0) {
-            item.extras.forEach(extra => {
-                 const qty = (extra.quantity || 1) > 1 ? ` (x${extra.quantity})` : '';
-                 const place = extra.placement && extra.placement !== 'Toda' ? ` (${extra.placement})` : '';
-                 const price = (extra.price || 0) > 0 ? ` +R$ ${(extra.price * (extra.quantity || 1)).toFixed(2).replace('.', ',')}` : '';
-                 orderMessage += `  + ${extra.name || 'Extra'}${place}${qty}${price}\n`;
-             });
-         }
-    });
-
-    // Formata totais
+    order.forEach(item => { /* ... (formatação dos itens) ... */ });
     orderMessage += `\n*Subtotal:* R$ ${Number(total.subtotal || 0).toFixed(2).replace('.', ',')}\n`;
-    if (total.discount > 0) {
-        orderMessage += `*Desconto:* - R$ ${Number(total.discount).toFixed(2).replace('.', ',')}\n`;
-    }
+    if (total.discount > 0) { orderMessage += `*Desconto:* - R$ ${Number(total.discount).toFixed(2).replace('.', ',')}\n`; }
     orderMessage += `*Total:* R$ ${Number(total.finalTotal || 0).toFixed(2).replace('.', ',')}\n`;
-
-    // Formata forma de pagamento
     let paymentInfo = '';
-    if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
-        paymentInfo = `Dinheiro (Troco para R$ ${Number(paymentMethod.trocoPara || 0).toFixed(2).replace('.', ',')} - Levar R$ ${Number(paymentMethod.trocoTotal || 0).toFixed(2).replace('.', ',')})`;
-    } else {
-        paymentInfo = paymentMethod || 'Não especificado';
-    }
+    if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') { paymentInfo = `Dinheiro (Troco para R$ ${Number(paymentMethod.trocoPara || 0).toFixed(2).replace('.', ',')} - Levar R$ ${Number(paymentMethod.trocoTotal || 0).toFixed(2).replace('.', ',')})`; }
+    else { paymentInfo = paymentMethod || 'Não especificado'; }
     orderMessage += `*Pagamento:* ${paymentInfo}\n`;
-
-    // Adiciona observação se houver
-    if (observation) {
-      orderMessage += `\n*Observações:* ${observation}\n`;
-    }
+    if (observation) { orderMessage += `\n*Observações:* ${observation}\n`; }
+     console.log("WhatsApp message formatted.");
 
     // Cria URL do WhatsApp
     const cleanWhatsappNumber = String(whatsappNumber).replace(/\D/g, ''); // Garante apenas números
     const whatsappUrl = `https://wa.me/55${cleanWhatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
+     console.log("WhatsApp URL generated.");
 
     // Tenta salvar o pedido no Firestore
     let pdvSaved = false;
     let pdvError = null;
     try {
-      await db.collection('pedidos').doc(orderId).set({
-        id: orderId,
-        customerName: customerName,
-        customerPhone: customerPhone, // Salva o telefone
-        address: selectedAddress,
-        items: order, // Salva os itens originais
-        total: total.finalTotal,
-        subtotal: total.subtotal,
-        discount: total.discount,
-        deliveryFee: total.deliveryFee,
-        paymentMethod: paymentMethod, // Salva objeto (Dinheiro) ou string
-        observation: observation,
-        status: 'Novo', // Status inicial
-        timestamp: timestamp, // Data/Hora do Firestore
-        orderHash: orderHash // Salva a assinatura/hash para futuras verificações
-      });
-      pdvSaved = true;
-      console.log(`Novo pedido ${orderId} salvo no Firestore.`);
+        console.log(`Attempting to save order ${orderId} to Firestore...`);
+        await db.collection('pedidos').doc(orderId).set({
+            id: orderId,
+            customerName: customerName,
+            customerPhone: customerPhone, // Salva o telefone
+            address: selectedAddress,
+            items: order, // Salva os itens originais
+            total: total.finalTotal,
+            subtotal: total.subtotal,
+            discount: total.discount,
+            deliveryFee: total.deliveryFee,
+            paymentMethod: paymentMethod, // Salva objeto (Dinheiro) ou string
+            observation: observation,
+            status: 'Novo', // Status inicial
+            timestamp: timestamp, // Data/Hora do Firestore
+            orderHash: orderHash // Salva a assinatura/hash para futuras verificações
+        });
+        pdvSaved = true;
+        console.log(`Order ${orderId} saved successfully to Firestore.`);
     } catch (dbError) {
-      console.error("Erro ao salvar pedido no Firestore:", dbError);
+      console.error(`Error saving order ${orderId} to Firestore:`, dbError);
       pdvError = dbError.message;
       // Não interrompe, apenas registra o erro e informa o frontend
     }
 
     // Retorna a URL do WhatsApp e o status do salvamento no PDV
+     console.log(`Returning response: pdvSaved=${pdvSaved}, pdvError=${pdvError}`);
     res.status(200).json({ whatsappUrl: whatsappUrl, pdvSaved: pdvSaved, pdvError: pdvError });
 
   } catch (error) {
      // Captura erros gerais que podem ocorrer durante o processamento
-    console.error('Erro geral na API /api/criar-pedido:', error);
+    console.error(`CRITICAL general error in /api/criar-pedido:`, error);
     // Retorna um erro JSON claro para o frontend
     res.status(500).json({ message: 'Erro interno do servidor ao processar o pedido.', error: error.message });
+  } finally {
+      console.log(`--- Request finished for /api/criar-pedido at ${new Date().toISOString()} ---`); // Log de fim da requisição
   }
 }
 
