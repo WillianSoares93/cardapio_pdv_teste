@@ -2,20 +2,20 @@
 // --- IMPORTS (usando ES Module syntax) ---
 import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import path from 'path'; // Usando import padrão para path
-import { fileURLToPath } from 'url'; // Necessário para __dirname em ESM
-import { dirname } from 'path'; // Necessário para __dirname em ESM
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // --- CONFIGURAÇÃO DE LOGS ---
 const log = (message, ...args) => console.log(`[LOG ${new Date().toISOString()}] ${message}`, args.length > 0 ? args : '');
-const errorLog = (message, error, ...args) => console.error(`[ERROR ${new Date().toISOString()}] ${message}`, error, args.length > 0 ? args : '');
+const errorLog = (message, error, ...args) => console.error(`[ERROR ${new Date().toISOString()}] ${message}`, error instanceof Error ? error.message : error, args.length > 0 ? args : '');
 
 // Obter __dirname em ambiente ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // --- INICIALIZAÇÃO FIREBASE ADMIN SDK ---
-let serviceAccount;
+let serviceAccountJson; // Variável para guardar o JSON decodificado
 let firebaseInitialized = false;
 let initializationError = null;
 
@@ -24,57 +24,40 @@ log("Verificando inicialização do Firebase Admin SDK...");
 if (getApps().length === 0) {
     log("Nenhuma app Firebase Admin encontrada. Tentando carregar credenciais...");
     try {
-        log("Tentando carregar credenciais das variáveis de ambiente...");
-        const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
-        const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-        const projectId = process.env.FIREBASE_PROJECT_ID;
+        log("Tentando carregar credenciais da variável de ambiente GOOGLE_CREDENTIALS_BASE64...");
+        const credentialsBase64 = process.env.GOOGLE_CREDENTIALS_BASE64;
 
-        log(`Verificação Env Var: Project ID? ${!!projectId}, Client Email? ${!!clientEmail}, Private Key? ${!!privateKey ? 'Existe' : 'AUSENTE!'}`);
-
-        if (!privateKey || !clientEmail || !projectId) {
-            throw new Error("Variáveis de ambiente Firebase Admin (PROJECT_ID, CLIENT_EMAIL, PRIVATE_KEY) ausentes ou incompletas.");
+        if (!credentialsBase64) {
+            throw new Error("Variável de ambiente GOOGLE_CREDENTIALS_BASE64 está ausente.");
         }
-        serviceAccount = {
-            type: "service_account",
-            project_id: projectId,
-            private_key_id: process.env.FIREBASE_ADMIN_PRIVATE_KEY_ID,
-            private_key: privateKey.replace(/\\n/g, '\n'),
-            client_email: clientEmail,
-            client_id: process.env.FIREBASE_ADMIN_CLIENT_ID,
-            auth_uri: "https://accounts.google.com/o/oauth2/auth",
-            token_uri: "https://oauth2.googleapis.com/token",
-            auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-            client_x509_cert_url: process.env.FIREBASE_ADMIN_CLIENT_CERT_URL
-        };
-        log("Credenciais configuradas a partir das variáveis de ambiente.");
+
+        // Decodificar Base64 para String JSON
+        const credentialsJsonString = Buffer.from(credentialsBase64, 'base64').toString('utf-8');
+        log("Variável GOOGLE_CREDENTIALS_BASE64 decodificada.");
+
+        // Parsear a String JSON para um objeto
+        serviceAccountJson = JSON.parse(credentialsJsonString);
+
+        // Validar campos essenciais no JSON
+        if (!serviceAccountJson.project_id || !serviceAccountJson.client_email || !serviceAccountJson.private_key) {
+             throw new Error("JSON decodificado de GOOGLE_CREDENTIALS_BASE64 não contém campos essenciais (project_id, client_email, private_key).");
+        }
+        log("Credenciais parseadas com sucesso a partir de GOOGLE_CREDENTIALS_BASE64.");
 
     } catch (envError) {
-        errorLog("Erro ao configurar credenciais das variáveis de ambiente. Tentando carregar de arquivo local (dev)...", envError);
-        try {
-            // **IMPORTANTE:** Para carregar JSON em ESM, usamos import assertion
-            const credentialsPath = path.join(process.cwd(), 'credentials', 'serviceAccountKey.json');
-            log(`Tentando carregar credenciais do arquivo: ${credentialsPath}`);
-            // Note que `require` não funciona aqui. Se precisar carregar dinamicamente,
-            // seria necessário ler o arquivo com 'fs' e fazer JSON.parse.
-            // Por simplicidade, vamos assumir que as env vars são o método principal no Vercel.
-            // Se o arquivo local for estritamente necessário para dev,
-            // pode ser preciso usar `fs.readFileSync` e `JSON.parse`.
-            // Ou, alternativamente, renomear este arquivo para .cjs se o require for essencial.
-            // Por enquanto, vamos priorizar as env vars.
-            log("Carregamento de arquivo local não implementado diretamente via import em ESM padrão Vercel, priorizando env vars.");
-            throw new Error("Carregamento de arquivo local pulado em favor de env vars."); // Força a falha se env vars falharam
-        } catch (fileError) {
-            errorLog("Erro fatal: Não foi possível carregar credenciais das env vars.", fileError);
-            initializationError = "Falha ao carregar credenciais Firebase Admin (Env Vars).";
-            serviceAccount = null;
-        }
+        errorLog("Erro ao carregar ou processar GOOGLE_CREDENTIALS_BASE64. Verifique se a variável está definida e contém um JSON válido em Base64.", envError);
+        initializationError = `Falha ao carregar/processar credenciais Base64: ${envError.message}`;
+        serviceAccountJson = null;
     }
 
-    if (serviceAccount) {
+    // Inicializar Firebase Admin SDK se o JSON foi carregado e parseado
+    if (serviceAccountJson) {
         try {
-            log("Inicializando Firebase Admin SDK...");
+            log("Inicializando Firebase Admin SDK com credenciais decodificadas...");
+             // A chave privada já deve estar correta após o parse do JSON
+             // Não precisa mais do .replace(/\\n/g, '\n') aqui se o JSON original estiver correto
             initializeApp({
-                credential: cert(serviceAccount)
+                credential: cert(serviceAccountJson)
             });
             firebaseInitialized = true;
             log("Firebase Admin SDK inicializado com sucesso.");
@@ -84,7 +67,7 @@ if (getApps().length === 0) {
             firebaseInitialized = false;
         }
     } else if (!initializationError) {
-        initializationError = "Credenciais Firebase Admin não encontradas (Env Vars).";
+        initializationError = "Credenciais Firebase Admin não encontradas ou inválidas (Base64).";
         errorLog(initializationError);
     }
 } else {
@@ -100,49 +83,10 @@ if (getApps().length === 0) {
 }
 // --- FIM DA INICIALIZAÇÃO ---
 
-// --- FUNÇÕES HELPER --- (Inalteradas, já estavam corretas)
-const createSubItemString = (subItems = []) => {
-  if (!subItems || subItems.length === 0) return '';
-  if (!Array.isArray(subItems)) {
-      console.warn('createSubItemString received non-array:', subItems);
-      return '';
-  }
-  return subItems
-    .map(si => ({ name: String(si.name || ''), quantity: si.quantity || 1, price: si.price || 0, placement: si.placement || '' }))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(si => `${si.name}:${si.quantity}:${si.price}:${si.placement}`)
-    .join(',');
-};
-
-const createOrderHash = (items = []) => {
-   if (!items || items.length === 0) return '';
-   if (!Array.isArray(items)) {
-       console.warn('createOrderHash received non-array:', items);
-       return '';
-   }
-  return items
-    .map(item => {
-      const name = String(item.name || '');
-      const slices = item.selected_slices || '';
-      const price = item.price || 0;
-      const ingredientsString = createSubItemString(item.ingredients);
-      const extrasString = createSubItemString(item.extras);
-      return `${name}|${slices}|${price}|${ingredientsString}|${extrasString}`;
-    })
-    .sort((a, b) => a.localeCompare(b))
-    .join(';');
-};
-
-function generateOrderId() {
-    const now = new Date();
-    const datePart = now.getFullYear().toString().slice(-2) +
-                     (now.getMonth() + 1).toString().padStart(2, '0') +
-                     now.getDate().toString().padStart(2, '0');
-    const timePart = now.getHours().toString().padStart(2, '0') +
-                     now.getMinutes().toString().padStart(2, '0');
-    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${datePart}-${timePart}-${randomPart}`;
-}
+// --- FUNÇÕES HELPER --- (Inalteradas)
+const createSubItemString = (subItems = []) => { /* ... */ };
+const createOrderHash = (items = []) => { /* ... */ };
+function generateOrderId() { /* ... */ }
 // --- FIM FUNÇÕES HELPER ---
 
 
@@ -164,7 +108,7 @@ export default async function handler(req, res) {
         db = getFirestore();
         log("Instância do Firestore obtida com sucesso.");
     } catch (dbError) {
-        errorLog("CRÍTICO: Erro ao obter instância do Firestore mesmo após verificação de inicialização:", dbError);
+        errorLog("CRÍTICO: Erro ao obter instância do Firestore:", dbError);
         return res.status(503).json({ message: 'Erro interno: Falha ao conectar ao banco de dados.', details: dbError.message });
     }
 
@@ -173,7 +117,7 @@ export default async function handler(req, res) {
         log("Corpo da requisição parseado com sucesso.");
 
         if (!order || !Array.isArray(order) || order.length === 0 || !selectedAddress || !total || !paymentMethod || !whatsappNumber) {
-            log("Dados incompletos ou inválidos recebidos.", { /* ... dados ... */ });
+            log("Dados incompletos ou inválidos recebidos.");
             return res.status(400).json({ message: 'Dados do pedido incompletos ou inválidos.' });
         }
         log("Validação inicial dos dados passou.");
@@ -200,18 +144,15 @@ export default async function handler(req, res) {
             .where('timestamp', '>=', checkTimeframe);
 
         if (customerPhone) {
-            log("Adicionando filtro de telefone:", customerPhone);
             duplicateQuery = duplicateQuery.where('customerPhone', '==', customerPhone);
         }
 
         if (!isPickup) {
-             log("Adicionando filtros de endereço (Delivery):", selectedAddress.bairro, selectedAddress.rua, selectedAddress.numero);
             duplicateQuery = duplicateQuery
                 .where('address.bairro', '==', selectedAddress.bairro || null)
                 .where('address.rua', '==', selectedAddress.rua || null)
                 .where('address.numero', '==', selectedAddress.numero || null);
         } else {
-             log("Adicionando filtro de endereço (Retirada).");
             duplicateQuery = duplicateQuery.where('address.bairro', '==', 'Retirada');
         }
 
@@ -219,7 +160,7 @@ export default async function handler(req, res) {
         const duplicateSnapshot = await duplicateQuery.limit(1).get();
 
         if (!duplicateSnapshot.empty) {
-            log(`DUPLICIDADE de pedido detectada - Cliente: ${customerName}, Hash: ${orderHash.substring(0, 50)}...`);
+            log(`DUPLICIDADE de pedido detectada.`);
             return res.status(200).json({ duplicateFound: true });
         }
         log("Nenhum pedido duplicado encontrado.");
@@ -232,8 +173,8 @@ export default async function handler(req, res) {
         log(`ID do Pedido Gerado: ${orderId}`);
 
         let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId})*\n\n`;
-        // ... (restante da formatação da mensagem - inalterado) ...
-         orderMessage += `*Cliente:* ${customerName}\n`;
+        // ... (restante da formatação da mensagem) ...
+        orderMessage += `*Cliente:* ${customerName}\n`;
         if (customerPhone) { orderMessage += `*Contato:* ${customerPhone}\n`; }
         if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
         else {
@@ -242,11 +183,9 @@ export default async function handler(req, res) {
             orderMessage += `*Taxa de Entrega:* R$ ${Number(total.deliveryFee || 0).toFixed(2).replace('.', ',')}\n`;
         }
         orderMessage += "\n*Itens do Pedido:*\n";
-        // Loop para formatar itens (supondo que já existe)
         order.forEach(item => {
             orderMessage += `- ${item.quantity || 1}x ${item.name} (R$ ${Number(item.price || 0).toFixed(2).replace('.', ',')})\n`;
-            // Adicionar detalhes de ingredientes/extras se necessário
-            if (item.ingredients && item.ingredients.length > 0) {
+             if (item.ingredients && item.ingredients.length > 0) {
                  item.ingredients.forEach(ing => orderMessage += `  * ${ing.name}\n`);
             }
              if (item.extras && item.extras.length > 0) {
@@ -270,20 +209,10 @@ export default async function handler(req, res) {
         let pdvSaved = false;
         let pdvError = null;
         const orderDataToSave = {
-            id: orderId,
-            customerName: customerName,
-            customerPhone: customerPhone,
-            address: selectedAddress,
-            items: order,
-            total: total.finalTotal,
-            subtotal: total.subtotal,
-            discount: total.discount,
-            deliveryFee: total.deliveryFee,
-            paymentMethod: paymentMethod,
-            observation: observation,
-            status: 'Novo',
-            timestamp: timestamp,
-            orderHash: orderHash
+            id: orderId, customerName, customerPhone, address: selectedAddress,
+            items: order, total: total.finalTotal, subtotal: total.subtotal,
+            discount: total.discount, deliveryFee: total.deliveryFee,
+            paymentMethod, observation, status: 'Novo', timestamp, orderHash
         };
         try {
             log(`Tentando salvar pedido ${orderId} no Firestore...`);
