@@ -15,11 +15,11 @@ const urlsToCache = [
 
 // Evento de Instalação: Salva os arquivos essenciais no cache individualmente.
 self.addEventListener('install', event => {
-  console.log('Service Worker: Instalando nova versão (v3)...');
+  // console.log('Service Worker: Instalando nova versão (v3)...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Service Worker: Cache aberto (v3), salvando arquivos principais individualmente.');
+        // console.log('Service Worker: Cache aberto (v3), salvando arquivos principais individualmente.');
         // Cria um array de promessas, uma para cada URL a ser cacheada
         const cachePromises = urlsToCache.map(url => {
           // Usa fetch individualmente com tratamento de erro
@@ -30,12 +30,12 @@ self.addEventListener('install', event => {
                 throw new Error(`Falha ao buscar ${url}: ${response.statusText}`);
               }
               // Se a busca for bem-sucedida, coloca a resposta no cache
-              console.log(`Service Worker: Cacheando ${url}`);
+              // console.log(`Service Worker: Cacheando ${url}`);
               return cache.put(url, response);
             })
             .catch(error => {
               // Loga o erro, mas não impede outros arquivos de serem cacheados
-              console.error(`Service Worker: Falha ao cachear ${url} - ${error.message}`);
+              // console.error(`Service Worker: Falha ao cachear ${url} - ${error.message}`);
               // Rejeita a promessa principal se algum arquivo essencial falhar.
               // Se preferir que a instalação continue mesmo com falhas (ex: logo opcional),
               // comente a linha abaixo e descomente a linha `return Promise.resolve();`
@@ -47,12 +47,12 @@ self.addEventListener('install', event => {
         return Promise.all(cachePromises);
       })
       .then(() => {
-        console.log('Service Worker: Arquivos principais cacheados com sucesso (ou falhas registradas).');
+        // console.log('Service Worker: Arquivos principais cacheados com sucesso (ou falhas registradas).');
         return self.skipWaiting(); // Ativa o novo service worker imediatamente.
       })
       .catch(error => {
          // Captura qualquer rejeição do Promise.all (se algum arquivo essencial falhou)
-         console.error('Service Worker: Falha ao cachear um ou mais arquivos essenciais durante a instalação.', error);
+         // console.error('Service Worker: Falha ao cachear um ou mais arquivos essenciais durante a instalação.', error);
          // Não chama skipWaiting() se a instalação falhou criticamente
       })
   );
@@ -60,13 +60,13 @@ self.addEventListener('install', event => {
 
 // Evento de Ativação: Limpa os caches antigos para economizar espaço.
 self.addEventListener('activate', event => {
-  console.log('Service Worker: Ativando nova versão (v3)...');
+  // console.log('Service Worker: Ativando nova versão (v3)...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Service Worker: Limpando cache antigo:', cacheName);
+            // console.log('Service Worker: Limpando cache antigo:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -96,15 +96,15 @@ self.addEventListener('fetch', event => {
              // Clona a resposta para poder usar no cache e retornar ao navegador
              const responseToCache = networkResponse.clone();
              cache.put(request, responseToCache);
-             console.log(`Service Worker: Cache atualizado para ${request.url}`);
+             // console.log(`Service Worker: Cache atualizado para ${request.url}`);
           } else if (networkResponse) {
              // Não cacheia respostas ruins (404, 500, etc.)
-             console.warn(`Service Worker: Resposta não OK da rede para ${request.url} (${networkResponse.status}), não cacheando.`);
+             // console.warn(`Service Worker: Resposta não OK da rede para ${request.url} (${networkResponse.status}), não cacheando.`);
           }
           return networkResponse; // Retorna a resposta da rede
         }).catch(error => {
             // Trata falha na rede (offline)
-            console.log(`Service Worker: Fetch falhou para ${request.url}; usando cache se disponível. Erro:`, error.message);
+            // console.log(`Service Worker: Fetch falhou para ${request.url}; usando cache se disponível. Erro:`, error.message);
             // Se a rede falhar, a promessa é rejeitada, mas o `cachedResponse` (se existir) ainda pode ser usado.
             // Se não houver cache E a rede falhar, o erro será propagado.
              return Promise.reject(error); // Rejeita para indicar falha na rede
@@ -118,3 +118,4 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
