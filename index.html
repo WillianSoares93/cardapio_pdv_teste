@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sâmia - Cardápio Online</title>
     <meta name="theme-color" content="#f8f4e9"/>
-    <!-- Aviso: O CDN é usado para simplicidade neste exemplo. Para produção, use PostCSS/CLI. -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png" type="image/png">
@@ -517,7 +516,6 @@
     </style>
 </head>
 <body>
-    <!-- Cabeçalho -->
     <header class="header-bg text-white py-16 px-4 text-center">
         <div class="max-w-4xl mx-auto">
             <img src="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png" alt="Logotipo Sâmia" class="h-64 mx-auto mb-4 object-contain">
@@ -530,19 +528,16 @@
         </div>
     </header>
 
-    <!-- Seção do Cardápio -->
     <section id="menu" class="py-8 px-4 max-w-6xl mx-auto">
         <div class="text-center mb-8">
             <h2 class="text-4xl font-bold text-gray-800 mb-4">Nosso Cardápio</h2>
             <p class="text-gray-600 text-lg mx-auto">Bateu a fome? A Samia resolve!</p>
         </div>
 
-        <!-- Aviso de Arrastar (Mobile) -->
         <div class="text-gray-500 text-sm text-center mb-4 lg:hidden">
             <i class="fas fa-hand-point-right mr-1"></i> Arraste para o lado para ver outras opções
         </div>
 
-        <!-- Barra de Categorias (Fixa no Mobile) -->
         <div class="category-bar-mobile-sticky lg:static lg:p-0">
             <div id="category-buttons-container" class="flex space-x-2 mb-6 overflow-x-auto pb-2
                         lg:flex-row lg:space-x-2 lg:mb-6 lg:overflow-visible lg:pb-0">
@@ -550,7 +545,6 @@
             </div>
         </div>
 
-        <!-- Lista de Itens do Cardápio -->
         <div id="pizza-list">
             <div id="dynamic-pizza-sections">
                  <!-- Seções de cardápio geradas pelo JS -->
@@ -558,13 +552,13 @@
         </div>
     </section>
 
-    <!-- Botão Flutuante do Carrinho -->
+    <!-- Botão flutuante do carrinho -->
     <button id="cart-button" class="fixed bottom-4 right-4 bg-red-600 text-white w-16 h-16 rounded-full flex items-center justify-center shadow-lg z-40">
         <i class="fas fa-shopping-cart text-2xl"></i>
         <span id="cartCount" class="absolute -top-1 -right-1 bg-yellow-400 text-red-700 text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center border-2 border-white hidden">0</span>
     </button>
 
-    <!-- Botão Flutuante de Promoções -->
+    <!-- Botão flutuante de promoções -->
     <button id="promotion-button">
         <i class="fas fa-tags"></i>
         <span>Promoções</span>
@@ -594,19 +588,16 @@
                     <span id="subtotal" class="font-bold">R$ 0,00</span>
                 </div>
 
-                <!-- Seção de Desconto -->
                 <div id="discount-section" class="flex justify-between items-center mb-2 hidden text-red-600">
                     <span class="text-gray-600">Desconto: <span id="discount-percentage-display"></span></span>
                     <span id="discount-value-display" class="font-bold">- R$ 0,00</span>
                 </div>
 
-                <!-- Checkbox de Retirada -->
                 <div class="flex items-center mb-2 pt-2 border-t border-gray-100">
                     <input type="checkbox" id="pickupCheckbox" class="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
                     <label for="pickupCheckbox" class="ml-2 block text-sm text-gray-900">Irei fazer a Retirada</label>
                 </div>
 
-                <!-- Seção de Taxa de Entrega -->
                 <div id="deliveryFeeSection" class="flex justify-between mb-2">
                     <span class="text-gray-600">Taxa de entrega:</span>
                     <div id="deliveryFeeContainer" class="flex items-center">
@@ -620,13 +611,11 @@
                     </div>
                 </div>
 
-                <!-- Total -->
                 <div class="flex justify-between text-lg font-bold">
                     <span>Total:</span>
                     <span id="total">R$ 0,00</span>
                 </div>
 
-                <!-- Observações -->
                 <div class="mt-4">
                     <label for="order-observation" class="block text-sm font-medium text-gray-700">Observações:</label>
                     <textarea id="order-observation" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" placeholder="Ex: Tirar a cebola, ponto da carne, etc."></textarea>
@@ -927,7 +916,6 @@
         </div>
     </div>
 
-    <!-- Rodapé -->
     <footer class="bg-gray-800 text-white py-8 px-4">
         <div class="max-w-6xl mx-auto">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
@@ -1133,10 +1121,15 @@
             function formatTimeDifference(timestampMillis) {
                 if (!timestampMillis) return 'há pouco tempo';
                 const now = Date.now();
+                // Calcula a diferença em SEGUNDOS, já considerando o sinal
                 const differenceSeconds = Math.round((now - timestampMillis) / 1000);
 
-                if (differenceSeconds < 60) {
-                    return `há ${differenceSeconds} segundos`;
+                // Se for negativo, mostra como "há 0 segundos" (ou outra mensagem)
+                if (differenceSeconds < 0) {
+                    // return `há ${Math.abs(differenceSeconds)} segundo(s) no futuro?`; // Debug
+                    return 'há menos de 1 segundo'; // Mensagem mais amigável
+                } else if (differenceSeconds < 60) {
+                    return `há ${differenceSeconds} segundo${differenceSeconds !== 1 ? 's' : ''}`;
                 } else if (differenceSeconds < 3600) {
                     const minutes = Math.floor(differenceSeconds / 60);
                     return `há ${minutes} minuto${minutes > 1 ? 's' : ''}`;
@@ -1320,90 +1313,76 @@
                 }
             }
 
-            // --- FUNÇÕES DE STATUS E VISIBILIDADE ---
-
             // Escuta por mudanças nos status/visibilidade no Firestore e atualiza a UI
             function listenToControls() {
-                // Escuta status de disponibilidade dos itens
                 onSnapshot(doc(db, "config", "item_status"), (doc) => {
-                    unavailableItems = doc.exists() ? doc.data() : {}; // Atualiza estado
-                    updateUI(); // Atualiza a lista de itens no menu
+                    unavailableItems = doc.exists() ? doc.data() : {};
+                    updateUI(); // Atualiza a lista de itens
                     if (drinkSuggestionModal.style.display === 'flex') {
-                        refreshDrinkSuggestionModal(); // Atualiza modal de bebidas se aberto
+                        refreshDrinkSuggestionModal(); // Atualiza sugestões se o modal estiver aberto
                     }
                 });
-                // Escuta status de visibilidade dos itens
                 onSnapshot(doc(db, "config", "item_visibility"), (doc) => {
-                    itemVisibility = doc.exists() ? doc.data() : {}; // Atualiza estado
-                    updateUI(); // Atualiza a lista de itens no menu
+                    itemVisibility = doc.exists() ? doc.data() : {};
+                    updateUI(); // Atualiza a lista de itens
                     if (drinkSuggestionModal.style.display === 'flex') {
-                        refreshDrinkSuggestionModal(); // Atualiza modal de bebidas se aberto
+                        refreshDrinkSuggestionModal(); // Atualiza sugestões se o modal estiver aberto
                     }
                 });
-                // Escuta status de permissão de meia-meia para pizzas
                 onSnapshot(doc(db, "config", "pizza_half_status"), (doc) => {
-                    pizzaHalfStatus = doc.exists() ? doc.data() : {}; // Atualiza estado
-                    // Atualiza a propriedade 'allowHalf' em todos os itens de pizza no cardápio
+                    pizzaHalfStatus = doc.exists() ? doc.data() : {};
+                    // Atualiza a propriedade 'allowHalf' em todos os itens de pizza
                     allMenuData.forEach(item => {
                         if (item.isPizza && item.id) {
-                            item.allowHalf = pizzaHalfStatus[item.id] !== false; // Define true se não estiver definido como false
+                            item.allowHalf = pizzaHalfStatus[item.id] !== false;
                         }
                     });
                     // Se o modal de opções de pizza estiver aberto, atualiza suas opções
                     if (pizzaOptionModal.style.display === 'flex' && currentPizzaData.id) {
                         const updatedPizza = allMenuData.find(p => p.id === currentPizzaData.id);
                         if (updatedPizza) {
-                            renderPizzaOptions(updatedPizza); // Renderiza opções com status atualizado
+                            renderPizzaOptions(updatedPizza);
                         }
                     }
                 });
-                // Escuta status de permissão de adicionais por item
                  onSnapshot(doc(db, "config", "item_extras_status"), (doc) => {
-                    itemExtrasStatus = doc.exists() ? doc.data() : {}; // Atualiza estado
-                     // Atualiza a propriedade 'acceptsExtras' em todos os itens do cardápio
+                    itemExtrasStatus = doc.exists() ? doc.data() : {};
+                     // Atualiza a propriedade 'acceptsExtras' em todos os itens
                     allMenuData.forEach(item => {
                         if (item.id) {
                            const defaultExtras = item.isPizza; // Pizzas aceitam por padrão
-                           // Define true se não estiver explicitamente false no Firestore, ou usa o padrão (true para pizzas)
                            item.acceptsExtras = itemExtrasStatus[item.id] === undefined ? defaultExtras : itemExtrasStatus[item.id];
                         }
                     });
-                     // Atualiza a propriedade 'acceptsExtras' nos itens já presentes no carrinho
+                     // Atualiza o pedido atual também, caso algum item já esteja no carrinho
                      order.forEach(orderItem => {
-                         if(orderItem.id && orderItem.type !== 'promotion') { // Ignora promoções
-                             // Encontra o item original no cardápio (lógica para nome formatado)
-                             const originalItem = allMenuData.find(menuItem => menuItem.name === (orderItem.name.split(': ')[1] || orderItem.name.split(' Meia ')[1]?.split(' & ')[0])) || allMenuData.find(menuItem => orderItem.name.includes(menuItem.name));
-                              if(originalItem) { // Se encontrou o item original
-                                const defaultExtras = originalItem.isPizza; // Padrão
-                                // Atualiza 'acceptsExtras' no item do carrinho
+                         if(orderItem.id && orderItem.type !== 'promotion') {
+                             const originalItem = allMenuData.find(menuItem => menuItem.name === (orderItem.name.split(': ')[1] || orderItem.name)); // Encontra o item original
+                              if(originalItem) {
+                                const defaultExtras = originalItem.isPizza;
                                 orderItem.acceptsExtras = itemExtrasStatus[originalItem.id] === undefined ? defaultExtras : itemExtrasStatus[originalItem.id];
                              }
                          }
                      });
-                     updateOrderDisplay(); // Atualiza a sidebar (para mostrar/esconder botões de extras)
+                     updateOrderDisplay(); // Atualiza a sidebar para mostrar/esconder botões de extras
                 });
-                // Escuta status de disponibilidade dos ingredientes de hambúrguer
                 onSnapshot(doc(db, "config", "ingredient_status"), (doc) => {
-                    ingredientStatus = doc.exists() ? doc.data() : {}; // Atualiza estado
-                    refreshOpenPopups(); // Atualiza modal de montagem de hambúrguer se aberto
+                    ingredientStatus = doc.exists() ? doc.data() : {};
+                    refreshOpenPopups(); // Atualiza modais abertos (montador de hambúrguer)
                 });
-                // Escuta status de visibilidade dos ingredientes de hambúrguer
                 onSnapshot(doc(db, "config", "ingredient_visibility"), (doc) => {
-                    ingredientVisibility = doc.exists() ? doc.data() : {}; // Atualiza estado
-                    refreshOpenPopups(); // Atualiza modal de montagem de hambúrguer se aberto
+                    ingredientVisibility = doc.exists() ? doc.data() : {};
+                    refreshOpenPopups(); // Atualiza modais abertos
                 });
-                // Escuta status de disponibilidade dos adicionais de pizza
                 onSnapshot(doc(db, "config", "extra_status"), (doc) => {
-                    extraStatus = doc.exists() ? doc.data() : {}; // Atualiza estado
-                    refreshOpenPopups(); // Atualiza modal de adicionais de pizza se aberto
+                    extraStatus = doc.exists() ? doc.data() : {};
+                    refreshOpenPopups(); // Atualiza modais abertos (adicionais de pizza)
                 });
-                // Escuta status de visibilidade dos adicionais de pizza
                 onSnapshot(doc(db, "config", "extra_visibility"), (doc) => {
-                    extraVisibility = doc.exists() ? doc.data() : {}; // Atualiza estado
-                    refreshOpenPopups(); // Atualiza modal de adicionais de pizza se aberto
+                    extraVisibility = doc.exists() ? doc.data() : {};
+                    refreshOpenPopups(); // Atualiza modais abertos
                 });
             }
-
 
             // Preenche a seção do menu com os itens carregados e filtrados
             function populateMenu(menuItems, orderedCategories) {
@@ -1519,7 +1498,7 @@
                                             <div class="flex justify-between items-center">
                                                 <span class="font-bold text-red-600 text-lg">R$ ${item.basePrice.toFixed(2).replace('.', ',')}</span>
                                                 <button class="add-item-btn ${buttonClasses} text-white px-4 py-2 rounded-full text-sm font-medium transition duration-300"
-                                                        data-item-id="${item.id}" data-image-url="${trimmedImageUrl}" ${buttonDisabledAttr}>
+                                                        data-item-id="${item.id}" ${buttonDisabledAttr}>
                                                     ${buttonText}
                                                 </button>
                                             </div>
@@ -2504,8 +2483,7 @@
                     });
                 })
                 .then(data => {
-                    // CORREÇÃO: Removido o ; extra após o if
-                    if (data.duplicateFound) {
+                    if (data.duplicateFound) { // Se encontrou duplicata
                         // --- DUPLICIDADE ENCONTRADA ---
                         const timeDifferenceString = formatTimeDifference(data.originalOrderTimestamp);
                         const message = `Esse pedido foi registrado ${timeDifferenceString}. Gostaria de pedir novamente esse mesmo pedido?`;
@@ -2515,32 +2493,31 @@
                         const yesBtn = document.getElementById('duplicate-confirm-yes-btn');
                         const noBtn = document.getElementById('duplicate-confirm-no-btn');
                         const closeBtn = document.getElementById('close-duplicate-confirm-modal');
-                        // *** IMPORTANTE: Verifique se a variável do botão principal é realmente 'checkoutButton' ou 'currentCheckoutButton' no escopo desta função ***
-                        // Usando 'checkoutButton' como padrão, ajuste se necessário.
-                        const currentCheckoutButton = document.getElementById('checkoutButton'); // <<-- Ajuste aqui se o ID for diferente ou se a variável global for usada
+                        const currentCheckoutButton = document.getElementById('checkoutButton');
 
                         messageEl.textContent = message;
 
-                        // Função para fechar o modal e reabilitar o botão principal
-                        const closeModalAndReenable = () => {
+                        // Função para fechar o modal e reabilitar o botão principal OU reenviar
+                        const closeModalAndProceed = (shouldResend) => {
                             modal.style.display = 'none';
-                            currentCheckoutButton.disabled = false; // <<<--- Usando a variável confirmada
-                            updateCheckoutButtonText(); // Restaura o texto
                             // Remove listeners para evitar acúmulo
                             yesBtn.removeEventListener('click', handleYes);
                             noBtn.removeEventListener('click', handleNo);
                             closeBtn.removeEventListener('click', handleNo);
                             modal.removeEventListener('click', handleOutsideClick);
+
+                            if (shouldResend) {
+                                // Chama a função de checkout novamente para reenviar
+                                proceedToWhatsappCheckout();
+                            } else {
+                                // Apenas reabilita o botão
+                                currentCheckoutButton.disabled = false;
+                                updateCheckoutButtonText(); // Restaura o texto
+                            }
                         };
 
-                        const handleYes = () => {
-                            closeModalAndReenable();
-                            // Apenas fecha. O usuário pode clicar em "Finalizar Pedido" novamente se quiser.
-                        };
-
-                        const handleNo = () => {
-                            closeModalAndReenable();
-                        };
+                        const handleYes = () => closeModalAndProceed(true); // Reenvia
+                        const handleNo = () => closeModalAndProceed(false); // Não reenvia
 
                          const handleOutsideClick = (event) => {
                              if (event.target === modal) {
@@ -2660,7 +2637,6 @@
                 }
             }
 
-
             // Atualiza o texto do botão "Finalizar Pedido"
             function updateCheckoutButtonText() {
                 // CORREÇÃO: Pegar referência novamente caso o DOM tenha mudado
@@ -2756,7 +2732,7 @@
                 // Filtra promoções ativas com preço definido
                 const activePromotionsWithPrice = allPromotionsData.filter(promo => promo.active && promo.promoPrice !== null);
                 // Verifica se algum modal está aberto
-                const isAnyModalOpen = document.querySelector('.modal[style*="display: flex"]');
+                const isAnyModalOpen = document.querySelector('.modal[style*="display: flex"]') || document.querySelector('.message-modal[style*="display: flex"]');
                 // Mostra o botão se: há promoções, a sidebar está fechada e nenhum modal está aberto
                 if (activePromotionsWithPrice.length > 0 && !orderSidebar.classList.contains('translate-x-0') && !isAnyModalOpen) {
                     promotionButton.style.display = 'flex';
@@ -3108,7 +3084,6 @@
                         const option = document.createElement('option');
                         option.value = fee.neighborhood; // Valor é o nome do bairro
                         option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`; // Texto com nome e taxa
-                        option.dataset.fee = fee.deliveryFee; // Guarda taxa no dataset
                         neighborhoodSelect.appendChild(option); // Adiciona ao <select>
                     }
                 });
@@ -3614,7 +3589,7 @@
                 }
             });
             closePizzaOptionModalBtn.addEventListener('click', function() { pizzaOptionModal.style.display = 'none'; updatePromotionButtonVisibility(); resetHalfPizzaSelection(); });
-            // Listener GLOBAL para fechar modais clicando fora
+// Listener GLOBAL para fechar modais clicando fora
             window.addEventListener('click', function(event) {
                 if (event.target == pizzaOptionModal) { pizzaOptionModal.style.display = 'none'; updatePromotionButtonVisibility(); resetHalfPizzaSelection(); }
                 if (event.target == burgerBuilderModal) { burgerBuilderModal.style.display = 'none'; updatePromotionButtonVisibility(); }
@@ -3659,48 +3634,45 @@
 
             closePaymentMethodModalBtn.addEventListener('click', closePaymentMethodModal);
             paymentOptionsContainer.addEventListener('click', (event) => {
-                const targetLabel = event.target.closest('.payment-option');
-                if (targetLabel) {
-                    // Desmarca visualmente todas as opções
-                    paymentOptionsContainer.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
-                    // Marca visualmente a opção clicada
-                    targetLabel.classList.add('selected');
-                    // Mostra ou esconde o campo de troco
-                    trocoInputContainer.classList.toggle('hidden', targetLabel.dataset.method !== 'Dinheiro');
-                    // Mostra ou esconde detalhes do Pix e gera QR Code se necessário
-                    if (targetLabel.dataset.method === 'Pix' && contactInfo.chavepix) {
-                        const totalAmount = calculateOrderTotal();
-                        const payload = gerarPayload(contactInfo.chavepix, totalAmount, contactInfo.nome || 'Samia Pizzaria', contactInfo.cidade || 'Cidade', "pedido" + Date.now());
-                        pixKeyDisplay.textContent = payload;
-                        pixDetailsContainer.classList.remove('hidden');
-                        const qrcodeContainer = document.getElementById('qrcode-container');
-                        qrcodeContainer.innerHTML = ''; // Limpa QR Code anterior
-                        new QRCode(qrcodeContainer, {
-                            text: payload, width: 110, height: 110,
-                            colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H
-                        });
-                    } else {
-                        pixDetailsContainer.classList.add('hidden');
-                         const qrcodeContainer = document.getElementById('qrcode-container');
-                         qrcodeContainer.innerHTML = ''; // Limpa QR Code
-                    }
-                    // Limpa o campo de troco se outra opção for selecionada
-                    if (targetLabel.dataset.method !== 'Dinheiro') {
-                        trocoParaInput.value = '';
+                const selectedLabel = event.target.closest('.payment-option');
+                if (selectedLabel) {
+                    // Atualiza a seleção visual
+                    document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
+                    selectedLabel.classList.add('selected');
+                    // Mostra/esconde input de troco
+                    const isCash = selectedLabel.dataset.method === 'Dinheiro';
+                    trocoInputContainer.classList.toggle('hidden', !isCash);
+                    if (!isCash) {
+                        trocoParaInput.value = ''; // Limpa troco se não for dinheiro
                         trocoTotalDisplay.textContent = 'R$ 0,00';
+                    } else {
+                        calculateTrocoTotal(); // Calcula troco se for dinheiro
+                    }
+                    // Mostra/esconde detalhes do Pix
+                     const isPix = selectedLabel.dataset.method === 'Pix';
+                    pixDetailsContainer.classList.toggle('hidden', !isPix);
+                    if (isPix && contactInfo.chavepix) {
+                        const totalAmount = calculateOrderTotal();
+                        const payload = gerarPayload(contactInfo.chavepix, totalAmount, contactInfo.nome || 'Samia Pizzaria', contactInfo.cidade || 'Cidade', "pedido"+Date.now());
+                        pixKeyDisplay.textContent = payload;
+                        const qrcodeContainer = document.getElementById('qrcode-container');
+                        qrcodeContainer.innerHTML = '';
+                         if (qrcodeContainer) { // Verifica se existe
+                            new QRCode(qrcodeContainer, {
+                                text: payload, width: 110, height: 110,
+                                colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H
+                            });
+                        }
+                    } else if (isPix && !contactInfo.chavepix) {
+                        pixKeyDisplay.textContent = 'Chave Pix não configurada.';
+                         document.getElementById('qrcode-container').innerHTML = '';
+                    } else {
+                        document.getElementById('qrcode-container').innerHTML = '';
                     }
                 }
             });
-            trocoParaInput.addEventListener('input', () => {
-                const totalOrder = calculateOrderTotal();
-                const trocoParaValue = parseFloat(trocoParaInput.value);
-                if (!isNaN(trocoParaValue) && trocoParaValue >= totalOrder) {
-                    const trocoCalculado = trocoParaValue - totalOrder;
-                    trocoTotalDisplay.textContent = `R$ ${trocoCalculado.toFixed(2).replace('.', ',')}`;
-                } else {
-                    trocoTotalDisplay.textContent = 'R$ 0,00';
-                }
-            });
+
+            trocoParaInput.addEventListener('input', calculateTrocoTotal); // Calcula troco ao digitar
             copyPixBtn.addEventListener('click', (e) => { e.stopPropagation(); copyPixKey(); });
             pixKeyContainer.addEventListener('click', copyPixKey);
 
@@ -3724,107 +3696,101 @@
             });
 
             closeAddressModalBtn.addEventListener('click', hideAddressInputModal);
-            noNumberCheckbox.addEventListener('change', function() { numberInput.disabled = this.checked; if(this.checked) numberInput.value = 'S/N'; else numberInput.value = ''; });
-            confirmAddressBtn.addEventListener('click', function() {
-                // Validação dos dados de endereço
-                const isPickup = pickupCheckbox.checked;
-                const name = clientNameInput.value.trim();
+            noNumberCheckbox.addEventListener('change', function() { numberInput.disabled = this.checked; if (this.checked) numberInput.value = ''; });
+            confirmAddressBtn.addEventListener('click', function() { // Confirma endereço
+                const clientName = clientNameInput.value.trim();
                 const contact = contactInput.value.trim();
-                let isValid = true;
-                let errorMessage = '';
+                const neighborhood = neighborhoodSelect.value;
+                const street = streetInput.value.trim();
+                const number = noNumberCheckbox.checked ? 'S/N' : numberInput.value.trim();
+                const reference = referencePointInput.value.trim();
 
-                if (!name) { isValid = false; errorMessage = 'Por favor, informe seu nome.'; }
-                else if (!contact) { isValid = false; errorMessage = 'Por favor, informe seu telefone para contato.'; }
-                else if (!isPickup) {
-                    const neighborhood = neighborhoodSelect.value;
-                    const street = streetInput.value.trim();
-                    const number = numberInput.value.trim();
-                    if (!neighborhood) { isValid = false; errorMessage = 'Por favor, selecione seu bairro.'; }
-                    else if (!street) { isValid = false; errorMessage = 'Por favor, informe o nome da sua rua.'; }
-                    else if (!number && !noNumberCheckbox.checked) { isValid = false; errorMessage = 'Por favor, informe o número da casa ou marque "Sem Número".'; }
+                let validationError = null;
+                 if (!clientName) validationError = 'Por favor, informe o seu nome.';
+                else if (!contact) validationError = 'Por favor, informe um telefone para contato.';
+                 else if (!isPickupOrder) { // Validação de endereço apenas para delivery
+                    if (!neighborhood) validationError = 'Por favor, selecione o seu bairro.';
+                    else if (!street) validationError = 'Por favor, informe a sua rua.';
+                    else if (!number) validationError = 'Por favor, informe o número da sua casa ou marque "Sem Número".';
                 }
 
-                if (isValid) {
-                    // Salva os dados validados
-                    selectedAddress.clientName = name;
-                    selectedAddress.telefone = contact;
-                    if (!isPickup) {
-                        selectedAddress.bairro = neighborhoodSelect.value;
-                        selectedAddress.rua = streetInput.value.trim();
-                        selectedAddress.numero = noNumberCheckbox.checked ? 'S/N' : numberInput.value.trim();
-                        selectedAddress.referencia = referencePointInput.value.trim();
-                        // Calcula a taxa de entrega
-                        const selectedOption = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
-                        selectedAddress.deliveryFee = selectedOption ? parseFloat(selectedOption.dataset.fee || 0) : 0;
-                    } else {
-                        // Reseta dados de endereço para retirada
-                        selectedAddress.bairro = "Retirada"; selectedAddress.rua = "Retirada no Balcão"; selectedAddress.numero = "S/N"; selectedAddress.referencia = ""; selectedAddress.deliveryFee = 0;
-                    }
-                    hideAddressInputModal(); // Fecha o modal
-                    updateOrderDisplay(); // Atualiza a sidebar com taxa e totais
-                    showAddressSummary(); // Mostra o resumo do endereço na sidebar
-                    // Se o checkout foi iniciado, continua o fluxo
-                    if (isCheckoutInitiated) { handleCheckoutFlow(); }
+                 if (validationError) { showMessageModal(validationError); return; }
+
+                // Atualiza o estado selectedAddress
+                selectedAddress.clientName = clientName;
+                selectedAddress.telefone = contact;
+                 if (!isPickupOrder) {
+                    selectedAddress.bairro = neighborhood;
+                    selectedAddress.rua = street;
+                    selectedAddress.numero = number;
+                    selectedAddress.referencia = reference;
+                    const selectedOption = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
+                    selectedAddress.deliveryFee = parseFloat(selectedOption.dataset.fee) || 0;
                 } else {
-                    showMessageModal(errorMessage); // Mostra erro de validação
+                    selectedAddress.bairro = "Retirada";
+                    selectedAddress.rua = "Retirada no Balcão";
+                    selectedAddress.numero = "S/N";
+                    selectedAddress.referencia = "";
+                    selectedAddress.deliveryFee = 0;
+                }
+
+                hideAddressInputModal(); // Fecha modal
+                updateOrderDisplay(); // Atualiza sidebar com taxa e totais
+                showAddressSummary(); // Mostra resumo do endereço
+                 if (isCheckoutInitiated && !selectedPaymentMethod) { // Se veio do checkout e falta pagamento
+                    openPaymentMethodModal(true); // Abre modal de pagamento
+                } else if (isCheckoutInitiated) {
+                     proceedToWhatsappCheckout(); // Finaliza se pagamento já estava ok
                 }
             });
             editAddressBtn.addEventListener('click', function() { showAddressInputModal(isPickupOrder); });
             informAddressBtn.addEventListener('click', function() { showAddressInputModal(false); });
             editDeliveryAddressBtn.addEventListener('click', function() { showAddressInputModal(false); });
             askExtrasYesBtn.addEventListener('click', () => {
-                const itemId = askPizzaExtrasModal.dataset.orderItemId; // Pega ID do item
-                const orderIndex = order.findIndex(item => item.id === itemId); // Encontra índice no pedido
-                if (orderIndex !== -1) { openPizzaExtrasBuilderModal(orderIndex); } // Abre modal de extras
-                askPizzaExtrasModal.style.display = 'none'; // Fecha modal de pergunta
+                 const orderItemId = askPizzaExtrasModal.dataset.orderItemId;
+                 const orderIndex = order.findIndex(item => item.id === orderItemId);
+                 if (orderIndex > -1) { openPizzaExtrasBuilderModal(orderIndex); }
+                 askPizzaExtrasModal.style.display = 'none';
             });
-            askExtrasNoBtn.addEventListener('click', () => { askPizzaExtrasModal.style.display = 'none'; }); // Fecha modal de pergunta
-            closePizzaExtrasBuilderModalBtn.addEventListener('click', () => { pizzaExtrasBuilderModal.style.display = 'none'; }); // Fecha modal de extras
+            askExtrasNoBtn.addEventListener('click', () => { askPizzaExtrasModal.style.display = 'none'; });
+            closePizzaExtrasBuilderModalBtn.addEventListener('click', () => { pizzaExtrasBuilderModal.style.display = 'none'; });
             pizzaExtrasIngredientsContainer.addEventListener('click', (e) => {
-                 const target = e.target;
-                 const orderIndex = parseInt(pizzaExtrasBuilderModal.dataset.orderIndex);
-                 if (target.classList.contains('quantity-btn')) { // Se clicou em +/-
-                     handleExtraQuantityChange(target, orderIndex); // Chama função para lidar com a mudança
-                 }
+                const target = e.target;
+                if (target.classList.contains('quantity-btn')) {
+                    const orderIndex = parseInt(pizzaExtrasBuilderModal.dataset.orderIndex);
+                    handleExtraQuantityChange(target, orderIndex);
+                }
             });
-            addPizzaWithExtrasBtn.addEventListener('click', confirmPizzaExtras); // Confirma extras
+            addPizzaWithExtrasBtn.addEventListener('click', confirmPizzaExtras);
 
             // --- LÓGICA DO PWA ---
              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('/service-worker.js')
-                        .then(registration => console.log('Service Worker registrado com sucesso:', registration.scope))
-                        .catch(error => console.log('Falha ao registrar Service Worker:', error));
-                });
-            }
+                 window.addEventListener('load', () => {
+                     navigator.serviceWorker.register('/service-worker.js')
+                         .then(registration => console.log('Service Worker registrado com sucesso:', registration.scope))
+                         .catch(error => console.error('Falha ao registrar Service Worker:', error));
+                 });
+             }
             window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault(); // Previne o prompt padrão
-                deferredPrompt = e; // Guarda o evento
-                if (!isPwaInstalled()) { // Mostra nosso modal apenas se não estiver instalado
-                    installPromptModal.style.display = 'flex';
-                }
+                 e.preventDefault(); deferredPrompt = e;
+                 if (!isPwaInstalled()) {
+                     // Opção 1: Mostrar um botão/banner sutil na interface
+                     // Opção 2: Mostrar o modal imediatamente (menos recomendado UX)
+                     // showInstallPromptModal(); // Descomente para mostrar o modal
+                 }
             });
             installAppButton.addEventListener('click', () => {
-                installPromptModal.style.display = 'none'; // Esconde nosso modal
-                if (deferredPrompt) {
-                    deferredPrompt.prompt(); // Mostra o prompt de instalação do navegador
-                    deferredPrompt.userChoice.then((choiceResult) => {
-                        console.log('Escolha do usuário:', choiceResult.outcome);
-                        deferredPrompt = null; // Limpa o evento
-                    });
-                }
+                 installPromptModal.style.display = 'none';
+                 if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then((choiceResult) => { deferredPrompt = null; }); }
             });
             closeInstallPromptModalBtn.addEventListener('click', () => { installPromptModal.style.display = 'none'; });
-            window.addEventListener('appinstalled', () => { console.log('PWA instalado com sucesso!'); });
+            window.addEventListener('appinstalled', () => { console.log('PWA instalado'); });
 
             // Esconde botões flutuantes ao rolar até o final da página
             window.addEventListener('scroll', () => {
-                // Verifica se chegou perto do final da página
-                const nearBottom = (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 150;
-                // Esconde/Mostra botões com base na posição
-                cartButton.style.display = nearBottom ? 'none' : 'flex';
-                updatePromotionButtonVisibility(); // Aplica lógica normal de visibilidade das promoções
-                if (nearBottom) promotionButton.style.display = 'none'; // Força esconder se perto do final
+                const isNearBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 50);
+                cartButton.style.display = isNearBottom ? 'none' : 'flex';
+                updatePromotionButtonVisibility(); // Usa a função existente que já considera modais
             });
 
              // CORRIGIDO: Verifica se a função existe e a chama corretamente
@@ -3849,3 +3815,4 @@
     </script>
 </body>
 </html>
+
