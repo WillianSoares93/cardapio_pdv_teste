@@ -152,7 +152,8 @@ export default async function handler(req, res) {
         const customerName = selectedAddress.clientName?.trim() || 'Nome não informado';
         const customerPhone = selectedAddress.telefone?.trim().replace(/\D/g, '') || '';
         const orderHash = createOrderHash(order);
-        const bairro = selectedAddress.bairro || null; // Obter bairro
+        // *** CORREÇÃO: Define o bairro corretamente para a verificação de duplicidade ***
+        const bairro = selectedAddress.rua === "Retirada no Balcão" ? "Retirada" : selectedAddress.bairro || null; // Obter bairro ou 'Retirada'
 
         if (!orderHash || orderHash === 'error_processing_items' || orderHash.includes('invalid_item')) {
             errorLog("Falha ao gerar hash do pedido para duplicidade.", { order, generatedHash: orderHash });
@@ -165,7 +166,7 @@ export default async function handler(req, res) {
 
         // **AJUSTE NA QUERY PARA CORRESPONDER EXATAMENTE AO ÍNDICE DA IMAGEM**
         let duplicateQuery = db.collection('pedidos')
-            .where('address.bairro', '==', bairro) // <-- Primeiro campo do índice
+            .where('address.bairro', '==', bairro) // <-- Primeiro campo do índice (agora correto para Retirada também)
             .where('customerName', '==', customerName) // <-- Segundo campo do índice
             // Condicional para telefone
             // .where('customerPhone', '==', customerPhone) // <-- Terceiro campo do índice (omitido se vazio)
@@ -198,11 +199,12 @@ export default async function handler(req, res) {
         log(`ID do Pedido Gerado: ${orderId}`);
 
         // --- Montagem da Mensagem WhatsApp (Mantida) ---
-        const isPickup = selectedAddress.rua === 'Retirada no Balcão';
+        // *** CORREÇÃO: Verifica explicitamente se a rua é "Retirada no Balcão" ***
+        const isPickup = selectedAddress.rua === "Retirada no Balcão";
         let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId.substring(0,5).toUpperCase()})*\n\n`;
         orderMessage += `*Cliente:* ${customerName}\n`;
         if (selectedAddress.telefone) { orderMessage += `*Contato:* ${selectedAddress.telefone}\n`; }
-        if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
+        if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; } // Mensagem correta para retirada
         else {
             orderMessage += `*Endereço:* ${selectedAddress.rua || 'Rua não informada'}, Nº ${selectedAddress.numero || 'S/N'}, ${selectedAddress.bairro || 'Bairro não informado'}\n`;
             if (selectedAddress.referencia) { orderMessage += `*Referência:* ${selectedAddress.referencia}\n`; }
@@ -236,7 +238,7 @@ export default async function handler(req, res) {
         let pdvSaved = false;
         let pdvError = null;
 
-        // --- Estrutura para salvar (mantida da versão anterior, já inclui campos do índice) ---
+        // --- Estrutura para salvar (ajustada para Retirada) ---
         const orderDataToSave = {
             // Campos indexados no nível raiz
             customerName: customerName,
@@ -248,12 +250,14 @@ export default async function handler(req, res) {
             criadoEm: timestamp, // Manter por consistência se o PDV usar
             // **IMPORTANTE:** Salvar address.bairro corretamente para o índice
             address: {
-                bairro: bairro, // Salvar o bairro usado na query
+                // *** CORREÇÃO APLICADA AQUI ***
+                bairro: isPickup ? "Retirada" : bairro, // Salva 'Retirada' ou o bairro real
+                rua: isPickup ? "Retirada no Balcão" : selectedAddress.rua || null, // Salva 'Retirada no Balcão' ou a rua real
+                // Mantém os outros campos, que podem ser null para retirada
                 clientName: customerName,
                 deliveryFee: Number(selectedAddress.deliveryFee || 0),
-                numero: selectedAddress.numero || null,
-                referencia: selectedAddress.referencia || null,
-                rua: selectedAddress.rua || null,
+                numero: isPickup ? "S/N" : selectedAddress.numero || null,
+                referencia: isPickup ? null : selectedAddress.referencia || null,
                 telefone: selectedAddress.telefone || null // Telefone formatado
             },
             itens: order.map(item => ({
@@ -274,7 +278,7 @@ export default async function handler(req, res) {
             })),
             observacao: observation || "",
             pagamento: paymentMethod,
-            status: 'Novo',
+            status: 'Novo', // Pedidos do cardápio sempre começam como 'Novo'
             total: {
                 deliveryFee: Number(total.deliveryFee || 0),
                 discount: Number(total.discount || 0),
@@ -315,4 +319,3 @@ export default async function handler(req, res) {
         log(`--- Requisição finalizada para /api/criar-pedido em ${new Date().toISOString()} ---`);
     }
 }
-
