@@ -2375,7 +2375,19 @@
                 order = []; // Esvazia array de itens
                 selectedPaymentMethod = null; // Reseta pagamento
                 document.getElementById('order-observation').value = ''; // Limpa observações
-                updateOrderDisplay(); // Atualiza sidebar (mostrará carrinho vazio)
+                 // Limpa dados do endereço, mas mantém nome e telefone se existirem (para conveniência)
+                selectedAddress = {
+                    clientName: selectedAddress.clientName,
+                    telefone: selectedAddress.telefone,
+                    bairro: null,
+                    rua: null,
+                    numero: null,
+                    referencia: null,
+                    deliveryFee: 0.00
+                };
+                pickupCheckbox.checked = false; // Desmarca checkbox de retirada
+                isPickupOrder = false; // Reseta flag de retirada
+                updateOrderDisplay(); // Atualiza sidebar (mostrará carrinho vazio e resetará totais)
                 updateCartCount(); // Zera contador
 
                 // Reseta flags de seleção de meia pizza
@@ -2386,6 +2398,7 @@
                 toggleAddItemButtons(true); // Reabilita todos os botões de adicionar
                 toggleCategoryButtons(true); // Reabilita todas as categorias
                 updateCheckoutButtonText(); // Reseta texto do botão finalizar
+                showAddressSummary(); // Atualiza o resumo do endereço (pode esconder ou mostrar só nome/tel)
             }
 
 
@@ -2402,9 +2415,10 @@
 
             // Envia o pedido para a API e tenta redirecionar para o WhatsApp (com verificação de duplicidade)
             function proceedToWhatsappCheckout() {
-                const checkoutButton = document.getElementById('checkoutButton');
-                checkoutButton.disabled = true;
-                checkoutButton.textContent = 'Enviando...';
+                // CORREÇÃO: Pegar referência do botão novamente, pois a original pode ter sido substituída
+                const currentCheckoutButton = document.getElementById('checkoutButton');
+                currentCheckoutButton.disabled = true;
+                currentCheckoutButton.textContent = 'Enviando...';
 
                 // Calcula totais finais
                 let subtotal = 0;
@@ -2431,7 +2445,8 @@
                     if (data.duplicateFound) {
                         // --- DUPLICIDADE ENCONTRADA ---
                         showMessageModal('Um pedido muito semelhante foi registrado recentemente. Verifique seus pedidos anteriores ou entre em contato conosco se acredita ser um erro.');
-                        checkoutButton.disabled = false;
+                        // CORREÇÃO: Reabilitar botão aqui também
+                        currentCheckoutButton.disabled = false;
                         updateCheckoutButtonText();
                     } else if (data && data.whatsappUrl) {
                         // --- SUCESSO (SEM DUPLICIDADE) ---
@@ -2439,6 +2454,9 @@
                         setTimeout(() => {
                             clearOrder();
                             closeOrderSidebar();
+                            // CORREÇÃO: Reabilitar botão e restaurar texto APÓS limpar o pedido
+                            currentCheckoutButton.disabled = false;
+                            updateCheckoutButtonText();
                             if (!whatsappWindow) {
                                 // Fallback para iOS/outros bloqueadores
                                 try {
@@ -2457,7 +2475,8 @@
                         // --- OUTRO ERRO DA API (RESPOSTA JSON MAS SEM URL OU DUPLICATE) ---
                          console.error("Resposta inesperada da API /api/criar-pedido:", data);
                         showMessageModal(data.message || 'Erro ao processar o pedido. Por favor, tente novamente.');
-                        checkoutButton.disabled = false;
+                        // CORREÇÃO: Reabilitar botão aqui também
+                        currentCheckoutButton.disabled = false;
                         updateCheckoutButtonText();
                     }
                 })
@@ -2466,7 +2485,8 @@
                     console.error('Erro ao chamar /api/criar-pedido ou processar resposta:', error);
                      // Mostra a mensagem de erro vinda da API (se houver) ou uma genérica
                     showMessageModal(error.message || 'Erro de conexão ao enviar o pedido. Verifique sua internet.');
-                    checkoutButton.disabled = false;
+                     // CORREÇÃO: Reabilitar botão aqui também
+                    currentCheckoutButton.disabled = false;
                     updateCheckoutButtonText();
                 });
             }
@@ -2534,7 +2554,11 @@
 
             // Atualiza o texto do botão "Finalizar Pedido"
             function updateCheckoutButtonText() {
-                checkoutButton.textContent = 'Finalizar Pedido'; // Define o texto padrão
+                // CORREÇÃO: Pegar referência novamente caso o DOM tenha mudado
+                const currentCheckoutButton = document.getElementById('checkoutButton');
+                if (currentCheckoutButton) {
+                    currentCheckoutButton.textContent = 'Finalizar Pedido'; // Define o texto padrão
+                }
             }
 
             // Rola a página de volta para a seção do menu
