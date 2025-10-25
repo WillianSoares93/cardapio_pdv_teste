@@ -286,6 +286,12 @@ export default async function handler(req, res) {
         try {
             log(`Tentando salvar pedido ${orderId} no Firestore...`);
             const docRef = db.collection('pedidos').doc(orderId);
+
+            // ----- INÍCIO DA SIMULAÇÃO DE ERRO -----
+            throw new Error("Erro SIMULADO ao salvar no Firestore"); // <<-- ADICIONADO PARA TESTE
+            // ----- FIM DA SIMULAÇÃO DE ERRO -----
+
+            // Esta linha não será executada durante a simulação
             await docRef.set(orderDataToSave);
             pdvSaved = true;
             log(`Pedido ${orderId} salvo com sucesso no Firestore.`);
@@ -295,6 +301,7 @@ export default async function handler(req, res) {
         }
 
         log(`Retornando resposta: pdvSaved=${pdvSaved}, pdvError=${pdvError}`);
+        // Retorna a URL do WhatsApp mesmo se pdvSaved for false
         res.status(200).json({ whatsappUrl: whatsappUrl, pdvSaved: pdvSaved, pdvError: pdvError });
 
     } catch (generalError) {
@@ -313,4 +320,3 @@ export default async function handler(req, res) {
         log(`--- Requisição finalizada para /api/criar-pedido em ${new Date().toISOString()} ---`);
     }
 }
-
