@@ -185,7 +185,14 @@ export default async function handler(req, res) {
 
         if (!duplicateSnapshot.empty) {
             log(`DUPLICIDADE de pedido detectada.`);
-            return res.status(200).json({ duplicateFound: true });
+           const duplicateDoc = duplicateSnapshot.docs[0];
+            const originalTimestamp = duplicateDoc.data().criadoEm; // Pega o Timestamp do Firestore
+
+            // Retorna a duplicidade e o timestamp original em milissegundos
+            return res.status(200).json({
+            duplicateFound: true,
+            originalOrderTimestamp: originalTimestamp ? originalTimestamp.toMillis() : null // Converte para milissegundos
+        });
         }
         log("Nenhum pedido duplicado encontrado.");
         // --- Fim Verificação de Duplicidade ---
