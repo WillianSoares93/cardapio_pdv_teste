@@ -288,7 +288,7 @@ export default async function handler(req, res) {
             const docRef = db.collection('pedidos').doc(orderId);
 
             // ----- INÍCIO DA SIMULAÇÃO DE ERRO -----
-            throw new Error("Erro SIMULADO ao salvar no Firestore"); // <<-- ADICIONADO PARA TESTE
+            //throw new Error("Erro SIMULADO ao salvar no Firestore"); // <<-- ADICIONADO PARA TESTE
             // ----- FIM DA SIMULAÇÃO DE ERRO -----
 
             // Esta linha não será executada durante a simulação
