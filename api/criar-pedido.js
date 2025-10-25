@@ -30,32 +30,21 @@ if (getApps().length === 0) {
         if (!credentialsBase64) {
             throw new Error("Variável de ambiente GOOGLE_CREDENTIALS_BASE64 está ausente.");
         }
-
-        // Decodificar Base64 para String JSON
         const credentialsJsonString = Buffer.from(credentialsBase64, 'base64').toString('utf-8');
-        log("Variável GOOGLE_CREDENTIALS_BASE64 decodificada.");
-
-        // Parsear a String JSON para um objeto
         serviceAccountJson = JSON.parse(credentialsJsonString);
-
-        // Validar campos essenciais no JSON
         if (!serviceAccountJson.project_id || !serviceAccountJson.client_email || !serviceAccountJson.private_key) {
-             throw new Error("JSON decodificado de GOOGLE_CREDENTIALS_BASE64 não contém campos essenciais (project_id, client_email, private_key).");
+             throw new Error("JSON decodificado de GOOGLE_CREDENTIALS_BASE64 não contém campos essenciais.");
         }
         log("Credenciais parseadas com sucesso a partir de GOOGLE_CREDENTIALS_BASE64.");
-
     } catch (envError) {
-        errorLog("Erro ao carregar ou processar GOOGLE_CREDENTIALS_BASE64. Verifique se a variável está definida e contém um JSON válido em Base64.", envError);
+        errorLog("Erro ao carregar ou processar GOOGLE_CREDENTIALS_BASE64.", envError);
         initializationError = `Falha ao carregar/processar credenciais Base64: ${envError.message}`;
         serviceAccountJson = null;
     }
 
-    // Inicializar Firebase Admin SDK se o JSON foi carregado e parseado
     if (serviceAccountJson) {
         try {
             log("Inicializando Firebase Admin SDK com credenciais decodificadas...");
-             // A chave privada já deve estar correta após o parse do JSON
-             // Não precisa mais do .replace(/\\n/g, '\n') aqui se o JSON original estiver correto
             initializeApp({
                 credential: cert(serviceAccountJson)
             });
@@ -83,77 +72,38 @@ if (getApps().length === 0) {
 }
 // --- FIM DA INICIALIZAÇÃO ---
 
-// --- FUNÇÕES HELPER (ATUALIZADAS COM MAIS VERIFICAÇÕES E LOGS) ---
+// --- FUNÇÕES HELPER ---
 const createSubItemString = (subItems) => {
-  // Verifica se subItems é realmente um array
-  if (!Array.isArray(subItems)) {
-      log('createSubItemString recebeu algo que não é array:', subItems); // Log do input inválido
-      // Retorna uma string vazia ou um placeholder para evitar erro
-      return ''; // Ou talvez 'invalid_subitems' se preferir identificar no hash
-  }
-  // Se for array vazio, retorna string vazia (comportamento anterior mantido)
-  if (subItems.length === 0) {
-      return '';
-  }
-
+  if (!Array.isArray(subItems) || subItems.length === 0) return '';
   try {
       return subItems
-        // Garante estrutura mínima e converte para string ANTES de ordenar
-        .map(si => ({
-            name: String(si?.name || ''), // Garante que name é string
-            quantity: si?.quantity || 1,
-            price: si?.price || 0,
-            placement: String(si?.placement || '') // Garante que placement é string
-        }))
-        // Ordena por nome
+        .map(si => ({ name: String(si?.name || ''), quantity: si?.quantity || 1, price: si?.price || 0, placement: String(si?.placement || '') }))
         .sort((a, b) => a.name.localeCompare(b.name))
-        // Cria string para cada subitem
         .map(si => `${si.name}:${si.quantity}:${si.price}:${si.placement}`)
-        .join(','); // Junta com vírgula
-  } catch (err) {
-      errorLog('Erro dentro de createSubItemString ao processar subItems:', err, { subItems });
-      return 'error_processing_subitems'; // Retorna string indicando erro
-  }
+        .join(',');
+  } catch (err) { errorLog('Erro em createSubItemString:', err, { subItems }); return 'error_processing_subitems'; }
 };
 
-// --- FUNÇÃO HELPER createOrderHash (ATUALIZADA) ---
 const createOrderHash = (items) => {
-  if (!Array.isArray(items)) {
-      log('createOrderHash recebeu algo que não é array:', items);
-      return '';
-  }
-   if (items.length === 0) {
-       return '';
-   }
-
+   if (!Array.isArray(items) || items.length === 0) return '';
    try {
       return items
         .map(item => {
-          if (typeof item !== 'object' || item === null) {
-              log('createOrderHash encontrou um item inválido no array:', item);
-              return 'invalid_item';
-          }
+          if (typeof item !== 'object' || item === null) return 'invalid_item';
           const name = String(item.name || '');
           const slices = item.selected_slices || '';
           const price = item.price || 0;
-          // MODIFICAÇÃO AQUI: Garante que um array vazio seja passado se a propriedade não existir
           const ingredientsString = createSubItemString(item.ingredients || []);
           const extrasString = createSubItemString(item.extras || []);
-          // --- FIM DA MODIFICAÇÃO ---
           return `${name}|${slices}|${price}|${ingredientsString}|${extrasString}`;
         })
         .sort((a, b) => a.localeCompare(b))
         .join(';');
-   } catch (err) {
-       errorLog('Erro dentro de createOrderHash ao processar items:', err, { items });
-       return 'error_processing_items';
-   }
+   } catch (err) { errorLog('Erro em createOrderHash:', err, { items }); return 'error_processing_items'; }
 };
-// --- FIM FUNÇÃO HELPER createOrderHash ATUALIZADA ---
 
 function generateOrderId() {
     const now = new Date();
-    // Ajuste para garantir que a data/hora esteja correta, considerando UTC-3
     const datePart = now.getFullYear().toString().slice(-2) +
                      (now.getMonth() + 1).toString().padStart(2, '0') +
                      now.getDate().toString().padStart(2, '0');
@@ -165,7 +115,7 @@ function generateOrderId() {
 // --- FIM FUNÇÕES HELPER ---
 
 
-// --- HANDLER PRINCIPAL DA API (usando export default) ---
+// --- HANDLER PRINCIPAL DA API ---
 export default async function handler(req, res) {
     log(`--- Requisição recebida para /api/criar-pedido em ${new Date().toISOString()} ---`);
     if (req.method !== 'POST') {
@@ -174,14 +124,14 @@ export default async function handler(req, res) {
     }
 
     if (!firebaseInitialized) {
-        errorLog("API /criar-pedido: Firebase Admin SDK NÃO INICIALIZADO. Abortando requisição.", initializationError || "Erro desconhecido na inicialização.");
+        errorLog("API /criar-pedido: Firebase Admin SDK NÃO INICIALIZADO.", initializationError || "Erro desconhecido.");
         return res.status(503).json({ message: 'Erro interno: Serviço de banco de dados indisponível.', details: initializationError });
     }
 
     let db;
     try {
         db = getFirestore();
-        log("Instância do Firestore obtida com sucesso.");
+        log("Instância do Firestore obtida.");
     } catch (dbError) {
         errorLog("CRÍTICO: Erro ao obter instância do Firestore:", dbError);
         return res.status(503).json({ message: 'Erro interno: Falha ao conectar ao banco de dados.', details: dbError.message });
@@ -189,54 +139,44 @@ export default async function handler(req, res) {
 
     try {
         const { order, selectedAddress, total, paymentMethod, whatsappNumber, observation } = req.body;
-        log("Corpo da requisição parseado com sucesso.");
+        log("Corpo da requisição parseado.");
 
-        // Validação básica dos dados recebidos
         if (!order || !Array.isArray(order) || order.length === 0 || !selectedAddress || !total || !paymentMethod || !whatsappNumber) {
             log("Dados incompletos ou inválidos recebidos.");
             return res.status(400).json({ message: 'Dados do pedido incompletos ou inválidos.' });
         }
-        log("Validação inicial dos dados passou.");
+        log("Validação inicial passou.");
 
         // --- Verificação de Duplicidade ---
         log("Iniciando verificação de duplicidade...");
         const customerName = selectedAddress.clientName?.trim() || 'Nome não informado';
-        const customerPhone = selectedAddress.telefone?.trim() || ''; // Usar telefone do selectedAddress
-        const isPickup = selectedAddress.rua === 'Retirada no Balcão'; // Verificar se é retirada
+        // **AJUSTE:** Usar telefone não formatado para consistência com o que pode estar no índice
+        const customerPhone = selectedAddress.telefone?.trim().replace(/\D/g, '') || '';
         const orderHash = createOrderHash(order);
 
-        // Validação do hash
         if (!orderHash || orderHash === 'error_processing_items' || orderHash.includes('invalid_item')) {
-            errorLog("Falha ao gerar o hash do pedido para verificação de duplicidade ou hash inválido.", { order, generatedHash: orderHash });
-            return res.status(500).json({ message: 'Erro interno ao processar itens do pedido (hash inválido).' });
+            errorLog("Falha ao gerar hash do pedido para duplicidade.", { order, generatedHash: orderHash });
+            return res.status(500).json({ message: 'Erro interno ao processar itens (hash inválido).' });
         }
-        log(`Hash do pedido gerado (prefixo): ${orderHash.substring(0, 50)}...`);
+        log(`Hash gerado (prefixo): ${orderHash.substring(0, 50)}...`);
 
-        // Verifica duplicidade nos últimos 3 minutos (ajustado para 3 minutos conforme exemplo anterior, poderia ser maior)
-        const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 3 * 60 * 1000));
+        const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 3 * 60 * 1000)); // Últimos 3 minutos
         log(`Janela de tempo para duplicidade inicia em: ${checkTimeframe.toDate().toISOString()}`);
 
-        // Query baseada nos campos principais e no hash
+        // **AJUSTE NA QUERY PARA USAR CAMPOS DO ÍNDICE EXISTENTE**
         let duplicateQuery = db.collection('pedidos')
-            .where('endereco.clientName', '==', customerName) // Usar campo aninhado
+            .where('customerName', '==', customerName) // <-- Campo do índice
             .where('orderHash', '==', orderHash)
-            .where('criadoEm', '>=', checkTimeframe); // Usar criadoEm
+            .where('timestamp', '>=', checkTimeframe); // <-- Campo do índice
 
         if (customerPhone) {
-            duplicateQuery = duplicateQuery.where('endereco.telefone', '==', customerPhone); // Usar campo aninhado
+            duplicateQuery = duplicateQuery.where('customerPhone', '==', customerPhone); // <-- Campo do índice
         }
 
-        if (!isPickup) {
-            duplicateQuery = duplicateQuery
-                .where('endereco.bairro', '==', selectedAddress.bairro || null)
-                .where('endereco.rua', '==', selectedAddress.rua || null)
-                .where('endereco.numero', '==', selectedAddress.numero || null);
-        } else {
-            // Se for retirada, verificar o campo específico
-            duplicateQuery = duplicateQuery.where('endereco.rua', '==', 'Retirada no Balcão');
-        }
+        // Simplificado: não usa rua/numero/bairro na query de duplicidade para garantir uso do índice
+        // A combinação de nome, telefone (opcional), hash do pedido e tempo é suficiente
 
-        log("Executando query de verificação de duplicidade...");
+        log("Executando query de duplicidade simplificada...");
         const duplicateSnapshot = await duplicateQuery.limit(1).get();
 
         if (!duplicateSnapshot.empty) {
@@ -248,40 +188,30 @@ export default async function handler(req, res) {
 
         // --- Processamento Normal ---
         const orderId = generateOrderId();
-        const timestamp = Timestamp.now();
+        const timestamp = Timestamp.now(); // Usar este timestamp consistentemente
         log(`ID do Pedido Gerado: ${orderId}`);
 
-        // --- Montagem da Mensagem WhatsApp (Mantida como antes) ---
-        let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId.substring(0,5).toUpperCase()})*\n\n`; // Usa parte do ID gerado
+        // --- Montagem da Mensagem WhatsApp (Mantida) ---
+        const isPickup = selectedAddress.rua === 'Retirada no Balcão';
+        let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId.substring(0,5).toUpperCase()})*\n\n`;
         orderMessage += `*Cliente:* ${customerName}\n`;
-        if (customerPhone) { orderMessage += `*Contato:* ${customerPhone}\n`; } // Adiciona telefone se existir
+        if (selectedAddress.telefone) { orderMessage += `*Contato:* ${selectedAddress.telefone}\n`; } // Usar telefone formatado aqui
         if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
         else {
             orderMessage += `*Endereço:* ${selectedAddress.rua || 'Rua não informada'}, Nº ${selectedAddress.numero || 'S/N'}, ${selectedAddress.bairro || 'Bairro não informado'}\n`;
             if (selectedAddress.referencia) { orderMessage += `*Referência:* ${selectedAddress.referencia}\n`; }
-            // Usa deliveryFee do objeto total, garantindo que seja número
             orderMessage += `*Taxa de Entrega:* R$ ${Number(total.deliveryFee || 0).toFixed(2).replace('.', ',')}\n`;
         }
         orderMessage += "\n*Itens do Pedido:*\n";
         order.forEach(item => {
-            // Formata nome e preço do item principal
             orderMessage += `- ${item.quantity || 1}x ${item.name} (R$ ${Number(item.price || 0).toFixed(2).replace('.', ',')})\n`;
-             // Adiciona ingredientes de hambúrguer personalizado
              if (item.ingredients && item.ingredients.length > 0) {
-                 item.ingredients.forEach(ing => {
-                    const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
-                    orderMessage += `  * ${ing.name}${quantityText}\n`;
-                 });
+                 item.ingredients.forEach(ing => { const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : ''; orderMessage += `  * ${ing.name}${quantityText}\n`; });
             }
-            // Adiciona extras de pizza
              if (item.extras && item.extras.length > 0) {
-                 item.extras.forEach(ext => {
-                    const quantityText = (ext.quantity && ext.quantity > 1) ? ` (x${ext.quantity})` : '';
-                    orderMessage += `  + ${ext.name}${quantityText} (${ext.placement})\n`;
-                 });
+                 item.extras.forEach(ext => { const quantityText = (ext.quantity && ext.quantity > 1) ? ` (x${ext.quantity})` : ''; orderMessage += `  + ${ext.name}${quantityText} (${ext.placement})\n`; });
             }
         });
-        // Adiciona totais e pagamento
         orderMessage += `\n*Subtotal:* R$ ${Number(total.subtotal || 0).toFixed(2).replace('.', ',')}\n`;
         if (total.discount > 0) { orderMessage += `*Desconto:* - R$ ${Number(total.discount).toFixed(2).replace('.', ',')}\n`; }
         orderMessage += `*Total:* R$ ${Number(total.finalTotal || 0).toFixed(2).replace('.', ',')}\n`;
@@ -300,60 +230,56 @@ export default async function handler(req, res) {
         let pdvSaved = false;
         let pdvError = null;
 
-        // --- **NOVA ESTRUTURA PARA SALVAR NO FIRESTORE** ---
+        // --- **ESTRUTURA AJUSTADA PARA SALVAR NO FIRESTORE (ALINHADA COM O ÍNDICE)** ---
         const orderDataToSave = {
-            criadoEm: timestamp, // Usar o timestamp gerado no início
+            // Campos indexados no nível raiz
+            customerName: customerName,
+            customerPhone: customerPhone || null, // Salvar telefone não formatado ou null
+            orderHash: orderHash,
+            timestamp: timestamp, // <-- Usar o campo do índice
+
+            // Manter a estrutura aninhada para outros usos
+            criadoEm: timestamp, // Manter por consistência se o PDV usar
             endereco: {
                 bairro: selectedAddress.bairro || null,
-                clientName: customerName,
-                // Garantir que deliveryFee seja número
+                clientName: customerName, // Repetir aqui para o PDV
                 deliveryFee: Number(selectedAddress.deliveryFee || 0),
                 numero: selectedAddress.numero || null,
                 referencia: selectedAddress.referencia || null,
                 rua: selectedAddress.rua || null,
-                telefone: customerPhone || null // Salvar telefone formatado ou null
+                telefone: selectedAddress.telefone || null // Manter telefone formatado aqui para o PDV
             },
-            // Mapear itens para garantir a estrutura correta
             itens: order.map(item => ({
-                // Incluir campos básicos
                 category: item.category || null,
                 description: item.description || null,
-                // Usar ID interno do item se disponível, senão gerar um (ou manter o gerado pelo frontend se já tiver)
                 id: item.id || Date.now() + Math.random(),
                 name: item.name || 'Item sem nome',
-                // Garantir que o preço seja número
                 price: Number(item.price || 0),
-                type: item.type || 'full', // 'full', 'split', 'custom_burger', 'promotion'
-                // Campos específicos
-                ...(item.ingredients && { ingredients: item.ingredients.map(ing => ({ name: ing.name, price: Number(ing.price || 0), quantity: Number(ing.quantity || 1) })) }), // Garantir números
-                ...(item.extras && { extras: item.extras.map(ext => ({ name: ext.name, price: Number(ext.price || 0), quantity: Number(ext.quantity || 1), placement: ext.placement })) }), // Garantir números
-                ...(item.originalItem && { originalItem: item.originalItem }), // Incluir se for custom_burger
-                ...(item.selected_slices && { selected_slices: item.selected_slices }), // Para pizzas
-                ...(item.firstHalfData && { firstHalfData: item.firstHalfData }), // Para pizzas split
-                ...(item.secondHalfData && { secondHalfData: item.secondHalfData }), // Para pizzas split
-                ...(item.basePrice !== undefined && { basePrice: Number(item.basePrice) }), // Para custom_burger
-                // Adicionar quantity se não for implícito (ex: se o frontend não mandar quantity para itens normais)
+                type: item.type || 'full',
+                ...(item.ingredients && { ingredients: item.ingredients.map(ing => ({ name: ing.name, price: Number(ing.price || 0), quantity: Number(ing.quantity || 1) })) }),
+                ...(item.extras && { extras: item.extras.map(ext => ({ name: ext.name, price: Number(ext.price || 0), quantity: Number(ext.quantity || 1), placement: ext.placement })) }),
+                ...(item.originalItem && { originalItem: item.originalItem }),
+                ...(item.selected_slices && { selected_slices: item.selected_slices }),
+                ...(item.firstHalfData && { firstHalfData: item.firstHalfData }),
+                ...(item.secondHalfData && { secondHalfData: item.secondHalfData }),
+                ...(item.basePrice !== undefined && { basePrice: Number(item.basePrice) }),
                 quantity: Number(item.quantity || 1)
             })),
-            observacao: observation || "", // String vazia se nulo
-            pagamento: paymentMethod, // Pode ser string ou map
-            status: 'Novo', // Status inicial
+            observacao: observation || "",
+            pagamento: paymentMethod,
+            status: 'Novo',
             total: {
-                // Garantir que todos os totais sejam números
                 deliveryFee: Number(total.deliveryFee || 0),
                 discount: Number(total.discount || 0),
                 finalTotal: Number(total.finalTotal || 0),
                 subtotal: Number(total.subtotal || 0)
             },
-            orderHash: orderHash, // Manter o hash para duplicidade
-            // Adicionar o ID gerado também dentro do documento pode ser útil
-            orderId: orderId
+            orderId: orderId // ID gerado
         };
-        // --- **FIM DA NOVA ESTRUTURA** ---
+        // --- **FIM DA ESTRUTURA AJUSTADA** ---
 
         try {
             log(`Tentando salvar pedido ${orderId} no Firestore...`);
-            // Usar o orderId gerado como ID do documento
             const docRef = db.collection('pedidos').doc(orderId);
             await docRef.set(orderDataToSave);
             pdvSaved = true;
@@ -368,8 +294,15 @@ export default async function handler(req, res) {
 
     } catch (generalError) {
         errorLog(`Erro geral CRÍTICO em /api/criar-pedido:`, generalError);
-        res.status(500).json({ message: 'Erro interno do servidor ao processar o pedido.', details: generalError.message });
+        // Verificar se o erro é de índice, mesmo após as mudanças
+        if (generalError.code === 9 || (generalError.details && generalError.details.includes('FAILED_PRECONDITION') && generalError.details.includes('requires an index'))) {
+             errorLog("Erro de índice PERSISTE mesmo após ajustes. Verifique o painel do Firebase e a query novamente.", generalError.details);
+             res.status(500).json({ message: 'Erro interno: Falha na consulta ao banco de dados (índice ainda necessário ou inválido).', details: generalError.message });
+        } else {
+             res.status(500).json({ message: 'Erro interno do servidor ao processar o pedido.', details: generalError.message });
+        }
     } finally {
         log(`--- Requisição finalizada para /api/criar-pedido em ${new Date().toISOString()} ---`);
     }
 }
+
