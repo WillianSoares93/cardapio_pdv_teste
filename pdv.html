@@ -94,7 +94,7 @@
             background-color: rgba(0, 0, 0, 0.05);
             border: 2px dashed #9ca3af;
         }
-        
+
         /* Animação para o sino de notificação */
         @keyframes ring-bell {
             0%, 100% { transform: rotate(0); }
@@ -392,7 +392,7 @@
             </form>
         </div>
     </div>
-    
+
     <div id="manage-table-modal" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center pb-3 border-b">
@@ -404,7 +404,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="transfer-table-modal" class="modal">
         <div class="modal-content">
             <h3 class="text-lg font-bold mb-4">Transferir para qual mesa livre?</h3>
@@ -446,7 +446,7 @@
             </form>
         </div>
     </div>
-    
+
     <div id="table-payment-modal" class="modal">
         <div class="modal-content">
             <h3 class="text-lg font-bold text-gray-900 mb-4">Definir Pagamento Final</h3>
@@ -514,7 +514,7 @@
 
         // --- LÓGICA DE AUTENTICAÇÃO E CAIXA ---
         let currentCashRegister = null;
-        let detailedReportData = {}; 
+        let detailedReportData = {};
         let timerIntervalId = null;
         let numeroDeMesas = 12; // Valor padrão
         let allOrdersCache = []; // Cache para os pedidos
@@ -530,7 +530,7 @@
 
         const logoutBtn = document.getElementById('logout-btn');
         logoutBtn.addEventListener('click', () => signOut(auth));
-        
+
         const openCashModal = document.getElementById('open-cash-modal');
         const openCashForm = document.getElementById('open-cash-form');
         const pdvOverlay = document.getElementById('pdv-overlay');
@@ -540,7 +540,7 @@
         async function checkCashRegisterStatus() {
             const q = query(collection(db, "caixas"), where("status", "==", "aberto"), limit(1));
             const querySnapshot = await getDocs(q);
-            
+
             if (querySnapshot.empty) {
                 document.getElementById('pending-cash-alert').classList.add('hidden');
                 document.getElementById('open-cash-title').textContent = 'Abrir Caixa';
@@ -556,10 +556,10 @@
 
                 const openDate = currentCashRegister.dataAbertura.toDate();
                 const now = new Date();
-                
+
                 // --- NOVA LÓGICA DE DIA OPERACIONAL ---
                 // Define o horário de "virada" do dia operacional (ex: 5 da manhã).
-                const OPERATIONAL_CUTOFF_HOUR = 5; 
+                const OPERATIONAL_CUTOFF_HOUR = 5;
 
                 // Calcula o início do dia operacional atual.
                 const operationalDayStart = new Date(now);
@@ -579,11 +579,11 @@
                     document.getElementById('pending-cash-message').textContent = `Existe um caixa do dia ${formattedDate} que não foi fechado. Por favor, feche o caixa para poder continuar.`;
                     document.getElementById('pending-cash-alert').classList.remove('hidden');
                     document.getElementById('open-cash-title').textContent = 'Resolver Caixa Pendente';
-                    
+
                     openCashForm.style.display = 'none';
                     resolvePendingContainer.classList.remove('hidden');
                     document.getElementById('open-cash-instructions').style.display = 'none';
-                    
+
                     pdvOverlay.style.display = 'block';
                     openCashModal.style.display = 'flex';
                 } else {
@@ -615,12 +615,12 @@
                 alert("Não foi possível abrir o caixa. Tente novamente.");
             }
         });
-        
+
         const mainContent = document.getElementById('main-content');
         const mainTabs = document.getElementById('main-tabs');
         const tabContents = document.querySelectorAll('.tab-content');
         const mesasGrid = document.getElementById('mesas-grid');
-        
+
         const colDeliveryNovo = document.getElementById('col-delivery-novo').querySelector('.pdv-column');
         const colDeliveryPreparo = document.getElementById('col-delivery-preparo').querySelector('.pdv-column');
         const colDeliveryPronto = document.getElementById('col-delivery-pronto').querySelector('.pdv-column');
@@ -631,9 +631,9 @@
         const colRetiradaPreparo = document.getElementById('col-retirada-preparo').querySelector('.pdv-column');
         const colRetiradaPronto = document.getElementById('col-retirada-pronto').querySelector('.pdv-column');
         const colRetiradaEntregue = document.getElementById('col-retirada-entregue').querySelector('.pdv-column');
-        
+
         const colMesasFechado = document.getElementById('col-mesas-fechado').querySelector('.pdv-column');
-        
+
         const connectionStatus = document.getElementById('connection-status');
         const deleteConfirmModal = document.getElementById('delete-confirm-modal');
         const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
@@ -643,7 +643,7 @@
         const closeCashForm = document.getElementById('close-cash-form');
         const cancelCloseCashBtn = document.getElementById('cancel-close-cash-btn');
         const finalValueInput = document.getElementById('final-value');
-        
+
         let orderIdToDelete = null;
         let deliveryFeesData = [];
         let draggedItemId = null;
@@ -672,7 +672,7 @@
             tabContents.forEach(content => content.classList.add('hidden'));
             const tabName = tabButton.dataset.tab;
             document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
-            
+
             const notificationDiv = document.getElementById(`${tabName}-notification`);
             if (notificationDiv) {
                 const bell = notificationDiv.querySelector('.fa-bell');
@@ -709,13 +709,13 @@
                 mesasGrid.appendChild(mesaEl);
             }
         }
-        
+
         async function openManageTableModal(orderId) {
             currentManagingOrderId = orderId;
             const modal = document.getElementById('manage-table-modal');
             const modalBody = document.getElementById('manage-table-body');
             const modalTitle = document.getElementById('manage-table-title');
-            
+
             try {
                 const orderRef = doc(db, "pedidos", orderId);
                 const docSnap = await getDoc(orderRef);
@@ -730,8 +730,8 @@
 
                 const mesaNumbers = order.grupoMesas && order.grupoMesas.length > 0
                     ? order.grupoMesas.join(' + ')
-                    : (order.endereco.clientName || "").replace(/[^0-9]/g, '');
-                
+                    : (order.endereco?.clientName || "").replace(/[^0-9]/g, ''); // Adicionado "?" para segurança
+
                 modalTitle.textContent = `Gerenciar Mesa(s) ${mesaNumbers}`;
 
                 const hasGroup = order.grupoMesas && order.grupoMesas.length > 1;
@@ -744,7 +744,7 @@
                         <button id="close-account-btn" class="w-full px-4 py-2 bg-gray-700 text-white font-bold rounded-md hover:bg-gray-800">Fechar Conta</button>
                     </div>
                 `;
-                
+
                 attachModalActionListeners(orderId, order);
 
                 modal.style.display = 'flex';
@@ -759,7 +759,7 @@
             const mesaEl = document.getElementById(`mesa-${numeroMesa}`);
             if (!mesaEl) return;
             const status = mesaEl.dataset.status;
-            
+
             if (isJoiningTables) {
                 if (status === 'livre') {
                     const index = selectedTablesForJoining.indexOf(numeroMesa);
@@ -783,7 +783,7 @@
                 }
             }
         }
-        
+
         async function loadDeliveryFees() {
             if (deliveryFeesData.length > 0) return;
             try {
@@ -854,7 +854,7 @@
 
             const mainContainer = document.querySelector('.main-container');
             const sidebar = document.querySelector('.sidebar-nav');
-            const mainContentArea = document.getElementById('main-content'); 
+            const mainContentArea = document.getElementById('main-content');
 
             document.addEventListener('mousemove', (e) => {
                 if (e.clientX < 20) {
@@ -865,7 +865,7 @@
             sidebar.addEventListener('mouseleave', () => {
                 mainContainer.classList.remove('sidebar-open');
             });
-            
+
             mainContentArea.addEventListener('mouseenter', () => {
                 mainContainer.classList.remove('sidebar-open');
             });
@@ -891,11 +891,11 @@
                 oscillator.start(audioContext.currentTime);
                 oscillator.stop(audioContext.currentTime + 1);
             }
-            
+
             function updateTabCounters(deliveryCount, retiradaCount) {
                 const deliveryNotification = document.getElementById('delivery-notification');
                 const retiradaNotification = document.getElementById('retirada-notification');
-                
+
                 if (!deliveryNotification || !retiradaNotification) return;
 
                 const deliveryCounter = deliveryNotification.querySelector('span');
@@ -918,7 +918,7 @@
                     if(retiradaBell) retiradaBell.classList.remove('notification-bell-ringing');
                 }
             }
-            
+
             initializeMesas();
 
             mainContent.addEventListener('dragstart', (e) => {
@@ -940,7 +940,7 @@
             });
 
             const pdvColumns = document.querySelectorAll('.pdv-column');
-            
+
             pdvColumns.forEach(column => {
                 column.parentElement.classList.add('pdv-column-container');
                 column.addEventListener('dragover', (e) => {
@@ -955,7 +955,7 @@
                     column.parentElement.classList.remove('drag-over');
 
                     if (!draggedItemId) return;
-                    
+
                     const columnElement = e.target.closest('[data-status]');
                     const newStatus = columnElement.dataset.status;
 
@@ -969,7 +969,7 @@
             const q = query(collection(db, "pedidos"), orderBy("criadoEm", "desc"));
 
             onSnapshot(q, (snapshot) => {
-                
+
                 [colDeliveryNovo, colDeliveryPreparo, colDeliveryPronto, colDeliveryEntrega, colDeliveryEntregue, colRetiradaNovo, colRetiradaPreparo, colRetiradaPronto, colRetiradaEntregue, colMesasFechado]
                  .forEach(col => col.innerHTML = '');
                 initializeMesas();
@@ -996,7 +996,7 @@
                         }
                     }
                 });
-                
+
                 allOrdersCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const activeOrders = allOrdersCache;
 
@@ -1012,25 +1012,25 @@
                 updateTabCounters(newDeliveryCount, newRetiradaCount);
 
                 const processedTables = new Set();
-                const activeTableOrders = activeOrders.filter(order => 
-                    identifyOrderType(order) === 'mesa' && 
-                    order.status !== 'Finalizado' && 
+                const activeTableOrders = activeOrders.filter(order =>
+                    identifyOrderType(order) === 'mesa' &&
+                    order.status !== 'Finalizado' &&
                     order.status !== 'Arquivado' &&
-                    order.status !== 'Fechado' 
+                    order.status !== 'Fechado'
                 );
 
                 activeTableOrders.forEach(order => {
                     const orderId = order.id;
                     const mesaNumbers = order.grupoMesas && order.grupoMesas.length > 0
                         ? order.grupoMesas
-                        : [parseInt((order.endereco.clientName || "").replace(/[^0-9]/g, ''))].filter(n => n > 0);
+                        : [parseInt((order.endereco?.clientName || "").replace(/[^0-9]/g, ''))].filter(n => n > 0); // Adicionado "?"
 
                     if (mesaNumbers.length > 0) {
                         const sortedGroup = mesaNumbers.sort((a, b) => a - b);
                         const primaryTableNumber = sortedGroup[0];
                         const orderStatus = order.status;
                         const hasItems = order.itens && order.itens.length > 0;
-                        
+
                         const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
                         const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
 
@@ -1045,7 +1045,7 @@
                                 primaryTableEl.dataset.orderId = orderId;
                                 primaryTableEl.dataset.orderStatus = order.status;
                                 primaryTableEl.dataset.grupo = sortedGroup.join(',');
-                                
+
                                 const timerContainer = primaryTableEl.querySelector('.mesa-timer-container');
                                 if (hasItems) {
                                     timerContainer.classList.remove('hidden');
@@ -1115,7 +1115,7 @@
                             mesaEl.dataset.orderId = '';
                             mesaEl.style.gridColumn = '';
                             mesaEl.querySelector('span.text-3xl').textContent = i.toString().padStart(2, '0');
-                            
+
                             const timerContainer = mesaEl.querySelector('.mesa-timer-container');
                             if (timerContainer) {
                                 timerContainer.classList.add('hidden');
@@ -1123,26 +1123,27 @@
                         }
                     }
                 }
-                
+
                 activeOrders.forEach(order => {
                     const orderId = order.id;
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
                     const orderType = identifyOrderType(order);
 
+                    // **CORREÇÃO:** Verificar se order.total existe antes de acessar finalTotal
                     const isCompleted = order.status === 'Entregue' || order.status === 'Fechado';
-                    
+
                     if (orderDate === today) {
                         totalOrdersToday++;
-                        
-                        if (isCompleted) {
+
+                        if (isCompleted && order.total) { // <-- Adicionado cheque order.total
                             totalRevenueToday += order.total.finalTotal;
                         }
                     }
-                    
+
                     if (order.status === 'Finalizado' || order.status === 'Arquivado') {
                         return;
                     }
-                    
+
                     if (orderType === 'mesa' && order.status === 'Fechado') {
                          colMesasFechado.appendChild(createOrderCard(order, orderId));
                          return;
@@ -1169,9 +1170,9 @@
                     const orderDate = order.criadoEm ? new Date(order.criadoEm.seconds * 1000).setHours(0, 0, 0, 0) : today;
                     return orderDate === today && (order.status === 'Entregue' || order.status === 'Fechado');
                 }).length;
-                
+
                 const avgTicket = totalCompletedOrders > 0 ? totalRevenueToday / totalCompletedOrders : 0;
-                
+
                 document.getElementById('stats-total-orders').textContent = totalOrdersToday;
                 document.getElementById('stats-total-revenue').textContent = `R$ ${totalRevenueToday.toFixed(2).replace('.', ',')}`;
                 document.getElementById('stats-avg-ticket').textContent = `R$ ${avgTicket.toFixed(2).replace('.', ',')}`;
@@ -1184,7 +1185,7 @@
             const now = new Date();
             document.querySelectorAll('.order-card, .mesa-item, .mesa-order-details').forEach(card => {
                 const totalTimerEl = card.querySelector('.total-timer-value');
-                const statusTimerEl = card.querySelector('.status-timer-value'); 
+                const statusTimerEl = card.querySelector('.status-timer-value');
 
                 if (totalTimerEl && totalTimerEl.dataset.createdAt !== "0") {
                     const createdAt = new Date(parseInt(totalTimerEl.dataset.createdAt));
@@ -1209,7 +1210,7 @@
                     const statusChangedAt = new Date(parseInt(statusTimerEl.dataset.statusChangedAt));
                     const statusDiff = Math.max(0, Math.floor((now - statusChangedAt) / 1000));
                     statusTimerEl.textContent = formatTime(statusDiff);
-                    
+
                     const statusTimerContainer = statusTimerEl.parentElement;
                     statusTimerContainer.classList.remove('timer-green', 'timer-yellow', 'timer-red');
 
@@ -1232,8 +1233,10 @@
 
 
         function identifyOrderType(orderData) {
-            if (orderData.endereco && orderData.endereco.rua === "Retirada no Balcão") return 'retirada';
-            if (orderData.endereco && orderData.endereco.rua === "Mesa") return 'mesa';
+            // **CORREÇÃO:** Adicionar verificação se orderData.endereco existe
+            if (orderData?.endereco?.rua === "Retirada no Balcão") return 'retirada';
+            if (orderData?.endereco?.rua === "Mesa") return 'mesa';
+            // Se não for retirada nem mesa, assume delivery (ou padrão se endereco não existir)
             return 'delivery';
         }
 
@@ -1242,21 +1245,31 @@
             card.className = 'order-card bg-white rounded-lg shadow-md border-l-4 relative';
             card.setAttribute('draggable', 'true');
             card.dataset.id = id;
-            
+
+            // **CORREÇÃO:** Adicionar valor padrão caso order.endereco ou order.endereco.clientName não existam
+            const clientName = order?.endereco?.clientName || 'Cliente não informado';
+            // **CORREÇÃO:** Adicionar valor padrão caso order.total ou order.total.finalTotal não existam
+            const finalTotal = order?.total?.finalTotal ?? 0; // Usar ?? para pegar 0 se for null ou undefined
+            // **CORREÇÃO:** Adicionar valor padrão caso order.itens não exista ou seja vazio
+            const orderItems = order?.itens ?? [];
+
             const orderType = identifyOrderType(order);
             let newTagHtml = '';
             if (order.status === 'Novo' && orderType !== 'mesa') {
                 newTagHtml = '<div class="new-order-tag animate-pulse">Novo</div>';
             }
 
-            let itemsHtml = order.itens.map(item => `<li class="flex justify-between text-sm"><span>${item.name}</span><span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`).join('');
+            // Mapear itens com segurança, tratando casos onde item.price pode não existir
+            let itemsHtml = orderItems.map(item =>
+                `<li class="flex justify-between text-sm"><span>${item.name || 'Item desconhecido'}</span><span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`
+            ).join('');
 
             const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
             const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
 
             let buttonHtml = '';
             let finalStep = false;
-            
+
             if (orderType === 'mesa') {
                 if (order.status === 'Em Preparo') {
                     card.classList.add('border-yellow-500');
@@ -1293,11 +1306,12 @@
                     finalStep = true;
                 }
             }
-            
-            const hasPhone = order.endereco && order.endereco.telefone;
+
+            // **CORREÇÃO:** Verificar se order.endereco existe antes de acessar telefone
+            const hasPhone = order?.endereco?.telefone;
 
             let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
-            
+
             let paymentText = 'Não definido';
             if (order.pagamento) {
                 if (typeof order.pagamento === 'object' && order.pagamento.method) {
@@ -1310,15 +1324,24 @@
                 }
             }
             let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
-            
+
+            // **CORREÇÃO:** Tratar caso onde order.endereco pode não existir
+            let addressHtml = '';
+            if (order?.endereco) {
+                 addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua || 'Rua não informada'}, ${order.endereco.numero || 'S/N'} - ${order.endereco.bairro || 'Bairro não informado'}</p>`;
+            } else {
+                 addressHtml = `<p class="text-xs text-red-500">Erro: Endereço não encontrado.</p>`;
+            }
+
+
             card.innerHTML = `
                 ${newTagHtml}
                 <div class="card-header flex justify-between items-start cursor-pointer p-4">
                     <div>
                         <h3 class="font-bold">Pedido #${id.substring(0, 5)}</h3>
-                        <p class="text-sm font-medium">${order.endereco.clientName}</p>
+                        <p class="text-sm font-medium">${clientName}</p>
                     </div>
-                    <span class="font-bold text-lg">R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</span>
+                    <span class="font-bold text-lg">R$ ${parseFloat(finalTotal).toFixed(2).replace('.', ',')}</span>
                 </div>
                  <div class="px-4 pb-2 flex justify-between items-center space-x-2">
                     <div class="timer-container timer-green">
@@ -1342,7 +1365,7 @@
                                     <button data-id="${id}" class="delete-btn text-red-500" title="Excluir Pedido"><i class="fas fa-trash-alt"></i></button>
                                 </div>
                             </div>
-                            <p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                            ${addressHtml}
                             <ul class="border-t border-b py-2 my-2 space-y-1">${itemsHtml}</ul>
                             ${observationHtml}
                             ${paymentHtml}
@@ -1351,24 +1374,27 @@
                     </div>
                 </div>
             `;
-            
+
             return card;
         }
+
 
         function createDetailedOrderCardHtml(order, id) {
              const createdAtTimestamp = order.criadoEm && order.criadoEm.toMillis ? order.criadoEm.toMillis() : Date.now();
              const statusChangedAtTimestamp = order.statusChangedAt && order.statusChangedAt.toMillis ? order.statusChangedAt.toMillis() : createdAtTimestamp;
              const orderType = identifyOrderType(order);
-             
-             let itemsHtml = order.itens.map(item => `
+
+             // **CORREÇÃO:** Garantir que order.itens seja um array antes de usar map
+             const orderItems = Array.isArray(order.itens) ? order.itens : [];
+             let itemsHtml = orderItems.map(item => `
                 <li class="flex justify-between text-sm">
-                    <span>${item.name}</span>
+                    <span>${item.name || 'Item desconhecido'}</span>
                     <span class="font-medium">R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span>
                 </li>
              `).join('');
 
              let buttonHtml = '';
-             
+
              if (orderType === 'mesa') {
                 if (order.status === 'Em Preparo') {
                     buttonHtml = `<button data-id="${id}" data-status="Pronto Para Servir" class="move-btn modal-move-btn w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">Pronto P/ Servir</button>`;
@@ -1397,7 +1423,7 @@
             }
 
             let observationHtml = order.observacao ? `<div class="mt-2 pt-2 border-t border-dashed"><p class="text-sm font-bold text-blue-700">Observação:</p><p class="text-sm">${order.observacao}</p></div>` : '';
-            
+
             let paymentText = 'Não definido';
             if (order.pagamento) {
                 if (typeof order.pagamento === 'object' && order.pagamento.method) {
@@ -1410,15 +1436,20 @@
                 }
             }
             let paymentHtml = order.pagamento ? `<div class="text-sm mt-2 pt-2 border-t"><strong>Pagamento:</strong> ${paymentText}</div>` : '';
-            
+
+            // **CORREÇÃO:** Tratar caso onde order.endereco pode não existir
             let addressHtml = '';
-            if (orderType === 'mesa' && order.endereco.rua === 'Mesa') {
-                 addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua}</p>`;
+            if (order?.endereco) {
+                if (orderType === 'mesa' && order.endereco.rua === 'Mesa') {
+                    addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua}</p>`;
+                } else {
+                    addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua || 'Rua não informada'}, ${order.endereco.numero || 'S/N'} - ${order.endereco.bairro || 'Bairro não informado'}</p>`;
+                }
             } else {
-                 addressHtml = `<p class="text-xs text-gray-500">${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>`;
+                addressHtml = `<p class="text-xs text-red-500">Erro: Endereço não encontrado.</p>`;
             }
-            
-            const hasPhone = order.endereco && order.endereco.telefone;
+
+            const hasPhone = order?.endereco?.telefone; // **CORREÇÃO:** Checar se endereco existe
 
              return `
                 <div class="mesa-order-details">
@@ -1454,6 +1485,7 @@
             `;
         }
 
+
         function attachModalActionListeners(orderId, order) {
             const modal = document.getElementById('manage-table-modal');
             if (!modal) return;
@@ -1469,7 +1501,7 @@
                     printOrder(btn.dataset.id, btn.dataset.type);
                 };
             });
-            
+
             modal.querySelectorAll('.modal-whatsapp-btn').forEach(btn => {
                 btn.onclick = () => {
                     openWhatsappConfirmModal(btn.dataset.id);
@@ -1487,14 +1519,16 @@
             if (closeBtn) {
                 closeBtn.onclick = () => {
                     if (order && order.pagamento === 'A Definir') {
-                        openTablePaymentModal(orderId, order.total.finalTotal);
+                        // **CORREÇÃO:** Garantir que order.total e finalTotal existam
+                        const totalValue = order?.total?.finalTotal ?? 0;
+                        openTablePaymentModal(orderId, totalValue);
                     } else {
                         updateOrderStatus(orderId, 'Fechado');
                         modal.style.display = 'none';
                     }
                 };
             }
-            
+
             const transferBtn = modal.querySelector('#transfer-table-btn');
             if (transferBtn) {
                 transferBtn.onclick = () => {
@@ -1553,7 +1587,7 @@
         async function handleArchiveOrder(orderId) {
             const archiveBtn = document.querySelector(`.archive-btn[data-id="${orderId}"]`);
             if (archiveBtn && archiveBtn.disabled) return;
-            
+
             if(archiveBtn) {
                 archiveBtn.disabled = true;
                 archiveBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
@@ -1599,7 +1633,7 @@
                 return;
             }
             currentManagingOrderData = docSnap.data();
-            
+
             const freeTablesSelect = document.getElementById('free-tables-select');
             freeTablesSelect.innerHTML = '<option value="">Selecione uma mesa livre...</option>';
             document.querySelectorAll('.mesa-item.mesa-status-livre').forEach(mesaEl => {
@@ -1614,7 +1648,7 @@
                 showCustomAlert("Nenhuma mesa livre disponível para transferência.");
                 return;
             }
-            
+
             transferTableModal.style.display = 'flex';
         }
 
@@ -1622,7 +1656,7 @@
             e.preventDefault();
             const newTableNumber = document.getElementById('free-tables-select').value;
             const orderIdToTransfer = currentManagingOrderId;
-            
+
             if (!newTableNumber || !orderIdToTransfer || !currentManagingOrderData) {
                 showCustomAlert("Erro nos dados de transferência. Tente abrir o gerenciador da mesa novamente.");
                 return;
@@ -1630,13 +1664,14 @@
 
             const newTableNum = parseInt(newTableNumber);
 
+            // **CORREÇÃO:** Usar optional chaining ao acessar currentManagingOrderData.endereco
             const { id, grupoMesas, criadoEm, statusChangedAt, ...transferrableData } = currentManagingOrderData;
-            
+
             const newOrderData = {
                 ...transferrableData,
                 status: currentManagingOrderData.status,
                 endereco: {
-                    ...currentManagingOrderData.endereco,
+                    ...(currentManagingOrderData.endereco ?? {}), // Usar objeto vazio se endereco for null/undefined
                     clientName: `Mesa ${newTableNum}`,
                     rua: 'Mesa'
                 },
@@ -1644,13 +1679,13 @@
                 criadoEm: serverTimestamp(),
                 statusChangedAt: serverTimestamp()
             };
-            
+
             try {
                 await updateDoc(doc(db, "pedidos", orderIdToTransfer), {
-                    status: "Finalizado", 
+                    status: "Finalizado",
                     statusChangedAt: serverTimestamp()
                 });
-                
+
                  await deleteDoc(doc(db, "pedidos", orderIdToTransfer));
 
             } catch (error) {
@@ -1695,15 +1730,15 @@
                 orderIdToDelete = null;
             }
         }
-        
+
         async function updateOrderStatus(id, newStatus) {
             const orderRef = doc(db, "pedidos", id);
-            await updateDoc(orderRef, { 
+            await updateDoc(orderRef, {
                 status: newStatus,
                 statusChangedAt: serverTimestamp()
             });
         }
-        
+
         function printOrder(id, type) {
             // A lógica de impressão foi movida para uma função auxiliar para ser reutilizada
             const order = allOrdersCache.find(o => o.id === id);
@@ -1747,7 +1782,9 @@
             `;
 
             let printContent = '';
-            const itemsByCategory = (order.itens || []).reduce((acc, item) => {
+            // **CORREÇÃO:** Garantir que order.itens seja um array
+            const orderItems = Array.isArray(order.itens) ? order.itens : [];
+            const itemsByCategory = orderItems.reduce((acc, item) => {
                 const category = item.category || 'Outros';
                 if (!acc[category]) acc[category] = [];
                 acc[category].push(item);
@@ -1759,7 +1796,7 @@
                 for (const category in itemsByCategory) {
                     kitchenHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
                     kitchenHtml += itemsByCategory[category].map(item => {
-                        let itemString = `<li><strong>1x</strong> ${item.name}</li>`;
+                        let itemString = `<li><strong>1x</strong> ${item.name || 'Item desconhecido'}</li>`; // Add fallback
                         if (item.extras && item.extras.length > 0) {
                             itemString += `<ul>${item.extras.map(extra => {
                                 const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
@@ -1776,12 +1813,13 @@
                     }).join('');
                     kitchenHtml += '</ul>';
                 }
-                
+
+                // **CORREÇÃO:** Usar optional chaining para endereco
                 printContent = `
                     <h1>COMANDA COZINHA</h1>
                     <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
-                    <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
-                    ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
+                    <p><strong>Cliente:</strong> ${order?.endereco?.clientName || 'N/A'}</p>
+                    ${order?.endereco?.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
                     <hr>
                     ${kitchenHtml}
                     ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
@@ -1791,7 +1829,7 @@
                 for (const category in itemsByCategory) {
                      clientItemsHtml += `<h2>${category.toUpperCase()}</h2><ul>`;
                      clientItemsHtml += itemsByCategory[category].map(item => {
-                        let itemString = `<li class="item-line"><span>${item.name}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`;
+                        let itemString = `<li class="item-line"><span>${item.name || 'Item desconhecido'}</span><span>R$${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}</span></li>`; // Add fallback
                         if (item.extras && item.extras.length > 0) {
                             itemString += `<ul>${item.extras.map(extra => {
                                 const quantityText = (extra.quantity && extra.quantity > 1) ? ` (x${extra.quantity})` : '';
@@ -1808,13 +1846,15 @@
                     }).join('');
                     clientItemsHtml += '</ul>';
                 }
-                
+
                 let paymentDetailsHtml = '';
                 if (order.pagamento) {
                     let paymentText = '', changeText = '';
+                     // **CORREÇÃO:** Usar optional chaining para order.total e finalTotal
+                    const finalTotalValue = order?.total?.finalTotal ?? 0;
                     if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
                         paymentText = 'Dinheiro';
-                        const trocoTotal = (parseFloat(order.pagamento.trocoPara || 0) - parseFloat(order.total.finalTotal || 0));
+                        const trocoTotal = (parseFloat(order.pagamento.trocoPara || 0) - finalTotalValue);
                         changeText = `<p class="text-right">Troco p/: R$ ${parseFloat(order.pagamento.trocoPara || 0).toFixed(2).replace('.', ',')}</p>
                                     <p class="text-right">Troco: R$ ${trocoTotal.toFixed(2).replace('.', ',')}</p>`;
                     } else {
@@ -1823,26 +1863,27 @@
                     paymentDetailsHtml = `<hr><p><strong>Pagamento: ${paymentText}</strong></p>${changeText}`;
                 }
 
+                // **CORREÇÃO:** Usar optional chaining para endereco e total
                 printContent = `
                     <h1>Sâmia Pizzaria</h1>
                     <p><strong>Pedido:</strong> #${id.substring(0, 5)}</p>
-                    <p><strong>Cliente:</strong> ${order.endereco.clientName}</p>
-                     ${order.endereco.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
-                    <p><strong>Endereço:</strong> ${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}</p>
+                    <p><strong>Cliente:</strong> ${order?.endereco?.clientName || 'N/A'}</p>
+                     ${order?.endereco?.telefone ? `<p><strong>Contato:</strong> ${order.endereco.telefone}</p>` : ''}
+                    <p><strong>Endereço:</strong> ${order?.endereco?.rua || 'N/A'}, ${order?.endereco?.numero || 'S/N'} - ${order?.endereco?.bairro || 'N/A'}</p>
                     <hr>
                     ${clientItemsHtml}
                     <hr>
                     <div class="text-right">
-                        <p>Subtotal: R$ ${parseFloat(order.total.subtotal || 0).toFixed(2).replace('.', ',')}</p>
-                        ${order.total.discount > 0 ? `<p>Desconto: -R$ ${parseFloat(order.total.discount || 0).toFixed(2).replace('.', ',')}</p>` : ''}
-                        <p>Taxa Entrega: R$ ${parseFloat(order.total.deliveryFee || 0).toFixed(2).replace('.', ',')}</p>
-                        <p class="font-bold">Total: R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}</p>
+                        <p>Subtotal: R$ ${parseFloat(order?.total?.subtotal || 0).toFixed(2).replace('.', ',')}</p>
+                        ${(order?.total?.discount ?? 0) > 0 ? `<p>Desconto: -R$ ${parseFloat(order.total.discount).toFixed(2).replace('.', ',')}</p>` : ''}
+                        <p>Taxa Entrega: R$ ${parseFloat(order?.total?.deliveryFee || 0).toFixed(2).replace('.', ',')}</p>
+                        <p class="font-bold">Total: R$ ${parseFloat(order?.total?.finalTotal || 0).toFixed(2).replace('.', ',')}</p>
                     </div>
                      ${order.observacao ? `<hr><h2>OBSERVAÇÕES</h2><p>${order.observacao}</p>` : ''}
                      ${paymentDetailsHtml}
                 `;
             }
-            
+
             let printFrame = document.getElementById('print-frame');
             if (!printFrame) {
                 printFrame = document.createElement('iframe');
@@ -1858,7 +1899,7 @@
             frameDoc.open();
             frameDoc.write(styles + printContent);
             frameDoc.close();
-            
+
             setTimeout(() => {
                 printFrame.contentWindow.focus();
                 printFrame.contentWindow.print();
@@ -1877,7 +1918,7 @@
 
                 let totalCash = 0, totalCard = 0, totalPix = 0;
                 let totalDelivery = 0, totalRetirada = 0, totalMesas = 0, totalDeliveryFees = 0;
-                
+
                 const openingTime = currentCashRegister.dataAbertura.toDate();
 
                 const updatedCashRegisterSnap = await getDoc(doc(db, "caixas", currentCashRegister.id));
@@ -1890,11 +1931,12 @@
                     const orderDate = order.criadoEm ? order.criadoEm.toDate() : new Date();
 
                     if (orderDate >= openingTime) {
-                        const finalTotal = parseFloat(order.total.finalTotal || 0);
-                        const subtotal = parseFloat(order.total.subtotal || 0);
-                        const discount = parseFloat(order.total.discount || 0);
+                        // **CORREÇÃO:** Usar optional chaining e valores padrão
+                        const finalTotal = parseFloat(order?.total?.finalTotal || 0);
+                        const subtotal = parseFloat(order?.total?.subtotal || 0);
+                        const discount = parseFloat(order?.total?.discount || 0);
                         const payment = order.pagamento;
-                        
+
                         if ((typeof payment === 'object' && payment.method === 'Dinheiro') || payment === 'Dinheiro') {
                             totalCash += finalTotal;
                         } else if (payment === 'Cartão de Crédito/Débito') {
@@ -1902,11 +1944,11 @@
                         } else if (payment === 'Pix') {
                             totalPix += finalTotal;
                         }
-                        
+
                         const orderType = identifyOrderType(order);
                         if (orderType === 'delivery') {
                             totalDelivery += (subtotal - discount);
-                            totalDeliveryFees += parseFloat(order.total.deliveryFee || 0);
+                            totalDeliveryFees += parseFloat(order?.total?.deliveryFee || 0);
                         } else if (orderType === 'retirada') {
                             totalRetirada += finalTotal;
                         } else if (orderType === 'mesa') {
@@ -1916,12 +1958,14 @@
                 });
 
                 const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
-                const expectedInCash = currentCashRegister.valorInicial + totalSales - totalSangrias;
+                 // **CORREÇÃO:** Valor inicial pode ser 0
+                const initialValue = parseFloat(currentCashRegister.valorInicial || 0);
+                const expectedInCash = initialValue + totalCash - totalSangrias; // Esperado em DINHEIRO
                 const sangriaDetails = sangrias.map(s => `${s.reason}: R$${s.amount.toFixed(2).replace('.',',')}`).join('; ');
-                
+
                 detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales, totalSangrias, sangriaDetails };
 
-                document.getElementById('summary-initial').textContent = `R$ ${parseFloat(currentCashRegister.valorInicial || 0).toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-initial').textContent = `R$ ${initialValue.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-retirada').textContent = `R$ ${totalRetirada.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-mesas').textContent = `R$ ${totalMesas.toFixed(2).replace('.', ',')}`;
@@ -1931,7 +1975,7 @@
                 document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-sangrias').textContent = `- R$ ${totalSangrias.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`;
+                document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`; // Mostra o esperado em DINHEIRO
 
                 closeCashModal.style.display = 'flex';
             } catch (error) {
@@ -1939,6 +1983,7 @@
                 alert("Falha ao calcular totais do caixa: " + error.message);
             }
         }
+
 
         function printCashClosure() {
             const styles = `
@@ -1981,7 +2026,7 @@
             const expected = document.getElementById('summary-expected').textContent;
             const finalValue = document.getElementById('final-value').value;
             const difference = document.getElementById('summary-difference').textContent;
-            
+
             const printContent = `
                 <h1>Fechamento de Caixa</h1>
                 <p><strong>Usuário:</strong> ${auth.currentUser.email}</p>
@@ -2023,7 +2068,7 @@
             frameDoc.open();
             frameDoc.write(styles + printContent);
             frameDoc.close();
-            
+
             setTimeout(() => {
                 printFrame.contentWindow.focus();
                 printFrame.contentWindow.print();
@@ -2038,7 +2083,7 @@
                     newTag.remove();
                 }
             }
-            
+
             const moveBtn = e.target.closest('.move-btn');
             const manageBtn = e.target.closest('.manage-btn');
             const printBtn = e.target.closest('.print-btn');
@@ -2065,7 +2110,7 @@
 
         cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.style.display = 'none');
         confirmDeleteBtn.addEventListener('click', executeDelete);
-        
+
         resolvePendingBtn.addEventListener('click', () => {
             openCashModal.style.display = 'none';
             openCloseCashModal();
@@ -2117,8 +2162,8 @@
                 const column = document.getElementById(colId);
                 return column && column.querySelector('.order-card');
             });
-            
-            const hasPendingTableOrders = Array.from(document.querySelectorAll('#mesas-grid .mesa-item')).some(mesa => 
+
+            const hasPendingTableOrders = Array.from(document.querySelectorAll('#mesas-grid .mesa-item')).some(mesa =>
                 mesa.dataset.status === 'ocupada' || mesa.dataset.status === 'juntada'
             );
 
@@ -2132,10 +2177,10 @@
                 alert("Por favor, insira um valor válido.");
                 return;
             }
-            
+
             const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
             const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
-            
+
             try {
                 const dataToSaveInFirestore = {
                     status: 'fechado',
@@ -2153,7 +2198,7 @@
                     totalPix: detailedReportData.totalPix,
                     totalSangrias: detailedReportData.totalSangrias,
                 };
-                
+
                 await updateDoc(cashRegisterRef, dataToSaveInFirestore);
                 alert("Caixa fechado com sucesso!");
 
@@ -2164,7 +2209,7 @@
                 try {
                     const ordersToArchiveQuery = query(collection(db, "pedidos"), where("status", "in", ["Entregue", "Fechado"]));
                     const querySnapshot = await getDocs(ordersToArchiveQuery);
-                    
+
                     const archivePromises = [];
                     querySnapshot.forEach((doc) => {
                         archivePromises.push(handleArchiveOrder(doc.id));
@@ -2178,7 +2223,7 @@
                      confirmCloseBtn.disabled = false;
                      confirmCloseBtn.textContent = 'Confirmar Fechamento';
                 }
-                
+
                 const dataToArchive = {
                     ...detailedReportData,
                     id: currentCashRegister.id,
@@ -2217,7 +2262,7 @@
                 alert("Não foi possível fechar o caixa. Tente novamente.");
             }
         });
-        
+
         function toggleJoinMode(enable) {
             isJoiningTables = enable;
             mesasGrid.classList.toggle('joining-mode', enable);
@@ -2240,7 +2285,7 @@
                 return;
             }
             const sortedTables = selectedTablesForJoining.sort((a, b) => a - b);
-            
+
             const clientName = `Mesas ${sortedTables.join(' + ')}`;
 
             const newOrder = {
@@ -2278,7 +2323,7 @@
             e.preventDefault();
             const newTableNumber = document.getElementById('free-tables-select').value;
             const orderIdToTransfer = currentManagingOrderId;
-            
+
             if (!newTableNumber || !orderIdToTransfer || !currentManagingOrderData) {
                 showCustomAlert("Erro nos dados de transferência. Tente abrir o gerenciador da mesa novamente.");
                 return;
@@ -2287,12 +2332,12 @@
             const newTableNum = parseInt(newTableNumber);
 
             const { id, grupoMesas, criadoEm, statusChangedAt, ...transferrableData } = currentManagingOrderData;
-            
+
             const newOrderData = {
                 ...transferrableData,
                 status: currentManagingOrderData.status,
                 endereco: {
-                    ...currentManagingOrderData.endereco,
+                    ...(currentManagingOrderData.endereco ?? {}),
                     clientName: `Mesa ${newTableNum}`,
                     rua: 'Mesa'
                 },
@@ -2300,13 +2345,13 @@
                 criadoEm: serverTimestamp(),
                 statusChangedAt: serverTimestamp()
             };
-            
+
             try {
                 await updateDoc(doc(db, "pedidos", orderIdToTransfer), {
-                    status: "Finalizado", 
+                    status: "Finalizado",
                     statusChangedAt: serverTimestamp()
                 });
-                
+
                  await deleteDoc(doc(db, "pedidos", orderIdToTransfer));
 
             } catch (error) {
@@ -2397,18 +2442,18 @@
                 confirmBtn.textContent = 'Confirmar Sangria';
             }
         });
-        
+
         function setupCustomAlertModal() {
             const modal = document.getElementById('custom-alert-modal');
             const okBtn = document.getElementById('ok-alert-modal');
-            
+
             const closeModal = () => modal.style.display = 'none';
 
             modal.addEventListener('click', (e) => {
                 if (e.target === modal || e.target.closest('#ok-alert-modal')) closeModal();
             });
         }
-        
+
         function showCustomAlert(message) {
             document.getElementById('custom-alert-message').textContent = message;
             document.getElementById('custom-alert-modal').style.display = 'flex';
@@ -2439,7 +2484,7 @@
                     titleEl.textContent = originalTitle;
                     yesBtn.textContent = originalYesText;
                     yesBtn.className = originalYesClasses.join(' ');
-                    
+
                     yesBtn.removeEventListener('click', yesHandler);
                     noBtn.removeEventListener('click', noHandler);
                     modal.removeEventListener('click', modalCloseHandler);
@@ -2459,11 +2504,11 @@
                 modal.addEventListener('click', modalCloseHandler);
             });
         }
-        
+
         function openTablePaymentModal(orderId, total) {
             orderIdForPaymentUpdate = orderId;
             document.getElementById('table-payment-total').textContent = `R$ ${total.toFixed(2).replace(',', '.')}`;
-            
+
             document.querySelectorAll('input[name="table-payment"]').forEach(radio => radio.checked = false);
             document.getElementById('table-troco-container').classList.add('hidden');
             document.getElementById('table-trocoPara').value = '';
@@ -2524,11 +2569,11 @@
                 try {
                     confirmTablePaymentBtn.disabled = true;
                     confirmTablePaymentBtn.textContent = 'Salvando...';
-                    
+
                     const orderRef = doc(db, "pedidos", orderIdForPaymentUpdate);
                     await updateDoc(orderRef, { pagamento: paymentData });
                     await updateOrderStatus(orderIdForPaymentUpdate, 'Fechado');
-                    
+
                     tablePaymentModal.style.display = 'none';
                     manageTableModal.style.display = 'none';
                     orderIdForPaymentUpdate = null;
@@ -2547,10 +2592,11 @@
         const whatsappConfirmModal = document.getElementById('whatsapp-confirm-modal');
         const closeWhatsappModalBtn = document.getElementById('close-whatsapp-modal-btn');
         let qrCodeInstance = null;
-        
+
         function formatWhatsappMessage(order) {
-            const itemsText = (order.itens || []).map(item => `  • ${item.name}: R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}`).join('\n');
-            
+            // **CORREÇÃO:** Usar optional chaining e valores padrão
+            const itemsText = (Array.isArray(order.itens) ? order.itens : []).map(item => `  • ${item.name || 'Item'}: R$ ${parseFloat(item.price || 0).toFixed(2).replace('.', ',')}`).join('\n');
+
             let paymentText = 'A definir';
             if (order.pagamento) {
                  if (typeof order.pagamento === 'object' && order.pagamento.method === 'Dinheiro') {
@@ -2560,20 +2606,21 @@
                 }
             }
 
-            const addressText = (order.endereco.rua === "Retirada no Balcão" || order.endereco.rua === "Mesa")
+            // **CORREÇÃO:** Usar optional chaining e valores padrão
+            const addressText = (order?.endereco?.rua === "Retirada no Balcão" || order?.endereco?.rua === "Mesa")
                 ? `${order.endereco.rua}`
-                : `${order.endereco.rua}, ${order.endereco.numero} - ${order.endereco.bairro}`;
+                : `${order?.endereco?.rua || 'Rua ?'}, ${order?.endereco?.numero || 'S/N'} - ${order?.endereco?.bairro || 'Bairro ?'}`;
 
             const fullMessage = `
-Olá, *${order.endereco.clientName}*! 👋
+Olá, *${order?.endereco?.clientName || 'Cliente'}*! 👋
 Confirmando seu pedido na Sâmia Pizzaria:
 
 *-- SEU PEDIDO --*
 ${itemsText}
 ------------------------------------
-Subtotal: R$ ${parseFloat(order.total.subtotal || 0).toFixed(2).replace('.', ',')}
-Taxa de Entrega: R$ ${parseFloat(order.total.deliveryFee || 0).toFixed(2).replace('.', ',')}
-*Total: R$ ${parseFloat(order.total.finalTotal || 0).toFixed(2).replace('.', ',')}*
+Subtotal: R$ ${parseFloat(order?.total?.subtotal || 0).toFixed(2).replace('.', ',')}
+Taxa de Entrega: R$ ${parseFloat(order?.total?.deliveryFee || 0).toFixed(2).replace('.', ',')}
+*Total: R$ ${parseFloat(order?.total?.finalTotal || 0).toFixed(2).replace('.', ',')}*
 
 ${paymentText}
 
@@ -2586,9 +2633,11 @@ Seu pedido já está sendo preparado! 😊
             return fullMessage;
         }
 
+
         function openWhatsappConfirmModal(orderId) {
             const order = allOrdersCache.find(o => o.id === orderId);
-            if (!order || !order.endereco.telefone) {
+             // **CORREÇÃO:** Tratar caso onde order ou endereco ou telefone não existem
+            if (!order || !order.endereco || !order.endereco.telefone) {
                 showCustomAlert('Este pedido não possui um número de telefone para contato.');
                 return;
             }
@@ -2599,7 +2648,7 @@ Seu pedido já está sendo preparado! 😊
 
             const qrcodeContainer = document.getElementById('qrcode-container');
             const link = document.getElementById('whatsapp-confirm-link');
-            
+
             qrcodeContainer.innerHTML = '';
             if (qrCodeInstance) {
                 qrCodeInstance.clear();
@@ -2609,7 +2658,7 @@ Seu pedido já está sendo preparado! 😊
                 width: 200,
                 height: 200
             });
-            
+
             link.href = whatsappUrl;
             whatsappConfirmModal.style.display = 'flex';
         }
@@ -2622,4 +2671,3 @@ Seu pedido já está sendo preparado! 😊
     </script>
 </body>
 </html>
-
