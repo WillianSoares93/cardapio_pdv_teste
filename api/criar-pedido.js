@@ -153,6 +153,7 @@ const createOrderHash = (items) => {
 
 function generateOrderId() {
     const now = new Date();
+    // Ajuste para garantir que a data/hora esteja correta, considerando UTC-3
     const datePart = now.getFullYear().toString().slice(-2) +
                      (now.getMonth() + 1).toString().padStart(2, '0') +
                      now.getDate().toString().padStart(2, '0');
@@ -190,6 +191,7 @@ export default async function handler(req, res) {
         const { order, selectedAddress, total, paymentMethod, whatsappNumber, observation } = req.body;
         log("Corpo da requisição parseado com sucesso.");
 
+        // Validação básica dos dados recebidos
         if (!order || !Array.isArray(order) || order.length === 0 || !selectedAddress || !total || !paymentMethod || !whatsappNumber) {
             log("Dados incompletos ou inválidos recebidos.");
             return res.status(400).json({ message: 'Dados do pedido incompletos ou inválidos.' });
@@ -199,42 +201,39 @@ export default async function handler(req, res) {
         // --- Verificação de Duplicidade ---
         log("Iniciando verificação de duplicidade...");
         const customerName = selectedAddress.clientName?.trim() || 'Nome não informado';
-        const customerPhone = selectedAddress.telefone?.trim() || '';
-        const isPickup = selectedAddress.bairro === 'Retirada';
+        const customerPhone = selectedAddress.telefone?.trim() || ''; // Usar telefone do selectedAddress
+        const isPickup = selectedAddress.rua === 'Retirada no Balcão'; // Verificar se é retirada
         const orderHash = createOrderHash(order);
 
-        // Validação do hash (revisada)
-        if (order.length > 0 && (!orderHash || orderHash === 'error_processing_items' || orderHash.includes('invalid_item'))) {
+        // Validação do hash
+        if (!orderHash || orderHash === 'error_processing_items' || orderHash.includes('invalid_item')) {
             errorLog("Falha ao gerar o hash do pedido para verificação de duplicidade ou hash inválido.", { order, generatedHash: orderHash });
             return res.status(500).json({ message: 'Erro interno ao processar itens do pedido (hash inválido).' });
         }
-         // Log apenas se o hash for válido
-        if(orderHash) {
-             log(`Hash do pedido gerado (prefixo): ${orderHash.substring(0, 50)}...`);
-        } else if (order.length === 0) {
-             log("Pedido vazio, pulando geração de hash.");
-        }
+        log(`Hash do pedido gerado (prefixo): ${orderHash.substring(0, 50)}...`);
 
-
-        const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 3 * 60 * 60 * 1000));
+        // Verifica duplicidade nos últimos 3 minutos (ajustado para 3 minutos conforme exemplo anterior, poderia ser maior)
+        const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 3 * 60 * 1000));
         log(`Janela de tempo para duplicidade inicia em: ${checkTimeframe.toDate().toISOString()}`);
 
+        // Query baseada nos campos principais e no hash
         let duplicateQuery = db.collection('pedidos')
-            .where('customerName', '==', customerName)
-            .where('orderHash', '==', orderHash) // Comparação de hash só faz sentido se hash for válido
-            .where('timestamp', '>=', checkTimeframe);
+            .where('endereco.clientName', '==', customerName) // Usar campo aninhado
+            .where('orderHash', '==', orderHash)
+            .where('criadoEm', '>=', checkTimeframe); // Usar criadoEm
 
         if (customerPhone) {
-            duplicateQuery = duplicateQuery.where('customerPhone', '==', customerPhone);
+            duplicateQuery = duplicateQuery.where('endereco.telefone', '==', customerPhone); // Usar campo aninhado
         }
 
         if (!isPickup) {
             duplicateQuery = duplicateQuery
-                .where('address.bairro', '==', selectedAddress.bairro || null)
-                .where('address.rua', '==', selectedAddress.rua || null)
-                .where('address.numero', '==', selectedAddress.numero || null);
+                .where('endereco.bairro', '==', selectedAddress.bairro || null)
+                .where('endereco.rua', '==', selectedAddress.rua || null)
+                .where('endereco.numero', '==', selectedAddress.numero || null);
         } else {
-            duplicateQuery = duplicateQuery.where('address.bairro', '==', 'Retirada');
+            // Se for retirada, verificar o campo específico
+            duplicateQuery = duplicateQuery.where('endereco.rua', '==', 'Retirada no Balcão');
         }
 
         log("Executando query de verificação de duplicidade...");
@@ -252,25 +251,37 @@ export default async function handler(req, res) {
         const timestamp = Timestamp.now();
         log(`ID do Pedido Gerado: ${orderId}`);
 
-        let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId})*\n\n`;
+        // --- Montagem da Mensagem WhatsApp (Mantida como antes) ---
+        let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId.substring(0,5).toUpperCase()})*\n\n`; // Usa parte do ID gerado
         orderMessage += `*Cliente:* ${customerName}\n`;
-        if (customerPhone) { orderMessage += `*Contato:* ${customerPhone}\n`; }
+        if (customerPhone) { orderMessage += `*Contato:* ${customerPhone}\n`; } // Adiciona telefone se existir
         if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
         else {
             orderMessage += `*Endereço:* ${selectedAddress.rua || 'Rua não informada'}, Nº ${selectedAddress.numero || 'S/N'}, ${selectedAddress.bairro || 'Bairro não informado'}\n`;
             if (selectedAddress.referencia) { orderMessage += `*Referência:* ${selectedAddress.referencia}\n`; }
+            // Usa deliveryFee do objeto total, garantindo que seja número
             orderMessage += `*Taxa de Entrega:* R$ ${Number(total.deliveryFee || 0).toFixed(2).replace('.', ',')}\n`;
         }
         orderMessage += "\n*Itens do Pedido:*\n";
         order.forEach(item => {
+            // Formata nome e preço do item principal
             orderMessage += `- ${item.quantity || 1}x ${item.name} (R$ ${Number(item.price || 0).toFixed(2).replace('.', ',')})\n`;
+             // Adiciona ingredientes de hambúrguer personalizado
              if (item.ingredients && item.ingredients.length > 0) {
-                 item.ingredients.forEach(ing => orderMessage += `  * ${ing.name}\n`);
+                 item.ingredients.forEach(ing => {
+                    const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : '';
+                    orderMessage += `  * ${ing.name}${quantityText}\n`;
+                 });
             }
+            // Adiciona extras de pizza
              if (item.extras && item.extras.length > 0) {
-                 item.extras.forEach(ext => orderMessage += `  + ${ext.name} (${ext.placement})\n`);
+                 item.extras.forEach(ext => {
+                    const quantityText = (ext.quantity && ext.quantity > 1) ? ` (x${ext.quantity})` : '';
+                    orderMessage += `  + ${ext.name}${quantityText} (${ext.placement})\n`;
+                 });
             }
         });
+        // Adiciona totais e pagamento
         orderMessage += `\n*Subtotal:* R$ ${Number(total.subtotal || 0).toFixed(2).replace('.', ',')}\n`;
         if (total.discount > 0) { orderMessage += `*Desconto:* - R$ ${Number(total.discount).toFixed(2).replace('.', ',')}\n`; }
         orderMessage += `*Total:* R$ ${Number(total.finalTotal || 0).toFixed(2).replace('.', ',')}\n`;
@@ -280,6 +291,7 @@ export default async function handler(req, res) {
         orderMessage += `*Pagamento:* ${paymentInfo}\n`;
         if (observation) { orderMessage += `\n*Observações:* ${observation}\n`; }
         log("Mensagem do WhatsApp formatada.");
+        // --- Fim Mensagem WhatsApp ---
 
         const cleanWhatsappNumber = String(whatsappNumber).replace(/\D/g, '');
         const whatsappUrl = `https://wa.me/55${cleanWhatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
@@ -287,14 +299,61 @@ export default async function handler(req, res) {
 
         let pdvSaved = false;
         let pdvError = null;
+
+        // --- **NOVA ESTRUTURA PARA SALVAR NO FIRESTORE** ---
         const orderDataToSave = {
-            id: orderId, customerName, customerPhone, address: selectedAddress,
-            items: order, total: total.finalTotal, subtotal: total.subtotal,
-            discount: total.discount, deliveryFee: total.deliveryFee,
-            paymentMethod, observation, status: 'Novo', timestamp, orderHash
+            criadoEm: timestamp, // Usar o timestamp gerado no início
+            endereco: {
+                bairro: selectedAddress.bairro || null,
+                clientName: customerName,
+                // Garantir que deliveryFee seja número
+                deliveryFee: Number(selectedAddress.deliveryFee || 0),
+                numero: selectedAddress.numero || null,
+                referencia: selectedAddress.referencia || null,
+                rua: selectedAddress.rua || null,
+                telefone: customerPhone || null // Salvar telefone formatado ou null
+            },
+            // Mapear itens para garantir a estrutura correta
+            itens: order.map(item => ({
+                // Incluir campos básicos
+                category: item.category || null,
+                description: item.description || null,
+                // Usar ID interno do item se disponível, senão gerar um (ou manter o gerado pelo frontend se já tiver)
+                id: item.id || Date.now() + Math.random(),
+                name: item.name || 'Item sem nome',
+                // Garantir que o preço seja número
+                price: Number(item.price || 0),
+                type: item.type || 'full', // 'full', 'split', 'custom_burger', 'promotion'
+                // Campos específicos
+                ...(item.ingredients && { ingredients: item.ingredients.map(ing => ({ name: ing.name, price: Number(ing.price || 0), quantity: Number(ing.quantity || 1) })) }), // Garantir números
+                ...(item.extras && { extras: item.extras.map(ext => ({ name: ext.name, price: Number(ext.price || 0), quantity: Number(ext.quantity || 1), placement: ext.placement })) }), // Garantir números
+                ...(item.originalItem && { originalItem: item.originalItem }), // Incluir se for custom_burger
+                ...(item.selected_slices && { selected_slices: item.selected_slices }), // Para pizzas
+                ...(item.firstHalfData && { firstHalfData: item.firstHalfData }), // Para pizzas split
+                ...(item.secondHalfData && { secondHalfData: item.secondHalfData }), // Para pizzas split
+                ...(item.basePrice !== undefined && { basePrice: Number(item.basePrice) }), // Para custom_burger
+                // Adicionar quantity se não for implícito (ex: se o frontend não mandar quantity para itens normais)
+                quantity: Number(item.quantity || 1)
+            })),
+            observacao: observation || "", // String vazia se nulo
+            pagamento: paymentMethod, // Pode ser string ou map
+            status: 'Novo', // Status inicial
+            total: {
+                // Garantir que todos os totais sejam números
+                deliveryFee: Number(total.deliveryFee || 0),
+                discount: Number(total.discount || 0),
+                finalTotal: Number(total.finalTotal || 0),
+                subtotal: Number(total.subtotal || 0)
+            },
+            orderHash: orderHash, // Manter o hash para duplicidade
+            // Adicionar o ID gerado também dentro do documento pode ser útil
+            orderId: orderId
         };
+        // --- **FIM DA NOVA ESTRUTURA** ---
+
         try {
             log(`Tentando salvar pedido ${orderId} no Firestore...`);
+            // Usar o orderId gerado como ID do documento
             const docRef = db.collection('pedidos').doc(orderId);
             await docRef.set(orderDataToSave);
             pdvSaved = true;
