@@ -152,8 +152,9 @@ export default async function handler(req, res) {
         const customerName = selectedAddress.clientName?.trim() || 'Nome não informado';
         const customerPhone = selectedAddress.telefone?.trim().replace(/\D/g, '') || '';
         const orderHash = createOrderHash(order);
-        // *** CORREÇÃO: Define o bairro corretamente para a verificação de duplicidade ***
-        const bairro = selectedAddress.rua === "Retirada no Balcão" ? "Retirada" : selectedAddress.bairro || null; // Obter bairro ou 'Retirada'
+        const isPickup = selectedAddress.rua === "Retirada no Balcão"; // Verifica se é retirada
+        // Define o bairro corretamente para a verificação de duplicidade
+        const bairro = isPickup ? "Retirada" : selectedAddress.bairro || null;
 
         if (!orderHash || orderHash === 'error_processing_items' || orderHash.includes('invalid_item')) {
             errorLog("Falha ao gerar hash do pedido para duplicidade.", { order, generatedHash: orderHash });
@@ -166,19 +167,15 @@ export default async function handler(req, res) {
 
         // **AJUSTE NA QUERY PARA CORRESPONDER EXATAMENTE AO ÍNDICE DA IMAGEM**
         let duplicateQuery = db.collection('pedidos')
-            .where('address.bairro', '==', bairro) // <-- Primeiro campo do índice (agora correto para Retirada também)
-            .where('customerName', '==', customerName) // <-- Segundo campo do índice
-            // Condicional para telefone
-            // .where('customerPhone', '==', customerPhone) // <-- Terceiro campo do índice (omitido se vazio)
-            .where('orderHash', '==', orderHash) // <-- Quarto campo do índice
-            .where('timestamp', '>=', checkTimeframe); // <-- Quinto campo do índice
+            .where('endereco.bairro', '==', bairro) // <-- Alterado de address para endereco
+            .where('customerName', '==', customerName)
+            .where('orderHash', '==', orderHash)
+            .where('timestamp', '>=', checkTimeframe);
 
-        // Adiciona o filtro de telefone apenas se ele existir, pois o índice o inclui
+        // Adiciona o filtro de telefone apenas se ele existir
         if (customerPhone) {
              duplicateQuery = duplicateQuery.where('customerPhone', '==', customerPhone);
         } else {
-             // Se não houver telefone, precisamos comparar com 'null' ou '' para o índice funcionar
-             // Assumindo que o campo é salvo como null se vazio
              duplicateQuery = duplicateQuery.where('customerPhone', '==', null);
         }
 
@@ -199,12 +196,10 @@ export default async function handler(req, res) {
         log(`ID do Pedido Gerado: ${orderId}`);
 
         // --- Montagem da Mensagem WhatsApp (Mantida) ---
-        // *** CORREÇÃO: Verifica explicitamente se a rua é "Retirada no Balcão" ***
-        const isPickup = selectedAddress.rua === "Retirada no Balcão";
         let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId.substring(0,5).toUpperCase()})*\n\n`;
         orderMessage += `*Cliente:* ${customerName}\n`;
         if (selectedAddress.telefone) { orderMessage += `*Contato:* ${selectedAddress.telefone}\n`; }
-        if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; } // Mensagem correta para retirada
+        if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
         else {
             orderMessage += `*Endereço:* ${selectedAddress.rua || 'Rua não informada'}, Nº ${selectedAddress.numero || 'S/N'}, ${selectedAddress.bairro || 'Bairro não informado'}\n`;
             if (selectedAddress.referencia) { orderMessage += `*Referência:* ${selectedAddress.referencia}\n`; }
@@ -238,29 +233,23 @@ export default async function handler(req, res) {
         let pdvSaved = false;
         let pdvError = null;
 
-        // --- Estrutura para salvar (ajustada para Retirada) ---
+        // --- Estrutura para salvar (COM ORDEM E NOMENCLATURA AJUSTADAS) ---
         const orderDataToSave = {
-            // Campos indexados no nível raiz
-            customerName: customerName,
-            customerPhone: customerPhone || null, // Salvar telefone não formatado ou null
-            orderHash: orderHash,
-            timestamp: timestamp, // <-- Usar o campo do índice
-
-            // Estrutura aninhada para outros usos
-            criadoEm: timestamp, // Manter por consistência se o PDV usar
-            // **IMPORTANTE:** Salvar address.bairro corretamente para o índice
-            address: {
-                // *** CORREÇÃO APLICADA AQUI ***
-                bairro: isPickup ? "Retirada" : bairro, // Salva 'Retirada' ou o bairro real
-                rua: isPickup ? "Retirada no Balcão" : selectedAddress.rua || null, // Salva 'Retirada no Balcão' ou a rua real
-                // Mantém os outros campos, que podem ser null para retirada
+            criadoEm: timestamp, // Primeiro campo
+            endereco: { // Segundo campo, nome em português
+                // Mantém a lógica anterior para definir bairro e rua corretamente
+                bairro: isPickup ? "Retirada" : bairro,
+                rua: isPickup ? "Retirada no Balcão" : selectedAddress.rua || null,
                 clientName: customerName,
+                // Os outros campos dentro de endereco permanecem como estavam
                 deliveryFee: Number(selectedAddress.deliveryFee || 0),
                 numero: isPickup ? "S/N" : selectedAddress.numero || null,
                 referencia: isPickup ? null : selectedAddress.referencia || null,
-                telefone: selectedAddress.telefone || null // Telefone formatado
+                telefone: selectedAddress.telefone || null
             },
+            // Demais campos na ordem desejada (mantendo os campos de índice também)
             itens: order.map(item => ({
+                // Mantém a estrutura interna dos itens como antes
                 category: item.category || null,
                 description: item.description || null,
                 id: item.id || Date.now() + Math.random(),
@@ -278,14 +267,19 @@ export default async function handler(req, res) {
             })),
             observacao: observation || "",
             pagamento: paymentMethod,
-            status: 'Novo', // Pedidos do cardápio sempre começam como 'Novo'
+            status: 'Novo',
             total: {
                 deliveryFee: Number(total.deliveryFee || 0),
                 discount: Number(total.discount || 0),
                 finalTotal: Number(total.finalTotal || 0),
                 subtotal: Number(total.subtotal || 0)
             },
-            orderId: orderId // ID gerado
+            // Campos de índice para duplicidade (mantidos no nível raiz, podem vir depois se preferir, mas a ordem exata aqui não afeta a query se os campos existirem)
+            customerName: customerName,
+            customerPhone: customerPhone || null,
+            orderHash: orderHash,
+            timestamp: timestamp,
+            orderId: orderId // ID gerado (pode ser o último campo)
         };
         // --- Fim Estrutura Salvar ---
 
@@ -319,3 +313,4 @@ export default async function handler(req, res) {
         log(`--- Requisição finalizada para /api/criar-pedido em ${new Date().toISOString()} ---`);
     }
 }
+
