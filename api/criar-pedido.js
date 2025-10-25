@@ -150,9 +150,9 @@ export default async function handler(req, res) {
         // --- Verificação de Duplicidade ---
         log("Iniciando verificação de duplicidade...");
         const customerName = selectedAddress.clientName?.trim() || 'Nome não informado';
-        // **AJUSTE:** Usar telefone não formatado para consistência com o que pode estar no índice
         const customerPhone = selectedAddress.telefone?.trim().replace(/\D/g, '') || '';
         const orderHash = createOrderHash(order);
+        const bairro = selectedAddress.bairro || null; // Obter bairro
 
         if (!orderHash || orderHash === 'error_processing_items' || orderHash.includes('invalid_item')) {
             errorLog("Falha ao gerar hash do pedido para duplicidade.", { order, generatedHash: orderHash });
@@ -163,20 +163,26 @@ export default async function handler(req, res) {
         const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 3 * 60 * 1000)); // Últimos 3 minutos
         log(`Janela de tempo para duplicidade inicia em: ${checkTimeframe.toDate().toISOString()}`);
 
-        // **AJUSTE NA QUERY PARA USAR CAMPOS DO ÍNDICE EXISTENTE**
+        // **AJUSTE NA QUERY PARA CORRESPONDER EXATAMENTE AO ÍNDICE DA IMAGEM**
         let duplicateQuery = db.collection('pedidos')
-            .where('customerName', '==', customerName) // <-- Campo do índice
-            .where('orderHash', '==', orderHash)
-            .where('timestamp', '>=', checkTimeframe); // <-- Campo do índice
+            .where('address.bairro', '==', bairro) // <-- Primeiro campo do índice
+            .where('customerName', '==', customerName) // <-- Segundo campo do índice
+            // Condicional para telefone
+            // .where('customerPhone', '==', customerPhone) // <-- Terceiro campo do índice (omitido se vazio)
+            .where('orderHash', '==', orderHash) // <-- Quarto campo do índice
+            .where('timestamp', '>=', checkTimeframe); // <-- Quinto campo do índice
 
+        // Adiciona o filtro de telefone apenas se ele existir, pois o índice o inclui
         if (customerPhone) {
-            duplicateQuery = duplicateQuery.where('customerPhone', '==', customerPhone); // <-- Campo do índice
+             duplicateQuery = duplicateQuery.where('customerPhone', '==', customerPhone);
+        } else {
+             // Se não houver telefone, precisamos comparar com 'null' ou '' para o índice funcionar
+             // Assumindo que o campo é salvo como null se vazio
+             duplicateQuery = duplicateQuery.where('customerPhone', '==', null);
         }
 
-        // Simplificado: não usa rua/numero/bairro na query de duplicidade para garantir uso do índice
-        // A combinação de nome, telefone (opcional), hash do pedido e tempo é suficiente
 
-        log("Executando query de duplicidade simplificada...");
+        log("Executando query de duplicidade alinhada ao índice...");
         const duplicateSnapshot = await duplicateQuery.limit(1).get();
 
         if (!duplicateSnapshot.empty) {
@@ -195,7 +201,7 @@ export default async function handler(req, res) {
         const isPickup = selectedAddress.rua === 'Retirada no Balcão';
         let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId.substring(0,5).toUpperCase()})*\n\n`;
         orderMessage += `*Cliente:* ${customerName}\n`;
-        if (selectedAddress.telefone) { orderMessage += `*Contato:* ${selectedAddress.telefone}\n`; } // Usar telefone formatado aqui
+        if (selectedAddress.telefone) { orderMessage += `*Contato:* ${selectedAddress.telefone}\n`; }
         if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
         else {
             orderMessage += `*Endereço:* ${selectedAddress.rua || 'Rua não informada'}, Nº ${selectedAddress.numero || 'S/N'}, ${selectedAddress.bairro || 'Bairro não informado'}\n`;
@@ -230,7 +236,7 @@ export default async function handler(req, res) {
         let pdvSaved = false;
         let pdvError = null;
 
-        // --- **ESTRUTURA AJUSTADA PARA SALVAR NO FIRESTORE (ALINHADA COM O ÍNDICE)** ---
+        // --- Estrutura para salvar (mantida da versão anterior, já inclui campos do índice) ---
         const orderDataToSave = {
             // Campos indexados no nível raiz
             customerName: customerName,
@@ -238,16 +244,17 @@ export default async function handler(req, res) {
             orderHash: orderHash,
             timestamp: timestamp, // <-- Usar o campo do índice
 
-            // Manter a estrutura aninhada para outros usos
+            // Estrutura aninhada para outros usos
             criadoEm: timestamp, // Manter por consistência se o PDV usar
-            endereco: {
-                bairro: selectedAddress.bairro || null,
-                clientName: customerName, // Repetir aqui para o PDV
+            // **IMPORTANTE:** Salvar address.bairro corretamente para o índice
+            address: {
+                bairro: bairro, // Salvar o bairro usado na query
+                clientName: customerName,
                 deliveryFee: Number(selectedAddress.deliveryFee || 0),
                 numero: selectedAddress.numero || null,
                 referencia: selectedAddress.referencia || null,
                 rua: selectedAddress.rua || null,
-                telefone: selectedAddress.telefone || null // Manter telefone formatado aqui para o PDV
+                telefone: selectedAddress.telefone || null // Telefone formatado
             },
             itens: order.map(item => ({
                 category: item.category || null,
@@ -276,7 +283,7 @@ export default async function handler(req, res) {
             },
             orderId: orderId // ID gerado
         };
-        // --- **FIM DA ESTRUTURA AJUSTADA** ---
+        // --- Fim Estrutura Salvar ---
 
         try {
             log(`Tentando salvar pedido ${orderId} no Firestore...`);
@@ -294,10 +301,13 @@ export default async function handler(req, res) {
 
     } catch (generalError) {
         errorLog(`Erro geral CRÍTICO em /api/criar-pedido:`, generalError);
-        // Verificar se o erro é de índice, mesmo após as mudanças
+        // Verificar se o erro ainda é de índice
         if (generalError.code === 9 || (generalError.details && generalError.details.includes('FAILED_PRECONDITION') && generalError.details.includes('requires an index'))) {
-             errorLog("Erro de índice PERSISTE mesmo após ajustes. Verifique o painel do Firebase e a query novamente.", generalError.details);
-             res.status(500).json({ message: 'Erro interno: Falha na consulta ao banco de dados (índice ainda necessário ou inválido).', details: generalError.message });
+             errorLog("Erro de índice PERSISTE. Verifique o painel do Firebase e a query.", generalError.details);
+             // Incluir link do índice sugerido no erro, se disponível
+             const indexLinkMatch = generalError.message.match(/(https:\/\/console\.firebase\.google\.com\/.*?)\)?$/);
+             const indexLink = indexLinkMatch ? indexLinkMatch[1] : 'Verifique o console do Firebase.';
+             res.status(500).json({ message: `Erro interno: Falha na consulta (índice necessário/inválido). Índice sugerido: ${indexLink}`, details: generalError.message });
         } else {
              res.status(500).json({ message: 'Erro interno do servidor ao processar o pedido.', details: generalError.message });
         }
