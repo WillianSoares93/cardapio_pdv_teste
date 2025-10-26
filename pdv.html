@@ -915,6 +915,8 @@
                     retiradaCounter.textContent = retiradaCount;
                     retiradaNotification.classList.remove('hidden');
                 } else {
+                    // ***** ESTA É A CORREÇÃO *****
+                    retiradaNotification.classList.add('hidden'); 
                     if(retiradaBell) retiradaBell.classList.remove('notification-bell-ringing');
                 }
             }
@@ -2671,3 +2673,4 @@ Seu pedido já está sendo preparado! 😊
     </script>
 </body>
 </html>
+
