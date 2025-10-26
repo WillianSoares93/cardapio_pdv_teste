@@ -374,7 +374,8 @@
                 <div class="flex justify-between font-bold"><span class="text-gray-800">Total de Vendas:</span> <span id="summary-total-sales" class="text-gray-800">R$ 0,00</span></div>
                 <div class="flex justify-between text-red-600"><span class="font-medium">Total Sangrias:</span> <span id="summary-sangrias" class="font-medium">- R$ 0,00</span></div>
                 <hr class="my-2">
-                <div class="flex justify-between font-bold"><span class="text-blue-700">Valor Esperado em Caixa:</span> <span id="summary-expected" class="text-blue-700">R$ 0,00</span></div>
+                <!-- ALTERAÇÃO FEITA AQUI -->
+                <div class="flex justify-between font-bold"><span class="text-blue-700">Valor Esperado em Dinheiro:</span> <span id="summary-expected" class="text-blue-700">R$ 0,00</span></div>
             </div>
             <form id="close-cash-form" class="mt-6">
                 <div class="mb-4">
@@ -2050,7 +2051,8 @@
                 <div class="line font-bold"><span>TOTAL DE VENDAS:</span><span>${totalSales}</span></div>
                 <div class="line"><span>Total Sangrias:</span><span>${sangrias}</span></div>
                 <hr>
-                <div class="line font-bold"><span>ESPERADO EM CAIXA:</span><span>${expected}</span></div>
+                <!-- ALTERAÇÃO FEITA AQUI -->
+                <div class="line font-bold"><span>ESPERADO EM DINHEIRO:</span><span>${expected}</span></div>
                 <div class="line"><span>Valor Contado:</span><span>R$ ${parseFloat(finalValue || 0).toFixed(2).replace('.',',')}</span></div>
                 <div class="line font-bold"><span>DIFERENÇA:</span><span>${difference}</span></div>
             `;
@@ -2673,4 +2675,3 @@ Seu pedido já está sendo preparado! 😊
     </script>
 </body>
 </html>
-
