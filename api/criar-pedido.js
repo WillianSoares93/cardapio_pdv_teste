@@ -112,7 +112,193 @@ function generateOrderId() {
     const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `${datePart}-${timePart}-${randomPart}`;
 }
-// --- FIM FUNÇÕES HELPER ---
+
+// --- NOVAS FUNÇÕES HELPER PARA FORMATAÇÃO DA MENSAGEM ---
+
+/**
+ * Formata um valor numérico para o padrão BRL (R$ XX,XX).
+ * @param {number} value - O valor a ser formatado.
+ * @returns {string} - O valor formatado como string.
+ */
+function formatCurrency(value) {
+    if (value === undefined || value === null) return 'R$ 0,00';
+    return `R$ ${Number(value).toFixed(2).replace('.', ',')}`;
+}
+
+/**
+ * Formata o método de pagamento para exibição.
+ * @param {string|object} payment - O método de pagamento.
+ * @returns {string} - O método de pagamento formatado.
+ */
+function formatPaymentMethod(payment) {
+    if (typeof payment === 'object' && payment !== null) {
+        if (payment.method === 'Dinheiro') {
+            const trocoPara = Number(payment.trocoPara || 0);
+            if (trocoPara > 0) {
+                return `*Dinheiro* (Troco para: ${formatCurrency(trocoPara)})`;
+            }
+            return '*Dinheiro* (Sem troco / Pagamento exato)';
+        }
+    }
+    if (typeof payment === 'string') {
+         return `*${payment}*`; // Para Cartão, Pix, etc.
+    }
+    // Fallback
+    return `*${String(payment)}*`;
+}
+
+/**
+ * Gera a string completa da mensagem do pedido para o WhatsApp.
+ * @param {object} data - O corpo da requisição (req.body).
+ * @returns {string} - A mensagem formatada e codificada para URL.
+ */
+function formatOrderMessage(data) {
+    const { order, selectedAddress, total, paymentMethod, observation } = data;
+    const message = [];
+
+    // --- CABEÇALHO ---
+    message.push('-- *NOVO PEDIDO* --');
+    message.push('');
+
+    // --- CLIENTE E ENDEREÇO ---
+    message.push(`*Cliente:* ${selectedAddress.clientName || 'Não informado'}`);
+
+    let addressLine = '*Endereço:* ';
+    // O frontend já ajusta o 'bairro' para 'Retirada'
+    if (selectedAddress.bairro === 'Retirada') {
+        addressLine += 'Retirada no Balcão, S/N - Retirada';
+    } else {
+        addressLine += `${selectedAddress.rua || 'Rua não informada'}, ${selectedAddress.numero || 'S/N'} - ${selectedAddress.bairro || 'Bairro não informado'}`;
+    }
+    message.push(addressLine);
+    message.push('');
+    message.push('*------------------------------------*');
+    message.push('*PEDIDO:*');
+    message.push('');
+
+    // --- AGRUPAR ITENS POR CATEGORIA ---
+    const itemsByCategory = {};
+    order.forEach(item => {
+        let category = 'OUTROS'; // Categoria padrão
+        if (item.type === 'custom_burger') {
+            category = 'BURGER MONTAVEL';
+        } else if (item.category) {
+            // Normaliza o nome da categoria para garantir consistência
+            category = item.category.toUpperCase().replace(/\(S\)/gi, '(s)');
+        }
+        if (!itemsByCategory[category]) {
+            itemsByCategory[category] = [];
+        }
+        itemsByCategory[category].push(item);
+    });
+
+    // --- ORDEM DE EXIBIÇÃO DAS CATEGORIAS (para seguir o template) ---
+    const categoryOrder = [
+        'ENTRADAS',
+        'PIZZA(S) DOCES',
+        'PIZZA(S) TRADICIONAIS',
+        'PIZZA(S) PROMOCIONAIS',
+        'BEBIDAS',
+        'BURGER',
+        'BURGER CLÁSSICOS',
+        'BURGER MONTAVEL'
+    ];
+
+    // Adiciona quaisquer outras categorias do pedido que não estejam na lista principal
+    const allCategoriesInOrder = [...categoryOrder];
+    for (const category in itemsByCategory) {
+        if (!allCategoriesInOrder.includes(category)) {
+            allCategoriesInOrder.push(category);
+        }
+    }
+    
+    let categoriesProcessed = 0; // Para controlar o separador
+
+    // --- RENDERIZAR ITENS POR CATEGORIA ---
+    allCategoriesInOrder.forEach(category => {
+        if (itemsByCategory[category]) {
+            
+            // Adiciona separador ANTES da categoria (se não for a primeira)
+            if (categoriesProcessed > 0) {
+                 message.push('------------------------------------');
+            }
+
+            message.push(`*> ${category} <*`);
+            itemsByCategory[category].forEach(item => {
+                const quantity = item.quantity || 1;
+                const quantityText = quantity > 1 ? ` (x${quantity})` : '';
+                
+                // Limpa o nome do item
+                let itemName = (item.name || 'Item sem nome').replace(/&/g, 'e');
+                if (item.selected_slices) {
+                    itemName = itemName.replace(`${item.selected_slices} FATIAS: `, '');
+                }
+
+                // Formatação condicional por tipo de item
+                if (item.type === 'custom_burger') {
+                    // Formato Burger Montável
+                    message.push(`  • ${itemName}${quantityText}: ${formatCurrency(item.basePrice || 0)}`);
+                    if (item.ingredients && item.ingredients.length > 0) {
+                        item.ingredients.forEach(ing => {
+                            const ingQuantity = ing.quantity || 1;
+                            const ingQuantityText = ingQuantity > 1 ? ` (x${ingQuantity})` : '';
+                            const ingPrice = (ing.price || 0) * ingQuantity;
+                            message.push(`     + _${ing.name}${ingQuantityText}: ${formatCurrency(ingPrice)}_`);
+                        });
+                    }
+                    message.push(`        *Total C/ Ingredientes: ${formatCurrency(item.price)}*`);
+                
+                } else if (item.selected_slices) {
+                    // Formato Pizza
+                    message.push(`  • *${item.selected_slices} FATIAS:* ${itemName}${quantityText}: ${formatCurrency(item.price)}`);
+                
+                } else if (item.type === 'promotion') {
+                    // Formato Promoção
+                    message.push(`  • ${itemName}${quantityText} (Promo): ${formatCurrency(item.price)}`);
+
+                } else {
+                    // Formato Item Normal
+                    message.push(`  • ${itemName}${quantityText}: ${formatCurrency(item.price)}`);
+                }
+
+                // Adicionais (Extras) para pizzas (e outros itens, se houver)
+                if (item.extras && item.extras.length > 0) {
+                     item.extras.forEach(extra => {
+                        const extraQty = extra.quantity > 1 ? ` (x${extra.quantity})` : '';
+                        const extraPrice = (extra.price || 0) * (extra.quantity || 1);
+                        message.push(`     + _Adicional ${extra.name} (${extra.placement})${extraQty}: ${formatCurrency(extraPrice)}_`);
+                     });
+                }
+            });
+            categoriesProcessed++;
+        }
+    });
+
+    // --- TOTAIS ---
+    message.push('------------------------------------');
+    message.push(`Subtotal: ${formatCurrency(total.subtotal)}`);
+    if (total.discount > 0) {
+        message.push(`Desconto: - ${formatCurrency(total.discount)}`);
+    }
+
+    // Adiciona taxa de entrega (mesmo R$ 0,00) conforme template
+    message.push(`Taxa de Entrega: ${formatCurrency(total.deliveryFee)}`);
+    
+    message.push(`*Total: ${formatCurrency(total.finalTotal)}*`);
+    message.push(`Pagamento: ${formatPaymentMethod(paymentMethod)}`);
+    message.push('');
+
+    // --- OBSERVAÇÕES ---
+    if (observation && observation.trim() !== '') {
+        message.push('*OBSERVAÇÕES:*');
+        message.push(`_${observation.trim()}_`);
+    }
+
+    // Junção e codificação
+    return encodeURIComponent(message.join('\n'));
+}
+
+// --- FIM DAS NOVAS FUNÇÕES HELPER ---
 
 
 // --- HANDLER PRINCIPAL DA API ---
@@ -204,39 +390,15 @@ export default async function handler(req, res) {
         const timestamp = Timestamp.now(); // Usar este timestamp consistentemente
         log(`ID do Pedido Gerado: ${orderId}`);
 
-        // --- Montagem da Mensagem WhatsApp (Mantida) ---
-        let orderMessage = `*Novo Pedido Sâmia (ID: ${orderId.substring(0,5).toUpperCase()})*\n\n`;
-        orderMessage += `*Cliente:* ${customerName}\n`;
-        if (selectedAddress.telefone) { orderMessage += `*Contato:* ${selectedAddress.telefone}\n`; }
-        if (isPickup) { orderMessage += `*Entrega:* Retirada no Balcão\n`; }
-        else {
-            orderMessage += `*Endereço:* ${selectedAddress.rua || 'Rua não informada'}, Nº ${selectedAddress.numero || 'S/N'}, ${selectedAddress.bairro || 'Bairro não informado'}\n`;
-            if (selectedAddress.referencia) { orderMessage += `*Referência:* ${selectedAddress.referencia}\n`; }
-            orderMessage += `*Taxa de Entrega:* R$ ${Number(total.deliveryFee || 0).toFixed(2).replace('.', ',')}\n`;
-        }
-        orderMessage += "\n*Itens do Pedido:*\n";
-        order.forEach(item => {
-            orderMessage += `- ${item.quantity || 1}x ${item.name} (R$ ${Number(item.price || 0).toFixed(2).replace('.', ',')})\n`;
-             if (item.ingredients && item.ingredients.length > 0) {
-                 item.ingredients.forEach(ing => { const quantityText = (ing.quantity && ing.quantity > 1) ? ` (x${ing.quantity})` : ''; orderMessage += `  * ${ing.name}${quantityText}\n`; });
-            }
-             if (item.extras && item.extras.length > 0) {
-                 item.extras.forEach(ext => { const quantityText = (ext.quantity && ext.quantity > 1) ? ` (x${ext.quantity})` : ''; orderMessage += `  + ${ext.name}${quantityText} (${ext.placement})\n`; });
-            }
-        });
-        orderMessage += `\n*Subtotal:* R$ ${Number(total.subtotal || 0).toFixed(2).replace('.', ',')}\n`;
-        if (total.discount > 0) { orderMessage += `*Desconto:* - R$ ${Number(total.discount).toFixed(2).replace('.', ',')}\n`; }
-        orderMessage += `*Total:* R$ ${Number(total.finalTotal || 0).toFixed(2).replace('.', ',')}\n`;
-        let paymentInfo = '';
-        if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') { paymentInfo = `Dinheiro (Troco para R$ ${Number(paymentMethod.trocoPara || 0).toFixed(2).replace('.', ',')} - Levar R$ ${Number(paymentMethod.trocoTotal || 0).toFixed(2).replace('.', ',')})`; }
-        else { paymentInfo = paymentMethod || 'Não especificado'; }
-        orderMessage += `*Pagamento:* ${paymentInfo}\n`;
-        if (observation) { orderMessage += `\n*Observações:* ${observation}\n`; }
+        // --- Montagem da Mensagem WhatsApp (NOVO PADRÃO) ---
+        log("Formatando mensagem do WhatsApp com o novo padrão...");
+        // A lógica de formatação agora está na função helper
+        const orderMessage = formatOrderMessage(req.body);
         log("Mensagem do WhatsApp formatada.");
         // --- Fim Mensagem WhatsApp ---
 
         const cleanWhatsappNumber = String(whatsappNumber).replace(/\D/g, '');
-        const whatsappUrl = `https://wa.me/55${cleanWhatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
+        const whatsappUrl = `https://wa.me/55${cleanWhatsappNumber}?text=${orderMessage}`;
         log("URL do WhatsApp gerada.");
 
         let pdvSaved = false;
@@ -319,7 +481,7 @@ export default async function handler(req, res) {
         if (generalError.code === 9 || (generalError.details && generalError.details.includes('FAILED_PRECONDITION') && generalError.details.includes('requires an index'))) {
              errorLog("Erro de índice PERSISTE. Verifique o painel do Firebase e a query.", generalError.details);
              // Incluir link do índice sugerido no erro, se disponível
-             const indexLinkMatch = generalError.message.match(/(https:\/\/console\.firebase\.google\.com\/.*?)\)?$/);
+             const indexLinkMatch = generalError.message.match(/(https://console\.firebase\.google\.com\/.*?)\)?$/);
              const indexLink = indexLinkMatch ? indexLinkMatch[1] : 'Verifique o console do Firebase.';
              res.status(500).json({ message: `Erro interno: Falha na consulta (índice necessário/inválido). Índice sugerido: ${indexLink}`, details: generalError.message });
         } else {
