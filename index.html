@@ -2456,7 +2456,7 @@
             }
 
             // Envia o pedido para a API e tenta redirecionar para o WhatsApp (com verificação de duplicidade)
-            function proceedToWhatsappCheckout() {
+            function proceedToWhatsappCheckout(bypassDuplicateCheck = false) {
                 // CORREÇÃO: Pegar referência do botão novamente, pois a original pode ter sido substituída
                 const currentCheckoutButton = document.getElementById('checkoutButton');
                 currentCheckoutButton.disabled = true;
@@ -2474,7 +2474,15 @@
                 fetch('/api/criar-pedido', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order, selectedAddress, total: totalData, paymentMethod: selectedPaymentMethod, whatsappNumber: contactInfo.whatsapp, observation }),
+                    body: JSON.stringify({
+                        order,
+                        selectedAddress,
+                        total: totalData,
+                        paymentMethod: selectedPaymentMethod,
+                        whatsappNumber: contactInfo.whatsapp,
+                        observation,
+                        bypassDuplicateCheck // Envia a flag
+                    }),
                 })
                 .then(response => {
                     // **CORREÇÃO:** Tenta ler como JSON, mas se falhar, lê como texto
@@ -2484,7 +2492,7 @@
                     });
                 })
                 .then(data => {
-                    if (data.duplicateFound) { // Se encontrou duplicata
+                    if (data.duplicateFound && !bypassDuplicateCheck) { // Verifica duplicata APENAS se não estiver bypassando
                         // --- DUPLICIDADE ENCONTRADA ---
                         const timeDifferenceString = formatTimeDifference(data.originalOrderTimestamp);
                         const message = `Esse pedido foi registrado ${timeDifferenceString}. Gostaria de pedir novamente esse mesmo pedido?`;
@@ -2494,7 +2502,7 @@
                         const yesBtn = document.getElementById('duplicate-confirm-yes-btn');
                         const noBtn = document.getElementById('duplicate-confirm-no-btn');
                         const closeBtn = document.getElementById('close-duplicate-confirm-modal');
-                        const currentCheckoutButton = document.getElementById('checkoutButton');
+                        const currentCheckoutButton = document.getElementById('checkoutButton'); // Reconfirmar a referência
 
                         messageEl.textContent = message;
 
@@ -2508,8 +2516,8 @@
                             modal.removeEventListener('click', handleOutsideClick);
 
                             if (shouldResend) {
-                                // Chama a função de checkout novamente para reenviar
-                                proceedToWhatsappCheckout();
+                                // Chama a função de checkout novamente com a flag de bypass
+                                proceedToWhatsappCheckout(true);
                             } else {
                                 // Apenas reabilita o botão
                                 currentCheckoutButton.disabled = false;
@@ -2517,7 +2525,7 @@
                             }
                         };
 
-                        const handleYes = () => closeModalAndProceed(true); // Reenvia
+                        const handleYes = () => closeModalAndProceed(true); // Reenvia com bypass
                         const handleNo = () => closeModalAndProceed(false); // Não reenvia
 
                          const handleOutsideClick = (event) => {
@@ -2536,7 +2544,7 @@
                         modal.style.display = 'flex'; // Exibe o modal
 
                     } else if (data && data.whatsappUrl) {
-                        // --- SUCESSO (SEM DUPLICIDADE) ---
+                        // --- SUCESSO (SEM DUPLICIDADE OU COM BYPASS) ---
                         const whatsappWindow = window.open(data.whatsappUrl, '_blank');
                         setTimeout(() => {
                             clearOrder();
@@ -2633,8 +2641,8 @@
                     isCheckoutInitiated = true; // Marca que o checkout foi iniciado
                     openPaymentMethodModal(true); // Abre modal de pagamento
                 } else {
-                    // Se tudo estiver OK, prossegue para enviar o pedido via WhatsApp
-                    proceedToWhatsappCheckout();
+                    // Se tudo estiver OK, prossegue para enviar o pedido via WhatsApp (com verificação inicial de duplicidade)
+                    proceedToWhatsappCheckout(false);
                 }
             }
 
@@ -2833,6 +2841,16 @@
                 }
             }
 
+            // CORREÇÃO: Função movida para antes de ser chamada
+            // Calcula e exibe o valor do troco no modal de pagamento
+            function calculateTrocoTotal() {
+                const totalPedido = calculateOrderTotal();
+                const trocoParaValue = parseFloat(trocoParaInput.value.replace(',', '.')) || 0; // Trata vírgula e valor vazio
+                const trocoCalculado = (trocoParaValue > totalPedido) ? (trocoParaValue - totalPedido) : 0;
+                trocoTotalDisplay.textContent = `R$ ${trocoCalculado.toFixed(2).replace('.', ',')}`;
+                trocoTotalDisplay.classList.toggle('text-red-600', trocoParaValue > 0 && trocoParaValue < totalPedido); // Vermelho se insuficiente
+                trocoTotalDisplay.classList.toggle('text-green-600', trocoCalculado > 0); // Verde se houver troco
+            }
 
             // Abre o modal de seleção de forma de pagamento
             function openPaymentMethodModal(fromCheckout = false) {
@@ -2866,9 +2884,7 @@
                             trocoInputContainer.classList.remove('hidden');
                             if (typeof selectedPaymentMethod === 'object' && selectedPaymentMethod.trocoPara) {
                                 trocoParaInput.value = selectedPaymentMethod.trocoPara;
-                                // Calcula e exibe o troco
-                                const trocoCalculado = selectedPaymentMethod.trocoPara - totalOrder;
-                                trocoTotalDisplay.textContent = `R$ ${trocoCalculado.toFixed(2).replace('.', ',')}`;
+                                calculateTrocoTotal(); // Calcula e exibe o troco
                             }
                         }
                         // Gera QR Code e chave Pix se for Pix
@@ -3531,16 +3547,6 @@
                 pizzaExtrasBuilderModal.style.display = 'none'; // Fecha o modal
             }
 
-            // CORREÇÃO: Definição da função calculateTrocoTotal
-            function calculateTrocoTotal() {
-                const totalPedido = calculateOrderTotal();
-                const trocoParaValue = parseFloat(trocoParaInput.value.replace(',', '.')) || 0; // Trata vírgula e valor vazio
-                const trocoCalculado = (trocoParaValue > totalPedido) ? (trocoParaValue - totalPedido) : 0;
-                trocoTotalDisplay.textContent = `R$ ${trocoCalculado.toFixed(2).replace('.', ',')}`;
-                trocoTotalDisplay.classList.toggle('text-red-600', trocoParaValue > 0 && trocoParaValue < totalPedido); // Vermelho se insuficiente
-                trocoTotalDisplay.classList.toggle('text-green-600', trocoCalculado > 0); // Verde se houver troco
-            }
-
 
             // --- INICIALIZAÇÃO E EVENT LISTENERS ---
             loadMenuAndRender(); // Inicia o carregamento do menu
@@ -3684,6 +3690,7 @@
                 }
             });
 
+            // CORREÇÃO: Adiciona listener para input de troco
             trocoParaInput.addEventListener('input', calculateTrocoTotal); // Calcula troco ao digitar
             copyPixBtn.addEventListener('click', (e) => { e.stopPropagation(); copyPixKey(); });
             pixKeyContainer.addEventListener('click', copyPixKey);
