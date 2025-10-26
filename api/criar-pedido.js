@@ -481,7 +481,8 @@ export default async function handler(req, res) {
         if (generalError.code === 9 || (generalError.details && generalError.details.includes('FAILED_PRECONDITION') && generalError.details.includes('requires an index'))) {
              errorLog("Erro de índice PERSISTE. Verifique o painel do Firebase e a query.", generalError.details);
              // Incluir link do índice sugerido no erro, se disponível
-             const indexLinkMatch = generalError.message.match(/(https://console\.firebase\.google\.com\/.*?)\)?$/);
+             // CORREÇÃO: Reescrito o RegExp para evitar erro de parsing no build da Vercel
+             const indexLinkMatch = generalError.message.match(new RegExp("(https:\\/\\/console\\.firebase\\.google\\.com\\/.*?)\\)?$"));
              const indexLink = indexLinkMatch ? indexLinkMatch[1] : 'Verifique o console do Firebase.';
              res.status(500).json({ message: `Erro interno: Falha na consulta (índice necessário/inválido). Índice sugerido: ${indexLink}`, details: generalError.message });
         } else {
