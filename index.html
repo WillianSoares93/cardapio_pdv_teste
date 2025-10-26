@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sâmia - Cardápio Online</title>
     <meta name="theme-color" content="#f8f4e9"/>
+    <!-- Aviso: O CDN do Tailwind é ótimo para desenvolvimento, mas para produção considere usar PostCSS ou CLI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="https://raw.githubusercontent.com/WillianSoares93/cardapio_samia_PDV/refs/heads/main/logo.png" type="image/png">
@@ -3084,6 +3085,7 @@
                         const option = document.createElement('option');
                         option.value = fee.neighborhood; // Valor é o nome do bairro
                         option.textContent = `${fee.neighborhood} (R$ ${fee.deliveryFee.toFixed(2).replace('.', ',')})`; // Texto com nome e taxa
+                        option.dataset.fee = fee.deliveryFee; // Guarda a taxa no dataset
                         neighborhoodSelect.appendChild(option); // Adiciona ao <select>
                     }
                 });
@@ -3527,6 +3529,16 @@
 
                 updateOrderDisplay(); // Atualiza a exibição da sidebar
                 pizzaExtrasBuilderModal.style.display = 'none'; // Fecha o modal
+            }
+
+            // CORREÇÃO: Definição da função calculateTrocoTotal
+            function calculateTrocoTotal() {
+                const totalPedido = calculateOrderTotal();
+                const trocoParaValue = parseFloat(trocoParaInput.value.replace(',', '.')) || 0; // Trata vírgula e valor vazio
+                const trocoCalculado = (trocoParaValue > totalPedido) ? (trocoParaValue - totalPedido) : 0;
+                trocoTotalDisplay.textContent = `R$ ${trocoCalculado.toFixed(2).replace('.', ',')}`;
+                trocoTotalDisplay.classList.toggle('text-red-600', trocoParaValue > 0 && trocoParaValue < totalPedido); // Vermelho se insuficiente
+                trocoTotalDisplay.classList.toggle('text-green-600', trocoCalculado > 0); // Verde se houver troco
             }
 
 
