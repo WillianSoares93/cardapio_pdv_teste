@@ -138,7 +138,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { order, selectedAddress, total, paymentMethod, whatsappNumber, observation } = req.body;
+        const { order, selectedAddress, total, paymentMethod, whatsappNumber, observation, bypassDuplicateCheck } = req.body; // <-- bypassDuplicateCheck adicionado
         log("Corpo da requisição parseado.");
 
         if (!order || !Array.isArray(order) || order.length === 0 || !selectedAddress || !total || !paymentMethod || !whatsappNumber) {
@@ -179,11 +179,13 @@ export default async function handler(req, res) {
              duplicateQuery = duplicateQuery.where('customerPhone', '==', null);
         }
 
-
         log("Executando query de duplicidade alinhada ao índice...");
         const duplicateSnapshot = await duplicateQuery.limit(1).get();
 
-        if (!duplicateSnapshot.empty) {
+        // ****** CORREÇÃO APLICADA AQUI ******
+        // Só retorna duplicidade se encontrada E se NÃO estiver bypassando
+        if (!duplicateSnapshot.empty && !bypassDuplicateCheck) {
+        // ****** FIM DA CORREÇÃO ******
             log(`DUPLICIDADE de pedido detectada.`);
              const duplicateDoc = duplicateSnapshot.docs[0];
              const originalTimestamp = duplicateDoc.data().criadoEm; // Pega o Timestamp do Firestore
@@ -194,7 +196,7 @@ export default async function handler(req, res) {
                  originalOrderTimestamp: originalTimestamp ? originalTimestamp.toMillis() : null // Converte para milissegundos
              });
         }
-        log("Nenhum pedido duplicado encontrado.");
+        log("Nenhum pedido duplicado encontrado OU bypass solicitado.");
         // --- Fim Verificação de Duplicidade ---
 
         // --- Processamento Normal ---
