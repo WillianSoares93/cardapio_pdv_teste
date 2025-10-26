@@ -2,17 +2,17 @@
 // --- IMPORTS (usando ES Module syntax) ---
 import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import path from 'path'; // Usando import padrão para path
-import { fileURLToPath } from 'url'; // Necessário para __dirname em ESM
-import { dirname } from 'path'; // Necessário para __dirname em ESM
+// import path from 'path'; // Removido - Desnecessário
+// import { fileURLToPath } from 'url'; // Removido - Desnecessário
+// import { dirname } from 'path'; // Removido - Desnecessário
 
 // --- CONFIGURAÇÃO DE LOGS ---
 const log = (message, ...args) => console.log(`[LOG ${new Date().toISOString()}] ${message}`, args.length > 0 ? args : '');
 const errorLog = (message, error, ...args) => console.error(`[ERROR ${new Date().toISOString()}] ${message}`, error instanceof Error ? error.message : error, args.length > 0 ? args : '');
 
 // Obter __dirname em ambiente ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url); // Removido - Desnecessário
+// const __dirname = dirname(__filename); // Removido - Desnecessário
 
 // --- INICIALIZAÇÃO FIREBASE ADMIN SDK ---
 let serviceAccountJson; // Variável para guardar o JSON decodificado
@@ -491,3 +491,4 @@ export default async function handler(req, res) {
         log(`--- Requisição finalizada para /api/criar-pedido em ${new Date().toISOString()} ---`);
     }
 }
+
