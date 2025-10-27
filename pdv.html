@@ -375,7 +375,7 @@
                 <div class="flex justify-between text-red-600"><span class="font-medium">Total Sangrias:</span> <span id="summary-sangrias" class="font-medium">- R$ 0,00</span></div>
                 <hr class="my-2">
                 <!-- ALTERAÇÃO FEITA AQUI -->
-                <div class="flex justify-between font-bold"><span class="text-blue-700">Valor Esperado em Dinheiro:</span> <span id="summary-expected" class="text-blue-700">R$ 0,00</span></div>
+                <div class="flex justify-between font-bold"><span class="text-blue-700">Valor Esperado em Caixa:</span> <span id="summary-expected" class="text-blue-700">R$ 0,00</span></div>
             </div>
             <form id="close-cash-form" class="mt-6">
                 <div class="mb-4">
@@ -1963,10 +1963,11 @@
                 const totalSales = totalDelivery + totalRetirada + totalMesas + totalDeliveryFees;
                  // **CORREÇÃO:** Valor inicial pode ser 0
                 const initialValue = parseFloat(currentCashRegister.valorInicial || 0);
-                const expectedInCash = initialValue + totalCash - totalSangrias; // Esperado em DINHEIRO
+                const expectedInCaixaTotal = initialValue + totalSales - totalSangrias; // Valor total esperado (Dinheiro + Cartão + Pix)
+                const expectedOnlyCash = initialValue + totalCash - totalSangrias; // Valor esperado apenas em dinheiro (para conferência)
                 const sangriaDetails = sangrias.map(s => `${s.reason}: R$${s.amount.toFixed(2).replace('.',',')}`).join('; ');
 
-                detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales, totalSangrias, sangriaDetails };
+                detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales, totalSangrias, sangriaDetails, expectedOnlyCash };
 
                 document.getElementById('summary-initial').textContent = `R$ ${initialValue.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
@@ -1978,7 +1979,7 @@
                 document.getElementById('summary-pix').textContent = `R$ ${totalPix.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-total-sales').textContent = `R$ ${totalSales.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-sangrias').textContent = `- R$ ${totalSangrias.toFixed(2).replace('.', ',')}`;
-                document.getElementById('summary-expected').textContent = `R$ ${expectedInCash.toFixed(2).replace('.', ',')}`; // Mostra o esperado em DINHEIRO
+                document.getElementById('summary-expected').textContent = `R$ ${expectedInCaixaTotal.toFixed(2).replace('.', ',')}`; // Mostra o esperado total (como solicitado)
 
                 closeCashModal.style.display = 'flex';
             } catch (error) {
@@ -2052,7 +2053,7 @@
                 <div class="line"><span>Total Sangrias:</span><span>${sangrias}</span></div>
                 <hr>
                 <!-- ALTERAÇÃO FEITA AQUI -->
-                <div class="line font-bold"><span>ESPERADO EM DINHEIRO:</span><span>${expected}</span></div>
+                <div class="line font-bold"><span>ESPERADO EM CAIXA:</span><span>${expected}</span></div>
                 <div class="line"><span>Valor Contado:</span><span>R$ ${parseFloat(finalValue || 0).toFixed(2).replace('.',',')}</span></div>
                 <div class="line font-bold"><span>DIFERENÇA:</span><span>${difference}</span></div>
             `;
@@ -2126,10 +2127,9 @@
 
         finalValueInput.addEventListener('input', () => {
             const finalValue = parseFloat(finalValueInput.value);
-            const expectedValueText = document.getElementById('summary-expected').textContent;
-            if (!expectedValueText) return;
-
-            const expectedValue = parseFloat(expectedValueText.replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
+            // ALTERAÇÃO: Comparar com o valor em dinheiro guardado, não com o valor total exibido
+            const expectedValue = detailedReportData.expectedOnlyCash;
+            if (expectedValue === undefined) return;
 
             const differenceSection = document.getElementById('summary-difference-section');
             const differenceEl = document.getElementById('summary-difference');
@@ -2183,7 +2183,8 @@
             }
 
             const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
-            const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(',', '.'));
+            // ALTERAÇÃO: Usar o valor em dinheiro guardado para calcular a diferença correta
+            const expectedValue = detailedReportData.expectedOnlyCash;
 
             try {
                 const dataToSaveInFirestore = {
@@ -2675,3 +2676,5 @@ Seu pedido já está sendo preparado! 😊
     </script>
 </body>
 </html>
+
+
