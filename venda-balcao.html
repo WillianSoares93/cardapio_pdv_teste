@@ -802,7 +802,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                         };
                     }
                     clientData.observation = orderData.observacao || '';
-`
+
                     document.title = `Editando Pedido #${orderId.substring(0, 5)}`;
                     document.getElementById('finalize-order-btn').textContent = 'Atualizar Pedido';
                     document.getElementById('cancel-order-btn').textContent = 'Fechar';
@@ -855,7 +855,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
 
             emptyGroups.forEach(groupOrder => {
                 const sortedGroup = groupOrder.grupoMesas.sort((a, b) => a - b);
-                const option = document.createElement('option');`
+                const option = document.createElement('option');
                 option.value = `group_${groupOrder.id}`;
                 option.textContent = `Mesas ${sortedGroup.join(' + ')}`;
                 tableSelector.appendChild(option);
@@ -864,7 +864,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
             for (let i = 1; i <= NUMERO_DE_MESAS; i++) {
                 if (!allGroupedTables.has(i)) {
                     const option = document.createElement('option');
-                    option.value = i;`
+                    option.value = i;
                     option.textContent = `Mesa ${i.toString().padStart(2, '0')}`;
                      if (occupiedTables.has(i) && String(i) !== clientData.table) {
                         option.disabled = true;
@@ -986,7 +986,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
 
         function formatCategoryName(category) {
             if (category === 'Todos') return 'Todos';
-            const isPizzaCategory = allItems.some(item => item.category === category && item.isPizza);`
+            const isPizzaCategory = allItems.some(item => item.category === category && item.isPizza);
             return isPizzaCategory ? `Pizzas ${capitalizeFirstLetter(category)}` : capitalizeFirstLetter(category);
         }
 
@@ -997,7 +997,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
             categoryContainer.innerHTML = categories.map((cat, index) => `
                 <button class="category-btn w-full p-4 text-sm font-bold rounded-md ${index === 0 ? 'active' : ''}" data-category="${cat}">
                     ${formatCategoryName(cat)}
-                </button>`
+                </button>
             `).join('');
 
             categoryContainer.querySelectorAll('.category-btn').forEach(btn => {
@@ -1006,7 +1006,6 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                     btn.classList.add('active');
                     renderProducts();
                 });
-            });
         }
 
         function renderProducts() {
@@ -1029,14 +1028,14 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                 return;
             }
 
-            productGrid.innerHTML = filteredMenu.map(item => {`
+            productGrid.innerHTML = filteredMenu.map(item => {
                 const isUnavailable = itemStatus[item.id] === false;
                 return `
                 <div class="product-card ${isUnavailable ? 'unavailable' : ''}" data-item-id="${item.id}">
                     <img src="${item.imageUrl || 'https://placehold.co/100x60/d1d5db/374151?text=S%C3%A2mia'}" alt="${item.name}">
                     <span class="text-xs font-bold text-gray-800 mt-2">${item.name}</span>
                     <span class="text-sm font-bold text-blue-600">R$ ${(item.basePrice || item.price4Slices || 0).toFixed(2).replace('.', ',')}</span>
-                </div>`
+                </div>
             `}).join('');
 
              productGrid.querySelectorAll('.product-card:not(.unavailable)').forEach(card => {
@@ -1047,7 +1046,6 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                         handleProductSelection(product);
                     }
                 });
-            });
         }
         
         function handleProductSelection(product) {
@@ -1076,7 +1074,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                 }
 
                 const secondHalfPrice = product[priceKey] / 2;
-                const combinedPrice = firstHalfPizza.price + secondHalfPrice;`
+                const combinedPrice = firstHalfPizza.price + secondHalfPrice;
                 const combinedName = `${firstHalfPizza.selectedSize.label}: Meia ${firstHalfPizza.name} & Meia ${product.name}`;
 
                 addToOrder({
@@ -1103,7 +1101,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
             }
         }
         
-        function addToOrder(product) {`
+        function addToOrder(product) {
             const uniqueId = product.uniqueId || `${product.id}-${Date.now()}`;
             
             let acceptsExtras = false;
@@ -1159,7 +1157,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                         <div class="flex gap-2">
                            <button class="add-full-pizza-btn px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">Inteira</button>
                            <button class="add-half-pizza-btn px-3 py-1 ${allowsHalf ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'} text-white text-xs rounded" ${!allowsHalf ? 'disabled' : ''}>Meia</button>
-                        </div>`
+                        </div>
                     `;
                     optionDiv.querySelector('.add-full-pizza-btn').addEventListener('click', () => {
                          addToOrder({
@@ -1177,7 +1175,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                             isSelectingHalfPizza = true;
                             const isPromotional = (pizza.category || '').trim().toLowerCase().replace('ç', 'c') === 'promocionais';
                             firstHalfPizza = { ...pizza, selectedSize: size, price: pizza[size.priceKey] / 2, isPromotional: isPromotional };
-                            document.getElementById('product-display').classList.add('half-pizza-selection-active');`
+                            document.getElementById('product-display').classList.add('half-pizza-selection-active');
                             showTemporaryFeedback(`Primeira metade: ${pizza.name}. Selecione a segunda metade.`);
                             document.getElementById('pizza-option-modal').style.display = 'none';
                         });
@@ -1203,10 +1201,10 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                 const categoryLimit = firstIngredient.limit || Infinity;
                 const isRequired = firstIngredient.isRequired || false;
 
-                let categoryHtml = `<div class="mb-4 ingredient-category" data-limit="${categoryLimit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${categoryLimit !== Infinity ? `(Escolha até ${categoryLimit}` : ''}</h4>`;
+                let categoryHtml = `<div class="mb-4 ingredient-category" data-limit="${categoryLimit}" data-category-name="${categoryName}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${isRequired ? '(Obrigatório)' : ''} ${categoryLimit !== Infinity ? `(Escolha até ${categoryLimit})` : ''}</h4>`;
                 
                 ingredients.forEach(ing => {
-                    const isUnavailable = ingredientStatus[ing.id] === false;`
+                    const isUnavailable = ingredientStatus[ing.id] === false;
                     const priceDisplay = ing.price > 0 ? `+ R$ ${ing.price.toFixed(2).replace('.', ',')}` : '';
                     if (isSingleChoice) {
                         const isChecked = existingItem && existingItem.ingredients.some(i => i.name === ing.name);
@@ -1216,7 +1214,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                                     <input type="radio" name="${categoryName}" class="form-radio" data-price="${ing.price}" value="${ing.name}" ${isUnavailable ? 'disabled' : ''} ${isChecked ? 'checked' : ''}>
                                     <span class="ml-2">${ing.name}</span>
                                 </div>
-                                <span class="font-medium text-sm">${priceDisplay}</span>`
+                                <span class="font-medium text-sm">${priceDisplay}</span>
                             </label>`;
                     } else {
                         const ingredientLimit = ing.ingredientLimit || 1;
@@ -1240,7 +1238,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                                         <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
                                     </div>
                                 </div>
-                            </div>`
+                            </div>
                         `;
                     }
                 });
@@ -1272,7 +1270,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
             modal.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
                 total += parseFloat(radio.dataset.price);
             });
-            `
+            
             modal.querySelector('#burger-total-price').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
         }
 
@@ -1287,7 +1285,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
             for (const categoryName in allIngredients) {
                  const ingredients = allIngredients[categoryName];
                 if (ingredients.length > 0 && ingredients[0].isRequired) {
-                    const categoryDiv = modal.querySelector(`.ingredient-category[data-category-name="${categoryName}"]`);`
+                    const categoryDiv = modal.querySelector(`.ingredient-category[data-category-name="${categoryName}"]`);
                     const radioChecked = categoryDiv.querySelector(`input[type="radio"]:checked`);
                     let quantitySelected = false;
                     categoryDiv.querySelectorAll('.quantity-display').forEach(display => {
@@ -1308,8 +1306,8 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                 if (quantity > 0) {
                      const container = display.closest('[data-ingredient-id]');
                      const ingredientName = container.parentElement.parentElement.querySelector('.flex-grow span').textContent;
-                     const price = parseFloat(container.dataset.price);`
-                     selectedIngredients.push({ name: `${ingredientName} (x${quantity}`, price: price * quantity});
+                     const price = parseFloat(container.dataset.price);
+                     selectedIngredients.push({ name: `${ingredientName} (x${quantity})`, price: price * quantity});
                      ingredientsPrice += price * quantity;
                 }
             });
@@ -1360,16 +1358,15 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                     if (extra.placement.includes('1ª Metade')) placement = 'metade1';
                     else if (extra.placement.includes('2ª Metade')) placement = 'metade2';
                     if (currentPizzaExtrasState[placement]) currentPizzaExtrasState[placement].push({ ...extra });
-                });
             }
 
             if (pizzaItem.type === 'split') {
-                const half1Name = pizzaItem.firstHalfData.name;`
+                const half1Name = pizzaItem.firstHalfData.name;
                 const half2Name = pizzaItem.secondHalfData.name;
                 scopeButtonsContainer.innerHTML = `
                     <button class="scope-button" data-scope="metade1">1ª Metade: ${half1Name}</button>
                     <button class="scope-button" data-scope="metade2">2ª Metade: ${half2Name}</button>
-                    <button class="scope-button active" data-scope="toda">Pizza Toda</button>`
+                    <button class="scope-button active" data-scope="toda">Pizza Toda</button>
                 `;
                 scopeButtonsContainer.querySelectorAll('.scope-button').forEach(btn => {
                     btn.addEventListener('click', () => {
@@ -1377,7 +1374,6 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                         btn.classList.add('active');
                         renderPizzaExtrasList(orderIndex);
                     });
-                });
             }
 
             renderPizzaExtrasList(orderIndex);
@@ -1396,10 +1392,10 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                 const firstExtra = extras[0] || {};
                 const categoryLimit = firstExtra.categoryLimit || Infinity;
 
-                let categoryHtml = `<div class="mb-4 ingredient-category" data-limit="${categoryLimit}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${categoryLimit !== Infinity ? `(Escolha até ${categoryLimit}` : ''}</h4>`;
+                let categoryHtml = `<div class="mb-4 ingredient-category" data-limit="${categoryLimit}"><h4 class="font-bold border-b pb-1 mb-2">${capitalizeFirstLetter(categoryName)} ${categoryLimit !== Infinity ? `(Escolha até ${categoryLimit})` : ''}</h4>`;
                 
                 extras.forEach(extra => {
-                    const isUnavailable = extraStatus[extra.id] === false;`
+                    const isUnavailable = extraStatus[extra.id] === false;
                     const priceDisplay = extra.price > 0 ? `+ R$ ${extra.price.toFixed(2).replace('.', ',')}` : '';
                     const existingExtra = currentPizzaExtrasState[activeScope]?.find(e => e.name === extra.name);
                     const quantity = existingExtra ? existingExtra.quantity : 0;
@@ -1418,7 +1414,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                                     <button type="button" class="quantity-btn plus-btn" ${isUnavailable ? 'disabled' : ''}>+</button>
                                 </div>
                             </div>
-                        </div>`
+                        </div>
                     `;
                 });
                 categoryHtml += `</div>`;
@@ -1442,7 +1438,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                     totalExtrasPrice += (extra.price * extra.quantity);
                 });
             }
-`
+
             document.getElementById('pizza-extras-total-price').textContent = `R$ ${(basePrice + totalExtrasPrice).toFixed(2).replace('.', ',')}`;
         }
         
@@ -1491,7 +1487,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                 container.innerHTML = `
                      <div id="empty-cart-message" class="text-center text-gray-400 p-10 flex flex-col items-center justify-center h-full">
                         <i class="fas fa-shopping-cart fa-3x mb-4"></i>
-                        <p class="font-medium">Carrinho Vazio</p>`
+                        <p class="font-medium">Carrinho Vazio</p>
                     </div>`;
             } else {
                 const itemsByCategory = order.reduce((acc, item) => {
@@ -1519,15 +1515,15 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
 
                         const itemDiv = document.createElement('div');
                         itemDiv.className = 'py-2';
-`
+
                         let detailsHtml = '';
                         if (item.extras && item.extras.length > 0) {
-                            detailsHtml += `<ul class="text-xs text-gray-600 pl-4 mt-1 space-y-px">${item.extras.map(extra => {`
-                                const quantityText = extra.quantity > 1 ? ` (x${extra.quantity}` : '';
-                                const priceText = extra.price > 0 ? ` +R$ ${(extra.price * extra.quantity).toFixed(2).replace('.',',')}` : '';`
-                                return `<li>• ${extra.name} (${extra.placement}${quantityText}${priceText}</li>`;
+                            detailsHtml += `<ul class="text-xs text-gray-600 pl-4 mt-1 space-y-px">${item.extras.map(extra => {
+                                const quantityText = extra.quantity > 1 ? ` (x${extra.quantity})` : '';
+                                const priceText = extra.price > 0 ? ` +R$ ${(extra.price * extra.quantity).toFixed(2).replace('.',',')}` : '';
+                                return `<li>• ${extra.name} (${extra.placement})${quantityText}${priceText}</li>`;
                             }).join('')}</ul>`;
-                        } else if (item.ingredients && item.ingredients.length > 0) {`
+                        } else if (item.ingredients && item.ingredients.length > 0) {
                             detailsHtml += `<ul class="text-xs text-gray-600 pl-4 mt-1 space-y-px">${item.ingredients.map(ing => `<li>• ${ing.name}</li>`).join('')}</ul>`;
                         }
                         
@@ -1538,12 +1534,12 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                             const iconClass = hasExtras ? 'fas fa-pencil-alt' : 'fas fa-plus';
                             actionButtonHtml = `<button class="edit-extras-btn mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition-colors" data-unique-id="${item.uniqueId}">
                                 <i class="${iconClass} fa-fw"></i>
-                                <span>${buttonText}</span>`
+                                <span>${buttonText}</span>
                             </button>`;
                         } else if (item.type === 'custom_burger') {
                             actionButtonHtml = `<button class="edit-burger-btn mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition-colors" data-unique-id="${item.uniqueId}">
                                 <i class="fas fa-pencil-alt fa-fw"></i>
-                                <span>Editar Hambúrguer</span>`
+                                <span>Editar Hambúrguer</span>
                             </button>`;
                         }
 
@@ -1558,11 +1554,10 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                                     <button class="remove-item-btn text-red-500 hover:text-red-700" data-unique-id="${item.uniqueId}"><i class="fas fa-trash-alt"></i></button>
                                 </div>
                             </div>
-                            ${actionButtonHtml}`
+                            ${actionButtonHtml}
                         `;
                         container.appendChild(itemDiv);
                     });
-                });
             }
             
             let deliveryFee = 0;
@@ -1580,7 +1575,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                 deliveryFeeSummary.classList.add('hidden');
             }
 
-            const total = subtotal + deliveryFee;`
+            const total = subtotal + deliveryFee;
             totalValueEl.textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
             totalItemsEl.textContent = totalItems;
         }
@@ -1665,7 +1660,6 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
     parsedAiOrder = null;
     const cs = window.getComputedStyle(modal);
     __log('Modal IA aberto', {display: cs.display, zIndex: cs.zIndex, opacity: cs.opacity, visibility: cs.visibility});
-});
                  const modal = document.getElementById('ai-order-modal');
                 modal.style.display = 'flex';
                 modal.querySelector('#whatsapp-paste-area').value = '';
@@ -1732,15 +1726,15 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
                         if (item.isPizza) {
                             const prices = ['price4Slices', 'price6Slices', 'basePrice', 'price10Slices']
                                 .map(key => item[key] > 0 ? `R$${item[key]}` : null)
-                                .filter(Boolean).join(', ');`
+                                .filter(Boolean).join(', ');
                             priceInfo = `Preços: ${prices}`;
                         }
-                        return `- ${item.name} (${item.category}: ${priceInfo}`;`
+                        return `- ${item.name} (${item.category}): ${priceInfo}`;
                     }).join('\n');
 
                 const systemPrompt = `Você é um assistente especialista em processar pedidos para a Sâmia Pizzaria. Sua única função é analisar uma conversa de WhatsApp e extrair os itens do pedido, quantidades, e se possível, dados do cliente (nome, telefone, endereço completo) e forma de pagamento. Você DEVE retornar a resposta em formato JSON, seguindo estritamente o schema fornecido. Baseie-se APENAS no cardápio fornecido. Não adicione itens que não estão no cardápio. Para pizzas, se o tamanho não for claro, assuma o tamanho padrão (8 fatias). Para pizzas meio a meio, separe os nomes dos sabores com uma barra '/'.
 
-Cardápio disponível para consulta:`
+Cardápio disponível para consulta:
 ${menuForAI}`;
 
                 const userQuery = `Analise a conversa abaixo e extraia o pedido no formato JSON.\n\nCONVERSA:\n${pastedText}`;
@@ -1779,7 +1773,7 @@ ${menuForAI}`;
                     }
                 };
                 
-                const apiKey = "AIzaSyCGgZc5sM-7anVDdvXogFR17ELPRwHtEhE";`
+                const apiKey = "AIzaSyCGgZc5sM-7anVDdvXogFR17ELPRwHtEhE";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
                 
                 const response = await fetch(apiUrl, {
@@ -1801,7 +1795,7 @@ ${menuForAI}`;
                 confirmBtn.disabled = false;
 
             } catch (error) {
-                console.error("Erro na análise com IA:", error);`
+                console.error("Erro na análise com IA:", error);
                 errorDiv.textContent = `Ocorreu um erro ao analisar o pedido. Verifique o texto ou tente novamente. Detalhes: ${error.message}`;
                 errorDiv.classList.remove('hidden');
                 resultDiv.innerHTML = '<p class="text-red-500">Falha na análise.</p>';
@@ -1819,7 +1813,7 @@ ${menuForAI}`;
             if (data.client && (data.client.name || data.client.contact || data.client.address)) {
                 html += '<h4 class="font-bold text-sm mb-1">Dados do Cliente</h4>';
                 html += '<ul class="list-disc list-inside text-sm mb-3 bg-gray-100 p-2 rounded">';
-                if (data.client.name) html += `<li><strong>Nome:</strong> ${data.client.name}</li>`;`
+                if (data.client.name) html += `<li><strong>Nome:</strong> ${data.client.name}</li>`;
                 if (data.client.contact) html += `<li><strong>Contato:</strong> ${data.client.contact}</li>`;
                 if (data.client.address) html += `<li><strong>Endereço:</strong> ${data.client.address}</li>`;
                 html += '</ul>';
@@ -1828,8 +1822,8 @@ ${menuForAI}`;
             if (data.items && data.items.length > 0) {
                 html += '<h4 class="font-bold text-sm mb-1">Itens do Pedido</h4>';
                 html += '<ul class="list-disc list-inside text-sm mb-3 space-y-1">';
-                data.items.forEach(item => {`
-                    html += `<li><strong>${item.quantity}x</strong> ${item.name} ${item.size ? `(${item.size}` : ''} ${item.notes ? `<span class="text-xs italic text-gray-500">- ${item.notes}</span>` : ''}</li>`;
+                data.items.forEach(item => {
+                    html += `<li><strong>${item.quantity}x</strong> ${item.name} ${item.size ? `(${item.size})` : ''} ${item.notes ? `<span class="text-xs italic text-gray-500">- ${item.notes}</span>` : ''}</li>`;
                 });
                 html += '</ul>';
             } else {
@@ -1905,7 +1899,7 @@ ${menuForAI}`;
                         if (size && size.includes('4')) priceKey = 'price4Slices';
                         if (size && size.includes('6')) priceKey = 'price6Slices';
                         if (size && size.includes('10')) priceKey = 'price10Slices';
-                        price = matchedItem[priceKey] || matchedItem.basePrice;`
+                        price = matchedItem[priceKey] || matchedItem.basePrice;
                         name = `${size || '8 fatias'}: ${matchedItem.name}`;
                     }
 
@@ -1939,7 +1933,7 @@ ${menuForAI}`;
                                 const price2 = item2[priceKey] / 2;
                                 const combinedPrice = price1 + price2;
                                 const combinedName = `${slices} FATIAS: Meia ${item1.name} & Meia ${item2.name}`;
-                                `
+                                
                                 for (let i = 0; i < itemFromAI.quantity; i++) {
                                     addToOrder({
                                         id: `${item1.id}+${item2.id}-${Date.now()}`,
@@ -2049,7 +2043,7 @@ ${menuForAI}`;
                             }
                         });
 
-                        if (currentVarietyCount >= categoryLimit) {`
+                        if (currentVarietyCount >= categoryLimit) {
                            showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
                             return;
                         }
@@ -2079,7 +2073,7 @@ ${menuForAI}`;
                     
                     categoryDiv.querySelectorAll('input[type="radio"]:checked').forEach(() => currentVarietyCount++);
 
-                    if ((currentVarietyCount + 1) > categoryLimit) {`
+                    if ((currentVarietyCount + 1) > categoryLimit) {
                         showAlert(`Você pode escolher no máximo ${categoryLimit} variedades nesta categoria.`);
                         e.preventDefault();
                         return;
@@ -2117,7 +2111,7 @@ ${menuForAI}`;
             });
 
             if (target.classList.contains('plus-btn')) {
-                if (quantity >= ingredientLimit) {`
+                if (quantity >= ingredientLimit) {
                     showAlert(`O limite para este adicional é ${ingredientLimit}.`);
                     return;
                 }
@@ -2200,13 +2194,13 @@ ${menuForAI}`;
             
             const selectedMethod = paymentMethod ? (typeof paymentMethod === 'object' ? paymentMethod.method : paymentMethod) : 'Dinheiro';
             
-            document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected')); `
+            document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected')); 
             const paymentRadio = document.querySelector(`input[name="modalPaymentMethod"][value="${selectedMethod}"]`);
             if (paymentRadio) {
                 paymentRadio.checked = true;
                 paymentRadio.closest('.payment-option').classList.add('selected');
             } else {
-                document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).checked = true;`
+                document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).checked = true;
                 document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).closest('.payment-option').classList.add('selected');
             }
 
@@ -2235,7 +2229,7 @@ ${menuForAI}`;
                     if (!existingTotal) {
                         const totalDiv = document.createElement('h4');
                         totalDiv.id = 'client-modal-total-display-container';
-                        totalDiv.className = 'text-gray-600 text-lg mb-4';`
+                        totalDiv.className = 'text-gray-600 text-lg mb-4';
                         totalDiv.innerHTML = `Total Pedido: <span id="client-modal-total-display" class="font-bold text-green-600">R$ ${totalValue.toFixed(2).replace('.', ',')}</span>`;
                         paymentSection.insertAdjacentElement('beforebegin', totalDiv);
                     }
@@ -2329,8 +2323,8 @@ ${menuForAI}`;
 
             if (method === 'Dinheiro') {
                 const trocoPara = parseFloat(document.getElementById('modal-trocoPara').value.replace(',', '.')) || 0;
-                if (totalValue > 0 && trocoPara > 0 && trocoPara < totalValue) {`
-                    errorDiv.textContent = `O valor para troco (R$ ${trocoPara.toFixed(2).replace('.', ',')} não pode ser menor que o total (R$ ${totalValue.toFixed(2).replace('.', ',')}.`;
+                if (totalValue > 0 && trocoPara > 0 && trocoPara < totalValue) {
+                    errorDiv.textContent = `O valor para troco (R$ ${trocoPara.toFixed(2).replace('.', ',')}) não pode ser menor que o total (R$ ${totalValue.toFixed(2).replace('.', ',')}).`;
                     errorDiv.classList.remove('hidden');
                     return;
                 } else if (totalValue > 0 && trocoPara === 0) {
@@ -2363,30 +2357,30 @@ ${menuForAI}`;
 
             let summaryHtml = '';
             
-            if (currentOrderType === 'Mesa') {`
+            if (currentOrderType === 'Mesa') {
                 summaryHtml = `<strong>Mesa:</strong> ${clientData.table || 'N/A'}`;
                  if(clientData.name) {
                     summaryHtml += ` | <strong>Cliente:</strong> ${clientData.name}`;
                 }
-            } else {`
+            } else {
                 summaryHtml = `<strong>Cliente:</strong> ${clientData.name || 'N/A'}`;
             }
 
             if(clientData.contact) summaryHtml += ` | <strong>Contato:</strong> ${clientData.contact}`;
-            if(currentOrderType === 'Delivery' && clientData.address) {`
+            if(currentOrderType === 'Delivery' && clientData.address) {
                 summaryHtml += `<br><strong>Endereço:</strong> ${clientData.address.street}, ${clientData.address.number} - ${clientData.address.neighborhood}`;
             }
 
             let paymentText = '';
             if (paymentMethod) {
                 if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
-                    paymentText = `Dinheiro (Troco p/ R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')}`;
+                    paymentText = `Dinheiro (Troco p/ R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')})`;
                 } else {
                     paymentText = paymentMethod;
                 }
             } else {
                 paymentText = 'A DEFINIR';
-            }`
+            }
             summaryHtml += `<br><strong>Pagamento:</strong> ${paymentText}`;
 
             if (clientData.observation) {
@@ -2466,10 +2460,10 @@ ${menuForAI}`;
                     numero: clientData.address.number, 
                     bairro: clientData.address.neighborhood 
                 };
-            } else if (currentOrderType === 'Mesa') {`
+            } else if (currentOrderType === 'Mesa') {
                 let clientNameForOrder = `Mesa ${clientData.table}`;
                 if (clientData.name) {
-                    clientNameForOrder += ` (${clientData.name}`;
+                    clientNameForOrder += ` (${clientData.name})`;
                 }
                 endereco = { clientName: clientNameForOrder, rua: 'Mesa' };
                 status = 'Em Preparo';
@@ -2490,7 +2484,7 @@ ${menuForAI}`;
             const finalTotal = subtotal + deliveryFee;
 
             try {
-                if (isEditing && currentOrderId) {`
+                if (isEditing && currentOrderId) {
                     const orderRef = doc(db, "pedidos", currentOrderId);
                     await updateDoc(orderRef, {
                         itens: cleanedItems,
@@ -2499,7 +2493,7 @@ ${menuForAI}`;
                         pagamento: paymentMethod,
                         observacao: clientData.observation || `Pedido atualizado por ${currentUserEmail}`
                     });
-`
+
                     showTemporaryFeedback(`Pedido #${currentOrderId.substring(0,5)} atualizado com sucesso!`);
                     setTimeout(() => window.close(), 1500);
 
@@ -2512,7 +2506,7 @@ ${menuForAI}`;
                         pagamento: paymentMethod,
                         status: 'Em Preparo',
                         observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
-                    });`
+                    });
                     showTemporaryFeedback(`Itens adicionados às Mesas Agrupadas!`);
                     resetOrderState();
                 } else {
@@ -2525,7 +2519,7 @@ ${menuForAI}`;
                         criadoEm: serverTimestamp(),
                         observacao: clientData.observation || `Venda de balcão por ${currentUserEmail}`
                     };
-                    await addDoc(collection(db, "pedidos"), newOrder);`
+                    await addDoc(collection(db, "pedidos"), newOrder);
                     showTemporaryFeedback(`Pedido para ${clientData.name || `Mesa ${clientData.table}`} finalizado com sucesso!`);
                     resetOrderState();
                 }
