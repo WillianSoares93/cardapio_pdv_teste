@@ -635,8 +635,25 @@
         const NUMERO_DE_MESAS = 12;
         let parsedAiOrder = null; // Variável para armazenar o pedido da IA
 
+// === DEBUG UTILITIES ===
+const __DEBUG = true;
+const __log = (...args) => { if (__DEBUG) console.log('[PDV-DEBUG]', ...args); };
+const __group = (label, fn) => { if (__DEBUG) { console.group('[PDV-DEBUG]', label); try { fn(); } finally { console.groupEnd(); } } else { __log('Auth: no user, redirecting to login'); fn(); } };
+// Observe display changes for AI modal
+const __observeModal = (id) => {
+  const el = document.getElementById(id);
+  if (!el) { __log('Observer: modal not found', id); return; }
+  const obs = new MutationObserver(() => {
+    const cs = window.getComputedStyle(el).display;
+    __log('MutationObserver:', id, 'display=', cs, 'style.display=', el.style.display);
+  });
+  obs.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+  __log('Observer attached to', id);
+};
+
+
         onAuthStateChanged(auth, (user) => {
-            if (user) {
+            if (user) { __log('Auth: user logged in', user && user.email);
                 document.body.style.visibility = 'visible';
                 currentUserEmail = user.email;
                 const currentUserEl = document.getElementById('current-user');
@@ -644,7 +661,7 @@
                     currentUserEl.textContent = currentUserEmail;
                 }
                 initializeAppLogic();
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 window.location.href = 'login.html?redirect=venda-balcao.html';
             }
         });
@@ -657,7 +674,7 @@
             const okBtn = document.getElementById('alert-ok-btn');
 
             messageEl.textContent = message;
-            modal.style.display = 'flex';
+            modal.style.display = 'flex'; modal.style.outline='3px solid rgba(168,85,247,0.6)'; modal.style.outlineOffset='-2px';
 
             const closeHandler = () => {
                 modal.style.display = 'none';
@@ -699,7 +716,7 @@
                 const noBtn = document.getElementById('confirm-no-btn');
 
                 messageEl.textContent = message;
-                modal.style.display = 'flex';
+                modal.style.display = 'flex'; modal.style.outline='3px solid rgba(168,85,247,0.6)'; modal.style.outlineOffset='-2px';
 
                 const close = (result) => {
                     modal.style.display = 'none';
@@ -724,17 +741,17 @@
         }
 
 
-        async function initializeAppLogic() {
+        async function initializeAppLogic() { __log('initializeAppLogic: start');
             listenToStatusChanges();
             await fetchMenu();
             renderCategories();
             renderProducts();
             setupEventListeners();
-            listenToTableStatus();
+            listenToTableStatus(); __log('initializeAppLogic: after listeners/render'); __observeModal('ai-order-modal');
             
             const urlParams = new URLSearchParams(window.location.search);
             const orderIdFromUrl = urlParams.get('orderId');
-            if (orderIdFromUrl) {
+            __log('initializeAppLogic: url orderId', orderIdFromUrl); if (orderIdFromUrl) {
                 loadOrderForEditing(orderIdFromUrl);
             }
         }
@@ -755,7 +772,7 @@
                         let originalItem = null;
                         if(item.type === 'custom_burger' && item.originalItem) {
                              originalItem = allItems.find(i => i.id === item.originalItem.id);
-                        } else {
+                        } else { __log('Auth: no user, redirecting to login');
                              originalItem = allItems.find(i => i.name === item.name.split(': ')[1] || i.name === item.name);
                         }
 
@@ -780,7 +797,7 @@
                         document.querySelector('input[name="orderType"][value="Retirada"]').checked = true;
                         clientData.name = orderData.endereco.clientName;
                         clientData.contact = orderData.endereco.telefone;
-                    } else {
+                    } else { __log('Auth: no user, redirecting to login');
                         currentOrderType = 'Delivery';
                         document.querySelector('input[name="orderType"][value="Delivery"]').checked = true;
                         clientData.name = orderData.endereco.clientName;
@@ -801,7 +818,7 @@
                     updateOrderDisplay();
                     updateClientDataSummary();
                     showTemporaryFeedback('Pedido carregado para edição.');
-                } else {
+                } else { __log('Auth: no user, redirecting to login');
                     showAlert('Erro: Pedido não encontrado. Esta janela pode ser fechada.');
                     document.getElementById('finalize-order-btn').disabled = true;
                 }
@@ -896,7 +913,7 @@
                     if (!isCash) {
                         document.getElementById('modal-trocoPara').value = '';
                         document.getElementById('modal-trocoTotalDisplay').textContent = 'R$ 0,00';
-                    } else {
+                    } else { __log('Auth: no user, redirecting to login');
                         calculateTroco();
                     }
                 }
@@ -1083,12 +1100,12 @@
                 isSelectingHalfPizza = false;
                 firstHalfPizza = null;
                 document.getElementById('product-display').classList.remove('half-pizza-selection-active');
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 if (product.isPizza) {
                     openPizzaOptionsModal(product);
                 } else if (product.isCustomizable) {
                     openBurgerBuilderModal(product);
-                } else {
+                } else { __log('Auth: no user, redirecting to login');
                     addToOrder({ ...product, price: product.basePrice, type: 'full' });
                 }
             }
@@ -1106,7 +1123,7 @@
                 const secondHalfAccepts = secondHalfOriginal ? (itemExtrasStatus[secondHalfOriginal.id] === undefined ? secondHalfOriginal.isPizza : itemExtrasStatus[secondHalfOriginal.id]) : false;
                 
                 acceptsExtras = firstHalfAccepts || secondHalfAccepts;
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                  const originalItem = allItems.find(i => i.id === product.id);
                  acceptsExtras = originalItem ? (itemExtrasStatus[originalItem.id] === undefined ? originalItem.isPizza : itemExtrasStatus[originalItem.id]) : false;
             }
@@ -1209,7 +1226,7 @@
                                 </div>
                                 <span class="font-medium text-sm">${priceDisplay}</span>
                             </label>`;
-                    } else {
+                    } else { __log('Auth: no user, redirecting to login');
                         const ingredientLimit = ing.ingredientLimit || 1;
                         let quantity = 0;
                         if (existingItem && existingItem.ingredients) {
@@ -1244,7 +1261,7 @@
             addBtn.textContent = editIndex !== null ? 'Atualizar Hambúrguer' : 'Adicionar ao Pedido';
             
             updateBurgerPrice();
-            modal.style.display = 'flex';
+            modal.style.display = 'flex'; modal.style.outline='3px solid rgba(168,85,247,0.6)'; modal.style.outlineOffset='-2px';
         }
         
         function updateBurgerPrice() {
@@ -1326,7 +1343,7 @@
 
             if (editIndex !== null) {
                 order[editIndex] = newBurger;
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 addToOrder(newBurger);
             }
 
@@ -1373,7 +1390,7 @@
 
             renderPizzaExtrasList(orderIndex);
             updatePizzaExtrasPrice(orderIndex);
-            modal.style.display = 'flex';
+            modal.style.display = 'flex'; modal.style.outline='3px solid rgba(168,85,247,0.6)'; modal.style.outlineOffset='-2px';
         }
         
         function renderPizzaExtrasList(orderIndex) {
@@ -1484,7 +1501,7 @@
                         <i class="fas fa-shopping-cart fa-3x mb-4"></i>
                         <p class="font-medium">Carrinho Vazio</p>
                     </div>`;
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 const itemsByCategory = order.reduce((acc, item) => {
                     const rawCategory = item.isPizza ? `Pizzas ${item.category}` : item.category;
                     const category = formatCategoryName(rawCategory || 'Outros');
@@ -1567,7 +1584,7 @@
             if (deliveryFee > 0) {
                 deliveryFeeValue.textContent = `R$ ${deliveryFee.toFixed(2).replace('.',',')}`;
                 deliveryFeeSummary.classList.remove('hidden');
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 deliveryFeeSummary.classList.add('hidden');
             }
 
@@ -1576,7 +1593,7 @@
             totalItemsEl.textContent = totalItems;
         }
         
-        async function setupEventListeners() {
+        async function setupEventListeners() { __log('setupEventListeners: enter');
             const mainContainer = document.querySelector('.main-container');
             const sidebar = document.querySelector('.sidebar-nav');
             const mainContent = document.querySelector('.main-content');
@@ -1601,8 +1618,8 @@
                     if (confirmed) resetOrderState();
                 }
             });
-            document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrderCheck);
-            document.getElementById('order-type-selector').addEventListener('change', (e) => {
+            document.getElementById('finalize-order-btn').addEventListener('click', () => { __log('finalize click'); finalizeOrderCheck(); });
+            document.getElementById('order-type-selector').addEventListener('change', (e) => { __log('order-type change', e.target && e.target.value);
                 currentOrderType = e.target.value;
                 clientData = { name: null, contact: null, address: null, table: null, observation: null };
                 paymentMethod = null;
@@ -1636,16 +1653,15 @@
             });
 
             // --- SETUP ALL MODAL LISTENERS (Simplified) ---
-            document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
-            document.getElementById('open-ai-modal-btn').addEventListener('click', (ev) => { ev.stopPropagation();
+            document.getElementById('open-client-data-modal-btn').addEventListener('click', (e) => { __log('open-client-data-modal-btn click'); openClientDataModal(e); });
+            document.getElementById('open-ai-modal-btn').addEventListener('click', (e) => { __group('open-ai-modal-btn click', () => { e.stopPropagation(); __log('button clicked');
                  const modal = document.getElementById('ai-order-modal');
-                modal.style.display = 'flex';
+                modal.style.display = 'flex'; modal.style.outline='3px solid rgba(168,85,247,0.6)'; modal.style.outlineOffset='-2px';
                 modal.querySelector('#whatsapp-paste-area').value = '';
                 modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
                 modal.querySelector('#ai-error-message').classList.add('hidden');
                 modal.querySelector('#confirm-ai-order-btn').disabled = true;
-                parsedAiOrder = null;
-            });
+                parsedAiOrder = null; const cs = window.getComputedStyle(modal).display; __log('after open modal, display=', cs, 'inline style=', modal.style.display); }); });
 
             // --- Listeners for buttons INSIDE modals (that don't close them) ---
             document.getElementById('ask-extras-yes-btn').addEventListener('click', () => {
@@ -1667,7 +1683,7 @@
             setupPaymentModalListeners();
             
             // --- Global listener to close any modal when clicking its background ---
-            window.addEventListener('click', (e) => {
+            window.addEventListener('click', (e) => { __log('window click', 'target=', e.target && e.target.id, 'classes=', e.target && e.target.className);
                 if (e.target.classList.contains('modal')) {
                     e.target.style.display = 'none';
                 }
@@ -1804,7 +1820,7 @@ ${menuForAI}`;
                     html += `<li><strong>${item.quantity}x</strong> ${item.name} ${item.size ? `(${item.size})` : ''} ${item.notes ? `<span class="text-xs italic text-gray-500">- ${item.notes}</span>` : ''}</li>`;
                 });
                 html += '</ul>';
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                  html += '<p class="text-red-500 text-sm">Nenhum item do cardápio foi identificado.</p>';
             }
 
@@ -1840,7 +1856,7 @@ ${menuForAI}`;
                         neighborhood: bestMatch.neighborhood,
                         deliveryFee: bestMatch.fee
                     };
-                } else {
+                } else { __log('Auth: no user, redirecting to login');
                     currentOrderType = 'Retirada';
                     document.querySelector('input[name="orderType"][value="Retirada"]').checked = true;
                     clientData.name = name;
@@ -1859,7 +1875,7 @@ ${menuForAI}`;
                     const trocoMatch = paymentText.match(/troco para (\d+)/);
                     if (trocoMatch) {
                         paymentMethod = { method: 'Dinheiro', trocoPara: parseFloat(trocoMatch[1]) };
-                    } else {
+                    } else { __log('Auth: no user, redirecting to login');
                         paymentMethod = 'Dinheiro';
                     }
                 }
@@ -1926,19 +1942,19 @@ ${menuForAI}`;
                                         notes: itemFromAI.notes
                                     });
                                 }
-                            } else {
+                            } else { __log('Auth: no user, redirecting to login');
                                 const matchedItem = findItemInMenu(itemFromAI.name);
                                 if (matchedItem) addSingleItem(matchedItem, itemFromAI);
                             }
-                        } else {
+                        } else { __log('Auth: no user, redirecting to login');
                              const matchedItem = findItemInMenu(itemFromAI.name);
                              if (matchedItem) addSingleItem(matchedItem, itemFromAI);
                         }
-                    } else {
+                    } else { __log('Auth: no user, redirecting to login');
                         const matchedItem = findItemInMenu(itemFromAI.name);
                         if (matchedItem) addSingleItem(matchedItem, itemFromAI);
                     }
-                } else {
+                } else { __log('Auth: no user, redirecting to login');
                     const matchedItem = findItemInMenu(itemFromAI.name);
                     if (matchedItem) {
                         addSingleItem(matchedItem, itemFromAI);
@@ -2115,10 +2131,10 @@ ${menuForAI}`;
                 const placementText = activeScope === 'toda' ? 'Toda' : (activeScope === 'metade1' ? '1ª Metade' : '2ª Metade');
                 if (existingExtraIndex > -1) {
                     currentPizzaExtrasState[activeScope][existingExtraIndex].quantity = quantity;
-                } else {
+                } else { __log('Auth: no user, redirecting to login');
                     currentPizzaExtrasState[activeScope].push({ name: extraName, price: extraPrice, placement: placementText, quantity: quantity });
                 }
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 if (existingExtraIndex > -1) {
                     currentPizzaExtrasState[activeScope].splice(existingExtraIndex, 1);
                 }
@@ -2150,7 +2166,7 @@ ${menuForAI}`;
                 document.getElementById('client-modal-street').value = clientData.address ? clientData.address.street : '';
                 document.getElementById('client-modal-number').value = clientData.address ? clientData.address.number : '';
                 document.getElementById('client-modal-neighborhood').value = clientData.address ? clientData.address.neighborhood : '';
-            } else { // Mesa
+            } else { __log('Auth: no user, redirecting to login'); // Mesa
                 document.getElementById('client-modal-mesa-fields').classList.remove('hidden');
                 
                 const urlParams = new URLSearchParams(window.location.search);
@@ -2161,7 +2177,7 @@ ${menuForAI}`;
                     if (!clientData.table) {
                         clientData.table = mesaParam;
                     }
-                } else {
+                } else { __log('Auth: no user, redirecting to login');
                     document.getElementById('client-modal-table-select').value = clientData.table || '';
                 }
                 
@@ -2177,7 +2193,7 @@ ${menuForAI}`;
             if (paymentRadio) {
                 paymentRadio.checked = true;
                 paymentRadio.closest('.payment-option').classList.add('selected');
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).checked = true;
                 document.querySelector(`input[name="modalPaymentMethod"][value="A Definir"]`).closest('.payment-option').classList.add('selected');
             }
@@ -2190,7 +2206,7 @@ ${menuForAI}`;
             
             if (isCash && paymentMethod && typeof paymentMethod === 'object' && paymentMethod.trocoPara) {
                 trocoParaInput.value = paymentMethod.trocoPara;
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 trocoParaInput.value = '';
             }
             calculateTroco();
@@ -2200,7 +2216,7 @@ ${menuForAI}`;
             const modalTotalDisplay = document.getElementById('client-modal-total-display');
             if(modalTotalDisplay) {
                 modalTotalDisplay.textContent = `R$ ${totalValue.toFixed(2).replace('.', ',')}`;
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 const paymentSection = document.querySelector('.pt-4.border-t.border-gray-200');
                 if (paymentSection) {
                     const existingTotal = document.getElementById('client-modal-total-display');
@@ -2215,7 +2231,7 @@ ${menuForAI}`;
             }
             
             
-            modal.style.display = 'flex';
+            modal.style.display = 'flex'; modal.style.outline='3px solid rgba(168,85,247,0.6)'; modal.style.outlineOffset='-2px';
         }
         
         function calculateTroco() {
@@ -2231,7 +2247,7 @@ ${menuForAI}`;
                 trocoTotalDisplay.textContent = `R$ ${trocoTotal.toFixed(2).replace('.', ',')}`;
                 trocoTotalDisplay.classList.remove('text-red-600'); 
                 trocoTotalDisplay.classList.add('text-green-600'); 
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 trocoTotalDisplay.textContent = 'R$ 0,00';
                 trocoTotalDisplay.classList.remove('text-green-600');
                 trocoTotalDisplay.classList.add('text-red-600'); 
@@ -2276,7 +2292,7 @@ ${menuForAI}`;
                     neighborhood, 
                     deliveryFee: selectedFee ? selectedFee.deliveryFee : 0 
                 };
-            } else { // Mesa
+            } else { __log('Auth: no user, redirecting to login'); // Mesa
                 currentClientData.table = document.getElementById('client-modal-table-select').value;
                 currentClientData.name = document.getElementById('client-modal-name-mesa').value.trim();
                 if (!currentClientData.table) {
@@ -2312,7 +2328,7 @@ ${menuForAI}`;
                 }
                 const trocoTotal = trocoPara > 0 ? trocoPara - totalValue : 0;
                 finalPaymentData = { method: 'Dinheiro', trocoPara: trocoPara, trocoTotal: trocoTotal };
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 finalPaymentData = method;
             }
 
@@ -2340,7 +2356,7 @@ ${menuForAI}`;
                  if(clientData.name) {
                     summaryHtml += ` | <strong>Cliente:</strong> ${clientData.name}`;
                 }
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 summaryHtml = `<strong>Cliente:</strong> ${clientData.name || 'N/A'}`;
             }
 
@@ -2353,10 +2369,10 @@ ${menuForAI}`;
             if (paymentMethod) {
                 if (typeof paymentMethod === 'object' && paymentMethod.method === 'Dinheiro') {
                     paymentText = `Dinheiro (Troco p/ R$ ${paymentMethod.trocoPara.toFixed(2).replace('.', ',')})`;
-                } else {
+                } else { __log('Auth: no user, redirecting to login');
                     paymentText = paymentMethod;
                 }
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                 paymentText = 'A DEFINIR';
             }
             summaryHtml += `<br><strong>Pagamento:</strong> ${paymentText}`;
@@ -2408,7 +2424,7 @@ ${menuForAI}`;
             let isMesaGroupUpdate = false;
             if (isEditing) {
                 // No validation needed, data is loaded
-            } else {
+            } else { __log('Auth: no user, redirecting to login');
                  if ( (currentOrderType === 'Mesa' && !clientData.table) || 
                      (currentOrderType === 'Retirada' && !clientData.name) || 
                      (currentOrderType === 'Delivery' && (!clientData.name || !clientData.address)) ||
@@ -2445,7 +2461,7 @@ ${menuForAI}`;
                 }
                 endereco = { clientName: clientNameForOrder, rua: 'Mesa' };
                 status = 'Em Preparo';
-            } else { // Retirada
+            } else { __log('Auth: no user, redirecting to login'); // Retirada
                 endereco = { 
                     clientName: clientData.name || 'Cliente Balcão', 
                     telefone: clientData.contact, 
@@ -2487,7 +2503,7 @@ ${menuForAI}`;
                     });
                     showTemporaryFeedback(`Itens adicionados às Mesas Agrupadas!`);
                     resetOrderState();
-                } else {
+                } else { __log('Auth: no user, redirecting to login');
                     const newOrder = {
                         itens: cleanedItems,
                         endereco: endereco,
