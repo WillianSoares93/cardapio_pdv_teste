@@ -635,20 +635,25 @@
         const NUMERO_DE_MESAS = 12;
         let parsedAiOrder = null; // Variável para armazenar o pedido da IA
 let appInitialized = false; // evita múltiplas inicializações
+const __DEBUG = true;
+const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
+
 
         onAuthStateChanged(auth, (user) => {
     if (user) {
         if (!appInitialized) {
             appInitialized = true;
-            console.log("[PDV-FIX] Auth user logged in once:", user.email);
+            __log('Auth OK for', user.email);
             document.body.style.visibility = 'visible';
             currentUserEmail = user.email;
-            const currentUserEl = document.getElementById('current-user');
-            if (currentUserEl) currentUserEl.textContent = currentUserEmail;
+            const el = document.getElementById('current-user');
+            if (el) el.textContent = currentUserEmail;
             initializeAppLogic();
+        } else {
+            __log('Auth triggered again, ignored');
         }
     } else {
-        console.warn("[PDV-FIX] Auth no user, redirecting...");
+        __log('Auth fail, redirecting to login');
         window.location.href = 'login.html?redirect=venda-balcao.html';
     }
 });
@@ -1001,7 +1006,6 @@ let appInitialized = false; // evita múltiplas inicializações
                     btn.classList.add('active');
                     renderProducts();
                 });
-            });
         }
 
         function renderProducts() {
@@ -1042,7 +1046,6 @@ let appInitialized = false; // evita múltiplas inicializações
                         handleProductSelection(product);
                     }
                 });
-            });
         }
         
         function handleProductSelection(product) {
@@ -1355,7 +1358,6 @@ let appInitialized = false; // evita múltiplas inicializações
                     if (extra.placement.includes('1ª Metade')) placement = 'metade1';
                     else if (extra.placement.includes('2ª Metade')) placement = 'metade2';
                     if (currentPizzaExtrasState[placement]) currentPizzaExtrasState[placement].push({ ...extra });
-                });
             }
 
             if (pizzaItem.type === 'split') {
@@ -1372,7 +1374,6 @@ let appInitialized = false; // evita múltiplas inicializações
                         btn.classList.add('active');
                         renderPizzaExtrasList(orderIndex);
                     });
-                });
             }
 
             renderPizzaExtrasList(orderIndex);
@@ -1557,7 +1558,6 @@ let appInitialized = false; // evita múltiplas inicializações
                         `;
                         container.appendChild(itemDiv);
                     });
-                });
             }
             
             let deliveryFee = 0;
@@ -1641,7 +1641,25 @@ let appInitialized = false; // evita múltiplas inicializações
 
             // --- SETUP ALL MODAL LISTENERS (Simplified) ---
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
-            document.getElementById('open-ai-modal-btn').addEventListener('click', () => {
+            document.getElementById('open-ai-modal-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    __log('Botão Pedido com IA clicado');
+    const modal = document.getElementById('ai-order-modal');
+    if (!modal) { __log('Modal IA não encontrado'); return; }
+    // Forçar visibilidade e estilo debug
+    modal.style.display = 'flex';
+    modal.style.zIndex = '9999';
+    modal.style.opacity = '1';
+    modal.style.visibility = 'visible';
+    modal.style.pointerEvents = 'auto';
+    modal.style.background = 'rgba(0,0,0,0.8)';
+    modal.querySelector('#whatsapp-paste-area').value = '';
+    modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
+    modal.querySelector('#ai-error-message').classList.add('hidden');
+    modal.querySelector('#confirm-ai-order-btn').disabled = true;
+    parsedAiOrder = null;
+    const cs = window.getComputedStyle(modal);
+    __log('Modal IA aberto', {display: cs.display, zIndex: cs.zIndex, opacity: cs.opacity, visibility: cs.visibility});
                  const modal = document.getElementById('ai-order-modal');
                 modal.style.display = 'flex';
                 modal.querySelector('#whatsapp-paste-area').value = '';
@@ -1671,7 +1689,7 @@ let appInitialized = false; // evita múltiplas inicializações
             setupPaymentModalListeners();
             
             // --- Global listener to close any modal when clicking its background ---
-            window.addEventListener('click', (e) => {
+            window.addEventListener('click', (e) => { __log('Clique global', e.target && e.target.id, e.target && e.target.className);
                 if (e.target.classList.contains('modal')) {
                     e.target.style.display = 'none';
                 }
