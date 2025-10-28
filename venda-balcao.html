@@ -1602,6 +1602,22 @@
                 }
             });
             document.getElementById('finalize-order-btn').addEventListener('click', finalizeOrderCheck);
+
+    // --- Botão "Pedido com IA" (correção) ---
+    const aiBtn = document.getElementById("open-ai-modal-btn");
+    if (aiBtn) {
+        aiBtn.addEventListener("click", () => {
+            const aiModal = document.getElementById("ai-order-modal");
+            if (aiModal && aiModal.showModal) {
+                aiModal.showModal();
+            } else if (aiModal) {
+                aiModal.style.display = 'flex';
+            } else {
+                console.error("Modal de IA não encontrado no DOM.");
+            }
+        });
+    }
+
             document.getElementById('order-type-selector').addEventListener('change', (e) => {
                 currentOrderType = e.target.value;
                 clientData = { name: null, contact: null, address: null, table: null, observation: null };
@@ -2518,4 +2534,3 @@ ${menuForAI}`;
     </script>
 </body>
 </html>
-
