@@ -635,25 +635,20 @@
         const NUMERO_DE_MESAS = 12;
         let parsedAiOrder = null; // Variável para armazenar o pedido da IA
 let appInitialized = false; // evita múltiplas inicializações
-const __DEBUG = true;
-const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
-
 
         onAuthStateChanged(auth, (user) => {
     if (user) {
         if (!appInitialized) {
             appInitialized = true;
-            __log('Auth OK for', user.email);
+            console.log("[PDV-FIX] Auth user logged in once:", user.email);
             document.body.style.visibility = 'visible';
             currentUserEmail = user.email;
-            const el = document.getElementById('current-user');
-            if (el) el.textContent = currentUserEmail;
+            const currentUserEl = document.getElementById('current-user');
+            if (currentUserEl) currentUserEl.textContent = currentUserEmail;
             initializeAppLogic();
-        } else {
-            __log('Auth triggered again, ignored');
         }
     } else {
-        __log('Auth fail, redirecting to login');
+        console.warn("[PDV-FIX] Auth no user, redirecting...");
         window.location.href = 'login.html?redirect=venda-balcao.html';
     }
 });
@@ -1646,26 +1641,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
 
             // --- SETUP ALL MODAL LISTENERS (Simplified) ---
             document.getElementById('open-client-data-modal-btn').addEventListener('click', openClientDataModal);
-            document.getElementById('open-ai-modal-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    __log('Botão Pedido com IA clicado');
-    const modal = document.getElementById('ai-order-modal');
-    if (!modal) { __log('Modal IA não encontrado'); return; }
-    // Forçar visibilidade e estilo debug
-    modal.style.display = 'flex';
-    modal.style.zIndex = '9999';
-    modal.style.opacity = '1';
-    modal.style.visibility = 'visible';
-    modal.style.pointerEvents = 'auto';
-    modal.style.background = 'rgba(0,0,0,0.8)';
-    modal.querySelector('#whatsapp-paste-area').value = '';
-    modal.querySelector('#ai-result-content').innerHTML = '<p class="text-gray-400">Aguardando análise...</p>';
-    modal.querySelector('#ai-error-message').classList.add('hidden');
-    modal.querySelector('#confirm-ai-order-btn').disabled = true;
-    parsedAiOrder = null;
-    const cs = window.getComputedStyle(modal);
-    __log('Modal IA aberto', {display: cs.display, zIndex: cs.zIndex, opacity: cs.opacity, visibility: cs.visibility});
-});
+            document.getElementById('open-ai-modal-btn').addEventListener('click', () => {
                  const modal = document.getElementById('ai-order-modal');
                 modal.style.display = 'flex';
                 modal.querySelector('#whatsapp-paste-area').value = '';
@@ -1695,7 +1671,7 @@ const __log = (...a)=>{if(__DEBUG)console.log('[PDV-DEBUG]',...a);};
             setupPaymentModalListeners();
             
             // --- Global listener to close any modal when clicking its background ---
-            window.addEventListener('click', (e) => { __log('Clique global', e.target && e.target.id, e.target && e.target.className);
+            window.addEventListener('click', (e) => {
                 if (e.target.classList.contains('modal')) {
                     e.target.style.display = 'none';
                 }
