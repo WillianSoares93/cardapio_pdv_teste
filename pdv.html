@@ -1964,10 +1964,10 @@
                  // **CORREÇÃO:** Valor inicial pode ser 0
                 const initialValue = parseFloat(currentCashRegister.valorInicial || 0);
                 const expectedInCaixaTotal = initialValue + totalSales - totalSangrias; // Valor total esperado (Dinheiro + Cartão + Pix)
-                const expectedOnlyCash = initialValue + totalCash - totalSangrias; // Valor esperado apenas em dinheiro (para conferência)
+                // REMOVIDA A LÓGICA expectedOnlyCash
                 const sangriaDetails = sangrias.map(s => `${s.reason}: R$${s.amount.toFixed(2).replace('.',',')}`).join('; ');
 
-                detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales, totalSangrias, sangriaDetails, expectedOnlyCash };
+                detailedReportData = { totalDelivery, totalRetirada, totalMesas, totalDeliveryFees, totalCash, totalCard, totalPix, totalSales, totalSangrias, sangriaDetails }; // Removido o expectedOnlyCash
 
                 document.getElementById('summary-initial').textContent = `R$ ${initialValue.toFixed(2).replace('.', ',')}`;
                 document.getElementById('summary-delivery').textContent = `R$ ${totalDelivery.toFixed(2).replace('.', ',')}`;
@@ -2127,9 +2127,11 @@
 
         finalValueInput.addEventListener('input', () => {
             const finalValue = parseFloat(finalValueInput.value);
-            // ALTERAÇÃO: Comparar com o valor em dinheiro guardado, não com o valor total exibido
-            const expectedValue = detailedReportData.expectedOnlyCash;
-            if (expectedValue === undefined) return;
+            // ALTERAÇÃO: Comparar com o valor total exibido (summary-expected)
+            const expectedValueText = document.getElementById('summary-expected').textContent;
+            if (!expectedValueText) return;
+
+            const expectedValue = parseFloat(expectedValueText.replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
 
             const differenceSection = document.getElementById('summary-difference-section');
             const differenceEl = document.getElementById('summary-difference');
@@ -2183,8 +2185,8 @@
             }
 
             const cashRegisterRef = doc(db, "caixas", currentCashRegister.id);
-            // ALTERAÇÃO: Usar o valor em dinheiro guardado para calcular a diferença correta
-            const expectedValue = detailedReportData.expectedOnlyCash;
+            // ALTERAÇÃO: Usar o valor total (summary-expected) para calcular a diferença correta
+            const expectedValue = parseFloat(document.getElementById('summary-expected').textContent.replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
 
             try {
                 const dataToSaveInFirestore = {
@@ -2676,5 +2678,6 @@ Seu pedido já está sendo preparado! 😊
     </script>
 </body>
 </html>
+
 
 
