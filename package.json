@@ -5,7 +5,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tw:init": "tailwindcss init",
+    "tw:build": "tailwindcss -i ./input.css -o ./output.css"
   },
   "keywords": [],
   "author": "",
@@ -19,5 +21,8 @@
     "google-spreadsheet": "^4.1.1",
     "googleapis": "^140.0.1",
     "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
   }
 }
