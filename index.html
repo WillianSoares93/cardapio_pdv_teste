@@ -1713,7 +1713,8 @@
                 // Verifica se todas as categorias obrigatórias foram preenchidas
                 let allRequiredCategoriesFilled = true;
                 for (const categoryName in allBurgerIngredients) {
-                    const isRequired = allBurgerIngredients[categoryName][0]?.isRequired || false;
+                    // **CORREÇÃO SAFARI 12:** Substituído optional chaining (?.) por verificação padrão (&&)
+                    const isRequired = allBurgerIngredients[categoryName][0] && allBurgerIngredients[categoryName][0].isRequired || false;
                     if (isRequired) {
                         const categoryDiv = burgerBuilderModal.querySelector(`.ingredient-category[data-category-name="${categoryName}"]`);
                         const checkedInput = categoryDiv.querySelector('input:checked');
@@ -2161,7 +2162,10 @@
                 // Verifica se o item aceita extras e é do tipo que pode ter extras (pizza inteira ou meia)
                 if (item.acceptsExtras && (item.type === 'full' || item.type === 'split')) {
                     // Encontra o item original no cardápio para pegar a configuração correta de 'acceptsExtras'
-                     const originalItem = allMenuData.find(menuItem => menuItem.name === (item.name.split(': ')[1] || item.name.split(' Meia ')[1]?.split(' & ')[0])) || allMenuData.find(menuItem => item.name.includes(menuItem.name));
+                     // **CORREÇÃO SAFARI 12:** Substituído optional chaining (?.) por verificação padrão (&&)
+                     const nameParts = item.name.split(' Meia ');
+                     const secondHalf = nameParts[1] ? nameParts[1].split(' & ')[0] : null;
+                     const originalItem = allMenuData.find(menuItem => menuItem.name === (item.name.split(': ')[1] || secondHalf)) || allMenuData.find(menuItem => item.name.includes(menuItem.name));
                      // Exibe o modal perguntando se deseja adicionar extras
                     showAskForExtrasModal(uniqueId, originalItem || item);
                 }
@@ -2310,6 +2314,7 @@
                             let actionButtonHtml = '';
                             if (item.acceptsExtras && (item.type === 'full' || item.type === 'split')) {
                                 const hasExtras = item.extras && item.extras.length > 0;
+
                                 const buttonText = hasExtras ? 'Editar Adicionais' : 'Incluir Adicionais';
                                 const iconClass = hasExtras ? 'fas fa-pencil-alt' : 'fas fa-plus-circle';
                                 actionButtonHtml = `<button class="edit-extras-btn mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition-colors" data-order-index="${originalIndex}">
@@ -3320,7 +3325,7 @@
                 if (pizzaItem.type === 'split') {
                     // Pega os nomes das metades (tratamento de erro básico se o nome não estiver formatado)
                     const nameParts = pizzaItem.name.split(' & Meia ');
-                    const half1Name = nameParts[0]?.split(' Meia ')[1] || 'Metade 1';
+                    const half1Name = nameParts[0] ? nameParts[0].split(' Meia ')[1] : 'Metade 1';
                     const half2Name = nameParts[1] || 'Metade 2';
 
                     scopeButtonsContainer.innerHTML = `
@@ -3353,6 +3358,7 @@
             // Renderiza a lista de extras disponíveis no modal, com base no escopo selecionado
             function renderPizzaExtrasList(orderIndex) {
                 // Pega o escopo ativo (metade1, metade2 ou toda)
+                // **CORREÇÃO SAFARI 12:** Substituído optional chaining (?.) por verificação padrão (&&)
                 const activeScopeButton = document.querySelector('#pizza-extras-scope-buttons .active');
                 const activeScope = activeScopeButton ? activeScopeButton.dataset.scope : 'toda';
                 pizzaExtrasIngredientsContainer.innerHTML = ''; // Limpa lista anterior
@@ -3388,7 +3394,8 @@
                             optionDiv.className = `ingredient-option ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''}`; // Adiciona classe se indisponível
 
                             // Verifica se este extra já está selecionado no escopo atual e pega a quantidade
-                            const existingExtra = currentPizzaExtrasState[activeScope]?.find(extra => extra.name === ingredient.name);
+                            // **CORREÇÃO SAFARI 12:** Substituído optional chaining (?.) por verificação padrão (&&)
+                            const existingExtra = currentPizzaExtrasState[activeScope] ? currentPizzaExtrasState[activeScope].find(extra => extra.name === ingredient.name) : null;
                             const quantity = existingExtra ? existingExtra.quantity : 0;
                             const ingredientLimit = ingredient.limit || 1; // Limite de quantidade para este extra específico
 
@@ -3452,6 +3459,7 @@
                 quantityDisplay.textContent = currentQuantity; // Atualiza exibição da quantidade
 
                 // Pega o escopo ativo (metade1, metade2, toda)
+                // **CORREÇÃO SAFARI 12:** Substituído optional chaining (?.) por verificação padrão (&&)
                 const activeScopeButton = document.querySelector('#pizza-extras-scope-buttons .active');
                 const activeScope = activeScopeButton ? activeScopeButton.dataset.scope : 'toda';
 
@@ -3837,4 +3845,3 @@
     </script>
 </body>
 </html>
-
