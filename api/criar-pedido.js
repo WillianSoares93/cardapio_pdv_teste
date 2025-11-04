@@ -14,6 +14,16 @@ const errorLog = (message, error, ...args) => console.error(`[ERROR ${new Date()
 // const __filename = fileURLToPath(import.meta.url); // Removido - Desnecessário
 // const __dirname = dirname(__filename); // Removido - Desnecessário
 
+// --- ADICIONADO: Configuração explícita do projeto correto ---
+const firebaseConfig = {
+  apiKey: "AIzaSyB9LJ-7bOvHGYyFE_H2Qd7XFcyjmSPq_ro",
+  authDomain: "samia-cardapio.firebaseapp.com",
+  projectId: "samia-cardapio",
+  storageBucket: "samia-cardapio.firebasestorage.app",
+  messagingSenderId: "223260436641",
+  appId: "1:223260436641:web:adf78e77a0267f66f1e8e0"
+};
+
 // --- INICIALIZAÇÃO FIREBASE ADMIN SDK ---
 let serviceAccountJson; // Variável para guardar o JSON decodificado
 let firebaseInitialized = false;
@@ -44,12 +54,16 @@ if (getApps().length === 0) {
 
     if (serviceAccountJson) {
         try {
-            log("Inicializando Firebase Admin SDK com credenciais decodificadas...");
+            log("Inicializando Firebase Admin SDK com credenciais decodificadas e ID do projeto explícito...");
+            // --- ATUALIZADO: Força o uso do projectId, databaseURL e storageBucket corretos ---
             initializeApp({
-                credential: cert(serviceAccountJson)
+                credential: cert(serviceAccountJson),
+                projectId: firebaseConfig.projectId, // Força o ID do projeto correto
+                databaseURL: `https://${firebaseConfig.projectId}.firebaseio.com`,
+                storageBucket: firebaseConfig.storageBucket
             });
             firebaseInitialized = true;
-            log("Firebase Admin SDK inicializado com sucesso.");
+            log("Firebase Admin SDK inicializado com sucesso no projeto: " + firebaseConfig.projectId);
         } catch (initError) {
             errorLog('Falha na inicialização do Firebase Admin SDK:', initError);
             initializationError = `Falha na inicialização do Firebase: ${initError.message}`;
@@ -198,6 +212,7 @@ function formatOrderMessage(data) {
         'PIZZA(S) DOCES',
         'PIZZA(S) TRADICIONAIS',
         'PIZZA(S) PROMOCIONAIS',
+        'PIZZA(S) MEIA A MEIA', // Adicionado para garantir agrupamento
         'BEBIDAS',
         'BURGER',
         'BURGER CLÁSSICOS',
@@ -233,10 +248,25 @@ function formatOrderMessage(data) {
                 if (item.selected_slices) {
                     itemName = itemName.replace(`${item.selected_slices} FATIAS: `, '');
                 }
+                
+                // --- INÍCIO DA ALTERAÇÃO: LÓGICA DE PREÇO E ADICIONAIS ---
+                
+                // 1. Calcula o preço base (preço total - preço dos extras)
+                let baseItemPrice = item.price || 0;
+                let totalExtrasPrice = 0;
+                if (item.extras && item.extras.length > 0) {
+                     item.extras.forEach(extra => {
+                         const extraPrice = (extra.price || 0) * (extra.quantity || 1);
+                         totalExtrasPrice += extraPrice;
+                     });
+                     // O preço do item que vem do frontend já inclui os extras,
+                     // então subtraímos para obter o preço base do item.
+                     baseItemPrice = (item.price || 0) - totalExtrasPrice;
+                }
 
-                // Formatação condicional por tipo de item
+                // 2. Formata a linha principal do item (com o preço base)
                 if (item.type === 'custom_burger') {
-                    // Formato Burger Montável
+                    // Burger Montável já tem 'basePrice' (preço base) e 'price' (total)
                     message.push(`  • ${itemName}${quantityText}: ${formatCurrency(item.basePrice || 0)}`);
                     if (item.ingredients && item.ingredients.length > 0) {
                         item.ingredients.forEach(ing => {
@@ -246,29 +276,42 @@ function formatOrderMessage(data) {
                             message.push(`     + _${ing.name}${ingQuantityText}: ${formatCurrency(ingPrice)}_`);
                         });
                     }
+                    // Mostra o total do burger (que já inclui ingredientes)
                     message.push(`        *Total C/ Ingredientes: ${formatCurrency(item.price)}*`);
                 
                 } else if (item.selected_slices) {
-                    // Formato Pizza
-                    message.push(`  • *${item.selected_slices} FATIAS:* ${itemName}${quantityText}: ${formatCurrency(item.price)}`);
+                    // Formato Pizza (mostra preço base)
+                    message.push(`  • *${item.selected_slices} FATIAS:* ${itemName}${quantityText}: ${formatCurrency(baseItemPrice)}`);
                 
                 } else if (item.type === 'promotion') {
-                    // Formato Promoção
-                    message.push(`  • ${itemName}${quantityText} (Promo): ${formatCurrency(item.price)}`);
+                    // Formato Promoção (mostra preço base/promo)
+                    message.push(`  • ${itemName}${quantityText} (Promo): ${formatCurrency(baseItemPrice)}`);
 
                 } else {
-                    // Formato Item Normal
-                    message.push(`  • ${itemName}${quantityText}: ${formatCurrency(item.price)}`);
+                    // Formato Item Normal (mostra preço base)
+                    message.push(`  • ${itemName}${quantityText}: ${formatCurrency(baseItemPrice)}`);
                 }
 
-                // Adicionais (Extras) para pizzas (e outros itens, se houver)
+                // 3. Adicionais (Extras) para pizzas (e outros itens, se houver)
                 if (item.extras && item.extras.length > 0) {
-                     item.extras.forEach(extra => {
-                        const extraQty = extra.quantity > 1 ? ` (x${extra.quantity})` : '';
+                     // Ordena os extras por localização (1ª, 2ª, Toda) para agrupar
+                    const sortedExtras = [...item.extras].sort((a, b) => {
+                        const order = { '1ª Metade': 1, '2ª Metade': 2, 'Toda': 3 };
+                        return (order[a.placement] || 99) - (order[b.placement] || 99);
+                    });
+                    
+                    sortedExtras.forEach(extra => {
+                        const extraQty = (extra.quantity || 1) > 1 ? ` (x${extra.quantity})` : '';
                         const extraPrice = (extra.price || 0) * (extra.quantity || 1);
-                        message.push(`     + _Adicional ${extra.name} (${extra.placement})${extraQty}: ${formatCurrency(extraPrice)}_`);
+                        // Formato: + Nome (Localização) (xQtd): R$ Preço
+                        message.push(`     + ${extra.name} (${extra.placement})${extraQty}: ${formatCurrency(extraPrice)}`);
                      });
+                     
+                     // Mostra o "Total C/ Adicionais" (que é o item.price original, já somado)
+                     message.push(`        *Total C/ Adicionais: ${formatCurrency(item.price)}*`);
                 }
+                
+                // --- FIM DA ALTERAÇÃO ---
             });
             categoriesProcessed++;
         }
@@ -348,10 +391,10 @@ export default async function handler(req, res) {
         }
         log(`Hash gerado (prefixo): ${orderHash.substring(0, 50)}...`);
 
-        const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 3 * 60 * 1000)); // Últimos 3 minutos
+        const checkTimeframe = Timestamp.fromDate(new Date(Date.now() - 10 * 60 * 1000)); // Últimos 10 minutos
         log(`Janela de tempo para duplicidade inicia em: ${checkTimeframe.toDate().toISOString()}`);
 
-        // **AJUSTE NA QUERY PARA CORRESPONDER EXATAMENTE AO ÍNDICE DA IMAGEM**
+        // **REVERTIDO: Voltando para a consulta de duplicidade completa conforme solicitado.**
         let duplicateQuery = db.collection('pedidos')
             .where('endereco.bairro', '==', bairro) // <-- Alterado de address para endereco
             .where('customerName', '==', customerName)
@@ -365,7 +408,7 @@ export default async function handler(req, res) {
              duplicateQuery = duplicateQuery.where('customerPhone', '==', null);
         }
 
-        log("Executando query de duplicidade alinhada ao índice...");
+        log("Executando query de duplicidade alinhada ao índice (completa)...");
         const duplicateSnapshot = await duplicateQuery.limit(1).get();
 
         // ****** CORREÇÃO APLICADA AQUI ******
@@ -427,8 +470,22 @@ export default async function handler(req, res) {
                 name: item.name || 'Item sem nome',
                 price: Number(item.price || 0),
                 type: item.type || 'full',
-                ...(item.ingredients && { ingredients: item.ingredients.map(ing => ({ name: ing.name, price: Number(ing.price || 0), quantity: Number(ing.quantity || 1) })) }),
-                ...(item.extras && { extras: item.extras.map(ext => ({ name: ext.name, price: Number(ext.price || 0), quantity: Number(ext.quantity || 1), placement: ext.placement })) }),
+                // **INÍCIO DA ALTERAÇÃO**
+                // Garante que 'extras' e 'ingredients' sejam salvos corretamente
+                // A estrutura de dados original já continha 'extras' e 'ingredients'
+                // Apenas garantindo que eles sejam mapeados corretamente se existirem.
+                ...(item.ingredients && { ingredients: item.ingredients.map(ing => ({ 
+                    name: ing.name, 
+                    price: Number(ing.price || 0), 
+                    quantity: Number(ing.quantity || 1) 
+                })) }),
+                ...(item.extras && { extras: item.extras.map(ext => ({ 
+                    name: ext.name, 
+                    price: Number(ext.price || 0), // Corrigido: era ing.price
+                    quantity: Number(ext.quantity || 1), 
+                    placement: ext.placement 
+                })) }),
+                // **FIM DA ALTERAÇÃO**
                 ...(item.originalItem && { originalItem: item.originalItem }),
                 ...(item.selected_slices && { selected_slices: item.selected_slices }),
                 ...(item.firstHalfData && { firstHalfData: item.firstHalfData }),
